@@ -1,0 +1,187 @@
+{
+  "niches": [
+    {
+      "id": "codeaz",
+      "name": "CodeAZ \u2014 Programming A to Z",
+      "purpose": "Explain programming concepts in plain language with real-life comparisons. Shorts.",
+      "topic_prompt": "You generate short-video topics for a channel that explains programming with real-life analogies. Audience: beginners AND working developers, so the concept must have real depth -- prefer the mechanics people get wrong (race conditions, memory vs reference, blocking I/O, indexes, caching and invalidation, hashing, immutability, garbage collection, connection pools, idempotency, eventual consistency, deadlocks, big-O in practice) over dictionary definitions like 'what is a variable'. The analogy must be a SYSTEM with moving parts, not a single object, so each part can map onto a technical part. Name ONE concrete concept and hint at the analogy. Examples: 'Race conditions, explained by two waiters and one last table', 'Database indexes, explained like a library card catalogue', 'Cache invalidation, explained by a stale restaurant specials board'. Return ONE topic, under 14 words, no quotes, no numbering.",
+      "script_prompt": "You write narration for a 50-60 second vertical short about ONE programming concept, for beginners and working developers. Plain spoken English. No markdown, headings, stage directions, emoji, hashtags, or 'in this video'. Write only the words the narrator says.\n\nStructure, in this order:\n1. HOOK (1 sentence): a concrete question or claim that makes the viewer stay.\n2. ANALOGY (1-2 sentences): introduce the everyday system in vivid, specific detail.\n3. MAPPING (3-4 sentences): name each part of the analogy and say which part of THIS topic's concept it stands for, using that concept's own vocabulary.\n4. WHY IT MATTERS (1-2 sentences): one specific failure this concept causes when misused. The failure must follow from THIS concept, not from some other one.\n5. PAYOFF (1 sentence): a one-line takeaway the viewer could repeat to a friend.\n\nACCURACY RULES, these outrank everything else:\n- Every technical term must genuinely belong to the topic. If the topic is loops, the vocabulary is iteration, condition, index, off-by-one, infinite loop -- NOT threads, locks, race conditions, deadlocks, APIs or shared resources.\n- Never introduce a concurrency term unless the topic itself is about concurrency.\n- A confident sentence that is technically wrong is worse than a plain one that is right. If unsure, say less.\n\nStyle: 130-165 words, short sentences, the concept's real name used at least three times, no filler, never end on a question.",
+      "youtube_tags": [
+        "programming",
+        "coding",
+        "learntocode",
+        "computerscience",
+        "developer"
+      ],
+      "hashtags": "#programming #coding #learntocode #developer #softwareengineering",
+      "upload_post_user": "codeaz",
+      "voice": "en-GB-RyanNeural-Male",
+      "videos_per_run": 1,
+      "video_mode": "stock",
+      "subreddits": [
+        "learnprogramming",
+        "programming",
+        "ExperiencedDevs"
+      ],
+      "hn_queries": [
+        "",
+        "programming"
+      ],
+      "stackexchange_tags": [
+        "python",
+        "javascript"
+      ],
+      "style_suffix": "cinematic still, deep teal and amber lighting, shallow depth of field, no text, no faces, vertical composition, high detail",
+      "research_prompt": "You analyze live developer discussions (Reddit, Hacker News, Stack Overflow) for a channel that explains programming with real-life analogies. From the posts, extract the 3 recurring things developers are confused about or burned by -- concrete mechanics, not career or salary talk -- then craft ONE short-video topic covering the strongest one.\n\nThe topic MUST:\n- name one concrete programming mechanic (what actually happens at runtime), not a broad field like 'functional programming' or 'databases';\n- hint at an everyday system with moving parts that can be mapped onto it part by part;\n- read like a hook, not a title. 'Gears of Functional Programming' is a title and is wrong. 'Why your function pipeline breaks, explained by a factory conveyor belt' is right.\nGood shapes: 'Cache invalidation, explained by a stale specials board', 'Why database indexes speed up reads, explained like a library card catalogue'."
+    },
+    {
+      "id": "aibeauty",
+      "name": "AIBeauty \u2014 AI portrait slideshows",
+      "purpose": "TikTok-only image carousels, posted natively via Buffer.",
+      "content_type": "images",
+      "images_per_video": 10,
+      "max_images": 5,
+      "min_images": 3,
+      "videos_per_run": 1,
+      "sd_model": "dreamshaper",
+      "hashtags": "#aiart #aigenerated #glamour #fashion #aiphotography #confident",
+      "ai_disclosure": "Created with AI. Not a real person.",
+      "captions": [
+        "Confidence looks good on me.",
+        "Not sorry for the view.",
+        "Golden hour and good angles.",
+        "A little extra never hurt.",
+        "Some days just look like this.",
+        "Soft light, softer smile."
+      ],
+      "scenes": [
+        "standing on a balcony at golden hour overlooking rooftops",
+        "relaxing on a sunlounger by a pool",
+        "sitting on a bed in a sunlit bedroom in the morning",
+        "leaning against a doorway in warm evening light",
+        "browsing a flower market in the morning",
+        "waiting at a train platform in soft winter light",
+        "lounging by a pool in the late afternoon sun",
+        "sitting on museum steps with a coffee"
+      ],
+      "styles": [
+        "35mm film photography, shallow depth of field",
+        "editorial fashion photography, soft natural light",
+        "cinematic still, warm colour grade",
+        "glamour photography, soft dramatic lighting"
+      ],
+      "outfits": [
+        "wearing a fitted bodycon mini dress and heels",
+        "wearing a two-piece bikini, beach setting",
+        "wearing a cropped tank top and high-waisted denim shorts",
+        "wearing a satin slip dress with thin straps",
+        "wearing a high-cut one-piece swimsuit, poolside",
+        "wearing a lace-trim camisole and matching shorts, loungewear at home",
+        "wearing straight-leg jeans and a fitted white shirt"
+      ],
+      "civitai_query": "beauty portrait woman fashion photography glamour"
+    }
+  ],
+  "_disabled": [
+    {
+      "id": "moneymech",
+      "name": "MoneyMech \u2014 How Money Actually Works",
+      "purpose": "Highest-CPM category. Explain personal-finance mechanics with everyday analogies.",
+      "topic_prompt": "You generate short-video topics for a channel explaining how money mechanically works, for adults who are not finance people. Prefer the mechanics that quietly cost people money: credit utilisation, compound interest direction, amortisation, minimum payments, APR versus APY, credit score factors, index fund fees, emergency fund sizing, tax withholding, overdraft ordering. Avoid stock picks, predictions, crypto hype and get-rich content. The analogy must be an everyday SYSTEM with moving parts so each part maps onto a mechanism. Examples: 'Why your credit score drops after paying off a card, explained by a gym membership', 'Amortisation, explained by filling two buckets from one tap'. Return ONE topic, under 14 words, no quotes, no numbering.",
+      "script_prompt": "You write narration for a 50-60 second vertical short explaining ONE personal-finance mechanism to adults who are not finance people. Plain spoken English. No markdown, headings, emoji or hashtags. Write only the words the narrator says.\n\nStructure, in this order:\n1. HOOK (1 sentence): a concrete question or claim that makes the viewer stay.\n2. ANALOGY (1-2 sentences): introduce the everyday system in vivid, specific detail.\n3. MAPPING (3-4 sentences): name each part of the analogy and say which part of THIS topic it stands for, using the topic's own vocabulary.\n4. WHY IT MATTERS (1-2 sentences): one specific consequence of getting it wrong.\n5. PAYOFF (1 sentence): a one-line takeaway the viewer could repeat to a friend.\n\nThis is general education, never advice: no recommendations to buy, sell or invest in anything specific, no returns promised, no 'you should'.\n\nACCURACY RULES, these outrank everything else:\n- Every term must genuinely belong to the topic. Do not borrow vocabulary from a different subject because it sounds impressive.\n- A confident sentence that is wrong is worse than a plain one that is right. If unsure, say less.\n- No promises about outcomes, no 'guaranteed', no urgency pressure.\n\nStyle: 130-165 words, short sentences, the concept's real name used at least three times, no filler, never end on a question.",
+      "research_prompt": "You analyze live discussions for a channel explaining how money mechanically works. From the posts, extract the 3 recurring things people are confused about or burned by -- concrete mechanisms, not opinions about the economy -- then craft ONE short-video topic covering the strongest one. It must name a specific mechanism and hint at an everyday system with moving parts, and read like a hook, not a title.",
+      "drift_terms": [
+        "crypto",
+        "bitcoin",
+        "altcoin",
+        "day trading",
+        "get rich",
+        "passive income",
+        "guaranteed returns",
+        "financial advisor",
+        "hedge fund"
+      ],
+      "youtube_tags": [
+        "personalfinance",
+        "money",
+        "creditscore",
+        "budgeting",
+        "financialliteracy"
+      ],
+      "hashtags": "#personalfinance #money #creditscore #budgeting #financialliteracy",
+      "voice": "en-US-ChristopherNeural-Male",
+      "videos_per_run": 1,
+      "video_mode": "stock",
+      "subreddits": [
+        "personalfinance",
+        "CreditCards",
+        "Frugal",
+        "MiddleClassFinance"
+      ],
+      "style_suffix": "clean documentary photography, natural light, no text, no logos"
+    },
+    {
+      "id": "sellersignal",
+      "name": "E-commerce Seller Growth",
+      "purpose": "SaaS research audience: online sellers with real revenue. Mine comments for product ideas.",
+      "topic_prompt": "You generate short-video topics for an audience of Etsy, Shopify, and Amazon sellers. Topics must be practical, specific, slightly contrarian tips about pricing, listings, ads, inventory, or customer retention. Examples: 'Why your Etsy listing dies after 30 days', 'The pricing trick that doubles perceived value'. Return ONE topic, under 12 words, no quotes, no numbering.",
+      "youtube_tags": [
+        "ecommerce",
+        "etsy",
+        "shopify",
+        "sidehustle"
+      ],
+      "hashtags": "#ecommerce #shopify #etsyseller #smallbusiness",
+      "upload_post_user": "sellersignal",
+      "voice": "en-US-ChristopherNeural-Male",
+      "videos_per_run": 1
+    },
+    {
+      "id": "wealthloop",
+      "name": "Personal Finance Facts",
+      "purpose": "High-CPM ad revenue channel.",
+      "topic_prompt": "You generate short-video topics about personal finance psychology and money habits. Surprising, specific, hook-driven. Examples: 'Why the rich never finance a phone', 'The 1% rule banks hope you ignore'. Return ONE topic, under 12 words, no quotes, no numbering.",
+      "youtube_tags": [
+        "personalfinance",
+        "money",
+        "investing",
+        "wealth"
+      ],
+      "hashtags": "#money #personalfinance #investing #finance",
+      "upload_post_user": "wealthloop",
+      "voice": "en-GB-RyanNeural-Male",
+      "videos_per_run": 1
+    },
+    {
+      "id": "mindfacts",
+      "name": "Psychology Facts",
+      "purpose": "Growth/retention channel, evergreen content.",
+      "topic_prompt": "You generate short-video topics about surprising human psychology: cognitive biases, persuasion, habits, social behavior. Examples: 'Why silence makes people confess', 'The bias that ruins first impressions'. Return ONE topic, under 12 words, no quotes, no numbering.",
+      "youtube_tags": [
+        "psychology",
+        "psychologyfacts",
+        "humanbehavior"
+      ],
+      "hashtags": "#psychology #psychologyfacts #mindset #facts",
+      "upload_post_user": "mindfacts",
+      "voice": "en-US-AriaNeural-Female",
+      "videos_per_run": 1
+    },
+    {
+      "id": "aidailytools",
+      "name": "AI Tools Daily",
+      "purpose": "Affiliate revenue + cross-promotion funnel toward future SaaS.",
+      "topic_prompt": "You generate short-video topics about practical AI tools and workflows for normal people and small businesses. Examples: 'This AI writes your invoices in seconds', 'Automate your inbox with one free tool'. Return ONE topic, under 12 words, no quotes, no numbering.",
+      "youtube_tags": [
+        "aitools",
+        "ai",
+        "productivity",
+        "automation"
+      ],
+      "hashtags": "#ai #aitools #productivity #tech",
+      "upload_post_user": "aidailytools",
+      "voice": "en-US-JennyNeural-Female",
+      "videos_per_run": 1
+    }
+  ]
+}

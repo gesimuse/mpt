@@ -1,0 +1,232 @@
+{
+  "topics": {
+    "codeaz": [
+      "Loops explained like a coffee shop drive-thru",
+      "Functions like a recipe book",
+      "Variables like labeled kitchen jars",
+      "Garbage collection explained by city recycling trucks on scheduled routes",
+      "Deadlocks explained by two cars stuck on intersecting one-way bridges",
+      "Why lazy functions stay idle, explained by a restaurant's order ticket system",
+      "Why your async function stalls, explained by a restaurant reservation system",
+      "Why the compiler infers types, explained by a detective matching clues",
+      "Why your multithreaded counter flips, explained by a ticket booth with two clerks",
+      "Why stack frames vanish, explained by a theater\u2019s backstage and onstage props",
+      "Why your Rust objects disappear, explained by hotel housekeeping checkout",
+      "Why type inference works, explained by a librarian auto\u2011categorizing books",
+      "Why your closure remembers old values, explained by a bakery\u2019s secret recipe vault",
+      "Why your image colors shift, explained by a paint mixing station",
+      "Why scaling colors by 255 vs 256 matters, explained by a bakery\u2019s portioning scale",
+      "Normalize RGB by 255 or 256? The off\u2011by\u2011one that shifts every color",
+      "Turning C code into a .exe with VS Code? Like baking a cake",
+      "Why does mouseenter differ from mouseover (and mouseleave from mouseout)?",
+      "Why can't Python find modules in CGI scripts? Like a kitchen missing the pantry"
+    ]
+  },
+  "uploads": [
+    {
+      "niche": "codeaz",
+      "topic": "Loops explained like a coffee shop drive-thru",
+      "title": "Loops in 1 Min!",
+      "youtube": "MUVKXeCTzHg",
+      "tiktok": false,
+      "ts": "2026-08-02T09:45:25"
+    },
+    {
+      "niche": "codeaz",
+      "topic": "Functions like a recipe book",
+      "title": "Code Cookbook",
+      "youtube": "zlAjwwLj-XI",
+      "tiktok": true,
+      "ts": "2026-08-02T10:46:01"
+    },
+    {
+      "niche": "codeaz",
+      "topic": "Variables like labeled kitchen jars",
+      "title": "Code Clarity",
+      "youtube": "OXi42rhYj2A",
+      "tiktok": true,
+      "ts": "2026-08-02T11:28:55"
+    },
+    {
+      "niche": "codeaz",
+      "topic": "Garbage collection explained by city recycling trucks on scheduled routes",
+      "title": "Inside the City\u2019s Recycling Trucks: How Garbage Collection Really Works!",
+      "youtube": "mAIIo6XMz0g",
+      "tiktok": true,
+      "ts": "2026-08-02T12:15:04"
+    },
+    {
+      "niche": "codeaz",
+      "topic": "Deadlocks explained by two cars stuck on intersecting one-way bridges",
+      "title": "Deadlocks explained by two cars stuck on intersecting one-way bridges",
+      "youtube": "FMBmOW4JgoU",
+      "tiktok": true,
+      "tiktok_caption": "Deadlocks explained by two cars stuck on intersecting one-way bridges\n\nDeadlocks explained by two cars stuck on intersecting one-way bridges\n\n#programming #coding #learntocode #developer #softwareengineering",
+      "ts": "2026-08-02T15:13:06"
+    },
+    {
+      "niche": "codeaz",
+      "topic": "Why lazy functions stay idle, explained by a restaurant's order ticket system",
+      "title": "Why Lazy Functions Stall? \ud83c\udf7d\ufe0f Order Ticket System Explained!",
+      "youtube": "VswBc2SGlKU",
+      "tiktok": true,
+      "tiktok_caption": "Why Lazy Functions Stall? \ud83c\udf7d\ufe0f Order Ticket System Explained!\n\nDiscover how a restaurant's ticket flow reveals why lazy functions stay idle and how to keep them productive. Learn the simple trick to prevent idle code in seconds. Follow for more quick tech insights!\n\n#programming #coding #learntocode #developer #softwareengineering",
+      "ts": "2026-08-02T18:04:25"
+    },
+    {
+      "niche": "codeaz",
+      "topic": "Why your async function stalls, explained by a restaurant reservation system",
+      "title": "Why your async function stalls, explained by a restaurant reservation system",
+      "youtube": "Wvm9CtwwKXU",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "v_inbox_file~v2.7669548873173927938",
+      "tiktok_caption": "Why your async function stalls, explained by a restaurant reservation system\n\nWhy your async function stalls, explained by a restaurant reservation system\n\n#programming #coding #learntocode #developer #softwareengineering",
+      "ts": "2026-08-02T21:28:38"
+    },
+    {
+      "niche": "codeaz",
+      "topic": "Why the compiler infers types, explained by a detective matching clues",
+      "title": "Why the compiler infers types, explained by a detective matching clues",
+      "youtube": "SorbjbEP_YY",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "v_inbox_file~v2.7669596812436686870",
+      "tiktok_caption": "Why the compiler infers types, explained by a detective matching clues\n\nWhy the compiler infers types, explained by a detective matching clues\n\n#programming #coding #learntocode #developer #softwareengineering",
+      "ts": "2026-08-03T00:35:03"
+    },
+    {
+      "niche": "codeaz",
+      "topic": "Why your multithreaded counter flips, explained by a ticket booth with two clerks",
+      "title": "Why Your Multithreaded Counter Flips \u2013 Ticket Booth Chaos Explained!",
+      "youtube": "mkquW8a_ZKQ",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "v_inbox_file~v2.7669748095860869142",
+      "tiktok_caption": "Why Your Multithreaded Counter Flips \u2013 Ticket Booth Chaos Explained!\n\nWatch a ticket booth with two clerks reveal how race conditions break your counter in just seconds. The simple analogy shows why proper locking matters for reliable code. Follow for more quick tech explainers!\n\n#programming #coding #learntocode #developer #softwareengineering",
+      "ts": "2026-08-03T10:20:29"
+    },
+    {
+      "niche": "codeaz",
+      "topic": "Why stack frames vanish, explained by a theater\u2019s backstage and onstage props",
+      "title": "Why Do Stack Frames Vanish? \ud83c\udfad Theater Props Reveal the Secret!",
+      "youtube": "iDdmQvSbIso",
+      "tiktok": true,
+      "tiktok_via": "buffer",
+      "tiktok_post_id": "6a70c4460ed90f7662e04dc4",
+      "tiktok_caption": "Why Do Stack Frames Vanish? \ud83c\udfad Theater Props Reveal the Secret!\n\nEver wonder why a function's stack frame disappears like a prop offstage? I break it down using a backstage theater analogy that makes the concept click instantly. Follow for more quick dev insights!\n\n#programming #coding #learntocode #developer #softwareengineering",
+      "ts": "2026-08-03T16:39:32"
+    },
+    {
+      "niche": "codeaz",
+      "topic": "Why your Rust objects disappear, explained by hotel housekeeping checkout",
+      "title": "When Rust Objects Vanish: Hotel Housekeeping Checkout Analogy",
+      "youtube": "8vIRYh9JlH4",
+      "tiktok": true,
+      "tiktok_via": "buffer",
+      "tiktok_post_id": "6a70f416271afb30c49e4b0a",
+      "tiktok_caption": "When Rust Objects Vanish: Hotel Housekeeping Checkout Analogy\n\nEver wonder why your Rust variables disappear? Think of them like hotel guests checking out\u2014once the housekeeping timer runs out, the room (memory) is cleared. Follow for more bite\u2011size Rust insights!\n\n#programming #coding #learntocode #developer #softwareengineering",
+      "ts": "2026-08-03T20:03:31"
+    },
+    {
+      "niche": "codeaz",
+      "topic": "Why type inference works, explained by a librarian auto\u2011categorizing books",
+      "title": "How a Librarian's Magic Categorizing Reveals Why Type Inference Works!",
+      "youtube": "_MQbCDabsew",
+      "tiktok": true,
+      "tiktok_via": "buffer",
+      "tiktok_post_id": "6a712f692e9d172962a63f0b",
+      "tiktok_caption": "How a Librarian's Magic Categorizing Reveals Why Type Inference Works!\n\nImagine a librarian instantly shelving books based on their content\u2014that's exactly how type inference organizes code. By matching patterns and deducing types, the compiler saves you from manual annotations. Follow for more mind\u2011blowing programming analogies!\n\n#programming #coding #learntocode #developer #softwareengineering",
+      "ts": "2026-08-04T00:16:37"
+    },
+    {
+      "niche": "codeaz",
+      "topic": "Why your closure remembers old values, explained by a bakery\u2019s secret recipe vault",
+      "title": "Closures Remember Old Values? \ud83c\udf5e Bakery Secret Recipe Vault Explained!",
+      "youtube": "j0HaiZDxI_g",
+      "tiktok": true,
+      "tiktok_via": "buffer",
+      "tiktok_post_id": "6a71ac483cb8876c0959adce",
+      "tiktok_caption": "Closures Remember Old Values? \ud83c\udf5e Bakery Secret Recipe Vault Explained!\n\nEver wonder why a closure holds onto old data? Think of a bakery\u2019s secret recipe vault that never forgets its ingredients. Follow for more quick coding insights!\n\n#programming #coding #learntocode #developer #softwareengineering",
+      "ts": "2026-08-04T09:09:25"
+    },
+    {
+      "niche": "codeaz",
+      "topic": "Why your image colors shift, explained by a paint mixing station",
+      "title": "Why Your Photo Colors Shift? \ud83c\udfa8 The Paint Mixing Station Secret!",
+      "youtube": "P9sMzYlRWo8",
+      "tiktok": true,
+      "tiktok_via": "buffer",
+      "tiktok_post_id": "6a71f8c67f0b2125bd421bdc",
+      "tiktok_caption": "Why Your Photo Colors Shift? \ud83c\udfa8 The Paint Mixing Station Secret!\n\nDiscover how a simple paint\u2011mixing station explains the mysterious color shifts in your images. Watch the quick demo and master color consistency. Follow for more visual tricks!\n\n#programming #coding #learntocode #developer #softwareengineering",
+      "ts": "2026-08-04T14:35:47"
+    },
+    {
+      "niche": "codeaz",
+      "topic": "Why scaling colors by 255 vs 256 matters, explained by a bakery\u2019s portioning scale",
+      "title": "255 vs 256: The Color Scaling Secret Bakers Use \ud83c\udf70",
+      "youtube": "K63CpsWW85M",
+      "tiktok": true,
+      "tiktok_via": "buffer",
+      "tiktok_post_id": "6a72403ac6717b2bad63c3d9",
+      "tiktok_caption": "255 vs 256: The Color Scaling Secret Bakers Use \ud83c\udf70\n\nEver wondered why programmers divide by 255 instead of 256? I\u2019ll show you using a bakery\u2019s portioning scale, where every crumb counts. Follow for more tasty tech tricks!\n\n#programming #coding #learntocode #developer #softwareengineering",
+      "ts": "2026-08-04T19:40:39"
+    },
+    {
+      "niche": "codeaz",
+      "topic": "Normalize RGB by 255 or 256? The off\u2011by\u2011one that shifts every color",
+      "title": "RGB Normalization Mistake: 255 vs 256 \u2013 Why Every Color Is Off!",
+      "question": "Should you normalize RGB values by 255 or 256?",
+      "question_id": "reddit:1vdjt5i",
+      "question_url": "https://reddit.com/r/programming/comments/1vdjt5i/should_you_normalize_rgb_values_by_255_or_256/",
+      "youtube": "C_pJYS4n1Yo",
+      "tiktok": true,
+      "tiktok_via": "buffer",
+      "tiktok_post_id": "6a7250f0c6717b2bad6478a6",
+      "tiktok_caption": "RGB Normalization Mistake: 255 vs 256 \u2013 Why Every Color Is Off!\n\nDiscover the hidden off\u2011by\u2011one error that shifts every hue when you normalize RGB values the wrong way. Learn the correct divisor and instantly fix your color calculations. Follow for more quick coding fixes!\n\n#programming #coding #learntocode #developer #softwareengineering",
+      "ts": "2026-08-04T20:51:55"
+    },
+    {
+      "niche": "codeaz",
+      "topic": "Turning C code into a .exe with VS Code? Like baking a cake",
+      "title": "Bake a .exe in VS Code: Turn Your C Code into a Ready\u2011to\u2011Run Cake!",
+      "question": "how the fuck do I make a .exe file in C (or something similar) with Visual Studio Code",
+      "question_id": "reddit:1veow93",
+      "question_url": "https://reddit.com/r/learnprogramming/comments/1veow93/how_the_fuck_do_i_make_a_exe_file_in_c_or/",
+      "youtube": "AL9XFyiAlUI",
+      "tiktok": true,
+      "tiktok_via": "buffer",
+      "tiktok_post_id": "6a7308df295e3c5878aaddef",
+      "tiktok_caption": "Bake a .exe in VS Code: Turn Your C Code into a Ready\u2011to\u2011Run Cake!\n\nWatch how we whisk C source into a delicious Windows .exe using VS Code\u2014no oven needed. Follow for more tasty dev tutorials and quick coding hacks!\n\n#programming #coding #learntocode #developer #softwareengineering",
+      "ts": "2026-08-05T09:56:44"
+    },
+    {
+      "niche": "codeaz",
+      "topic": "Why does mouseenter differ from mouseover (and mouseleave from mouseout)?",
+      "title": "mouseenter vs mouseover: The hidden difference explained in 60 seconds!",
+      "question": "What's the difference between mouseenter and mouseover, and mouseout and mouseleave?",
+      "question_id": "se:60200029",
+      "question_url": "https://stackoverflow.com/questions/60200029/whats-the-difference-between-mouseenter-and-mouseover-and-mouseout-and-mousele",
+      "youtube": "ORG6uxVngTY",
+      "tiktok": true,
+      "tiktok_via": "buffer",
+      "tiktok_post_id": "6a739cda4aea999b60869efe",
+      "tiktok_caption": "mouseenter vs mouseover: The hidden difference explained in 60 seconds!\n\nDiscover why mouseenter and mouseleave behave differently from mouseover and mouseout, and how event bubbling plays a role. Master these events to write cleaner JavaScript code. Follow for more quick dev insights!\n\n#programming #coding #learntocode #developer #softwareengineering",
+      "ts": "2026-08-05T20:28:07"
+    },
+    {
+      "niche": "codeaz",
+      "topic": "Why can't Python find modules in CGI scripts? Like a kitchen missing the pantry",
+      "title": "Why can't Python find modules in CGI scripts? Like a kitchen missing the pantry",
+      "question": "Why can't python find some modules when I'm running CGI scripts from the web?",
+      "question_id": "se:3783887",
+      "question_url": "https://stackoverflow.com/questions/3783887/why-cant-python-find-some-modules-when-im-running-cgi-scripts-from-the-web",
+      "youtube": "ses33hRCJmo",
+      "tiktok": true,
+      "tiktok_via": "buffer",
+      "tiktok_post_id": "6a745ebcf7924f530a5cce73",
+      "tiktok_caption": "Why can't Python find modules in CGI scripts? Like a kitchen missing the pantry\n\nWhy can't Python find modules in CGI scripts? Like a kitchen missing the pantry\n\n#programming #coding #learntocode #developer #softwareengineering",
+      "ts": "2026-08-06T10:15:21"
+    }
+  ]
+}

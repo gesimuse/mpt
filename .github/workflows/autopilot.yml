@@ -1,0 +1,133 @@
+name: MPT Autopilot
+on:
+  schedule:
+    # Twice a day. The critic gates quality, so more runs mostly means more rejected
+    # drafts against a rate-limited free tier -- and six near-identical uploads a day is
+    # the pattern YouTube's inauthentic-content review looks for.
+    - cron: "0 7 * * *"
+    - cron: "0 19 * * *"
+  workflow_dispatch:
+    inputs:
+      niches:
+        description: "Comma-separated niche ids to run (blank = all, e.g. aibeauty)"
+        required: false
+        default: ""
+
+concurrency:
+  group: autopilot
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 110
+    permissions:
+      contents: write   # allows the workflow to commit posted.json back
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install ffmpeg + ImageMagick
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg imagemagick
+
+      - name: Clone MoneyPrinterTurbo
+        run: git clone --depth 1 https://github.com/harry0703/MoneyPrinterTurbo.git
+
+      - name: Install deps
+        run: |
+          pip install -r MoneyPrinterTurbo/requirements.txt
+          pip install requests google-api-python-client google-auth google-auth-oauthlib
+
+      # torch+diffusers is ~1.5GB and only "images" niches (aibeauty) use it -- video
+      # niches never touch sdgen.py/civitai.py, so this is skipped unless one is active
+      # in this run. Scoped to the same NICHES filter as the run itself, so picking
+      # "codeaz" alone from the manual-trigger input does not pay for a download it
+      # will never use.
+      - name: Check whether any niche generates images locally
+        id: imagegen
+        env:
+          NICHES: ${{ github.event.inputs.niches }}
+        run: |
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json, os
+          niches = json.load(open("niches.json"))["niches"]
+          only = [s.strip() for s in os.environ.get("NICHES", "").split(",") if s.strip()]
+          if only:
+              niches = [n for n in niches if n["id"] in only]
+          needed = any(n.get("content_type") == "images" for n in niches)
+          print(f"needed={str(needed).lower()}")
+          PY
+
+      - name: Install local image generation deps
+        if: steps.imagegen.outputs.needed == 'true'
+        run: |
+          pip install --index-url https://download.pytorch.org/whl/cpu torch
+          pip install diffusers transformers accelerate safetensors peft compel
+
+      - name: Run autopilot
+        env:
+          NICHES: ${{ github.event.inputs.niches }}
+          NIM_API_KEY: ${{ secrets.NIM_API_KEY }}
+          NIM_MODEL: ${{ secrets.NIM_MODEL }}
+          # Fallback LLM providers, used in order when NIM is unavailable.
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          OPENROUTER_MODEL: ${{ secrets.OPENROUTER_MODEL }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GROQ_MODEL: ${{ secrets.GROQ_MODEL }}
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+          PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN_CODEAZ: ${{ secrets.YT_REFRESH_TOKEN_CODEAZ }}
+          YT_REFRESH_TOKEN_MONEYMECH: ${{ secrets.YT_REFRESH_TOKEN_MONEYMECH }}
+          # per-channel Cloud projects multiply the ~6 uploads/day quota; a refresh
+          # token only works with the OAuth client that minted it
+          YT_CLIENT_ID_MONEYMECH: ${{ secrets.YT_CLIENT_ID_MONEYMECH }}
+          YT_CLIENT_SECRET_MONEYMECH: ${{ secrets.YT_CLIENT_SECRET_MONEYMECH }}
+          YT_REFRESH_TOKEN_AIWORKS: ${{ secrets.YT_REFRESH_TOKEN_AIWORKS }}
+          YT_CLIENT_ID_AIWORKS: ${{ secrets.YT_CLIENT_ID_AIWORKS }}
+          YT_CLIENT_SECRET_AIWORKS: ${{ secrets.YT_CLIENT_SECRET_AIWORKS }}
+          BUFFER_CHANNEL_ID_MONEYMECH: ${{ secrets.BUFFER_CHANNEL_ID_MONEYMECH }}
+          BUFFER_CHANNEL_ID_AIWORKS: ${{ secrets.BUFFER_CHANNEL_ID_AIWORKS }}
+          TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
+          TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
+          TIKTOK_REFRESH_TOKEN_CODEAZ: ${{ secrets.TIKTOK_REFRESH_TOKEN_CODEAZ }}
+          # set to 1 once the video.publish scope is approved, to post with a caption
+          TIKTOK_DIRECT_POST: ${{ secrets.TIKTOK_DIRECT_POST }}
+          TIKTOK_PRIVACY_LEVEL: ${{ secrets.TIKTOK_PRIVACY_LEVEL }}
+          # Buffer publishes to TikTok with caption and hashtags via its own
+          # approved app; GITHUB_TOKEN hosts the mp4 for Buffer to fetch.
+          BUFFER_ACCESS_TOKEN: ${{ secrets.BUFFER_ACCESS_TOKEN }}
+          BUFFER_MODE: ${{ secrets.BUFFER_MODE }}
+          BUFFER_CHANNEL_ID_AIBEAUTY: ${{ secrets.BUFFER_CHANNEL_ID_AIBEAUTY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          # Legacy override: pins one CivitAI checkpoint (URL, id, or "id:versionId")
+          # for every run. aibeauty ignores this -- it searches CivitAI fresh each run
+          # (imageslides.decide_reference) and never reuses the same checkpoint twice on
+          # purpose. Left wired for any future niche that wants a single pinned model
+          # instead; empty falls through to the built-in fast preset (niches.json's sd_model).
+          CIVITAI_MODEL: ${{ secrets.CIVITAI_MODEL }}
+          # Read-only: sent on GET requests to CivitAI's search/gallery endpoints only,
+          # never near their separate paid generation API. Without it /api/v1/models
+          # and /api/v1/images return 451; model-version lookups and downloads work
+          # either way, so image generation still runs without this key, just with
+          # less prompt/model variety (falls back to the built-in prompt formula).
+          CIVITAI_API_KEY: ${{ secrets.CIVITAI_API_KEY }}
+        run: python autopilot.py
+
+      # Commit posted.json back to the repo. This both persists topic/upload
+      # history between runs AND counts as repo activity, so GitHub never
+      # auto-disables the schedule (60-day inactivity rule).
+      - name: Persist state (keepalive)
+        if: always()
+        run: |
+          git config user.name "autopilot-bot"
+          git config user.email "actions@github.com"
+          git add posted.json CAPTIONS.md
+          git diff --cached --quiet || git commit -m "chore: autopilot run $(date -u +%F_%H:%M)"
+          git pull --rebase origin ${{ github.ref_name }} || true
+          git push || echo "push failed (non-fatal)"

@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MPT Autopilot</title>
+<link rel="icon" href="app-icon.png">
+<link rel="stylesheet" href="_style.css">
+</head>
+<body>
+<header>
+  <img src="app-icon.png" alt="MPT Autopilot icon">
+  <h1>MPT Autopilot</h1>
+  <p class="lede">A self-hosted desktop/server tool that produces short educational programming videos and delivers them to their own creator's TikTok inbox as drafts.</p>
+  <nav>
+    <a href="terms.html">Terms of Service</a>
+    <a href="privacy.html">Privacy Policy</a>
+    <a href="https://github.com/codeaz-org/mpt">Source code</a>
+  </nav>
+</header>
+
+<main>
+  <h2>What it does</h2>
+  <p>MPT Autopilot is an open-source Python application run by an individual creator on their own computer or server. On each run it:</p>
+  <ul>
+    <li>generates a short-video topic about a programming concept using an LLM;</li>
+    <li>renders a vertical video from stock footage and text-to-speech narration;</li>
+    <li>uploads it to YouTube, and sends the same file to the operator's own TikTok account as a draft in the TikTok inbox.</li>
+  </ul>
+
+  <h2>How TikTok is used</h2>
+  <p>The operator authorizes their own TikTok account once via TikTok Login, granting <code>user.info.basic</code> and <code>video.upload</code>. The app then uses the Content Posting API endpoint <code>/v2/post/publish/inbox/video/init/</code> to send the rendered video to that account's inbox. Nothing is published automatically — the video stays a draft until the account owner opens the TikTok app, reviews it, writes the final caption, and publishes it manually.</p>
+
+  <h2>Who it is for</h2>
+  <p>The operator of the app and the owner of the connected TikTok account are the same person. It is not a multi-tenant service and it does not accept sign-ups from third parties.</p>
+
+  <h2>Contact</h2>
+  <p>Questions about this app: <a href="mailto:gesimuse01@gmail.com">gesimuse01@gmail.com</a>, or open an issue on <a href="https://github.com/codeaz-org/mpt">GitHub</a>.</p>
+</main>
+
+<footer>MPT Autopilot · <a href="terms.html">Terms</a> · <a href="privacy.html">Privacy</a></footer>
+</body>
+</html>

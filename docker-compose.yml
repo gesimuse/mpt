@@ -1,0 +1,9 @@
+services:
+  autopilot:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - RUN_HOURS=06 12 18 23   # 4 runs/day, UTC
+    volumes:
+      - ./posted.json:/app/posted.json   # persistent topic/upload history
