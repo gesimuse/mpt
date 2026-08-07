@@ -10,8 +10,8 @@
       "min_images": 3,
       "videos_per_run": 1,
       "sd_model": "dreamshaper",
-      "hashtags": "#aiart #aigenerated #glamour #fashion #aiphotography #confident",
-      "ai_disclosure": "Created with AI. Not a real person.",
+      "hashtags": "#aiart #aigenerated #aiphotography #confident",
+      "ai_disclosure": "Created with AI.",
       "captions": [
         "Confidence looks good on me.",
         "Not sorry for the view.",
@@ -19,22 +19,6 @@
         "A little extra never hurt.",
         "Some days just look like this.",
         "Soft light, softer smile."
-      ],
-      "scenes": [
-        "standing on a balcony at golden hour overlooking rooftops",
-        "relaxing on a sunlounger by a pool",
-        "sitting on a bed in a sunlit bedroom in the morning",
-        "leaning against a doorway in warm evening light",
-        "browsing a flower market in the morning",
-        "waiting at a train platform in soft winter light",
-        "lounging by a pool in the late afternoon sun",
-        "sitting on museum steps with a coffee"
-      ],
-      "styles": [
-        "35mm film photography, shallow depth of field",
-        "editorial fashion photography, soft natural light",
-        "cinematic still, warm colour grade",
-        "glamour photography, soft dramatic lighting"
       ],
       "outfits": [
         "wearing a fitted bodycon mini dress and heels",
@@ -45,7 +29,12 @@
         "wearing a lace-trim camisole and matching shorts, loungewear at home",
         "wearing straight-leg jeans and a fitted white shirt"
       ],
-      "civitai_query": "beauty portrait woman fashion photography glamour"
+      "civitai_queries": [
+        "portrait woman fashion photography editorial",
+        "beauty portrait woman fashion photography glamour",
+        "glamour photography woman",
+        "realistic portrait woman photography"
+      ]
     }
   ]
 }

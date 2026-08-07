@@ -23,7 +23,7 @@ embedded in the file -- there is no reason to accept that format when the same w
 are available as SafeTensor, which cannot. A failed or missing virus/pickle scan on the
 file CivitAI itself reports is also refused.
 """
-import os, re, time
+import os, random, re, time
 from pathlib import Path
 
 import requests
@@ -225,10 +225,18 @@ def search_candidates(query, limit=20):
         yield item.get("id"), item.get("name"), version
 
 
-def decide_reference(query, prompt_filter=None):
-    """Search once, and commit to the first candidate that is both a real downloadable
-    checkpoint and has a showcase prompt worth using: one model, one reference prompt,
-    for the whole run this feeds.
+def decide_reference(query, prompt_filter=None, pool_size=8, top_n_prompts=5):
+    """Evaluate up to `pool_size` search candidates, then pick RANDOMLY among whichever
+    qualify -- both which model and which of its showcase prompts. One model, one
+    reference prompt, for the whole run this feeds, but not the SAME one every run.
+
+    Earlier versions returned the first qualifying candidate's single highest-reaction
+    prompt, every time -- since search_candidates() is sorted by download count and a
+    given query resolves to the same ranking call after call, that made every run land
+    on the exact same model and the exact same prompt (a live run kept coming back to
+    one checkpoint's "chef in a kitchen" showcase image). Evaluating the whole pool
+    first and choosing randomly from what qualifies is what actually gives each run a
+    different look, the way "search CivitAI fresh each time" was meant to.
 
     prompt_filter(prompt_text) -> bool lets a caller apply its own rules (subject,
     gender, whatever a niche cares about) without this module needing to know about
@@ -237,7 +245,8 @@ def decide_reference(query, prompt_filter=None):
     with every rejected candidate's reason if none qualify."""
     prompt_filter = prompt_filter or (lambda p: True)
     tried = []
-    for model_id, name, version in search_candidates(query):
+    qualifying = []  # [(model_id, name, version, [usable prompts])]
+    for model_id, name, version in search_candidates(query, limit=pool_size):
         version_id = version.get("id")
         try:
             prompts = [p for p in harvest_from_model(model_id, version_id)
@@ -248,12 +257,19 @@ def decide_reference(query, prompt_filter=None):
         if not prompts:
             tried.append(f"{name}: no usable on-subject prompt")
             continue
+        qualifying.append((model_id, name, version, prompts))
+
+    random.shuffle(qualifying)
+    for model_id, name, version, prompts in qualifying:
         try:
             resolved = _resolved(version, model_id, name=name)
         except RuntimeError as e:
             tried.append(f"{name}: {e}")
             continue
-        return resolved, prompts[0]
+        # prompts is already sorted by reactions (harvest_from_model); picking among
+        # the top few keeps quality while still varying which exact photo gets used.
+        pick = random.choice(prompts[:top_n_prompts])
+        return resolved, pick
     raise RuntimeError(
         f"no usable model+prompt for {query!r}"
         + (f" (tried {len(tried)}: {'; '.join(tried[:4])})" if tried else " (no search results)"))

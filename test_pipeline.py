@@ -48,11 +48,35 @@ class ImageSlideshowTest(unittest.TestCase):
         self.assertNotIn("swimwear", imageslides.NEGATIVE_HARD)
         self.assertNotIn("lingerie", imageslides.NEGATIVE_HARD)
 
-    def test_formula_reference_builds_from_the_niches_own_scenes_and_styles(self):
-        """The fallback used only when CivitAI cannot be reached at all."""
-        _, reference = imageslides._formula_reference(self.AIBEAUTY)
-        self.assertIn("a street", reference["prompt"])
-        self.assertEqual(reference["negative_prompt"], "")
+    def test_generate_raises_when_civitai_is_unavailable(self):
+        """No static-formula fallback: a batch's model and prompt must come from a
+        real CivitAI search, so an unreachable CivitAI must fail the run loudly
+        instead of silently shipping generic images."""
+        with mock.patch.object(civitai, "decide_reference",
+                               mock.Mock(side_effect=RuntimeError("down"))), \
+             tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(RuntimeError) as ctx:
+                imageslides.generate(self.AIBEAUTY, workdir=tmp)
+        self.assertIn("down", str(ctx.exception))
+
+    def test_query_is_rotated_across_a_list(self):
+        """A fixed single query biases toward whatever CivitAI ranks highest for it
+        every run -- civitai_queries lets the theme itself vary, not just which exact
+        photo gets picked within one theme."""
+        niche = {**self.AIBEAUTY,
+                "civitai_queries": ["query one", "query two", "query three"]}
+        seen = set()
+
+        def fake_decide(query, prompt_filter=None):
+            seen.add(query)
+            return ({"model_id": 1, "version_id": 1, "name": "X"},
+                   {"prompt": "portrait of a woman", "negative_prompt": ""})
+
+        with mock.patch.object(civitai, "decide_reference", fake_decide):
+            for _ in range(30):
+                imageslides.decide_reference(niche)
+        self.assertEqual(seen, {"query one", "query two", "query three"},
+                         "all three queries should get picked eventually")
 
     def test_build_variations_all_derive_from_the_same_base_prompt(self):
         """Ten variations of one decided prompt, not ten unrelated prompts -- only the
@@ -160,15 +184,22 @@ class ImageSlideshowTest(unittest.TestCase):
             approved = imageslides.generate(self.AIBEAUTY, workdir=tmp)
         self.assertEqual(approved, fake_paths)
 
-    def test_generate_falls_back_to_formula_reference_when_civitai_unavailable(self):
-        with mock.patch.object(civitai, "decide_reference",
-                               mock.Mock(side_effect=RuntimeError("down"))), \
-             mock.patch.object(imageslides.sdgen, "generate_batch",
-                               lambda *a, **k: [Path(f"/tmp/img_{i}.png") for i in range(3)]), \
+    def test_sexy_cue_is_always_present(self):
+        """Every image must read as sexy -- not just when the random mood pick happens
+        to land on strong wording. SEXY_CUE is the guaranteed baseline."""
+        captured = {}
+
+        def fake_generate_batch(prompts, workdir, **kw):
+            captured["prompts"] = prompts
+            return [Path(f"/tmp/i{i}.png") for i in range(len(prompts))]
+
+        with mock.patch.object(civitai, "decide_reference", self._fake_decide), \
+             mock.patch.object(imageslides.sdgen, "generate_batch", fake_generate_batch), \
              mock.patch.object(imageslides.supervisor, "filter_images", lambda paths: paths), \
              tempfile.TemporaryDirectory() as tmp:
-            approved = imageslides.generate(self.AIBEAUTY, workdir=tmp)
-        self.assertEqual(len(approved), 3)
+            imageslides.generate(self.AIBEAUTY, workdir=tmp)
+        for p in captured["prompts"]:
+            self.assertIn(imageslides.SEXY_CUE, p)
 
 
 class FakePipe:
@@ -357,6 +388,15 @@ class ImageSlidesSubjectFilterTest(unittest.TestCase):
             "a humanoid boar Electrode hybrid creature, highly detailed portrait photo",
             {"id": "aibeauty"}))
 
+    def test_3d_render_style_prompt_is_dropped(self):
+        """A live search decided on 'NLIGHT Realistic's own showcase prompt: 'high
+        quality,8K,a girl,blender,3d model,...FASHION SHOOT...' -- explicitly asking
+        for a 3D render directly contradicts NEGATIVE_QUALITY's own '3d render' term,
+        positive and negative prompt fighting each other in the same call."""
+        self.assertFalse(imageslides._matches_subject(
+            "high quality, a girl, blender, 3d model, fashion shoot, portrait photo",
+            {"id": "aibeauty"}))
+
     def test_prompt_with_no_person_at_all_is_dropped(self):
         """A live sample harvested a pure scenery prompt with no person in it --
         SAFETY_PREFIX would glue a subject onto it and render a landscape shot with an
@@ -485,8 +525,11 @@ class CivitaiSearchTest(unittest.TestCase):
 
 class CivitaiDecideReferenceTest(unittest.TestCase):
     """Step 1/2 of the "search for a good photo, decide on it, download its model"
-    flow: search once, walk ranked candidates, commit to the first that both resolves
-    to a downloadable checkpoint and has a real showcase prompt worth using.
+    flow: evaluate the search pool, then pick RANDOMLY among whichever candidates
+    both resolve to a downloadable checkpoint and have a real showcase prompt worth
+    using -- not always the first (see test_picks_randomly below for why: a fixed
+    query resolved deterministically made every run land on the same model and the
+    same prompt, confirmed live on a real search).
 
     The search list view only flags hasMeta: true on each image -- the actual prompt
     text needs a direct model-version lookup, i.e. harvest_from_model() -- so that is
@@ -505,7 +548,7 @@ class CivitaiDecideReferenceTest(unittest.TestCase):
             return [{"prompt": prompt, "negative_prompt": "", "reactions": 1}] if prompt else []
         return fake
 
-    def test_picks_first_candidate_with_a_usable_showcase_prompt(self):
+    def test_picks_the_only_qualifying_candidate(self):
         items = [
             self._candidate(1, "NoShowcase", 5000, "SD 1.5"),
             self._candidate(2, "GoodOne", 4000, "SD 1.5"),
@@ -517,6 +560,35 @@ class CivitaiDecideReferenceTest(unittest.TestCase):
             resolved, prompt = civitai.decide_reference("portrait woman")
         self.assertEqual(resolved["name"], "GoodOne")
         self.assertEqual(prompt["prompt"], "portrait of a woman")
+
+    def test_picks_randomly_among_qualifying_candidates(self):
+        """Earlier behaviour always returned the first qualifying candidate -- since
+        search results are sorted deterministically, that means the exact same model
+        every run for a fixed query, confirmed live (a run kept landing on the same
+        checkpoint's "chef in a kitchen" showcase image). Given several qualifying
+        candidates, results must vary across repeated calls."""
+        items = [self._candidate(i, f"Model{i}", 5000 - i, "SD 1.5") for i in range(1, 6)]
+        prompts_by_id = {i: f"portrait of a woman, look {i}" for i in range(1, 6)}
+        with mock.patch.object(civitai, "search_models", lambda q, **kw: items), \
+             mock.patch.object(civitai, "MIN_SEARCH_DOWNLOADS", 1000), \
+             mock.patch.object(civitai, "harvest_from_model",
+                               self._harvest_by_model_id(prompts_by_id)):
+            seen = {civitai.decide_reference("portrait woman")[0]["name"] for _ in range(40)}
+        self.assertGreater(len(seen), 1, "must not always pick the same candidate")
+
+    def test_picks_randomly_among_a_candidates_top_prompts(self):
+        """Same failure mode within one model: always taking prompts[0] means the same
+        single showcase photo every run even when the checkpoint has several usable ones."""
+        def fake_harvest(model_id, version_id):
+            return [{"prompt": f"portrait of a woman, variant {i}", "negative_prompt": "",
+                     "reactions": 10 - i} for i in range(5)]
+
+        items = [self._candidate(1, "OneModel", 5000, "SD 1.5")]
+        with mock.patch.object(civitai, "search_models", lambda q, **kw: items), \
+             mock.patch.object(civitai, "MIN_SEARCH_DOWNLOADS", 1000), \
+             mock.patch.object(civitai, "harvest_from_model", fake_harvest):
+            seen = {civitai.decide_reference("portrait woman")[1]["prompt"] for _ in range(40)}
+        self.assertGreater(len(seen), 1, "must not always pick the same showcase prompt")
 
     def test_prompt_filter_skips_candidates_that_fail_it(self):
         items = [

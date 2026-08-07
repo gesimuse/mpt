@@ -10,6 +10,10 @@ anatomy mistakes, so those are more common here than in a typical 25-50 step ren
 not less. A round that leaves the batch short of min_images tries a fresh round of
 variations rather than falling back to reused/failed images.
 
+No static prompt fallback: if CivitAI can't be reached, generate() raises instead of
+falling back to a hand-written scene/style list -- every batch's checkpoint and prompt
+must come from a real, live CivitAI search.
+
 Content policy: adult subjects, nothing exposing genitals/nipples/full nudity. Swimwear
 and lingerie are within policy -- the earlier draft of this file blocked them entirely,
 which is stricter than necessary and not what was asked for. The line is nudity, not
@@ -55,25 +59,14 @@ DEFAULT_MOOD = [
     "flirty smile, relaxed confident posture",
     "sultry pout, confident direct eye contact",
 ]
-DEFAULT_SCENES = [
-    "walking through a sunlit city street in autumn",
-    "sitting by a cafe window on a rainy afternoon",
-    "standing on a balcony at golden hour overlooking rooftops",
-    "browsing a flower market in the morning",
-    "reading in a quiet library with tall windows",
-    "waiting at a train platform in soft winter light",
-    "relaxing on a sunlounger by a pool",
-    "sitting on a bed in a sunlit bedroom in the morning",
-]
-DEFAULT_STYLES = [
-    "35mm film photography, shallow depth of field",
-    "editorial fashion photography, soft natural light",
-    "cinematic still, warm colour grade",
-]
 
 # Hard line: no exposed nipples/genitals, no real nudity, no minors. Everything else
 # (swimwear, lingerie, loungewear) is within policy and is not filtered here.
 SAFETY_PREFIX = "adult woman in her late twenties"
+# Every image must read as sexy, not just "sometimes, when the random mood pick lands
+# right" -- this is the guaranteed baseline, always present; DEFAULT_MOOD on top of it
+# is what varies the specific pose/expression between images in the same batch.
+SEXY_CUE = "seductive, sexy, alluring"
 NEGATIVE_HARD = ("child, teen, minor, young girl, schoolgirl, nude, topless, "
                  "exposed nipples, exposed genitals, explicit sexual content")
 NEGATIVE_QUALITY = ("cartoon, illustration, painting, anime, 3d render, deformed, "
@@ -111,44 +104,64 @@ _PORTRAIT_RE = re.compile(
 _NONHUMAN_RE = re.compile(
     r"\b(?:creature|hybrid|monster|beast|humanoid|anthro|furry|dragon|demon|robot|"
     r"android|alien|chimera)\b", re.I)
+# A live search's decided prompt (from 'NLIGHT Realistic', an otherwise qualifying
+# checkpoint) read "high quality,8K,a girl,blender,3d model,...FASHION SHOOT..." --
+# the checkpoint's OWN showcase prompt explicitly asked for a 3D render, which directly
+# contradicts NEGATIVE_QUALITY's "3d render" below: positive and negative prompt
+# fighting each other in the same generation call, guaranteed confused output. This
+# niche wants photorealism, not CGI, regardless of which checkpoint gets picked.
+_NONPHOTO_RE = re.compile(
+    r"\b(?:3d model|3d render|blender|cgi|render(?:ed)?|cartoon|anime|illustration|"
+    r"painting|drawing|sketch)\b", re.I)
 
 
 def _matches_subject(prompt, niche):
-    if not _PORTRAIT_RE.search(prompt) or _NONHUMAN_RE.search(prompt):
+    if not _PORTRAIT_RE.search(prompt) or _NONHUMAN_RE.search(prompt) or _NONPHOTO_RE.search(prompt):
         return False
     if niche.get("subject_gender", "woman") != "woman":
         return True
     return not (_MALE_ONLY_RE.search(prompt) and not _FEMALE_RE.search(prompt))
 
 
+# "uniform" added after a live search decided on a showcase prompt describing a pilot
+# "dressed in a crisp ... uniform" -- without it, an injected outfit (e.g. a bikini)
+# would have landed on top of an already-clothed subject, the same two-outfit
+# contradiction _CLOTHING_RE exists to prevent for "black dress" and the rest.
 _CLOTHING_RE = re.compile(
     r"\b(?:wearing|dress|shirt|coat|jacket|outfit|skirt|jeans|sweater|jumper|top|"
-    r"blouse|trousers|swimsuit|bikini|lingerie|suit|blazer|cardigan|gown)\b", re.I)
+    r"blouse|trousers|swimsuit|bikini|lingerie|suit|blazer|cardigan|gown|uniform)\b", re.I)
+
+
+DEFAULT_CIVITAI_QUERIES = [
+    "portrait woman fashion photography editorial",
+    "beauty portrait woman fashion photography glamour",
+    "glamour photography woman",
+    "realistic portrait woman photography",
+]
 
 
 def decide_reference(niche):
-    """Search CivitAI once for a checkpoint with a real, on-subject showcase prompt,
-    and commit to it for this whole run: one model, one reference photo, every slide
-    in the batch is a variation of it, not a grab bag of unrelated faces.
+    """Search CivitAI for a checkpoint with a real, on-subject showcase prompt, and
+    commit to it for this whole run: one model, one reference photo, every slide in
+    the batch is a variation of it, not a grab bag of unrelated faces.
+
+    The search query itself is randomised per run too (civitai_queries, a list; a
+    single civitai_query string still works as a one-item list) -- civitai.decide_
+    reference() already randomises which qualifying model+prompt a fixed query
+    resolves to, but a fixed query alone still biases toward whatever CivitAI ranks
+    highest for it. Rotating the query is what actually varies the THEME run to run,
+    not just the exact photo within one theme.
 
     civitai.py's search_candidates()/decide_reference() stay subject-agnostic; the
     niche's gender/portrait rules are passed in as a filter rather than living there."""
-    query = niche.get("civitai_query", "portrait woman fashion photography editorial")
+    queries = niche.get("civitai_queries") or (
+        [niche["civitai_query"]] if niche.get("civitai_query") else DEFAULT_CIVITAI_QUERIES)
+    query = random.choice(queries)
     resolved, reference = civitai.decide_reference(
         query, prompt_filter=lambda p: _matches_subject(p, niche))
-    log(f"decided on {resolved['name']!r} v{resolved['version_id']}, "
+    log(f"decided on {resolved['name']!r} v{resolved['version_id']} (query: {query!r}), "
         f"prompt: {reference['prompt'][:100]}")
     return resolved, reference
-
-
-def _formula_reference(niche):
-    """Fallback only, used when CivitAI cannot be reached at all: a reference prompt
-    built from the niche's own scene/style/outfit lists instead of a harvested one."""
-    scenes = niche.get("scenes") or DEFAULT_SCENES
-    styles = niche.get("styles") or DEFAULT_STYLES
-    prompt = (f"RAW photo, {random.choice(scenes)}, "
-             f"{random.choice(styles)}, detailed skin texture")
-    return None, {"prompt": prompt, "negative_prompt": ""}
 
 
 # Ten variations of one decided prompt, not ten unrelated prompts -- the subject,
@@ -209,27 +222,25 @@ def generate(niche, count=None, workdir=None, max_rounds=2):
     workdir = Path(workdir) if workdir else Path(tempfile.mkdtemp(prefix="imageslides_"))
     workdir.mkdir(parents=True, exist_ok=True)
 
-    try:
-        resolved, reference = decide_reference(niche)
-    except Exception as e:
-        log(f"CivitAI discovery unavailable ({type(e).__name__}: {str(e)[:150]}); "
-            "falling back to the built-in prompt formula")
-        resolved, reference = _formula_reference(niche)
+    # No static-formula fallback: every batch's model and prompt must come from a real
+    # CivitAI search, not a hand-written scene/style list. If CivitAI can't be reached,
+    # the run fails loudly here rather than silently shipping generic images.
+    resolved, reference = decide_reference(niche)
 
-    civitai_spec = f"{resolved['model_id']}:{resolved['version_id']}" if resolved else None
+    civitai_spec = f"{resolved['model_id']}:{resolved['version_id']}"
     # An explicit outfit is only injected when the reference prompt does not already
     # name one -- appending "wearing jeans and a coat" onto a prompt that already says
-    # "wearing a black dress" gives the model two contradictory outfits at once. Mood is
-    # added unconditionally instead -- unlike an outfit, a pose/expression cue does not
-    # conflict with whatever the reference prompt already says, and this is what keeps
-    # the tone consistent even when the decided reference is mundane (a live search
-    # once decided on a showcase prompt describing a chef in a kitchen). prefix (not
-    # reference["prompt"]) is what build_variations puts before the camera modifier --
-    # see its docstring for why the harvested text goes last, not this.
+    # "wearing a black dress" gives the model two contradictory outfits at once.
+    # SEXY_CUE and mood are both added unconditionally -- unlike an outfit, a pose/
+    # expression cue does not conflict with whatever the reference prompt already
+    # says. SEXY_CUE is the guaranteed baseline ("every image must be sexy" is a hard
+    # requirement, not a random pick); mood adds per-image variety on top of it.
+    # prefix (not reference["prompt"]) is what build_variations puts before the camera
+    # modifier -- see its docstring for why the harvested text goes last, not this.
     outfit = random.choice(niche.get("outfits") or DEFAULT_OUTFITS)
     clothing = "" if _CLOTHING_RE.search(reference["prompt"]) else f"{outfit}, "
     mood = random.choice(niche.get("mood") or DEFAULT_MOOD)
-    prefix = f"{SAFETY_PREFIX}, {clothing}{mood}"
+    prefix = f"{SAFETY_PREFIX}, {clothing}{SEXY_CUE}, {mood}"
     base_negative = ", ".join(
         x for x in (NEGATIVE_HARD, reference["negative_prompt"], NEGATIVE_QUALITY) if x)
     log(f"prefix: {prefix} | reference: {reference['prompt'][:120]}")
