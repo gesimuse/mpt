@@ -2,15 +2,16 @@ name: MPT Autopilot (aibeauty)
 on:
   schedule:
     # 5 runs/day, videos_per_run: 1 in niches.json -- one draft per run, spread across
-    # the day rather than bursting all 5 at once. Matches TikTok's own documented cap
-    # of 5 pending (unposted) drafts per rolling 24h (spam_risk_too_many_pending_share
-    # past that); autopilot.py's own pending-drafts check (_pending_drafts_last_24h)
-    # skips or clamps a run if manual pushes have already eaten into that cap.
-    - cron: "0 2 * * *"
+    # daytime hours (07/09/11/13/15 GMT+2 -- 05/07/09/11/13 UTC) rather than bursting
+    # all 5 at once or posting overnight. Matches TikTok's own documented cap of 5
+    # pending (unposted) drafts per rolling 24h (spam_risk_too_many_pending_share past
+    # that); autopilot.py's own pending-drafts check (_pending_drafts_last_24h) skips
+    # or clamps a run if manual pushes have already eaten into that cap.
+    - cron: "0 5 * * *"
     - cron: "0 7 * * *"
-    - cron: "0 12 * * *"
-    - cron: "0 17 * * *"
-    - cron: "0 22 * * *"
+    - cron: "0 9 * * *"
+    - cron: "0 11 * * *"
+    - cron: "0 13 * * *"
   workflow_dispatch:
     inputs:
       niches:
