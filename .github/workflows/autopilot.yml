@@ -1,0 +1,69 @@
+name: MPT Autopilot (aibeauty)
+on:
+  schedule:
+    # Twice a day. The supervisor QA gates quality, so more runs mostly means more
+    # rejected batches against a rate-limited free tier.
+    - cron: "0 7 * * *"
+    - cron: "0 19 * * *"
+  workflow_dispatch:
+    inputs:
+      niches:
+        description: "Comma-separated niche ids to run (blank = all, e.g. aibeauty)"
+        required: false
+        default: ""
+
+concurrency:
+  group: autopilot
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 110
+    permissions:
+      contents: write   # allows the workflow to commit posted.json back
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: |
+          pip install requests
+          pip install --index-url https://download.pytorch.org/whl/cpu torch
+          pip install diffusers transformers accelerate safetensors peft compel
+
+      - name: Run autopilot
+        env:
+          NICHES: ${{ github.event.inputs.niches }}
+          NIM_API_KEY: ${{ secrets.NIM_API_KEY }}
+          NIM_MODEL: ${{ secrets.NIM_MODEL }}
+          # Read-only: sent on GET requests to CivitAI's search/gallery endpoints only,
+          # never near their separate paid generation API. Without it /api/v1/models
+          # and /api/v1/images return 451; model-version lookups and downloads work
+          # either way, so image generation still runs without this key, just with
+          # less prompt/model variety (falls back to the built-in prompt formula).
+          CIVITAI_API_KEY: ${{ secrets.CIVITAI_API_KEY }}
+          TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
+          TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
+          TIKTOK_REFRESH_TOKEN_AIBEAUTY: ${{ secrets.TIKTOK_REFRESH_TOKEN_AIBEAUTY }}
+          # Hosts generated images as a release asset so TikTok's PULL_FROM_URL can
+          # fetch them; Actions provides both automatically.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: python autopilot.py
+
+      # Commit posted.json back to the repo. This both persists topic/upload
+      # history between runs AND counts as repo activity, so GitHub never
+      # auto-disables the schedule (60-day inactivity rule).
+      - name: Persist state (keepalive)
+        if: always()
+        run: |
+          git config user.name "autopilot-bot"
+          git config user.email "actions@github.com"
+          git add posted.json CAPTIONS.md
+          git diff --cached --quiet || git commit -m "chore: autopilot run $(date -u +%F_%H:%M)"
+          git pull --rebase origin ${{ github.ref_name }} || true
+          git push || echo "push failed (non-fatal)"
