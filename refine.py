@@ -39,7 +39,39 @@ MIN_CONFIDENCE = float(os.environ.get("REFINE_MIN_CONFIDENCE", "0.5"))
 # found the raw YOLO box alone cropped too tight, right at the hairline/jaw, leaving
 # a visible seam; padding gives the inpaint room to blend naturally.
 PAD_FRACTION = 0.3
-STRENGTH = float(os.environ.get("REFINE_STRENGTH", "0.4"))
+# Faces mostly need polish -- too much strength risks changing who the person looks
+# like. Hands are the opposite problem: a genuinely malformed hand (extra/fused
+# fingers) is a structural error a light denoise cannot fix, it needs enough
+# strength to actually redraw the fingers, not just sharpen what's already there.
+STRENGTH_BY_KIND = {"face": 0.4, "hand": 0.6}
+DEFAULT_STRENGTH = float(os.environ.get("REFINE_STRENGTH", "0.4"))
+# Extra wording appended to the base prompt/negative for this region only -- the base
+# prompt is about pose/outfit/location, not anatomy, so it does nothing to steer the
+# inpaint toward a correct hand specifically. Verified live: an inpaint pass using
+# this exact hand wording visibly fixed indistinct/fused-looking fingers on a real
+# generated image, cleanly, with no seam.
+PROMPT_CUE_BY_KIND = {
+    "face": "detailed face, sharp focus, symmetrical natural features",
+    "hand": "detailed hand, five fingers, natural hand anatomy",
+}
+NEGATIVE_CUE_BY_KIND = {
+    "hand": "extra fingers, fused fingers, missing fingers, malformed hand, "
+           "extra hand, mutated hand, bad hand anatomy",
+}
+# Kinds where the base prompt is REPLACED rather than appended to. Live-caught bug:
+# a "holding phone" base prompt (true of one hand in the shot) bled into the OTHER,
+# unrelated hand's inpaint and hallucinated a phone-shaped object into a hand that
+# was just resting -- the base prompt's action/scene wording is specific to the
+# whole image, not to any one region, and a local crop has no way to know it only
+# applies elsewhere. Faces don't share this failure mode (no live case of a face
+# inpaint hallucinating an unrelated object from scene text), so they keep the
+# base-prompt context; hands get a minimal, anatomy-only prompt instead.
+PROMPT_REPLACE_KINDS = {"hand"}
+# At most this many regions per kind get refined, highest confidence first -- a
+# person has one face but two hands, and both are commonly in frame together (a
+# selfie holding a phone, hands at the hips, etc.); refining only the single
+# best-confidence hand left the other one untouched even when it was also detected.
+MAX_REGIONS_PER_KIND = 2
 # Square canvas the crop is resized onto before inpainting, then resized back from
 # afterward. Small on purpose -- see module docstring for the CPU-time reasoning.
 INPAINT_SIZE = int(os.environ.get("REFINE_INPAINT_SIZE", "384"))
@@ -127,12 +159,12 @@ def _inpaint_pipe_for(pipe):
 
 
 def refine(image, pipe, prompt, negative_prompt, steps, guidance, kinds=("face",)):
-    """Detect the highest-confidence region of each kind in `image`, inpaint a small
-    cropped canvas over it, and blend the result back at full resolution. Returns the
-    original image unchanged if nothing was detected, detection/inpaint failed, or
-    REFINE_FACES=0. Never raises -- a failed refinement pass falls back to the
-    un-refined image rather than losing an otherwise-good generation over a
-    post-process step."""
+    """Detect up to MAX_REGIONS_PER_KIND regions of each kind in `image` (highest
+    confidence first), inpaint a small cropped canvas over each, and blend the
+    result back at full resolution. Returns the original image unchanged if nothing
+    was detected, detection/inpaint failed, or REFINE_FACES=0. Never raises -- a
+    failed refinement pass falls back to the un-refined image rather than losing an
+    otherwise-good generation over a post-process step."""
     if not REFINE_ENABLED:
         return image
     result = image
@@ -148,26 +180,35 @@ def refine(image, pipe, prompt, negative_prompt, steps, guidance, kinds=("face",
         # conversion entirely on an image with nothing to refine, and is still
         # cached (by pipe identity) across kinds/images that DO need it.
         inpaint_pipe = _inpaint_pipe_for(pipe)
-        box, conf = max(boxes, key=lambda b: b[1])
-        x0, y0, x1, y1 = _crop_box(result.size, box)
-        crop = result.crop((x0, y0, x1, y1))
-        cw, ch = crop.size
-        canvas = crop.resize((INPAINT_SIZE, INPAINT_SIZE), Image.LANCZOS)
-        canvas_mask = _feathered_mask((INPAINT_SIZE, INPAINT_SIZE))
-        try:
-            refined_canvas = inpaint_pipe(
-                prompt=prompt, negative_prompt=negative_prompt,
-                image=canvas, mask_image=canvas_mask,
-                num_inference_steps=steps, guidance_scale=guidance, strength=STRENGTH,
-                width=INPAINT_SIZE, height=INPAINT_SIZE,
-            ).images[0]
-        except Exception as e:
-            log(f"{kind} inpaint failed, keeping original region "
-               f"({type(e).__name__}: {str(e)[:100]})")
-            continue
-        refined_crop = refined_canvas.resize((cw, ch), Image.LANCZOS)
-        paste_mask = _feathered_mask((cw, ch))
-        result = result.copy()
-        result.paste(refined_crop, (x0, y0), paste_mask)
-        log(f"refined {kind} (confidence {conf:.2f}, crop {cw}x{ch})")
+        strength = STRENGTH_BY_KIND.get(kind, DEFAULT_STRENGTH)
+        if kind in PROMPT_REPLACE_KINDS:
+            region_prompt = PROMPT_CUE_BY_KIND.get(kind, prompt)
+        else:
+            region_prompt = ", ".join(
+                p for p in (prompt, PROMPT_CUE_BY_KIND.get(kind)) if p)
+        region_negative = ", ".join(
+            p for p in (negative_prompt, NEGATIVE_CUE_BY_KIND.get(kind)) if p)
+        top_boxes = sorted(boxes, key=lambda b: b[1], reverse=True)[:MAX_REGIONS_PER_KIND]
+        for box, conf in top_boxes:
+            x0, y0, x1, y1 = _crop_box(result.size, box)
+            crop = result.crop((x0, y0, x1, y1))
+            cw, ch = crop.size
+            canvas = crop.resize((INPAINT_SIZE, INPAINT_SIZE), Image.LANCZOS)
+            canvas_mask = _feathered_mask((INPAINT_SIZE, INPAINT_SIZE))
+            try:
+                refined_canvas = inpaint_pipe(
+                    prompt=region_prompt, negative_prompt=region_negative,
+                    image=canvas, mask_image=canvas_mask,
+                    num_inference_steps=steps, guidance_scale=guidance, strength=strength,
+                    width=INPAINT_SIZE, height=INPAINT_SIZE,
+                ).images[0]
+            except Exception as e:
+                log(f"{kind} inpaint failed, keeping original region "
+                   f"({type(e).__name__}: {str(e)[:100]})")
+                continue
+            refined_crop = refined_canvas.resize((cw, ch), Image.LANCZOS)
+            paste_mask = _feathered_mask((cw, ch))
+            result = result.copy()
+            result.paste(refined_crop, (x0, y0), paste_mask)
+            log(f"refined {kind} (confidence {conf:.2f}, crop {cw}x{ch}, strength {strength})")
     return result

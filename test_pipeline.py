@@ -536,6 +536,94 @@ class RefineTest(unittest.TestCase):
         # raise or abort the loop.
         self.assertEqual(result.getpixel((120, 170)), (0, 255, 0))
 
+    def test_both_detected_hands_get_refined_not_just_the_top_one(self):
+        """A selfie holding a phone, hands on hips, etc. commonly show both hands at
+        once -- refining only the single highest-confidence detection left the other
+        one untouched even when it was also detected. Two separate, non-overlapping
+        boxes here; both must show the refined color afterward."""
+        from PIL import Image
+        image = Image.new("RGB", (300, 400), color=(10, 10, 10))
+
+        def fake_inpaint(**kw):
+            result = mock.Mock()
+            result.images = [Image.new("RGB", (refine.INPAINT_SIZE, refine.INPAINT_SIZE),
+                                       color=(0, 0, 255))]
+            return result
+
+        inpaint_pipe = mock.Mock(side_effect=fake_inpaint)
+        boxes = [([20, 20, 60, 60], 0.9), ([200, 300, 240, 340], 0.8)]
+        with mock.patch.object(refine, "REFINE_ENABLED", True), \
+             mock.patch.object(refine, "_detect_boxes", lambda img, kind: boxes), \
+             mock.patch.object(refine, "_inpaint_pipe_for", lambda pipe: inpaint_pipe):
+            result = refine.refine(image, mock.Mock(), "p", "n", steps=6, guidance=1.8,
+                                   kinds=("hand",))
+        self.assertEqual(result.getpixel((40, 40)), (0, 0, 255))
+        self.assertEqual(result.getpixel((220, 320)), (0, 0, 255))
+        self.assertEqual(inpaint_pipe.call_count, 2)
+
+    def test_regions_beyond_the_per_kind_cap_are_not_refined(self):
+        from PIL import Image
+        image = Image.new("RGB", (300, 400), color=(10, 10, 10))
+        inpaint_pipe = mock.Mock(side_effect=lambda **kw: mock.Mock(
+            images=[Image.new("RGB", (refine.INPAINT_SIZE, refine.INPAINT_SIZE))]))
+        boxes = [([x, x, x + 20, x + 20], 0.9 - x / 1000) for x in (10, 60, 110, 160)]
+        with mock.patch.object(refine, "REFINE_ENABLED", True), \
+             mock.patch.object(refine, "_detect_boxes", lambda img, kind: boxes), \
+             mock.patch.object(refine, "_inpaint_pipe_for", lambda pipe: inpaint_pipe):
+            refine.refine(image, mock.Mock(), "p", "n", steps=6, guidance=1.8, kinds=("hand",))
+        self.assertEqual(inpaint_pipe.call_count, refine.MAX_REGIONS_PER_KIND)
+
+    def test_hand_region_gets_a_minimal_anatomy_only_prompt(self):
+        """Live-caught bug: a "holding phone" base prompt (true of one hand in the
+        shot) bled into the OTHER hand's inpaint and hallucinated a phone-shaped
+        object into a hand that was just resting. The base prompt's action/scene
+        wording applies to the whole image, not to any one region a local crop
+        can't tell it doesn't apply to -- so for hands it must be REPLACED, not
+        appended to, unlike faces."""
+        from PIL import Image
+        image = Image.new("RGB", (300, 400))
+        seen = {}
+
+        def fake_inpaint(**kw):
+            seen.update(kw)
+            return mock.Mock(images=[Image.new(
+                "RGB", (refine.INPAINT_SIZE, refine.INPAINT_SIZE))])
+
+        with mock.patch.object(refine, "REFINE_ENABLED", True), \
+             mock.patch.object(refine, "_detect_boxes",
+                               lambda img, kind: [([20, 20, 60, 60], 0.9)]), \
+             mock.patch.object(refine, "_inpaint_pipe_for", lambda pipe: fake_inpaint):
+            refine.refine(image, mock.Mock(), "selfie, holding phone", "base negative",
+                         steps=6, guidance=1.8, kinds=("hand",))
+        self.assertNotIn("holding phone", seen["prompt"])
+        self.assertIn("five fingers", seen["prompt"])
+        self.assertIn("base negative", seen["negative_prompt"])
+        self.assertIn("fused fingers", seen["negative_prompt"])
+        self.assertEqual(seen["strength"], refine.STRENGTH_BY_KIND["hand"])
+        self.assertNotEqual(refine.STRENGTH_BY_KIND["hand"], refine.STRENGTH_BY_KIND["face"])
+
+    def test_face_region_still_keeps_the_base_prompt(self):
+        """Unlike hands, faces have no live-observed hallucination risk from scene
+        text, and keeping it helps style/identity consistency with the rest of the
+        image -- only hands are replaced, not appended."""
+        from PIL import Image
+        image = Image.new("RGB", (300, 400))
+        seen = {}
+
+        def fake_inpaint(**kw):
+            seen.update(kw)
+            return mock.Mock(images=[Image.new(
+                "RGB", (refine.INPAINT_SIZE, refine.INPAINT_SIZE))])
+
+        with mock.patch.object(refine, "REFINE_ENABLED", True), \
+             mock.patch.object(refine, "_detect_boxes",
+                               lambda img, kind: [([20, 20, 60, 60], 0.9)]), \
+             mock.patch.object(refine, "_inpaint_pipe_for", lambda pipe: fake_inpaint):
+            refine.refine(image, mock.Mock(), "base pose prompt", "base negative",
+                         steps=6, guidance=1.8, kinds=("face",))
+        self.assertIn("base pose prompt", seen["prompt"])
+        self.assertIn("sharp focus", seen["prompt"])
+
 
 class UpscaleTest(unittest.TestCase):
     """upscale.py's own logic, with the actual super-resolution model mocked out --

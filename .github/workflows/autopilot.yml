@@ -51,7 +51,17 @@ jobs:
       - name: Install deps
         run: |
           pip install requests
-          pip install --index-url https://download.pytorch.org/whl/cpu torch
+          # torchvision installed HERE, pinned to the same CPU wheel index as torch --
+          # this workflow never installed torchvision at all before ultralytics/
+          # super-image were added below, both of which depend on it. Left unpinned,
+          # pip pulled a plain-PyPI torchvision build (not the +cpu one) that doesn't
+          # match torch's own +cpu build, which broke diffusers' own import chain
+          # with a bare "Failed to import ... pipeline_stable_diffusion" on a real
+          # run -- a classic torch/torchvision ABI mismatch, confirmed by checking
+          # that run's own "Successfully installed ... torchvision-0.28.0" line (no
+          # +cpu suffix, unlike torch's). Installing it explicitly, matched, first,
+          # means ultralytics/super-image see it already satisfied and don't touch it.
+          pip install --index-url https://download.pytorch.org/whl/cpu torch torchvision
           pip install diffusers transformers accelerate safetensors peft compel
           # Face/hand detection for refine.py's ADetailer-style touch-up pass.
           # ultralytics pulls opencv-python-headless + a few other deps of its own.
