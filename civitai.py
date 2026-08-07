@@ -317,6 +317,16 @@ def resolve_and_download(spec, dest_dir=None):
 # of CivitAI's own NSFW rating for the image.
 _BAD_PROMPT = re.compile(
     r"\b(?:child|kid|loli|shota|teen(?:ager)?|minor|schoolgirl|infant|toddler)\b", re.I)
+# search_models(nsfw=false) filters the MODEL list, but a version's own showcase
+# images (harvest_from_model, the primary prompt source) are read directly off
+# /api/v1/model-versions/{id} with no nsfw filter at all -- a live search surfaced a
+# showcase prompt containing unambiguous hardcore sexual-act terms, not filtered by
+# anything upstream. This niche wants sexy, not explicit -- reject at the source, the
+# same way celebrity-likeness and non-photo-style prompts already are.
+_EXPLICIT_RE = re.compile(
+    r"\b(?:blowjob|cum|cumshot|penetration|anal|orgasm|masturbat\w*|"
+    r"deepthroat|creampie|gangbang|bukkake|fellatio|cunnilingus|hentai|rule ?34|"
+    r"porn\w*|xxx)\b", re.I)
 # Once search picks any qualifying model rather than one of a few pre-vetted presets,
 # it can surface "merge"-style checkpoints whose own showcase prompts target a real
 # person's likeness -- a live search hit "solo mid shot portrait photo of [Dakota
@@ -351,7 +361,8 @@ def _clean_prompt_text(text):
 
 def _usable(meta, stats=None):
     prompt = _clean_prompt_text(meta.get("prompt") or "")
-    if not prompt or _BAD_PROMPT.search(prompt) or _REAL_PERSON_RE.search(prompt):
+    if not prompt or _BAD_PROMPT.search(prompt) or _REAL_PERSON_RE.search(prompt) \
+       or _EXPLICIT_RE.search(prompt):
         return None
     ages = [int(m) for m in _AGE_RE.findall(prompt)]
     if any(age < _MIN_PROMPT_AGE for age in ages):

@@ -161,6 +161,36 @@ class ImageSlideshowTest(unittest.TestCase):
         self.assertEqual(len(approved), 4)
         self.assertEqual(filter_results, [], "both rounds must have run")
 
+    def test_broken_checkpoint_triggers_a_fresh_decision_next_round(self):
+        """A live run hit this exactly: a gated CivitAI model 401'd on every download
+        attempt, and since the checkpoint was decided once and reused for every round,
+        all rounds failed identically -- zero images generated, forever. A round that
+        generates NOTHING (not 'some generated but rejected', literally none) must
+        trigger a fresh decide_reference() call for the next round, not a retry of the
+        same broken model."""
+        decisions = [
+            ({"model_id": 1, "version_id": 1, "name": "Broken"},
+             {"prompt": "portrait, broken checkpoint", "negative_prompt": ""}),
+            ({"model_id": 2, "version_id": 2, "name": "Working"},
+             {"prompt": "portrait, working checkpoint", "negative_prompt": ""}),
+        ]
+
+        def fake_decide(niche_arg):
+            return decisions.pop(0)
+
+        def fake_generate_batch(prompts, workdir, civitai_model=None, **kw):
+            if civitai_model == "1:1":
+                raise RuntimeError("no images were generated")
+            return [Path(f"/tmp/img_{i}.png") for i in range(len(prompts))]
+
+        with mock.patch.object(imageslides, "decide_reference", fake_decide), \
+             mock.patch.object(imageslides.sdgen, "generate_batch", fake_generate_batch), \
+             mock.patch.object(imageslides.supervisor, "filter_images", lambda paths: paths), \
+             tempfile.TemporaryDirectory() as tmp:
+            approved = imageslides.generate(self.AIBEAUTY, workdir=tmp)
+        self.assertGreater(len(approved), 0)
+        self.assertEqual(decisions, [], "both decide_reference calls must have happened")
+
     def test_too_few_approved_images_raises(self):
         """A carousel needs at least min_images; publishing fewer is not worth it, even
         after every retry round is exhausted."""
@@ -325,6 +355,14 @@ class CivitaiHarvestSafetyTest(unittest.TestCase):
             {"prompt": "woman as a real life version of Elsa, fantasy background"}))
         self.assertIsNone(civitai._usable(
             {"prompt": "deepfake portrait, cinematic lighting"}))
+
+    def test_explicit_sexual_act_terms_are_rejected(self):
+        """A live search's showcase prompt for a qualifying model contained explicit
+        hardcore sexual-act terms, unfiltered by anything upstream -- search_models'
+        nsfw=false only filters the model list, not a version's own showcase images.
+        This niche wants sexy, not explicit."""
+        self.assertIsNone(civitai._usable({"prompt": "photo of a woman, cumshot, explicit"}))
+        self.assertIsNone(civitai._usable({"prompt": "hentai style, anime girl"}))
 
     def test_ordinary_bracket_use_is_not_flagged(self):
         """Only the |-alternation wildcard form is a celebrity-swap signal -- plain

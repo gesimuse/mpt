@@ -47,6 +47,11 @@ DEFAULT_OUTFITS = [
     "wearing a cropped tank top and high-waisted denim shorts",
     "wearing a satin slip dress with thin straps",
     "wearing a high-cut one-piece swimsuit, poolside",
+    "wearing a wet white t-shirt clinging to her figure, poolside",
+    "wearing a tight, clingy bodycon dress that hugs every curve",
+    "wearing a sheer, see-through lace dress over a bikini",
+    "wearing a soaking wet, transparent tank top and denim shorts",
+    "wearing a skin-tight, wet swimsuit fresh out of the pool",
 ]
 # Pose/expression, appended unconditionally regardless of where the reference prompt
 # came from -- this is the actual tone lever, not the outfit list above (which most
@@ -58,6 +63,8 @@ DEFAULT_MOOD = [
     "sultry expression, soft dramatic shadows",
     "flirty smile, relaxed confident posture",
     "sultry pout, confident direct eye contact",
+    "wet skin, dripping water, glistening body",
+    "tight clingy fabric, curves accentuated, sultry pose",
 ]
 
 # Hard line: no exposed nipples/genitals, no real nudity, no minors. Everything else
@@ -204,10 +211,32 @@ def image_caption(niche):
     return f"{random.choice(lines)}\n\n{disclosure}\n\n{tags}".strip()
 
 
+def _build_prefix(niche, reference):
+    # An explicit outfit is only injected when the reference prompt does not already
+    # name one -- appending "wearing jeans and a coat" onto a prompt that already says
+    # "wearing a black dress" gives the model two contradictory outfits at once.
+    # SEXY_CUE and mood are both added unconditionally -- unlike an outfit, a pose/
+    # expression cue does not conflict with whatever the reference prompt already
+    # says. SEXY_CUE is the guaranteed baseline ("every image must be sexy" is a hard
+    # requirement, not a random pick); mood adds per-image variety on top of it.
+    outfit = random.choice(niche.get("outfits") or DEFAULT_OUTFITS)
+    clothing = "" if _CLOTHING_RE.search(reference["prompt"]) else f"{outfit}, "
+    mood = random.choice(niche.get("mood") or DEFAULT_MOOD)
+    return f"{SAFETY_PREFIX}, {clothing}{SEXY_CUE}, {mood}"
+
+
 def generate(niche, count=None, workdir=None, max_rounds=2):
-    """Decide on one CivitAI checkpoint + reference prompt, generate `count` camera
+    """Decide on a CivitAI checkpoint + reference prompt, generate `count` camera
     variations of it, keep what passes supervisor.py review, and repeat with a fresh
-    batch of variations if a round still leaves the set short of min_images.
+    round if the batch still falls short of min_images.
+
+    A round that produces ZERO images (not "some generated but failed QA" -- none
+    generated at all) means the checkpoint itself is broken for this run, not that the
+    prompts were bad -- a live run hit this exactly: a gated CivitAI model 401'd on
+    every single download attempt, and since the old code decided on one checkpoint
+    once and reused it for every round, all rounds failed identically. A round like
+    that makes the NEXT round re-decide (fresh search, likely a different checkpoint)
+    instead of retrying the same broken one.
 
     Raises once max_rounds is exhausted without reaching min_images -- an image-only
     post with too few photos is not worth publishing, and a silent quality drop should
@@ -222,38 +251,35 @@ def generate(niche, count=None, workdir=None, max_rounds=2):
     workdir = Path(workdir) if workdir else Path(tempfile.mkdtemp(prefix="imageslides_"))
     workdir.mkdir(parents=True, exist_ok=True)
 
-    # No static-formula fallback: every batch's model and prompt must come from a real
-    # CivitAI search, not a hand-written scene/style list. If CivitAI can't be reached,
-    # the run fails loudly here rather than silently shipping generic images.
-    resolved, reference = decide_reference(niche)
-
-    civitai_spec = f"{resolved['model_id']}:{resolved['version_id']}"
-    # An explicit outfit is only injected when the reference prompt does not already
-    # name one -- appending "wearing jeans and a coat" onto a prompt that already says
-    # "wearing a black dress" gives the model two contradictory outfits at once.
-    # SEXY_CUE and mood are both added unconditionally -- unlike an outfit, a pose/
-    # expression cue does not conflict with whatever the reference prompt already
-    # says. SEXY_CUE is the guaranteed baseline ("every image must be sexy" is a hard
-    # requirement, not a random pick); mood adds per-image variety on top of it.
-    # prefix (not reference["prompt"]) is what build_variations puts before the camera
-    # modifier -- see its docstring for why the harvested text goes last, not this.
-    outfit = random.choice(niche.get("outfits") or DEFAULT_OUTFITS)
-    clothing = "" if _CLOTHING_RE.search(reference["prompt"]) else f"{outfit}, "
-    mood = random.choice(niche.get("mood") or DEFAULT_MOOD)
-    prefix = f"{SAFETY_PREFIX}, {clothing}{SEXY_CUE}, {mood}"
-    base_negative = ", ".join(
-        x for x in (NEGATIVE_HARD, reference["negative_prompt"], NEGATIVE_QUALITY) if x)
-    log(f"prefix: {prefix} | reference: {reference['prompt'][:120]}")
-
     supervisor_on = os.environ.get("SUPERVISOR_ENABLED", "1").strip().lower() not in (
         "0", "false", "no")
     approved, generated_count = [], 0
+    # No static-formula fallback: every batch's model and prompt must come from a real
+    # CivitAI search, not a hand-written scene/style list. If CivitAI can't be reached
+    # at all, decide_reference() raises and the run fails loudly here, rather than
+    # silently shipping generic images.
+    resolved, reference = decide_reference(niche)
+
     for round_num in range(1, max_rounds + 1):
+        civitai_spec = f"{resolved['model_id']}:{resolved['version_id']}"
+        prefix = _build_prefix(niche, reference)
+        base_negative = ", ".join(
+            x for x in (NEGATIVE_HARD, reference["negative_prompt"], NEGATIVE_QUALITY) if x)
+        log(f"round {round_num}: {resolved['name']!r} | prefix: {prefix} | "
+            f"reference: {reference['prompt'][:120]}")
+
         prompts, negatives = build_variations(
             prefix, reference["prompt"], base_negative, count, niche)
-        generated = sdgen.generate_batch(
-            prompts, workdir / f"round{round_num}", model_key=niche.get("sd_model"),
-            negative_prompts=negatives, civitai_model=civitai_spec)
+        try:
+            # civitai_model always wins over model_key in sdgen (see its docstring),
+            # and every batch now always has one -- no model_key to pass here at all.
+            generated = sdgen.generate_batch(
+                prompts, workdir / f"round{round_num}",
+                negative_prompts=negatives, civitai_model=civitai_spec)
+        except RuntimeError as e:
+            generated = []
+            log(f"round {round_num}: checkpoint unusable ({str(e)[:150]})")
+
         generated_count += len(generated)
         newly_approved = supervisor.filter_images(generated) if supervisor_on else generated
         if not supervisor_on:
@@ -263,6 +289,9 @@ def generate(niche, count=None, workdir=None, max_rounds=2):
             f"{len(approved)}/{min_images} needed")
         if len(approved) >= min_images:
             break
+        if not generated and round_num < max_rounds:
+            log("nothing generated this round; re-deciding a fresh checkpoint+prompt")
+            resolved, reference = decide_reference(niche)
 
     if len(approved) < min_images:
         raise RuntimeError(

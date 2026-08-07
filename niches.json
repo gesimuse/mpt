@@ -9,7 +9,6 @@
       "max_images": 5,
       "min_images": 3,
       "videos_per_run": 1,
-      "sd_model": "dreamshaper",
       "hashtags": "#aiart #aigenerated #aiphotography #confident",
       "ai_disclosure": "Created with AI.",
       "captions": [
@@ -27,7 +26,12 @@
         "wearing a satin slip dress with thin straps",
         "wearing a high-cut one-piece swimsuit, poolside",
         "wearing a lace-trim camisole and matching shorts, loungewear at home",
-        "wearing straight-leg jeans and a fitted white shirt"
+        "wearing straight-leg jeans and a fitted white shirt",
+        "wearing a wet white t-shirt clinging to her figure, poolside",
+        "wearing a tight, clingy bodycon dress that hugs every curve",
+        "wearing a sheer, see-through lace dress over a bikini",
+        "wearing a soaking wet, transparent tank top and denim shorts",
+        "wearing a skin-tight, wet swimsuit fresh out of the pool"
       ],
       "civitai_queries": [
         "portrait woman fashion photography editorial",
