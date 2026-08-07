@@ -536,11 +536,13 @@ class RefineTest(unittest.TestCase):
         # raise or abort the loop.
         self.assertEqual(result.getpixel((120, 170)), (0, 255, 0))
 
-    def test_both_detected_hands_get_refined_not_just_the_top_one(self):
-        """A selfie holding a phone, hands on hips, etc. commonly show both hands at
-        once -- refining only the single highest-confidence detection left the other
-        one untouched even when it was also detected. Two separate, non-overlapping
-        boxes here; both must show the refined color afterward."""
+    def test_both_detected_hands_get_refined_when_the_cap_allows_it(self):
+        """The mechanism supports refining more than one region per kind (a selfie
+        holding a phone, hands on hips, etc. commonly show both hands at once) --
+        MAX_REGIONS_PER_KIND itself defaults to 1 for CI time-budget reasons (a real
+        GH Actions run got killed by the workflow timeout with it at 2), not because
+        the capability is gone. Explicitly opts into 2 here to prove the mechanism
+        still works when configured that way."""
         from PIL import Image
         image = Image.new("RGB", (300, 400), color=(10, 10, 10))
 
@@ -553,6 +555,7 @@ class RefineTest(unittest.TestCase):
         inpaint_pipe = mock.Mock(side_effect=fake_inpaint)
         boxes = [([20, 20, 60, 60], 0.9), ([200, 300, 240, 340], 0.8)]
         with mock.patch.object(refine, "REFINE_ENABLED", True), \
+             mock.patch.object(refine, "MAX_REGIONS_PER_KIND", 2), \
              mock.patch.object(refine, "_detect_boxes", lambda img, kind: boxes), \
              mock.patch.object(refine, "_inpaint_pipe_for", lambda pipe: inpaint_pipe):
             result = refine.refine(image, mock.Mock(), "p", "n", steps=6, guidance=1.8,

@@ -26,15 +26,17 @@ concurrency:
 jobs:
   run:
     runs-on: ubuntu-latest
-    # 1 batch (videos_per_run) x up to 2 rounds x images_per_video generations,
-    # ~130s/image on a CPU runner -- worst case ~45min, plus dep install/model
-    # download overhead. 90min leaves a comfortable margin without being excessive
-    # now that each of the 5 daily runs only generates one draft, not five.
-    # refine.py's face/hand touch-up (per image, after the base render) inpaints a
-    # small cropped canvas (INPAINT_SIZE=384) rather than the full frame specifically
-    # to keep this margin intact -- roughly a fifth of one base image's cost per
-    # image, not another full generation.
-    timeout-minutes: 90
+    # 1 batch (videos_per_run) x up to 2 rounds x images_per_video generations.
+    # A real run measured ~200-245s/image on the actual GH Actions CPU runner
+    # (base render + refine.py's face/hand touch-up + upscale.py's 2x pass, all
+    # included in that number -- real-world, not the older ~130s base-only
+    # estimate this comment used to cite). Worst case 2 rounds x 10 images x
+    # ~245s = ~82min just for generation, before dep install/model download/QA
+    # API calls -- a real run got killed by a 90min timeout mid-round-2 as a
+    # direct result. 150min gives that actual number real headroom; refine.py's
+    # MAX_REGIONS_PER_KIND was also dropped from 2 to 1 for the same reason (see
+    # refine.py) -- both changes address the same incident, not either alone.
+    timeout-minutes: 150
     permissions:
       contents: write   # allows the workflow to commit posted.json back
     steps:
