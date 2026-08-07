@@ -19,6 +19,7 @@ import autopilot  # noqa: E402
 import civitai  # noqa: E402
 import imageslides  # noqa: E402
 import push_draft  # noqa: E402
+import refine  # noqa: E402
 import sdgen  # noqa: E402
 import supervisor  # noqa: E402
 import tiktok  # noqa: E402
@@ -257,6 +258,16 @@ class FakePipe:
 
 
 class SdgenTest(unittest.TestCase):
+    def setUp(self):
+        # generate_image() now runs refine.refine() on every image (ADetailer-style
+        # face/hand touch-up) -- real refine.refine() downloads a YOLO model and needs
+        # a real diffusers pipe, neither of which FakePipe provides. Identity stub
+        # keeps these tests hermetic; refine.py's own behaviour is covered separately
+        # in RefineTest below.
+        patcher = mock.patch.object(refine, "refine", lambda image, pipe, *a, **kw: image)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def test_every_preset_has_a_repo_id(self):
         for key, (repo, lora, name) in sdgen.MODELS.items():
             self.assertTrue(repo, key)
@@ -343,6 +354,149 @@ class SdgenTest(unittest.TestCase):
     # test here -- a synthetic tiny CLIP fixture (tried: hf-internal-testing/tiny-
     # random-clip) pairs a full-size tokenizer with a truncated embedding table and
     # throws IndexError on realistic input, which tests the fixture, not _encode.
+
+    def test_refine_is_called_with_the_actual_generation_settings(self):
+        """refine.refine() must see the same steps/guidance/prompt actually used for
+        the base image, not module defaults -- otherwise an adopted checkpoint setting
+        (imageslides._adopted_settings) would apply to the base render but not the
+        touch-up pass."""
+        fake = FakePipe()
+        seen = {}
+
+        def spy_refine(image, pipe, prompt, negative_prompt, steps, guidance, **kw):
+            seen.update(prompt=prompt, negative_prompt=negative_prompt,
+                       steps=steps, guidance=guidance, pipe=pipe)
+            return image
+
+        with mock.patch.object(sdgen, "_load", lambda key: fake), \
+             mock.patch.dict(os.environ, {"CIVITAI_MODEL": ""}), \
+             mock.patch.object(sdgen, "CIVITAI_MODEL", ""), \
+             mock.patch.dict(sdgen._pipe_arch, {"dreamshaper": "sd15"}), \
+             mock.patch.object(sdgen, "_encode", self._passthrough_encode), \
+             mock.patch.object(refine, "refine", spy_refine), \
+             tempfile.TemporaryDirectory() as tmp:
+            sdgen.generate_image("a prompt", Path(tmp) / "out.png", model_key="dreamshaper",
+                                 negative_prompt="extra negative", steps=10, guidance=1.0)
+        self.assertEqual(seen["steps"], 10)
+        self.assertEqual(seen["guidance"], 1.0)
+        self.assertEqual(seen["prompt"], "a prompt")
+        self.assertIn("extra negative", seen["negative_prompt"])
+        self.assertIs(seen["pipe"], fake)
+
+
+class RefineTest(unittest.TestCase):
+    """refine.py's own logic: the crop/pad/feather math (pure, no model needed) and
+    the detect -> inpaint -> paste-back flow with the detector and inpaint pipe
+    mocked out -- real YOLO/diffusers calls are covered by the live verification in
+    this session's history (crop-based inpaint on a real generated image, both face
+    and hand regions, confirmed a genuine visible improvement with no seam), not
+    re-run here since that needs real model weights and a GPU/CPU-minutes budget a
+    unit test shouldn't spend."""
+
+    def test_crop_box_pads_and_clamps_to_image_bounds(self):
+        # A box already touching the left/top edge must not pad past 0.
+        x0, y0, x1, y1 = refine._crop_box((200, 300), [0, 0, 40, 60])
+        self.assertEqual((x0, y0), (0, 0))
+        self.assertLessEqual(x1, 200)
+        self.assertLessEqual(y1, 300)
+
+    def test_crop_box_pads_a_centered_box_on_every_side(self):
+        x0, y0, x1, y1 = refine._crop_box((1000, 1000), [400, 400, 500, 500])
+        # 30% padding of a 100px box = 30px each side.
+        self.assertEqual((x0, y0, x1, y1), (370, 370, 530, 530))
+
+    def test_crop_box_never_returns_a_degenerate_region(self):
+        x0, y0, x1, y1 = refine._crop_box((100, 100), [50, 50, 50, 50])
+        self.assertGreater(x1 - x0, 0)
+        self.assertGreater(y1 - y0, 0)
+
+    def test_feathered_mask_is_bright_in_the_center_and_dim_at_the_edge(self):
+        from PIL import Image
+        mask = refine._feathered_mask((100, 100))
+        self.assertIsInstance(mask, Image.Image)
+        self.assertGreater(mask.getpixel((50, 50)), 200)
+        self.assertLess(mask.getpixel((0, 0)), 50)
+
+    def test_disabled_returns_the_original_image_untouched(self):
+        from PIL import Image
+        image = Image.new("RGB", (64, 64))
+        with mock.patch.object(refine, "REFINE_ENABLED", False):
+            result = refine.refine(image, mock.Mock(), "p", "n", steps=6, guidance=1.8)
+        self.assertIs(result, image)
+
+    def test_no_detection_returns_the_original_image_untouched(self):
+        from PIL import Image
+        image = Image.new("RGB", (64, 64))
+        with mock.patch.object(refine, "REFINE_ENABLED", True), \
+             mock.patch.object(refine, "_detect_boxes", lambda img, kind: []):
+            result = refine.refine(image, mock.Mock(), "p", "n", steps=6, guidance=1.8)
+        self.assertIs(result, image)
+
+    def test_detection_failure_falls_back_to_the_original_image(self):
+        """Never raises -- a broken detector must not lose an otherwise-good
+        generation over a post-process step."""
+        from PIL import Image
+        image = Image.new("RGB", (64, 64))
+
+        def boom(img, kind):
+            raise RuntimeError("model download failed")
+
+        with mock.patch.object(refine, "REFINE_ENABLED", True), \
+             mock.patch.object(refine, "_detect_boxes", boom):
+            result = refine.refine(image, mock.Mock(), "p", "n", steps=6, guidance=1.8)
+        self.assertIs(result, image)
+
+    def test_a_detected_region_is_inpainted_and_pasted_back_at_full_resolution(self):
+        from PIL import Image
+        image = Image.new("RGB", (300, 400), color=(10, 10, 10))
+        pipe = mock.Mock()
+
+        def fake_inpaint(**kw):
+            result = mock.Mock()
+            # A distinct color so the paste-back is verifiable below.
+            result.images = [Image.new("RGB", (refine.INPAINT_SIZE, refine.INPAINT_SIZE),
+                                       color=(255, 0, 0))]
+            return result
+
+        inpaint_pipe = mock.Mock(side_effect=fake_inpaint)
+        with mock.patch.object(refine, "REFINE_ENABLED", True), \
+             mock.patch.object(refine, "_detect_boxes",
+                               lambda img, kind: [([100, 150, 140, 190], 0.9)]), \
+             mock.patch.object(refine, "_inpaint_pipe_for", lambda pipe: inpaint_pipe):
+            result = refine.refine(image, pipe, "p", "n", steps=6, guidance=1.8, kinds=("face",))
+        self.assertEqual(result.size, image.size)
+        # Center of the padded box must now show the inpainted color, not the original.
+        self.assertEqual(result.getpixel((120, 170)), (255, 0, 0))
+        # Far corner, outside the refined region, must be untouched.
+        self.assertEqual(result.getpixel((5, 5)), (10, 10, 10))
+
+    def test_inpaint_failure_for_one_kind_does_not_block_the_others(self):
+        from PIL import Image
+        image = Image.new("RGB", (300, 400), color=(10, 10, 10))
+
+        def fake_inpaint(**kw):
+            result = mock.Mock()
+            result.images = [Image.new("RGB", (refine.INPAINT_SIZE, refine.INPAINT_SIZE),
+                                       color=(0, 255, 0))]
+            return result
+
+        call_count = {"n": 0}
+
+        def flaky_pipe(**kw):
+            call_count["n"] += 1
+            if call_count["n"] == 1:
+                raise RuntimeError("first pass fails")
+            return fake_inpaint(**kw)
+
+        with mock.patch.object(refine, "REFINE_ENABLED", True), \
+             mock.patch.object(refine, "_detect_boxes",
+                               lambda img, kind: [([100, 150, 140, 190], 0.9)]), \
+             mock.patch.object(refine, "_inpaint_pipe_for", lambda pipe: flaky_pipe):
+            result = refine.refine(image, mock.Mock(), "p", "n", steps=6, guidance=1.8,
+                                   kinds=("face", "hand"))
+        # Second kind's inpaint succeeded and is visible; first kind's failure didn't
+        # raise or abort the loop.
+        self.assertEqual(result.getpixel((120, 170)), (0, 255, 0))
 
 
 class CivitaiPromptCleanupTest(unittest.TestCase):

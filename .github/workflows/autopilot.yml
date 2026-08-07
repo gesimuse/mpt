@@ -30,6 +30,10 @@ jobs:
     # ~130s/image on a CPU runner -- worst case ~45min, plus dep install/model
     # download overhead. 90min leaves a comfortable margin without being excessive
     # now that each of the 5 daily runs only generates one draft, not five.
+    # refine.py's face/hand touch-up (per image, after the base render) inpaints a
+    # small cropped canvas (INPAINT_SIZE=384) rather than the full frame specifically
+    # to keep this margin intact -- roughly a fifth of one base image's cost per
+    # image, not another full generation.
     timeout-minutes: 90
     permissions:
       contents: write   # allows the workflow to commit posted.json back
@@ -49,6 +53,9 @@ jobs:
           pip install requests
           pip install --index-url https://download.pytorch.org/whl/cpu torch
           pip install diffusers transformers accelerate safetensors peft compel
+          # Face/hand detection for refine.py's ADetailer-style touch-up pass.
+          # ultralytics pulls opencv-python-headless + a few other deps of its own.
+          pip install ultralytics
 
       - name: Run autopilot
         env:

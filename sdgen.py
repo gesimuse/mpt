@@ -23,6 +23,7 @@ import os, random, time
 from pathlib import Path
 
 import civitai
+import refine
 
 # Built-in presets, kept as a no-setup-required fallback. The primary path is
 # CIVITAI_MODEL / a niche's "civitai_model" -- see load_civitai below -- which downloads
@@ -199,6 +200,13 @@ def generate_image(prompt, dest, model_key=None, negative_prompt="", seed=None,
         width=width or WIDTH, height=height or HEIGHT, generator=generator,
         **encode_kwargs,
     ).images[0]
+    # ADetailer-style pass: LCM's 4-8 steps leave no room for the model to fix its
+    # own face/hand mistakes the way a normal 25-50 step run would, so re-render just
+    # those regions at higher fidelity via the same already-loaded pipe. Cheap to
+    # skip on failure -- refine() never raises, falls back to the un-refined image.
+    image = refine.refine(image, pipe, prompt, neg,
+                          steps=steps or STEPS, guidance=guidance if guidance is not None else GUIDANCE,
+                          kinds=("face", "hand"))
     dest = Path(dest)
     dest.parent.mkdir(parents=True, exist_ok=True)
     # JPEG, not PNG -- a live check found TikTok's Content Posting API rejecting
