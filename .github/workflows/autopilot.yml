@@ -1,12 +1,16 @@
 name: MPT Autopilot (aibeauty)
 on:
   schedule:
-    # Once a day, videos_per_run: 5 in niches.json -- TikTok's Content Posting API
-    # caps at 5 pending (unposted) drafts per rolling 24h before
-    # spam_risk_too_many_pending_share starts rejecting new ones (confirmed against
-    # TikTok's own docs). One run hitting the cap exactly, once a day, is simpler to
-    # reason about than splitting it across multiple triggers.
+    # 5 runs/day, videos_per_run: 1 in niches.json -- one draft per run, spread across
+    # the day rather than bursting all 5 at once. Matches TikTok's own documented cap
+    # of 5 pending (unposted) drafts per rolling 24h (spam_risk_too_many_pending_share
+    # past that); autopilot.py's own pending-drafts check (_pending_drafts_last_24h)
+    # skips or clamps a run if manual pushes have already eaten into that cap.
+    - cron: "0 2 * * *"
     - cron: "0 7 * * *"
+    - cron: "0 12 * * *"
+    - cron: "0 17 * * *"
+    - cron: "0 22 * * *"
   workflow_dispatch:
     inputs:
       niches:
@@ -21,10 +25,11 @@ concurrency:
 jobs:
   run:
     runs-on: ubuntu-latest
-    # 5 batches (videos_per_run) x up to 2 rounds x images_per_video generations,
-    # ~130s/image on a CPU runner -- worst case is a real ~3.5h, not a rare edge case
-    # once every batch is capped at min_images=3 rather than always finishing round 1.
-    timeout-minutes: 300
+    # 1 batch (videos_per_run) x up to 2 rounds x images_per_video generations,
+    # ~130s/image on a CPU runner -- worst case ~45min, plus dep install/model
+    # download overhead. 90min leaves a comfortable margin without being excessive
+    # now that each of the 5 daily runs only generates one draft, not five.
+    timeout-minutes: 90
     permissions:
       contents: write   # allows the workflow to commit posted.json back
     steps:

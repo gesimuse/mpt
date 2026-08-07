@@ -40,7 +40,7 @@ def push_draft(folder, niche_id=None):
     caption = caption_file.read_text().strip() if caption_file.exists() else ""
 
     print(f"Pushing {len(images)} images from {folder} as an inbox draft for {niche_id!r}...")
-    publish_id = tiktok.publish_photos_draft([str(p) for p in images], niche_id)
+    publish_id = tiktok.publish_photos_draft([str(p) for p in images], niche_id, caption=caption)
     if publish_id is None:
         raise RuntimeError(
             f"no TikTok credentials configured for {niche_id!r} "
@@ -56,8 +56,9 @@ def push_draft(folder, niche_id=None):
     })
     autopilot.save_state(state)
     autopilot.write_pending_captions(state)
-    print(f"Queued as draft, publish_id={publish_id}. Caption saved to CAPTIONS.md -- "
-          "open the TikTok app, add sound, paste the caption, and post.")
+    print(f"Queued as draft, publish_id={publish_id}. Caption pre-filled on the draft "
+          "(also saved to CAPTIONS.md as a fallback) -- open the TikTok app, add sound, "
+          "and post.")
     return publish_id
 
 

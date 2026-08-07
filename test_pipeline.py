@@ -1028,7 +1028,7 @@ class RunNicheTest(unittest.TestCase):
              mock.patch.object(tiktok, "enabled", lambda niche_id: True), \
              mock.patch.object(imageslides, "generate", lambda n, state=None: fake_images), \
              mock.patch.object(tiktok, "publish_photos_draft",
-                               lambda imgs, niche_id, image_urls=None: "publish1"), \
+                               lambda imgs, niche_id, image_urls=None, caption=None, title=None: "publish1"), \
              mock.patch.object(autopilot.os, "remove", lambda p: None), \
              mock.patch.object(autopilot, "save_state", lambda s: None), \
              tempfile.TemporaryDirectory() as tmp:
@@ -1100,7 +1100,7 @@ class RunNicheTest(unittest.TestCase):
              mock.patch.object(tiktok, "enabled", lambda niche_id: True), \
              mock.patch.object(imageslides, "generate", fake_generate), \
              mock.patch.object(tiktok, "publish_photos_draft",
-                               lambda imgs, niche_id, image_urls=None: "p1"), \
+                               lambda imgs, niche_id, image_urls=None, caption=None, title=None: "p1"), \
              mock.patch.object(autopilot.os, "remove", lambda p: None), \
              mock.patch.object(autopilot, "save_state", lambda s: None):
             autopilot.run_niche({**self.AIBEAUTY, "videos_per_run": 5}, state)
@@ -1317,6 +1317,43 @@ class TikTokPublishDraftTest(unittest.TestCase):
         self.assertEqual(captured["json"]["post_mode"], "MEDIA_UPLOAD")
         self.assertEqual(captured["json"]["source_info"]["source"], "PULL_FROM_URL")
         self.assertEqual(captured["json"]["source_info"]["photo_images"], ["u1", "u2", "u3"])
+        self.assertNotIn("post_info", captured["json"], "no caption given, no post_info sent")
+
+    def test_caption_prefills_post_info(self):
+        """MEDIA_UPLOAD now accepts post_info same as DIRECT_POST -- checked live
+        against TikTok's current docs, since this module's original design predated
+        that and assumed no caption could be attached to a draft at all."""
+        captured = {}
+
+        def fake_post(url, headers=None, json=None, data=None, timeout=None):
+            if "oauth/token" in url:
+                return mock.Mock(ok=True, raise_for_status=lambda: None,
+                                 json=lambda: {"access_token": "acc"})
+            captured["json"] = json
+            return mock.Mock(ok=True, json=lambda: {"data": {"publish_id": "p1"}})
+
+        long_caption = "My hook line\n\n" + ("x" * 4100)
+        with self._env(), mock.patch.object(tiktok.requests, "post", fake_post):
+            tiktok.publish_photos_draft(None, "aibeauty", image_urls=["u1", "u2"],
+                                        caption=long_caption)
+        self.assertEqual(captured["json"]["post_info"]["title"], "My hook line")
+        self.assertEqual(len(captured["json"]["post_info"]["description"]), 4000)
+        self.assertTrue(long_caption.startswith(captured["json"]["post_info"]["description"]))
+
+    def test_explicit_title_overrides_captions_first_line(self):
+        captured = {}
+
+        def fake_post(url, headers=None, json=None, data=None, timeout=None):
+            if "oauth/token" in url:
+                return mock.Mock(ok=True, raise_for_status=lambda: None,
+                                 json=lambda: {"access_token": "acc"})
+            captured["json"] = json
+            return mock.Mock(ok=True, json=lambda: {"data": {"publish_id": "p1"}})
+
+        with self._env(), mock.patch.object(tiktok.requests, "post", fake_post):
+            tiktok.publish_photos_draft(None, "aibeauty", image_urls=["u1", "u2"],
+                                        caption="first line caption", title="custom title")
+        self.assertEqual(captured["json"]["post_info"]["title"], "custom title")
 
     def test_api_failure_raises_with_response_body(self):
         def fake_post(url, headers=None, json=None, data=None, timeout=None):
@@ -1353,7 +1390,7 @@ class PushDraftTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             folder = self._make_batch(tmp)
             with mock.patch.object(tiktok, "publish_photos_draft",
-                                   lambda imgs, niche_id: "p1"), \
+                                   lambda imgs, niche_id, caption=None: "p1"), \
                  mock.patch.object(autopilot, "ROOT", Path(tmp)), \
                  mock.patch.object(autopilot, "STATE_FILE", Path(tmp) / "posted.json"):
                 publish_id = push_draft.push_draft(folder)
@@ -1367,7 +1404,7 @@ class PushDraftTest(unittest.TestCase):
             folder = self._make_batch(tmp)
             captured = {}
 
-            def fake_publish(imgs, niche_id):
+            def fake_publish(imgs, niche_id, caption=None):
                 captured["niche"] = niche_id
                 return "p1"
 
@@ -1387,7 +1424,7 @@ class PushDraftTest(unittest.TestCase):
     def test_missing_credentials_raises(self):
         with tempfile.TemporaryDirectory() as tmp:
             folder = self._make_batch(tmp)
-            with mock.patch.object(tiktok, "publish_photos_draft", lambda imgs, niche_id: None):
+            with mock.patch.object(tiktok, "publish_photos_draft", lambda imgs, niche_id, caption=None: None):
                 with self.assertRaises(RuntimeError) as ctx:
                     push_draft.push_draft(folder)
         self.assertIn("no TikTok credentials", str(ctx.exception))

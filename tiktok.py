@@ -1,12 +1,15 @@
 """Post an aibeauty carousel as a native TikTok inbox draft -- no Buffer involved.
 
 TikTok's Content Posting API, in MEDIA_UPLOAD mode, drops the carousel into the
-account's own TikTok app inbox as an unpublished draft: no caption, no sound -- the
-account owner opens the app, adds trending audio and a caption, then posts it by hand.
-This is the deliberate tradeoff of an unaudited app: TikTok only grants
-video.upload/video.publish without a review, direct posting is SELF_ONLY-only even
-with that scope, and the inbox draft is the one path that ends in a real public post
-without waiting on an app audit.
+account's own TikTok app inbox as an unpublished draft: no sound, but the caption
+IS pre-filled (checked live against TikTok's current docs -- MEDIA_UPLOAD now accepts
+post_info the same as DIRECT_POST, which this module's original design predated and
+assumed it didn't). The account owner opens the app, adds trending audio, and posts
+by hand -- that's the one manual step left, not the caption too. This is the
+deliberate tradeoff of an unaudited app: TikTok only grants video.upload/video.publish
+without a review, direct posting is SELF_ONLY-only even with that scope, and the
+inbox draft is the one path that ends in a real public post without waiting on an
+app audit.
 
 Photos only accept PULL_FROM_URL as their source, not FILE_UPLOAD (raw-byte upload,
 the way video posting works) -- this is a real TikTok API constraint, not a choice
@@ -17,10 +20,13 @@ developers.tiktok.com -> Content Posting API -> URL properties -- a one-time man
 step; without it, every call here fails with a domain-verification error TikTok's own
 API returns, not something this code can detect in advance.
 
-This has not been verified against a real TikTok account yet -- unlike the rest of
-this pipeline, which was live-tested before being trusted. Treat the first real run as
-a test: check that the draft actually lands in the aibeauty account's inbox before
-relying on this unattended.
+Verified live end to end against the real aibeauty account: status/fetch on a real
+publish_id returned SEND_TO_USER_INBOX, not just a 200 from the init call (which only
+means the job was accepted, not that it succeeded -- two real failures,
+photo_pull_failed and file_format_check_failed, both only showed up at that later,
+async stage). Two things that broke it before this passed: GitHub Pages build/deploy
+latency racing TikTok's fetch (fixed by _wait_until_live below), and TikTok's photo
+endpoint rejecting PNG (fixed in sdgen.py -- JPEG only, see its own comment).
 
 Images are hosted on GitHub Pages (the repo's gh-pages branch, media/ folder), not
 GitHub Releases -- a live check found release-asset download URLs 302-redirect to a
@@ -159,9 +165,16 @@ def _access_token(ck, cs, refresh):
 
 
 # ---------- publishing ----------
-def publish_photos_draft(image_paths, niche_id, image_urls=None):
+def publish_photos_draft(image_paths, niche_id, image_urls=None, caption=None, title=None):
     """Queue a photo carousel as a TikTok inbox draft. Returns the publish_id, or None
-    if this niche has no TikTok credentials configured."""
+    if this niche has no TikTok credentials configured.
+
+    caption/title pre-fill the draft's description/title -- TikTok's docs (checked
+    live, since this module's original design predated it) confirm MEDIA_UPLOAD now
+    accepts post_info same as DIRECT_POST: "it will be reflected in the editing flow
+    once user clicks on the inbox notification." title caps at 90 UTF-16 runes,
+    description at 4000; title defaults to caption's first line when not given
+    explicitly, matching the cap already used elsewhere for the same purpose."""
     ck = os.environ.get("TIKTOK_CLIENT_KEY")
     cs = os.environ.get("TIKTOK_CLIENT_SECRET")
     refresh = os.environ.get(f"TIKTOK_REFRESH_TOKEN_{niche_id.upper()}")
@@ -171,23 +184,29 @@ def publish_photos_draft(image_paths, niche_id, image_urls=None):
     if len(urls) < 2:
         raise RuntimeError(f"a TikTok carousel needs at least 2 images, got {len(urls)}")
 
+    body = {
+        "source_info": {
+            "source": "PULL_FROM_URL",
+            "photo_cover_index": 0,
+            "photo_images": urls,
+        },
+        "post_mode": "MEDIA_UPLOAD",
+        "media_type": "PHOTO",
+    }
+    if caption:
+        post_title = title or caption.splitlines()[0]
+        body["post_info"] = {"title": post_title[:90], "description": caption[:4000]}
+
     access = _access_token(ck, cs, refresh)
     r = requests.post(
         "https://open.tiktokapis.com/v2/post/publish/content/init/",
         headers={"Authorization": f"Bearer {access}", "Content-Type": "application/json; charset=UTF-8"},
-        json={
-            "source_info": {
-                "source": "PULL_FROM_URL",
-                "photo_cover_index": 0,
-                "photo_images": urls,
-            },
-            "post_mode": "MEDIA_UPLOAD",
-            "media_type": "PHOTO",
-        },
+        json=body,
         timeout=60,
     )
     if not r.ok:
         raise RuntimeError(f"TikTok photo draft init failed: {r.status_code} {r.text[:300]}")
     d = r.json()["data"]
-    log(f"queued to inbox as draft, publish_id={d['publish_id']}")
+    log(f"queued to inbox as draft, publish_id={d['publish_id']}"
+        + (" (with caption)" if caption else ""))
     return d["publish_id"]

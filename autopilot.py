@@ -120,7 +120,8 @@ def run_niche(niche, state):
         stamp = time.strftime("%Y%m%d-%H%M%S")
         images = imageslides.generate(niche, state=state)
         caption = imageslides.image_caption(niche)
-        log(f"[{niche['id']}] caption (paste by hand when finishing the draft):\n{caption}")
+        log(f"[{niche['id']}] caption (pre-filled on the draft; also saved to "
+            f"CAPTIONS.md as a fallback):\n{caption}")
 
         if DRY_RUN:
             dest_dir = OUT_DIR / f"{niche['id']}-{stamp}"
@@ -132,7 +133,7 @@ def run_niche(niche, state):
             used.append(f"{niche['id']}-{stamp}")
             continue
 
-        publish_id = tiktok.publish_photos_draft(images, niche["id"])
+        publish_id = tiktok.publish_photos_draft(images, niche["id"], caption=caption)
         used.append(f"{niche['id']}-{stamp}")
         state["uploads"].append({
             "niche": niche["id"], "topic": f"image slideshow {stamp}",
