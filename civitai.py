@@ -368,6 +368,12 @@ _REAL_PERSON_RE = re.compile(
 _MIN_PROMPT_AGE = 25
 _MAX_PROMPT_AGE = 35
 _AGE_RE = re.compile(r"\b(\d{1,2})\s*[-\s]?(?:y\.?o\.?|years?[-\s]old|yo)\b", re.I)
+# Operator preference: exclude Chinese-appearance prompts specifically (not a wider
+# "Asian" exclusion, which was not asked for) -- reject at the source the same way
+# celebrity likeness and explicit terms already are, since a harvested showcase
+# prompt naming an ethnicity is a strong, literal signal a negative_prompt term
+# alone would not reliably override.
+_ETHNICITY_EXCLUDE_RE = re.compile(r"\bchinese\b", re.I)
 # Automatic1111/ComfyUI control syntax embedded in the prompt text: <lora:name:weight>,
 # <hypernet:...>, <embedding:...>. diffusers does not parse this convention, so it
 # passes straight to the CLIP tokenizer as literal junk tokens -- angle brackets, colons
@@ -385,7 +391,7 @@ def _clean_prompt_text(text):
 def _usable(meta, stats=None):
     prompt = _clean_prompt_text(meta.get("prompt") or "")
     if not prompt or _BAD_PROMPT.search(prompt) or _REAL_PERSON_RE.search(prompt) \
-       or _EXPLICIT_RE.search(prompt):
+       or _EXPLICIT_RE.search(prompt) or _ETHNICITY_EXCLUDE_RE.search(prompt):
         return None
     ages = [int(m) for m in _AGE_RE.findall(prompt)]
     if any(age < _MIN_PROMPT_AGE or age > _MAX_PROMPT_AGE for age in ages):

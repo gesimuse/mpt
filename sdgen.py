@@ -24,6 +24,7 @@ from pathlib import Path
 
 import civitai
 import refine
+import upscale
 
 # Built-in presets, kept as a no-setup-required fallback. The primary path is
 # CIVITAI_MODEL / a niche's "civitai_model" -- see load_civitai below -- which downloads
@@ -57,7 +58,7 @@ GUIDANCE = float(os.environ.get("SD_GUIDANCE", "1.8"))
 
 NEGATIVE_HARD = ("child, teen, minor, young girl, schoolgirl, loli, nude, topless, "
                  "exposed nipples, exposed genitals, explicit, nsfw, "
-                 "celebrity likeness, real person")
+                 "celebrity likeness, real person, chinese, chinese woman")
 NEGATIVE_QUALITY = ("cartoon, illustration, painting, anime, 3d render, deformed, "
                     "extra fingers, extra limbs, mutated hands, bad anatomy, blurry, "
                     "watermark, text, logo")
@@ -207,6 +208,10 @@ def generate_image(prompt, dest, model_key=None, negative_prompt="", seed=None,
     image = refine.refine(image, pipe, prompt, neg,
                           steps=steps or STEPS, guidance=guidance if guidance is not None else GUIDANCE,
                           kinds=("face", "hand"))
+    # Sharper/higher-res final image than the base render alone -- TikTok favors
+    # higher resolution photo posts. Runs last, after refine's touch-up, so the
+    # upscale sees the best version of the image, not the pre-touch-up one.
+    image = upscale.upscale(image)
     dest = Path(dest)
     dest.parent.mkdir(parents=True, exist_ok=True)
     # JPEG, not PNG -- a live check found TikTok's Content Posting API rejecting

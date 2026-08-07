@@ -23,6 +23,7 @@ import refine  # noqa: E402
 import sdgen  # noqa: E402
 import supervisor  # noqa: E402
 import tiktok  # noqa: E402
+import upscale  # noqa: E402
 
 NICHE = {"id": "aibeauty", "content_type": "images", "hashtags": "#aiart",
         "ai_disclosure": "Created with AI. Not a real person.", "captions": ["Soft light."]}
@@ -259,14 +260,17 @@ class FakePipe:
 
 class SdgenTest(unittest.TestCase):
     def setUp(self):
-        # generate_image() now runs refine.refine() on every image (ADetailer-style
-        # face/hand touch-up) -- real refine.refine() downloads a YOLO model and needs
-        # a real diffusers pipe, neither of which FakePipe provides. Identity stub
-        # keeps these tests hermetic; refine.py's own behaviour is covered separately
-        # in RefineTest below.
-        patcher = mock.patch.object(refine, "refine", lambda image, pipe, *a, **kw: image)
-        patcher.start()
-        self.addCleanup(patcher.stop)
+        # generate_image() now runs refine.refine() and upscale.upscale() on every
+        # image -- both download real models and expect a real PIL image / diffusers
+        # pipe, neither of which FakePipe's Mock().images[0] provides. Identity stubs
+        # keep these tests hermetic; refine.py/upscale.py's own behaviour is covered
+        # separately in RefineTest/UpscaleTest below.
+        refine_patcher = mock.patch.object(refine, "refine", lambda image, pipe, *a, **kw: image)
+        upscale_patcher = mock.patch.object(upscale, "upscale", lambda image, *a, **kw: image)
+        refine_patcher.start()
+        upscale_patcher.start()
+        self.addCleanup(refine_patcher.stop)
+        self.addCleanup(upscale_patcher.stop)
 
     def test_every_preset_has_a_repo_id(self):
         for key, (repo, lora, name) in sdgen.MODELS.items():
@@ -382,6 +386,31 @@ class SdgenTest(unittest.TestCase):
         self.assertEqual(seen["prompt"], "a prompt")
         self.assertIn("extra negative", seen["negative_prompt"])
         self.assertIs(seen["pipe"], fake)
+
+    def test_upscale_runs_on_the_refined_image_before_saving(self):
+        """upscale.upscale() must run on refine.refine()'s output, not the raw base
+        render -- it's the last quality step before the file hits disk."""
+        fake = FakePipe()
+        marker = mock.Mock()
+        marker.convert.return_value.save = lambda dest, *a, **k: Path(dest).write_bytes(b"fake")
+        seen = {}
+
+        def spy_upscale(image, *a, **kw):
+            seen["image"] = image
+            return marker
+
+        with mock.patch.object(sdgen, "_load", lambda key: fake), \
+             mock.patch.dict(os.environ, {"CIVITAI_MODEL": ""}), \
+             mock.patch.object(sdgen, "CIVITAI_MODEL", ""), \
+             mock.patch.dict(sdgen._pipe_arch, {"dreamshaper": "sd15"}), \
+             mock.patch.object(sdgen, "_encode", self._passthrough_encode), \
+             mock.patch.object(refine, "refine", lambda image, pipe, *a, **kw: image), \
+             mock.patch.object(upscale, "upscale", spy_upscale), \
+             tempfile.TemporaryDirectory() as tmp:
+            sdgen.generate_image("a prompt", Path(tmp) / "out.png", model_key="dreamshaper")
+        # upscale.upscale()'s return value (marker), not its input, must be what
+        # actually gets saved to disk.
+        marker.convert.assert_called_once_with("RGB")
 
 
 class RefineTest(unittest.TestCase):
@@ -499,6 +528,45 @@ class RefineTest(unittest.TestCase):
         self.assertEqual(result.getpixel((120, 170)), (0, 255, 0))
 
 
+class UpscaleTest(unittest.TestCase):
+    """upscale.py's own logic, with the actual super-resolution model mocked out --
+    real model behaviour (a 2x upscale of a real generated image producing a visibly
+    sharper, artifact-free result in 3.3s on CPU) was verified live in this session's
+    history, not re-run here since it needs the real ~/.cache-downloaded weights."""
+
+    def test_disabled_returns_the_original_image_untouched(self):
+        from PIL import Image
+        image = Image.new("RGB", (32, 32))
+        with mock.patch.object(upscale, "UPSCALE_ENABLED", False):
+            result = upscale.upscale(image)
+        self.assertIs(result, image)
+
+    def test_success_returns_an_image_of_the_model_output_size(self):
+        import torch
+        from PIL import Image
+        image = Image.new("RGB", (10, 10), color=(50, 100, 150))
+        fake_model = mock.Mock(return_value=torch.rand(1, 3, 20, 20))
+        with mock.patch.object(upscale, "UPSCALE_ENABLED", True), \
+             mock.patch.object(upscale, "_model", lambda scale: fake_model):
+            result = upscale.upscale(image, scale=2)
+        self.assertEqual(result.size, (20, 20))
+        self.assertEqual(result.mode, "RGB")
+
+    def test_failure_falls_back_to_the_original_image(self):
+        """Never raises -- a broken/unreachable model must not lose an otherwise-good
+        generation over a resolution bump."""
+        from PIL import Image
+        image = Image.new("RGB", (10, 10))
+
+        def boom(scale):
+            raise RuntimeError("model download failed")
+
+        with mock.patch.object(upscale, "UPSCALE_ENABLED", True), \
+             mock.patch.object(upscale, "_model", boom):
+            result = upscale.upscale(image)
+        self.assertIs(result, image)
+
+
 class CivitaiPromptCleanupTest(unittest.TestCase):
     """Real harvested prompts carry Automatic1111/ComfyUI syntax diffusers cannot parse
     -- <lora:name:weight> and similar -- which becomes literal junk tokens if left in."""
@@ -569,6 +637,18 @@ class CivitaiHarvestSafetyTest(unittest.TestCase):
         This niche wants sexy, not explicit."""
         self.assertIsNone(civitai._usable({"prompt": "photo of a woman, cumshot, explicit"}))
         self.assertIsNone(civitai._usable({"prompt": "hentai style, anime girl"}))
+
+    def test_chinese_appearance_prompts_are_rejected(self):
+        """Operator preference: exclude Chinese-appearance prompts specifically, not a
+        wider ethnicity exclusion."""
+        self.assertIsNone(civitai._usable({"prompt": "portrait of a chinese woman, studio"}))
+        self.assertIsNone(civitai._usable({"prompt": "Chinese model, cinematic lighting"}))
+
+    def test_other_ethnicities_are_not_rejected(self):
+        """The exclusion is scoped to what was actually asked for -- it must not
+        silently sweep up unrelated prompts."""
+        self.assertIsNotNone(civitai._usable({"prompt": "portrait of a korean woman, studio"}))
+        self.assertIsNotNone(civitai._usable({"prompt": "european woman, studio light"}))
 
     def test_ordinary_bracket_use_is_not_flagged(self):
         """Only the |-alternation wildcard form is a celebrity-swap signal -- plain

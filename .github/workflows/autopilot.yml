@@ -56,6 +56,10 @@ jobs:
           # Face/hand detection for refine.py's ADetailer-style touch-up pass.
           # ultralytics pulls opencv-python-headless + a few other deps of its own.
           pip install ultralytics
+          # 2x super-resolution pass (upscale.py). super-image, not the more common
+          # realesrgan package -- realesrgan's basicsr dependency fails to build here
+          # (confirmed live, unrelated to this repo), super-image has no such issue.
+          pip install super-image
 
       - name: Run autopilot
         env:
