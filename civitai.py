@@ -165,10 +165,9 @@ def resolve(spec):
 MIN_SEARCH_DOWNLOADS = int(os.environ.get("CIVITAI_MIN_DOWNLOADS", "1000"))
 
 
-def search_models(query, limit=20, sort="Most Downloaded", nsfw=False):
+def search_models(query, limit=20, sort="Most Downloaded", nsfw=True):
     """Candidate checkpoints for a free-text query, most-downloaded first."""
-    params = {"query": query, "types": "Checkpoint", "limit": limit, "sort": sort,
-              "nsfw": "false" if nsfw is False else nsfw}
+    params = {"query": query, "types": "Checkpoint", "limit": limit, "sort": sort}
     return _get(f"{API}/models", params=params).json().get("items", [])
 
 
