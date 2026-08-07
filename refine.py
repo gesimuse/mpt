@@ -28,6 +28,8 @@ import os
 
 from PIL import Image, ImageDraw, ImageFilter
 
+import clip_encode
+
 REFINE_ENABLED = os.environ.get("REFINE_FACES", "1").strip().lower() not in ("0", "false", "no")
 # Hand detection is the less mature of the two models (0.86 confidence for a clean
 # face hit vs 0.4-0.5 for hands even when a hand IS in frame) -- a live check at 0.4
@@ -162,13 +164,20 @@ def _inpaint_pipe_for(pipe):
     return inpaint
 
 
-def refine(image, pipe, prompt, negative_prompt, steps, guidance, kinds=("face",)):
+def refine(image, pipe, prompt, negative_prompt, steps, guidance, kinds=("face",), arch="sd15"):
     """Detect up to MAX_REGIONS_PER_KIND regions of each kind in `image` (highest
     confidence first), inpaint a small cropped canvas over each, and blend the
     result back at full resolution. Returns the original image unchanged if nothing
     was detected, detection/inpaint failed, or REFINE_FACES=0. Never raises -- a
     failed refinement pass falls back to the un-refined image rather than losing an
-    otherwise-good generation over a post-process step."""
+    otherwise-good generation over a post-process step.
+
+    arch ("sd15"/"sdxl") is needed by clip_encode.encode() below -- a harvested
+    reference prompt is often already near CLIP's 77-token limit on its own, and the
+    face cue this appends (PROMPT_CUE_BY_KIND) landed right past it in a live check,
+    silently dropped by a plain (un-chunked) prompt= string. Defaults to "sd15" since
+    every built-in preset and most harvested checkpoints are; callers with an SDXL
+    pipe must pass arch="sdxl" explicitly or the cue keeps getting truncated away."""
     if not REFINE_ENABLED:
         return image
     result = image
@@ -192,6 +201,7 @@ def refine(image, pipe, prompt, negative_prompt, steps, guidance, kinds=("face",
                 p for p in (prompt, PROMPT_CUE_BY_KIND.get(kind)) if p)
         region_negative = ", ".join(
             p for p in (negative_prompt, NEGATIVE_CUE_BY_KIND.get(kind)) if p)
+        encode_kwargs = clip_encode.encode(inpaint_pipe, arch, region_prompt, region_negative)
         top_boxes = sorted(boxes, key=lambda b: b[1], reverse=True)[:MAX_REGIONS_PER_KIND]
         for box, conf in top_boxes:
             x0, y0, x1, y1 = _crop_box(result.size, box)
@@ -201,10 +211,10 @@ def refine(image, pipe, prompt, negative_prompt, steps, guidance, kinds=("face",
             canvas_mask = _feathered_mask((INPAINT_SIZE, INPAINT_SIZE))
             try:
                 refined_canvas = inpaint_pipe(
-                    prompt=region_prompt, negative_prompt=region_negative,
                     image=canvas, mask_image=canvas_mask,
                     num_inference_steps=steps, guidance_scale=guidance, strength=strength,
                     width=INPAINT_SIZE, height=INPAINT_SIZE,
+                    **encode_kwargs,
                 ).images[0]
             except Exception as e:
                 log(f"{kind} inpaint failed, keeping original region "

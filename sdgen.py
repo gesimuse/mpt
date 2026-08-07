@@ -23,6 +23,7 @@ import os, random, time
 from pathlib import Path
 
 import civitai
+import clip_encode
 import refine
 import upscale
 
@@ -135,39 +136,12 @@ def _load_civitai(spec):
 
 
 def _encode(pipe, arch, prompt, negative):
-    """The full prompt, not truncated at 77 tokens. compel chunks a long prompt into
-    multiple 77-token windows, encodes each through CLIP separately, and concatenates
-    the embeddings -- the same technique Automatic1111 uses for "long prompts". The
-    flavour/detail text is the actual reason to harvest a real prompt from CivitAI
-    instead of writing one by hand, so silently dropping its tail at the CLIP limit
-    defeats the point. Falls back to a plain (truncated) call only if compel is not
-    installed, so a missing optional dependency degrades instead of breaking generation."""
-    try:
-        from compel import Compel, ReturnedEmbeddingsType
-    except ImportError:
-        log("compel not installed; falling back to a 77-token-truncated prompt")
-        return {"prompt": prompt, "negative_prompt": negative}
-
-    if arch == "sdxl":
-        compel_proc = Compel(
-            tokenizer=[pipe.tokenizer, pipe.tokenizer_2],
-            text_encoder=[pipe.text_encoder, pipe.text_encoder_2],
-            returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED,
-            requires_pooled=[False, True],
-            truncate_long_prompts=False,
-        )
-        cond, pooled = compel_proc(prompt)
-        neg_cond, neg_pooled = compel_proc(negative)
-        cond, neg_cond = compel_proc.pad_conditioning_tensors_to_same_length([cond, neg_cond])
-        return {"prompt_embeds": cond, "pooled_prompt_embeds": pooled,
-               "negative_prompt_embeds": neg_cond, "negative_pooled_prompt_embeds": neg_pooled}
-
-    compel_proc = Compel(tokenizer=pipe.tokenizer, text_encoder=pipe.text_encoder,
-                         truncate_long_prompts=False)
-    cond = compel_proc(prompt)
-    neg_cond = compel_proc(negative)
-    cond, neg_cond = compel_proc.pad_conditioning_tensors_to_same_length([cond, neg_cond])
-    return {"prompt_embeds": cond, "negative_prompt_embeds": neg_cond}
+    """Thin re-export of clip_encode.encode() -- kept as a module-level name here
+    since it's the one existing tests patch, and sdgen.py's own call site already
+    reads naturally as "this module's own encode step". The actual implementation
+    lives in clip_encode.py now, shared with refine.py's inpaint calls, which had
+    the exact same 77-token truncation problem this solves (see that module)."""
+    return clip_encode.encode(pipe, arch, prompt, negative)
 
 
 def generate_image(prompt, dest, model_key=None, negative_prompt="", seed=None,
@@ -207,7 +181,7 @@ def generate_image(prompt, dest, model_key=None, negative_prompt="", seed=None,
     # skip on failure -- refine() never raises, falls back to the un-refined image.
     image = refine.refine(image, pipe, prompt, neg,
                           steps=steps or STEPS, guidance=guidance if guidance is not None else GUIDANCE,
-                          kinds=("face", "hand"))
+                          kinds=("face", "hand"), arch=_pipe_arch[cache_key])
     # Sharper/higher-res final image than the base render alone -- TikTok favors
     # higher resolution photo posts. Runs last, after refine's touch-up, so the
     # upscale sees the best version of the image, not the pre-touch-up one.

@@ -17,6 +17,7 @@ os.environ.pop("DRY_RUN", None)
 
 import autopilot  # noqa: E402
 import civitai  # noqa: E402
+import clip_encode  # noqa: E402
 import imageslides  # noqa: E402
 import push_draft  # noqa: E402
 import refine  # noqa: E402
@@ -378,7 +379,7 @@ class SdgenTest(unittest.TestCase):
 
         def spy_refine(image, pipe, prompt, negative_prompt, steps, guidance, **kw):
             seen.update(prompt=prompt, negative_prompt=negative_prompt,
-                       steps=steps, guidance=guidance, pipe=pipe)
+                       steps=steps, guidance=guidance, pipe=pipe, arch=kw.get("arch"))
             return image
 
         with mock.patch.object(sdgen, "_load", lambda key: fake), \
@@ -394,6 +395,11 @@ class SdgenTest(unittest.TestCase):
         self.assertEqual(seen["guidance"], 1.0)
         self.assertEqual(seen["prompt"], "a prompt")
         self.assertIn("extra negative", seen["negative_prompt"])
+        # Without this, refine()'s inpaint calls default to "sd15" regardless of the
+        # checkpoint actually loaded -- harmless for the common case, wrong for an
+        # SDXL checkpoint (clip_encode.encode() builds the wrong tokenizer/text_
+        # encoder pairing for the pipe it's actually given).
+        self.assertEqual(seen["arch"], "sd15")
         self.assertIs(seen["pipe"], fake)
 
     def test_upscale_runs_on_the_refined_image_before_saving(self):
@@ -430,6 +436,19 @@ class RefineTest(unittest.TestCase):
     and hand regions, confirmed a genuine visible improvement with no seam), not
     re-run here since that needs real model weights and a GPU/CPU-minutes budget a
     unit test shouldn't spend."""
+
+    def setUp(self):
+        # refine()'s inpaint calls go through clip_encode.encode() now (a live check
+        # found them silently truncating at CLIP's 77-token limit otherwise -- see
+        # clip_encode.py). The mocked inpaint pipes here have no real tokenizer for
+        # it to use, so this stubs it to the same passthrough shape clip_encode.encode
+        # itself falls back to when compel isn't installed -- keeps prompt/negative
+        # inspectable in tests exactly as before this change.
+        patcher = mock.patch.object(
+            clip_encode, "encode",
+            lambda pipe, arch, prompt, negative: {"prompt": prompt, "negative_prompt": negative})
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def test_crop_box_pads_and_clamps_to_image_bounds(self):
         # A box already touching the left/top edge must not pad past 0.
@@ -626,6 +645,34 @@ class RefineTest(unittest.TestCase):
                          steps=6, guidance=1.8, kinds=("face",))
         self.assertIn("base pose prompt", seen["prompt"])
         self.assertIn("sharp focus", seen["prompt"])
+
+    def test_inpaint_prompt_goes_through_clip_encode_with_the_right_arch(self):
+        """Live-caught bug: refine()'s inpaint calls used to pass prompt=/
+        negative_prompt= as plain strings straight to diffusers, silently truncated
+        at CLIP's 77-token limit -- exactly the problem sdgen.py's base render
+        already solved via clip_encode.encode()'s compel chunking, just never
+        applied here. This confirms the wiring: arch reaches clip_encode.encode(),
+        not just that a passthrough dict happens to look right."""
+        from PIL import Image
+        image = Image.new("RGB", (300, 400))
+        seen = {}
+
+        def fake_encode(pipe, arch, prompt, negative):
+            seen["arch"] = arch
+            seen["prompt"] = prompt
+            return {"prompt": prompt, "negative_prompt": negative}
+
+        with mock.patch.object(refine, "REFINE_ENABLED", True), \
+             mock.patch.object(refine, "_detect_boxes",
+                               lambda img, kind: [([20, 20, 60, 60], 0.9)]), \
+             mock.patch.object(refine, "_inpaint_pipe_for", lambda pipe: (
+                 lambda **kw: mock.Mock(images=[Image.new(
+                     "RGB", (refine.INPAINT_SIZE, refine.INPAINT_SIZE))]))), \
+             mock.patch.object(clip_encode, "encode", fake_encode):
+            refine.refine(image, mock.Mock(), "base pose prompt", "base negative",
+                         steps=6, guidance=1.8, kinds=("face",), arch="sdxl")
+        self.assertEqual(seen["arch"], "sdxl")
+        self.assertIn("base pose prompt", seen["prompt"])
 
 
 class UpscaleTest(unittest.TestCase):
