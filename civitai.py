@@ -163,10 +163,35 @@ def resolve(spec):
 # Only Checkpoint-type models with a body of real usage are considered: a model with
 # few downloads is more likely mislabeled, broken, or simply untested at scale.
 MIN_SEARCH_DOWNLOADS = int(os.environ.get("CIVITAI_MIN_DOWNLOADS", "1000"))
+# _ETHNICITY_EXCLUDE_RE (below) only rejects a harvested PROMPT that literally names
+# an ethnicity -- it does nothing about a checkpoint that is itself trained/finetuned
+# toward one, which generates that way regardless of prompt wording. Live-confirmed
+# this is a real gap, not hypothetical: this niche's own queries ("sexy realistic
+# woman", "realistic portrait woman") surface "SEX Sexy Eastern Experience v3 ||
+# Realistic Asian" as a legitimate high-download candidate, and a batch generated
+# from it came out consistently Chinese/Asian-appearing across every image --
+# exactly the operator preference _ETHNICITY_EXCLUDE_RE was meant to enforce, just
+# via a mechanism that check never covered. Rejected by checkpoint NAME, at
+# candidate-selection time, before any prompt is ever evaluated.
+# Not "eastern" -- the live-observed offending checkpoint ("SEX Sexy Eastern
+# Experience v3 || Realistic Asian") already has "asian" right in its own name, and
+# "eastern" alone would also reject "Eastern European"-style checkpoints, which are
+# not what this is meant to exclude.
+# CJK characters in a checkpoint's own name (e.g. "ppkkmoon_Daemon_Realm_V2
+# [ppkkmoon_魔域之墮姫_model_V2]", also live-observed in this niche's own search
+# results) are the same ethnicity-bias signal by another route -- a checkpoint named
+# in Chinese/Japanese/Korean script is reliably from a community/training set skewed
+# the same way.
+_ETHNICITY_MODEL_NAME_RE = re.compile(
+    r"\b(?:asian|chinese)\b|[一-鿿぀-ヿ가-힣]", re.I)
 
 
-def search_models(query, limit=20, sort="Most Downloaded", nsfw=True):
-    """Candidate checkpoints for a free-text query, most-downloaded first."""
+def search_models(query, limit=20, sort="Most Downloaded"):
+    """Candidate checkpoints for a free-text query, most-downloaded first. No nsfw
+    param -- deliberately removed (operator preference), not a filter this niche
+    relies on: a live check found the exact same results with or without it, so it
+    was not what was surfacing ethnicity-biased checkpoints either way. See
+    _ETHNICITY_MODEL_NAME_RE for the check that actually addresses that."""
     params = {"query": query, "types": "Checkpoint", "limit": limit, "sort": sort}
     return _get(f"{API}/models", params=params).json().get("items", [])
 
@@ -180,6 +205,8 @@ def resolve_from_search(query):
     for item in items:
         versions = item.get("modelVersions") or []
         if not versions:
+            continue
+        if _ETHNICITY_MODEL_NAME_RE.search(item.get("name") or ""):
             continue
         stats = item.get("stats") or {}
         if stats.get("downloadCount", 0) < MIN_SEARCH_DOWNLOADS:
@@ -215,6 +242,8 @@ def search_candidates(query, limit=20):
     for item in items:
         versions = item.get("modelVersions") or []
         if not versions:
+            continue
+        if _ETHNICITY_MODEL_NAME_RE.search(item.get("name") or ""):
             continue
         stats = item.get("stats") or {}
         if stats.get("downloadCount", 0) < MIN_SEARCH_DOWNLOADS:
@@ -335,12 +364,13 @@ def resolve_and_download(spec, dest_dir=None):
 # of CivitAI's own NSFW rating for the image.
 _BAD_PROMPT = re.compile(
     r"\b(?:child|kid|loli|shota|teen(?:ager)?|minor|schoolgirl|infant|toddler)\b", re.I)
-# search_models(nsfw=false) filters the MODEL list, but a version's own showcase
-# images (harvest_from_model, the primary prompt source) are read directly off
-# /api/v1/model-versions/{id} with no nsfw filter at all -- a live search surfaced a
-# showcase prompt containing unambiguous hardcore sexual-act terms, not filtered by
-# anything upstream. This niche wants sexy, not explicit -- reject at the source, the
-# same way celebrity-likeness and non-photo-style prompts already are.
+# search_models() applies no nsfw filter (operator preference), and a version's own
+# showcase images (harvest_from_model, the primary prompt source) are read directly
+# off /api/v1/model-versions/{id} with no nsfw filter either way -- a live search
+# surfaced a showcase prompt containing unambiguous hardcore sexual-act terms, not
+# filtered by anything upstream. This niche wants sexy, not explicit -- reject at
+# the source, the same way celebrity-likeness and non-photo-style prompts already
+# are.
 _EXPLICIT_RE = re.compile(
     r"\b(?:blowjob|cum|cumshot|penetration|anal|orgasm|masturbat\w*|"
     r"deepthroat|creampie|gangbang|bukkake|fellatio|cunnilingus|hentai|rule ?34|"

@@ -1062,6 +1062,34 @@ class CivitaiSearchTest(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 civitai.resolve_from_search("nothing matches this")
 
+    def test_ethnicity_biased_checkpoint_names_are_skipped(self):
+        """Live-observed: this niche's own queries surfaced "SEX Sexy Eastern
+        Experience v3 || Realistic Asian" as a legitimate high-download candidate,
+        and a batch generated from it came out consistently Chinese/Asian-appearing
+        -- the prompt-text filter (_ETHNICITY_EXCLUDE_RE) cannot catch this since the
+        bias lives in the checkpoint itself, not the prompt. "eastern" alone is
+        intentionally NOT matched -- it would also reject Eastern European-style
+        checkpoints, which are fine."""
+        items = self._items(
+            ("SEX Sexy Eastern Experience v3 || Realistic Asian", 50_000, "SD 1.5", True),
+            ("Eastern European Realism", 40_000, "SD 1.5", True),
+            ("GoodOne", 30_000, "SD 1.5", True),
+        )
+        with mock.patch.object(civitai, "search_models", lambda q, **kw: items), \
+             mock.patch.object(civitai, "MIN_SEARCH_DOWNLOADS", 1000):
+            result = civitai.resolve_from_search("sexy realistic woman")
+        self.assertEqual(result["name"], "Eastern European Realism")
+
+    def test_cjk_characters_in_checkpoint_name_are_skipped(self):
+        items = self._items(
+            ("ppkkmoon_Daemon_Realm_V2 [ppkkmoon_魔域之墮姫_model_V2]", 50_000, "SD 1.5", True),
+            ("GoodOne", 30_000, "SD 1.5", True),
+        )
+        with mock.patch.object(civitai, "search_models", lambda q, **kw: items), \
+             mock.patch.object(civitai, "MIN_SEARCH_DOWNLOADS", 1000):
+            result = civitai.resolve_from_search("realistic beauty model")
+        self.assertEqual(result["name"], "GoodOne")
+
 
 class CivitaiDecideReferenceTest(unittest.TestCase):
     """Step 1/2 of the "search for a good photo, decide on it, download its model"
@@ -1142,6 +1170,24 @@ class CivitaiDecideReferenceTest(unittest.TestCase):
             resolved, prompt = civitai.decide_reference(
                 "portrait woman", prompt_filter=lambda p: "woman" in p)
         self.assertEqual(resolved["name"], "RightSubject")
+
+    def test_ethnicity_biased_checkpoint_is_never_offered_as_a_candidate(self):
+        """Same check as resolve_from_search's (search_candidates is decide_reference's
+        own candidate source) -- must be skipped before harvest_from_model is ever
+        called on it, not just excluded after the fact."""
+        items = [
+            self._candidate(1, "SEX Sexy Eastern Experience v3 || Realistic Asian",
+                           50_000, "SD 1.5"),
+            self._candidate(2, "GoodOne", 4000, "SD 1.5"),
+        ]
+        with mock.patch.object(civitai, "search_models", lambda q, **kw: items), \
+             mock.patch.object(civitai, "MIN_SEARCH_DOWNLOADS", 1000), \
+             mock.patch.object(civitai, "harvest_from_model",
+                               self._harvest_by_model_id(
+                                   {1: "should never be looked at",
+                                    2: "portrait of a woman"})):
+            resolved, prompt = civitai.decide_reference("sexy realistic woman")
+        self.assertEqual(resolved["name"], "GoodOne")
 
     def test_unresolvable_candidate_is_skipped_in_favour_of_the_next(self):
         """A candidate can have a good showcase prompt but no scan-clean SafeTensor --
