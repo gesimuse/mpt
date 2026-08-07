@@ -17,6 +17,7 @@ Optional:
               push_draft.py on whichever batch turned out well.
 """
 import json, os, shutil, sys, time
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import imageslides
@@ -39,6 +40,13 @@ STATE_FILE = ROOT / "posted.json"
 DRY_RUN = os.environ.get("DRY_RUN", "").strip().lower() in ("1", "true", "yes")
 OUT_DIR = ROOT / "out"
 RUN_ATTEMPTS = int(os.environ.get("RUN_ATTEMPTS", "3"))
+# TikTok's Content Posting API caps at 5 pending (unposted) drafts within any rolling
+# 24h period -- exceeding it fails new pushes with spam_risk_too_many_pending_share
+# (confirmed against TikTok's own docs). There is no API to ask TikTok how many
+# drafts are still sitting untouched in the inbox right now, so this counts our own
+# successful pushes to this niche in the last 24h from posted.json instead -- the
+# same rolling window TikTok itself uses, just tracked on our side.
+MAX_PENDING_DRAFTS = int(os.environ.get("MAX_PENDING_DRAFTS", "5"))
 
 
 def log(msg): print(f"[autopilot] {msg}", flush=True)
@@ -65,13 +73,48 @@ def write_pending_captions(state, keep=10):
     (ROOT / "CAPTIONS.md").write_text("\n".join(lines))
 
 
+def _pending_drafts_last_24h(state, niche_id):
+    """How many drafts we've pushed for this niche in the last 24h, per posted.json --
+    our proxy for TikTok's own 5-per-24h pending cap, since there's no API to ask
+    TikTok directly how many are still sitting untouched in the inbox."""
+    cutoff = datetime.now() - timedelta(hours=24)
+    count = 0
+    for u in state.get("uploads", []):
+        if u.get("niche") != niche_id or not u.get("tiktok"):
+            continue
+        try:
+            ts = datetime.strptime(u["ts"], "%Y-%m-%dT%H:%M:%S")
+        except (KeyError, ValueError):
+            continue
+        if ts >= cutoff:
+            count += 1
+    return count
+
+
 def run_niche(niche, state):
     if not DRY_RUN and not tiktok.enabled(niche["id"]):
         log(f"[{niche['id']}] skipped: set TIKTOK_CLIENT_KEY/TIKTOK_CLIENT_SECRET/"
             f"TIKTOK_REFRESH_TOKEN_{niche['id'].upper()}")
         return
+    videos_this_run = niche.get("videos_per_run", 1)
+    if not DRY_RUN:
+        pending = _pending_drafts_last_24h(state, niche["id"])
+        if pending >= MAX_PENDING_DRAFTS:
+            log(f"[{niche['id']}] skipped: {pending} drafts already pushed in the last "
+                f"24h (cap {MAX_PENDING_DRAFTS}); clear or post them in the TikTok app "
+                "before more get queued")
+            return
+        # Also clamp a partial run: pushing all videos_per_run when some of the cap is
+        # already used would hit spam_risk_too_many_pending_share mid-run instead of
+        # stopping cleanly at the boundary.
+        remaining = MAX_PENDING_DRAFTS - pending
+        if videos_this_run > remaining:
+            log(f"[{niche['id']}] {pending} drafts already pushed in the last 24h; "
+                f"generating {remaining} instead of {videos_this_run} to stay under "
+                f"the cap of {MAX_PENDING_DRAFTS}")
+            videos_this_run = remaining
     used = state["topics"].setdefault(niche["id"], [])
-    for _ in range(niche.get("videos_per_run", 1)):
+    for _ in range(videos_this_run):
         stamp = time.strftime("%Y%m%d-%H%M%S")
         images = imageslides.generate(niche)
         caption = imageslides.image_caption(niche)

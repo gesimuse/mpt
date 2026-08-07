@@ -1,10 +1,12 @@
 name: MPT Autopilot (aibeauty)
 on:
   schedule:
-    # Twice a day. The supervisor QA gates quality, so more runs mostly means more
-    # rejected batches against a rate-limited free tier.
+    # Once a day, videos_per_run: 5 in niches.json -- TikTok's Content Posting API
+    # caps at 5 pending (unposted) drafts per rolling 24h before
+    # spam_risk_too_many_pending_share starts rejecting new ones (confirmed against
+    # TikTok's own docs). One run hitting the cap exactly, once a day, is simpler to
+    # reason about than splitting it across multiple triggers.
     - cron: "0 7 * * *"
-    - cron: "0 19 * * *"
   workflow_dispatch:
     inputs:
       niches:
@@ -19,7 +21,10 @@ concurrency:
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 110
+    # 5 batches (videos_per_run) x up to 2 rounds x images_per_video generations,
+    # ~130s/image on a CPU runner -- worst case is a real ~3.5h, not a rare edge case
+    # once every batch is capped at min_images=3 rather than always finishing round 1.
+    timeout-minutes: 300
     permissions:
       contents: write   # allows the workflow to commit posted.json back
     steps:

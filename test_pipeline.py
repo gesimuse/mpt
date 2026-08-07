@@ -279,6 +279,40 @@ class SdgenTest(unittest.TestCase):
             sdgen.generate_image("a prompt", Path(tmp) / "out.png", model_key="dreamshaper")
         self.assertEqual(len(fake.calls), 1)
 
+    def test_width_height_steps_guidance_overrides_reach_the_pipeline(self):
+        """imageslides.py's _adopted_settings() feeds a harvested checkpoint's own
+        posted resolution/steps/cfg_scale through these -- confirm they actually reach
+        the pipe() call, not just get accepted and dropped."""
+        fake = FakePipe()
+        with mock.patch.object(sdgen, "_load", lambda key: fake), \
+             mock.patch.dict(os.environ, {"CIVITAI_MODEL": ""}), \
+             mock.patch.object(sdgen, "CIVITAI_MODEL", ""), \
+             mock.patch.dict(sdgen._pipe_arch, {"dreamshaper": "sd15"}), \
+             mock.patch.object(sdgen, "_encode", self._passthrough_encode), \
+             tempfile.TemporaryDirectory() as tmp:
+            sdgen.generate_image("a prompt", Path(tmp) / "out.png", model_key="dreamshaper",
+                                 width=576, height=864, steps=10, guidance=1.0)
+        kw = fake.calls[0][1]
+        self.assertEqual(kw["width"], 576)
+        self.assertEqual(kw["height"], 864)
+        self.assertEqual(kw["num_inference_steps"], 10)
+        self.assertEqual(kw["guidance_scale"], 1.0)
+
+    def test_overrides_default_to_module_constants_when_not_given(self):
+        fake = FakePipe()
+        with mock.patch.object(sdgen, "_load", lambda key: fake), \
+             mock.patch.dict(os.environ, {"CIVITAI_MODEL": ""}), \
+             mock.patch.object(sdgen, "CIVITAI_MODEL", ""), \
+             mock.patch.dict(sdgen._pipe_arch, {"dreamshaper": "sd15"}), \
+             mock.patch.object(sdgen, "_encode", self._passthrough_encode), \
+             tempfile.TemporaryDirectory() as tmp:
+            sdgen.generate_image("a prompt", Path(tmp) / "out.png", model_key="dreamshaper")
+        kw = fake.calls[0][1]
+        self.assertEqual(kw["width"], sdgen.WIDTH)
+        self.assertEqual(kw["height"], sdgen.HEIGHT)
+        self.assertEqual(kw["num_inference_steps"], sdgen.STEPS)
+        self.assertEqual(kw["guidance_scale"], sdgen.GUIDANCE)
+
     def test_encode_falls_back_to_truncated_prompt_when_compel_is_unavailable(self):
         """compel is an optional dependency -- if it is not installed, generation must
         still work, just with the 77-token CLIP truncation instead of the long-prompt
@@ -333,10 +367,18 @@ class CivitaiHarvestSafetyTest(unittest.TestCase):
                    "photo of a 16 years old student", "20 y.o. woman smiling"):
             self.assertIsNone(civitai._usable({"prompt": bad}), bad)
 
-    def test_adult_age_is_kept(self):
+    def test_age_within_target_range_is_kept(self):
         for ok in ("RAW photo, 26 y.o woman in dress", "30 y.o european man",
-                  "professional photo, 45 years old woman"):
+                  "professional photo, 35 years old woman"):
             self.assertIsNotNone(civitai._usable({"prompt": ok}), ok)
+
+    def test_age_above_target_range_is_rejected(self):
+        """25-35 is the target range for this niche -- an explicit older age (e.g.
+        '45 year old woman') used to pass through untouched, only ever checked
+        against the lower floor."""
+        for old in ("professional photo, 45 years old woman", "50yo woman portrait",
+                   "60 y.o. woman smiling"):
+            self.assertIsNone(civitai._usable({"prompt": old}), old)
 
     def test_no_age_mentioned_is_kept(self):
         self.assertIsNotNone(civitai._usable({"prompt": "woman walking in a city street"}))
@@ -535,6 +577,71 @@ class LocationConflictTest(unittest.TestCase):
     def test_location_is_injected_when_source_has_none(self):
         prompts = self._prompts_for_reference("closeup portrait, dramatic lighting, studio")
         self.assertIn("yacht deck", prompts[0])
+
+
+class AdoptedSettingsTest(unittest.TestCase):
+    """A live check on a real checkpoint's showcase metadata found real, portable
+    generation settings we were ignoring entirely -- BEAUTY_BY_STABLE_YOGI's own
+    posted example used sampler=LCM, steps=10, cfgScale=1, Size=576x864, which is
+    directly compatible with our own fused-LCM pipeline (unlike a typical posted
+    25-40-step DPM++ example, which is NOT portable without also switching schedulers)."""
+
+    def test_resolution_adopted_when_in_range(self):
+        settings = imageslides._adopted_settings(
+            {"width": 576, "height": 864, "sampler": "", "steps": None, "cfg_scale": None})
+        self.assertEqual(settings, {"width": 576, "height": 864})
+
+    def test_steps_and_cfg_adopted_only_when_samplers_own_family_is_lcm(self):
+        settings = imageslides._adopted_settings(
+            {"width": None, "height": None, "sampler": "LCM", "steps": 10, "cfg_scale": 1})
+        self.assertEqual(settings, {"steps": 10, "guidance": 1.0})
+
+    def test_steps_and_cfg_ignored_when_sampler_is_not_lcm(self):
+        """A typical 30-step DPM++/Euler posted example is not portable to our
+        fused-LCM pipeline -- copying its step count without switching schedulers
+        would not reproduce their result, just run needlessly slow."""
+        settings = imageslides._adopted_settings(
+            {"width": None, "height": None, "sampler": "DPM++ 2M Karras",
+            "steps": 30, "cfg_scale": 7})
+        self.assertEqual(settings, {})
+
+    def test_out_of_range_values_are_not_adopted(self):
+        """A bad data point (typo, outlier) must not be allowed to blow the CI time
+        budget across the whole batch that shares this one reference."""
+        settings = imageslides._adopted_settings(
+            {"width": 2048, "height": 2048, "sampler": "LCM", "steps": 50, "cfg_scale": 9})
+        self.assertEqual(settings, {})
+
+    def test_missing_values_adopt_nothing(self):
+        settings = imageslides._adopted_settings(
+            {"width": None, "height": None, "sampler": "", "steps": None, "cfg_scale": None})
+        self.assertEqual(settings, {})
+
+    def test_adopted_settings_reach_generate_batch(self):
+        """End-to-end: whatever _adopted_settings() returns for the decided reference
+        must actually reach sdgen.generate_batch(), not just be computed and dropped."""
+        captured = {}
+
+        def fake_generate_batch(prompts, workdir, **kw):
+            captured.update(kw)
+            return [Path(f"/tmp/i{i}.png") for i in range(len(prompts))]
+
+        def fake_decide(q, prompt_filter=None):
+            return ({"model_id": 1, "version_id": 2, "name": "X"},
+                   {"prompt": "portrait, studio light", "negative_prompt": "",
+                    "width": 576, "height": 864, "sampler": "LCM",
+                    "steps": 10, "cfg_scale": 1})
+
+        niche = {"id": "aibeauty", "min_images": 1, "images_per_video": 2}
+        with mock.patch.object(civitai, "decide_reference", fake_decide), \
+             mock.patch.object(imageslides.sdgen, "generate_batch", fake_generate_batch), \
+             mock.patch.object(imageslides.supervisor, "filter_images", lambda paths: paths), \
+             tempfile.TemporaryDirectory() as tmp:
+            imageslides.generate(niche, workdir=tmp)
+        self.assertEqual(captured.get("width"), 576)
+        self.assertEqual(captured.get("height"), 864)
+        self.assertEqual(captured.get("steps"), 10)
+        self.assertEqual(captured.get("guidance"), 1.0)
 
 
 class CivitaiSearchTest(unittest.TestCase):
@@ -852,6 +959,52 @@ class RunNicheTest(unittest.TestCase):
                 autopilot.write_pending_captions(state)
                 text = (Path(tmp) / "CAPTIONS.md").read_text()
         self.assertIn("caption one", text)
+
+    def _upload(self, niche_id="aibeauty", hours_ago=1, tiktok_ok=True):
+        ts = (autopilot.datetime.now() - autopilot.timedelta(hours=hours_ago))
+        return {"niche": niche_id, "tiktok": tiktok_ok, "ts": ts.strftime("%Y-%m-%dT%H:%M:%S")}
+
+    def test_pending_count_only_counts_this_niche_within_24h(self):
+        state = {"uploads": [
+            self._upload("aibeauty", hours_ago=1),
+            self._upload("aibeauty", hours_ago=23),
+            self._upload("aibeauty", hours_ago=25),      # outside the window
+            self._upload("other-niche", hours_ago=1),     # different niche
+            self._upload("aibeauty", hours_ago=1, tiktok_ok=False),  # never posted
+        ]}
+        self.assertEqual(autopilot._pending_drafts_last_24h(state, "aibeauty"), 2)
+
+    def test_run_skipped_entirely_once_at_the_cap(self):
+        """TikTok's own API caps at 5 pending drafts per rolling 24h -- there is no
+        endpoint to ask it how many are still untouched, so posted.json's own recent
+        history is the proxy. At the cap, skip without touching imageslides at all."""
+        state = {"uploads": [self._upload() for _ in range(5)]}
+        with mock.patch.object(autopilot, "DRY_RUN", False), \
+             mock.patch.object(tiktok, "enabled", lambda niche_id: True), \
+             mock.patch.object(imageslides, "generate",
+                               mock.Mock(side_effect=AssertionError("must not run"))):
+            autopilot.run_niche(self.AIBEAUTY, state)
+
+    def test_partial_cap_room_clamps_videos_per_run(self):
+        """3 already pushed in the last 24h, cap is 5 -> only 2 more get generated
+        this run, not the full videos_per_run, so a mid-run push can't overshoot the
+        cap and hit spam_risk_too_many_pending_share."""
+        state = {"topics": {}, "uploads": [self._upload() for _ in range(3)]}
+        calls = []
+
+        def fake_generate(n):
+            calls.append(1)
+            return [Path(f"/tmp/i{len(calls)}.png")]
+
+        with mock.patch.object(autopilot, "DRY_RUN", False), \
+             mock.patch.object(tiktok, "enabled", lambda niche_id: True), \
+             mock.patch.object(imageslides, "generate", fake_generate), \
+             mock.patch.object(tiktok, "publish_photos_draft",
+                               lambda imgs, niche_id, image_urls=None: "p1"), \
+             mock.patch.object(autopilot.os, "remove", lambda p: None), \
+             mock.patch.object(autopilot, "save_state", lambda s: None):
+            autopilot.run_niche({**self.AIBEAUTY, "videos_per_run": 5}, state)
+        self.assertEqual(len(calls), 2)
 
 
 class SupervisorRubricTest(unittest.TestCase):

@@ -115,9 +115,15 @@ SAFETY_PREFIX = "beautiful adult woman in her late twenties"
 SEXY_CUE = "seductive, sexy, alluring, round breasts, round ass, beautiful"
 NEGATIVE_HARD = ("child, teen, minor, young girl, schoolgirl, nude, topless, "
                  "exposed nipples, exposed genitals, explicit sexual content")
+# Hand/finger terms expanded per community-standard SD negative-prompt practice (the
+# generic "extra fingers, mutated hands" alone measured weaker live than this fuller
+# list, which explicitly names each specific finger-count failure mode rather than
+# relying on the model to generalize from "extra/mutated").
 NEGATIVE_QUALITY = ("cartoon, illustration, painting, anime, 3d render, deformed, "
-                    "extra fingers, extra limbs, mutated hands, bad anatomy, blurry, "
-                    "watermark, text, logo, malformed")
+                    "extra fingers, missing fingers, fused fingers, extra limbs, "
+                    "mutated hands, deformed hands, bad hands, malformed hands, "
+                    "extra hands, missing hands, bad anatomy, blurry, watermark, "
+                    "text, logo, malformed")
 
 
 def log(msg): print(f"[imageslides] {msg}", flush=True)
@@ -267,6 +273,41 @@ def _build_prefix(niche, reference):
     return f"{SAFETY_PREFIX}, {clothing}{setting}{SEXY_CUE}, {mood}"
 
 
+# Bounds for adopting the checkpoint creator's own posted generation settings. Their
+# resolution is trusted more broadly (SD1.5 checkpoints commonly showcase anywhere in
+# this band); steps/cfg_scale are trusted only within LCM's own realistic range --
+# even when their sampler was LCM-family, a wildly out-of-range posted value (bad data,
+# a typo) must not be allowed to make the whole batch of `count` images (all sharing
+# this same reference) blow past the CI time budget.
+_SIZE_MIN, _SIZE_MAX = 384, 896
+_STEPS_MIN, _STEPS_MAX = 4, 10
+_CFG_MIN, _CFG_MAX = 1.0, 2.5
+
+
+def _adopted_settings(reference):
+    """What to actually reuse from the checkpoint creator's own posted example, and
+    what to leave to our own defaults. The creator's resolution and (when their own
+    sampler was already LCM-family) their steps/cfg_scale are exactly the settings
+    that earned that image its engagement -- they know their own checkpoint better
+    than a fixed guess does. A normal 25-40-step DPM++/Euler posted example is NOT
+    portable to our fused-LCM pipeline, though: copying its step count without also
+    switching schedulers would not reproduce their result, just run needlessly slow."""
+    out = {}
+    w, h = reference.get("width"), reference.get("height")
+    if w and h and _SIZE_MIN <= w <= _SIZE_MAX and _SIZE_MIN <= h <= _SIZE_MAX:
+        out["width"], out["height"] = w, h
+
+    sampler = (reference.get("sampler") or "").lower()
+    if "lcm" in sampler:
+        steps = reference.get("steps")
+        if isinstance(steps, (int, float)) and _STEPS_MIN <= steps <= _STEPS_MAX:
+            out["steps"] = int(steps)
+        cfg = reference.get("cfg_scale")
+        if isinstance(cfg, (int, float)) and _CFG_MIN <= cfg <= _CFG_MAX:
+            out["guidance"] = float(cfg)
+    return out
+
+
 def generate(niche, count=None, workdir=None, max_rounds=2):
     """Decide on a CivitAI checkpoint + reference prompt, generate `count` camera
     variations of it, keep what passes supervisor.py review, and repeat with a fresh
@@ -312,12 +353,16 @@ def generate(niche, count=None, workdir=None, max_rounds=2):
 
         prompts, negatives = build_variations(
             prefix, reference["prompt"], base_negative, count, niche)
+        adopted = _adopted_settings(reference)
+        if adopted:
+            log(f"round {round_num}: using the checkpoint creator's own posted "
+                f"settings where safe: {adopted}")
         try:
             # civitai_model always wins over model_key in sdgen (see its docstring),
             # and every batch now always has one -- no model_key to pass here at all.
             generated = sdgen.generate_batch(
                 prompts, workdir / f"round{round_num}",
-                negative_prompts=negatives, civitai_model=civitai_spec)
+                negative_prompts=negatives, civitai_model=civitai_spec, **adopted)
         except RuntimeError as e:
             generated = []
             log(f"round {round_num}: checkpoint unusable ({str(e)[:150]})")

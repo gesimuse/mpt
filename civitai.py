@@ -343,7 +343,11 @@ _REAL_PERSON_RE = re.compile(
 # the kind of borderline signal an automated pipeline representing a real account should
 # never carry, regardless of technicality -- reject it at the source rather than lean on
 # the SAFETY_PREFIX override or supervisor.py to catch it downstream.
+# No upper bound existed before this -- a harvested prompt naming an explicit older
+# age (e.g. "45 year old woman") passed through untouched, only ever checked against
+# the lower floor. 25-35 is the target range for this niche.
 _MIN_PROMPT_AGE = 25
+_MAX_PROMPT_AGE = 35
 _AGE_RE = re.compile(r"\b(\d{1,2})\s*[-\s]?(?:y\.?o\.?|years?[-\s]old|yo)\b", re.I)
 # Automatic1111/ComfyUI control syntax embedded in the prompt text: <lora:name:weight>,
 # <hypernet:...>, <embedding:...>. diffusers does not parse this convention, so it
@@ -365,14 +369,33 @@ def _usable(meta, stats=None):
        or _EXPLICIT_RE.search(prompt):
         return None
     ages = [int(m) for m in _AGE_RE.findall(prompt)]
-    if any(age < _MIN_PROMPT_AGE for age in ages):
+    if any(age < _MIN_PROMPT_AGE or age > _MAX_PROMPT_AGE for age in ages):
         return None
     stats = stats or {}
     reactions = sum(stats.get(k, 0) for k in
                     ("likeCount", "heartCount", "laughCount", "cryCount"))
+    width, height = _parse_size(meta.get("Size"))
     return {"prompt": prompt,
            "negative_prompt": _clean_prompt_text(meta.get("negativePrompt") or ""),
-           "reactions": reactions}
+           "reactions": reactions,
+           # The checkpoint's own creator posted this image and got real engagement
+           # for it -- these are the settings that actually worked, not a guess.
+           # Only meaningful when present; None means "no opinion, use our defaults".
+           "width": width, "height": height,
+           "steps": meta.get("steps"), "cfg_scale": meta.get("cfgScale"),
+           "sampler": meta.get("sampler")}
+
+
+def _parse_size(size_str):
+    """CivitAI's own "Size" field, e.g. "576x864" -> (576, 864). Malformed or absent
+    -> (None, None), meaning the caller falls back to its own defaults."""
+    if not size_str or "x" not in str(size_str):
+        return None, None
+    try:
+        w, h = str(size_str).lower().split("x", 1)
+        return int(w.strip()), int(h.strip())
+    except ValueError:
+        return None, None
 
 
 def _harvest_from_info(info, version_id=None):

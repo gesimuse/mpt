@@ -45,7 +45,11 @@ LCM_LORA = {"sd15": "latent-consistency/lcm-lora-sdv1-5",
 
 WIDTH = int(os.environ.get("SD_WIDTH", "512"))
 HEIGHT = int(os.environ.get("SD_HEIGHT", "896"))
-STEPS = int(os.environ.get("SD_STEPS", "4"))
+# 4 was the original speed-first floor; LCM's own designed range is roughly 4-8 steps,
+# so 6 stays inside that range while giving a bit more of the refinement pass that
+# fixes hand/finger anatomy -- a live batch showed hand errors slipping past even a
+# stricter negative prompt, and step count is the other documented lever for it.
+STEPS = int(os.environ.get("SD_STEPS", "6"))
 # LCM effectively ignores negative_prompt at guidance_scale=1.0 (no unconditional branch
 # to steer against). 1.8 measured within ~5% of the 1.0 timing and makes negatives work.
 GUIDANCE = float(os.environ.get("SD_GUIDANCE", "1.8"))
@@ -165,11 +169,17 @@ def _encode(pipe, arch, prompt, negative):
 
 
 def generate_image(prompt, dest, model_key=None, negative_prompt="", seed=None,
-                   civitai_model=None):
+                   civitai_model=None, width=None, height=None, steps=None, guidance=None):
     """One image, saved to `dest`. Returns the elapsed seconds.
 
     civitai_model (or the CIVITAI_MODEL env var) takes precedence over model_key: an
-    operator-named checkpoint always wins over the built-in presets."""
+    operator-named checkpoint always wins over the built-in presets.
+
+    width/height/steps/guidance override the module defaults for this call only --
+    imageslides.py uses this to adopt a harvested checkpoint's own posted generation
+    settings (the ones that earned that showcase image its engagement) when they're
+    within a sane range, instead of always using the same fixed values regardless of
+    what the checkpoint's own creator demonstrated worked."""
     civitai_model = civitai_model or CIVITAI_MODEL
     if civitai_model:
         pipe = _load_civitai(civitai_model)
@@ -184,8 +194,9 @@ def generate_image(prompt, dest, model_key=None, negative_prompt="", seed=None,
     encode_kwargs = _encode(pipe, _pipe_arch[cache_key], prompt, neg)
     t0 = time.time()
     image = pipe(
-        num_inference_steps=STEPS, guidance_scale=GUIDANCE,
-        width=WIDTH, height=HEIGHT, generator=generator,
+        num_inference_steps=steps or STEPS,
+        guidance_scale=guidance if guidance is not None else GUIDANCE,
+        width=width or WIDTH, height=height or HEIGHT, generator=generator,
         **encode_kwargs,
     ).images[0]
     dest = Path(dest)
@@ -196,7 +207,8 @@ def generate_image(prompt, dest, model_key=None, negative_prompt="", seed=None,
     return dt
 
 
-def generate_batch(prompts, workdir, model_key=None, negative_prompts=None, civitai_model=None):
+def generate_batch(prompts, workdir, model_key=None, negative_prompts=None, civitai_model=None,
+                   width=None, height=None, steps=None, guidance=None):
     """Sequential generation for a set of prompts. Sequential, not parallel, on purpose:
     a GH Actions job already has just 2 vCPUs, so parallel workers would contend for the
     same cores rather than add throughput."""
@@ -206,7 +218,8 @@ def generate_batch(prompts, workdir, model_key=None, negative_prompts=None, civi
         dest = Path(workdir) / f"sd_{i}.png"
         try:
             generate_image(prompt, dest, model_key=model_key, negative_prompt=neg,
-                           seed=random.randint(1, 10**9), civitai_model=civitai_model)
+                           seed=random.randint(1, 10**9), civitai_model=civitai_model,
+                           width=width, height=height, steps=steps, guidance=guidance)
             paths.append(dest)
         except Exception as e:
             log(f"image {i + 1} failed ({type(e).__name__}: {str(e)[:100]}); skipping it")
