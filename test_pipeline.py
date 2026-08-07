@@ -92,6 +92,12 @@ class ImageSlideshowTest(unittest.TestCase):
         self.assertEqual(negatives, ["nude, blurry"] * 10)
         self.assertGreater(len(set(prompts)), 1, "framing must actually vary")
 
+    def test_camera_modifiers_include_full_body_framing(self):
+        """The original list only ever had close-up/medium/three-quarter-style
+        framing -- effectively portrait/closeup no matter which one got picked."""
+        self.assertTrue(any("full body" in m or "full length" in m
+                            for m in imageslides.CAMERA_MODIFIERS))
+
     def test_prefix_and_camera_modifier_precede_the_reference_text(self):
         """CLIP hard-truncates at 77 tokens -- a live run hit a showcase prompt long
         enough on its own to push everything appended after it (mood, camera framing)
@@ -480,6 +486,15 @@ class ImageSlidesSubjectFilterTest(unittest.TestCase):
         self.assertFalse(imageslides._matches_subject(
             "high quality, a girl, blender, 3d model, fashion shoot, portrait photo",
             {"id": "aibeauty"}))
+
+    def test_full_body_prompt_without_the_word_portrait_is_kept(self):
+        """None of CAMERA_MODIFIERS ever asked for full-body framing, and this regex
+        didn't recognize "full body"/"standing"/"full length" as valid subject
+        material either -- together the whole pipeline skewed portrait/closeup no
+        matter which reference prompt got picked."""
+        for ok in ("full body shot of a woman on a beach", "full length photo, standing",
+                  "standing pose, natural light"):
+            self.assertTrue(imageslides._matches_subject(ok, {"id": "aibeauty"}), ok)
 
     def test_prompt_with_no_person_at_all_is_dropped(self):
         """A live sample harvested a pure scenery prompt with no person in it --

@@ -144,7 +144,8 @@ _FEMALE_RE = re.compile(r"\b(?:woman|women|female|girl|lady|mother|wife|girlfrie
 # regardless of how it scores on gender.
 _PORTRAIT_RE = re.compile(
     r"\b(?:portrait|closeup|close-up|face|wearing|outfit|dress|fashion|model|headshot|"
-    r"selfie|photo of (?:a |an )?(?:woman|girl|lady|person)|editorial)\b", re.I)
+    r"selfie|photo of (?:a |an )?(?:woman|girl|lady|person)|editorial|full body|"
+    r"full length|standing)\b", re.I)
 # Once search can land on any qualifying checkpoint rather than a few pre-vetted
 # presets, it can pick a "merge"-style model whose own showcase gallery is mostly
 # creature/character blends, not photography of people -- a live search's decided
@@ -283,6 +284,12 @@ CAMERA_MODIFIERS = [
     "slight high angle, soft backlighting",
     "medium shot, gentle rim lighting",
     "candid framing, natural daylight",
+    # None of the above ever actually asked for full-body framing -- "medium shot",
+    # "three-quarter view" etc. read as waist-up in practice, so the whole mix skewed
+    # portrait/closeup regardless of which reference prompt got picked.
+    "full body shot, standing pose, wide framing",
+    "full length shot, head to toe, natural stance",
+    "full body portrait, standing, wide angle",
 ]
 
 
