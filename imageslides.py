@@ -203,11 +203,19 @@ DEFAULT_CIVITAI_QUERIES = [
 # A checkpoint needs at least this many recorded batches before its track record is
 # trusted enough to influence odds -- one lucky or unlucky early batch (small sample,
 # especially a round of only 3-6 images) must not permanently tilt selection. Below
-# this, or for a checkpoint never seen before, weight is the neutral 1.0 baseline.
+# this, or for a checkpoint never seen before, weight is the neutral 1.0 baseline
+# civitai.py already applies to any candidate missing from this dict.
 MIN_SAMPLES_TO_TRUST = 3
-# How strongly a proven track record can outweigh an untested one, at the extreme
-# (100% pass rate vs the neutral baseline) -- "slowly" biasing per the ask that
-# introduced this, not an on/off switch that starts ignoring weaker performers outright.
+# How far a track record can move odds off the neutral 1.0 baseline in EITHER
+# direction, at the extremes (100%/0% pass rate). Originally 1.0-3.0 (i.e. only ever
+# boosted a good performer, floor was the same 1.0 an untested checkpoint already
+# gets) -- a checkpoint that consistently produced bad batches (anatomy, or a
+# checkpoint-level bias like ethnicity_excluded -- see supervisor.py's rubric) was
+# NEVER actually suppressed below the odds a brand-new, never-tried checkpoint gets,
+# so a known-bad one kept getting picked at the same rate forever. Now spans below
+# 1.0 too, so a proven-bad checkpoint actually becomes less likely, not just
+# "no more likely than an unknown".
+MIN_WEIGHT_MULTIPLIER = 0.15
 MAX_WEIGHT_MULTIPLIER = 3.0
 
 
@@ -215,7 +223,7 @@ def _model_weights(state):
     """{model_id: float} from state["model_stats"] (used/passed counts per "model_id:
     version_id" spec, recorded by generate() after each round's QA) -- fed to
     civitai.decide_reference() to nudge future runs toward checkpoints with a good
-    pass rate, without ruling out anything untested. None/missing state -> {}, which
+    pass rate and away from ones with a bad one. None/missing state -> {}, which
     civitai.py already treats as "no preference, plain shuffle"."""
     stats = (state or {}).get("model_stats") or {}
     weights = {}
@@ -229,7 +237,8 @@ def _model_weights(state):
         except ValueError:
             continue
         pass_rate = s.get("passed", 0) / used
-        weights[model_id] = 1.0 + pass_rate * (MAX_WEIGHT_MULTIPLIER - 1.0)
+        weights[model_id] = (MIN_WEIGHT_MULTIPLIER
+                             + pass_rate * (MAX_WEIGHT_MULTIPLIER - MIN_WEIGHT_MULTIPLIER))
     return weights
 
 

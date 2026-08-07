@@ -135,11 +135,24 @@ def run_niche(niche, state):
 
         publish_id = tiktok.publish_photos_draft(images, niche["id"], caption=caption)
         used.append(f"{niche['id']}-{stamp}")
+        # A publish_id back from init means TikTok ACCEPTED the job, not that it
+        # actually reached the inbox -- confirmed live, 4 of 8 recorded "successes"
+        # had actually failed downstream (photo_pull_failed/file_format_check_failed)
+        # and were never polled for their real outcome, so they kept counting toward
+        # the pending-drafts cap and blocking real runs while nothing was in the
+        # inbox to show for it. Poll for the real status before recording success.
+        status, fail_reason = (
+            tiktok.check_publish_status(publish_id, niche["id"]) if publish_id
+            else (None, None))
+        if publish_id and status != "SEND_TO_USER_INBOX":
+            log(f"[{niche['id']}] draft did not actually reach the inbox: "
+                f"status={status} fail_reason={fail_reason}")
         state["uploads"].append({
             "niche": niche["id"], "topic": f"image slideshow {stamp}",
             "title": caption.splitlines()[0][:95],
-            "tiktok": bool(publish_id), "tiktok_via": "inbox",
-            "tiktok_post_id": publish_id, "tiktok_caption": caption,
+            "tiktok": status == "SEND_TO_USER_INBOX", "tiktok_via": "inbox",
+            "tiktok_post_id": publish_id, "tiktok_status": status,
+            "tiktok_caption": caption,
             "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
         })
         save_state(state)

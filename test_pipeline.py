@@ -841,11 +841,16 @@ class LocationConflictTest(unittest.TestCase):
 
 
 class ModelPreferenceTest(unittest.TestCase):
-    """"Slowly having preferred models" -- a checkpoint's QA pass-rate history, kept
-    in posted.json's model_stats, nudges future selection odds without ruling out
-    anything untested. Not a hard switch: a checkpoint with a perfect record is at
-    most MAX_WEIGHT_MULTIPLIER times as likely to be picked, never guaranteed, and an
-    untested one still gets the same 1.0 baseline as everything else."""
+    """A checkpoint's QA pass-rate history, kept in posted.json's model_stats, nudges
+    future selection odds both up (good track record) and down (bad one) from the
+    neutral 1.0 baseline an untested checkpoint gets. Not a hard switch: even a
+    checkpoint with a 0% pass rate keeps a small positive weight (civitai.py's
+    random.choices() needs one to ever reconsider it), not zero -- odds, not a ban
+    list. The floor used to be the same 1.0 baseline as untested (MIN_WEIGHT_
+    MULTIPLIER didn't exist, effectively 1.0), which meant a proven-bad checkpoint
+    was NEVER actually less likely than a brand-new one -- caught after a real batch
+    came out consistently biased from a checkpoint whose pass rate should have
+    tanked its odds and didn't."""
 
     def test_no_state_means_no_preference(self):
         self.assertEqual(imageslides._model_weights(None), {})
@@ -862,13 +867,17 @@ class ModelPreferenceTest(unittest.TestCase):
         self.assertGreater(weights[1], 1.0)
         self.assertLessEqual(weights[1], imageslides.MAX_WEIGHT_MULTIPLIER)
 
-    def test_poor_track_record_stays_at_baseline_not_below(self):
-        """A checkpoint that never passes is de-prioritised by staying at the neutral
-        floor, not pushed below it -- weights are odds, not a ban list; civitai.py's
-        random.choices() still needs a positive weight to ever consider it again."""
+    def test_poor_track_record_weighs_below_baseline(self):
+        """A checkpoint that never passes must become LESS likely to be picked again
+        than an untested one, not just no-more-likely -- this is what actually lets a
+        bad checkpoint's odds tank over a few batches without anyone needing to have
+        named it in advance (see supervisor.py's ethnicity_excluded, which exists
+        specifically to feed this)."""
         state = {"model_stats": {"1:1": {"name": "X", "used": 10, "passed": 0}}}
         weights = imageslides._model_weights(state)
-        self.assertEqual(weights[1], 1.0)
+        self.assertEqual(weights[1], imageslides.MIN_WEIGHT_MULTIPLIER)
+        self.assertLess(weights[1], 1.0)
+        self.assertGreater(weights[1], 0)
 
     def test_record_model_result_accumulates_across_calls(self):
         state = {}
@@ -1333,6 +1342,8 @@ class RunNicheTest(unittest.TestCase):
              mock.patch.object(imageslides, "generate", lambda n, state=None: fake_images), \
              mock.patch.object(tiktok, "publish_photos_draft",
                                lambda imgs, niche_id, image_urls=None, caption=None, title=None: "publish1"), \
+             mock.patch.object(tiktok, "check_publish_status",
+                               lambda pid, niche_id: ("SEND_TO_USER_INBOX", None)), \
              mock.patch.object(autopilot.os, "remove", lambda p: None), \
              mock.patch.object(autopilot, "save_state", lambda s: None), \
              tempfile.TemporaryDirectory() as tmp:
@@ -1341,6 +1352,30 @@ class RunNicheTest(unittest.TestCase):
         entry = state["uploads"][-1]
         self.assertEqual(entry["tiktok_via"], "inbox")
         self.assertEqual(entry["tiktok_post_id"], "publish1")
+        self.assertTrue(entry["tiktok"])
+
+    def test_publish_that_fails_downstream_is_not_recorded_as_success(self):
+        """init returning a publish_id only means TikTok accepted the job -- live-
+        confirmed this can still fail downstream (photo_pull_failed etc.) and never
+        reach the inbox. tiktok:true must reflect the polled outcome, not just
+        whether init returned an id."""
+        fake_images = [Path(f"/tmp/i{i}.png") for i in range(5)]
+        state = {"topics": {}, "uploads": []}
+        with mock.patch.object(autopilot, "DRY_RUN", False), \
+             mock.patch.object(tiktok, "enabled", lambda niche_id: True), \
+             mock.patch.object(imageslides, "generate", lambda n, state=None: fake_images), \
+             mock.patch.object(tiktok, "publish_photos_draft",
+                               lambda imgs, niche_id, image_urls=None, caption=None, title=None: "publish1"), \
+             mock.patch.object(tiktok, "check_publish_status",
+                               lambda pid, niche_id: ("FAILED", "photo_pull_failed")), \
+             mock.patch.object(autopilot.os, "remove", lambda p: None), \
+             mock.patch.object(autopilot, "save_state", lambda s: None), \
+             tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.object(autopilot, "ROOT", Path(tmp)):
+                autopilot.run_niche(self.AIBEAUTY, state)
+        entry = state["uploads"][-1]
+        self.assertFalse(entry["tiktok"])
+        self.assertEqual(entry["tiktok_status"], "FAILED")
 
     def test_dry_run_writes_files_and_never_queues_a_draft(self):
         fake_images = [Path(f"/tmp/i{i}.png") for i in range(5)]
@@ -1405,6 +1440,8 @@ class RunNicheTest(unittest.TestCase):
              mock.patch.object(imageslides, "generate", fake_generate), \
              mock.patch.object(tiktok, "publish_photos_draft",
                                lambda imgs, niche_id, image_urls=None, caption=None, title=None: "p1"), \
+             mock.patch.object(tiktok, "check_publish_status",
+                               lambda pid, niche_id: ("SEND_TO_USER_INBOX", None)), \
              mock.patch.object(autopilot.os, "remove", lambda p: None), \
              mock.patch.object(autopilot, "save_state", lambda s: None):
             autopilot.run_niche({**self.AIBEAUTY, "videos_per_run": 5}, state)
@@ -1426,6 +1463,9 @@ class SupervisorRubricTest(unittest.TestCase):
 
     def test_rubric_rejects_bare_skin_regardless_of_camera_angle(self):
         self.assertIn("camera angle", supervisor.RUBRIC.lower())
+
+    def test_rubric_asks_about_ethnicity_exclusion(self):
+        self.assertIn("ethnicity_excluded", supervisor.RUBRIC)
 
 
 class ReviewImageTest(unittest.TestCase):
@@ -1506,6 +1546,29 @@ class ReviewImageTest(unittest.TestCase):
         with mock.patch.object(supervisor, "_ask_vision", fake_ask):
             result = supervisor.review_image("x.jpg")
         self.assertFalse(supervisor.passes(result))
+
+    def test_ethnicity_excluded_rejects(self):
+        """Exists specifically so a checkpoint that produces this pattern gets a low
+        QA pass rate recorded, which is what actually drives it out of future
+        selection (imageslides._model_weights) without anyone needing to have
+        blocklisted its name in advance."""
+        def fake_ask(model, prompt, b64, **kw):
+            if model == supervisor.VISION_MODELS[0]:
+                return self.GOOD
+            return ('{"realistic": 8, "anatomy_ok": true, "fully_clothed": true, '
+                   '"age_appears_adult": true, "ethnicity_excluded": true, "issues": []}')
+
+        with mock.patch.object(supervisor, "_ask_vision", fake_ask):
+            result = supervisor.review_image("x.jpg")
+        self.assertTrue(result["ethnicity_excluded"])
+        self.assertFalse(supervisor.passes(result))
+
+    def test_ethnicity_excluded_false_across_the_board_still_passes(self):
+        with mock.patch.object(supervisor, "_ask_vision",
+                               lambda model, prompt, b64, **kw: self.GOOD):
+            result = supervisor.review_image("x.jpg")
+        self.assertFalse(result["ethnicity_excluded"])
+        self.assertTrue(supervisor.passes(result))
 
     def test_realistic_score_is_the_minimum_across_models(self):
         def fake_ask(model, prompt, b64, **kw):
@@ -1771,6 +1834,68 @@ class TikTokPublishDraftTest(unittest.TestCase):
             tiktok.publish_photos_draft(["a.png", "b.png"], "aibeauty")
 
 
+class CheckPublishStatusTest(unittest.TestCase):
+    """init's 200 OK only means TikTok ACCEPTED the job -- live-confirmed a real
+    batch of "successful" pushes included several that had actually failed
+    downstream and were never polled for the real outcome. check_publish_status()
+    is what closes that gap."""
+
+    def _env(self):
+        return mock.patch.dict(os.environ, {
+            "TIKTOK_CLIENT_KEY": "ck", "TIKTOK_CLIENT_SECRET": "cs",
+            "TIKTOK_REFRESH_TOKEN_AIBEAUTY": "rt",
+        })
+
+    def test_terminal_success_is_returned_immediately(self):
+        with self._env(), \
+             mock.patch.object(tiktok, "_access_token", lambda ck, cs, rt: "acc"), \
+             mock.patch.object(tiktok.requests, "post", lambda *a, **k: mock.Mock(
+                 raise_for_status=lambda: None,
+                 json=lambda: {"data": {"status": "SEND_TO_USER_INBOX"}})):
+            status, reason = tiktok.check_publish_status("p1", "aibeauty")
+        self.assertEqual(status, "SEND_TO_USER_INBOX")
+        self.assertIsNone(reason)
+
+    def test_terminal_failure_returns_the_reason(self):
+        with self._env(), \
+             mock.patch.object(tiktok, "_access_token", lambda ck, cs, rt: "acc"), \
+             mock.patch.object(tiktok.requests, "post", lambda *a, **k: mock.Mock(
+                 raise_for_status=lambda: None,
+                 json=lambda: {"data": {"status": "FAILED",
+                                        "fail_reason": "photo_pull_failed"}})):
+            status, reason = tiktok.check_publish_status("p1", "aibeauty")
+        self.assertEqual(status, "FAILED")
+        self.assertEqual(reason, "photo_pull_failed")
+
+    def test_polls_through_non_terminal_states(self):
+        calls = {"n": 0}
+
+        def fake_post(url, headers=None, json=None, timeout=None):
+            calls["n"] += 1
+            status = "PROCESSING_DOWNLOAD" if calls["n"] < 3 else "SEND_TO_USER_INBOX"
+            return mock.Mock(raise_for_status=lambda: None,
+                             json=lambda: {"data": {"status": status}})
+
+        with self._env(), \
+             mock.patch.object(tiktok, "_access_token", lambda ck, cs, rt: "acc"), \
+             mock.patch.object(tiktok.requests, "post", fake_post), \
+             mock.patch.object(tiktok.time, "sleep", lambda s: None):
+            status, _ = tiktok.check_publish_status("p1", "aibeauty", interval=0)
+        self.assertEqual(status, "SEND_TO_USER_INBOX")
+        self.assertEqual(calls["n"], 3)
+
+    def test_never_reaching_terminal_times_out(self):
+        with self._env(), \
+             mock.patch.object(tiktok, "_access_token", lambda ck, cs, rt: "acc"), \
+             mock.patch.object(tiktok.requests, "post", lambda *a, **k: mock.Mock(
+                 raise_for_status=lambda: None,
+                 json=lambda: {"data": {"status": "PROCESSING_DOWNLOAD"}})), \
+             mock.patch.object(tiktok.time, "sleep", lambda s: None):
+            status, reason = tiktok.check_publish_status(
+                "p1", "aibeauty", timeout=0.01, interval=0.01)
+        self.assertEqual(status, "TIMEOUT")
+
+
 class PushDraftTest(unittest.TestCase):
     def _make_batch(self, tmp, n=3, caption="hello"):
         folder = Path(tmp) / "aibeauty-20260101-120000"
@@ -1785,6 +1910,8 @@ class PushDraftTest(unittest.TestCase):
             folder = self._make_batch(tmp)
             with mock.patch.object(tiktok, "publish_photos_draft",
                                    lambda imgs, niche_id, caption=None: "p1"), \
+                 mock.patch.object(tiktok, "check_publish_status",
+                                   lambda pid, niche_id: ("SEND_TO_USER_INBOX", None)), \
                  mock.patch.object(autopilot, "ROOT", Path(tmp)), \
                  mock.patch.object(autopilot, "STATE_FILE", Path(tmp) / "posted.json"):
                 publish_id = push_draft.push_draft(folder)
@@ -1792,6 +1919,24 @@ class PushDraftTest(unittest.TestCase):
             state = json.loads((Path(tmp) / "posted.json").read_text())
             self.assertEqual(state["uploads"][-1]["tiktok_post_id"], "p1")
             self.assertEqual(state["uploads"][-1]["niche"], "aibeauty")
+            self.assertTrue(state["uploads"][-1]["tiktok"])
+
+    def test_downstream_failure_is_recorded_as_not_queued(self):
+        """Mirrors the real incident: init accepted the job (returned a publish_id)
+        but it failed downstream and never reached the inbox. Must not be recorded
+        as a success, or it silently eats a slot in the pending-drafts cap forever."""
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = self._make_batch(tmp)
+            with mock.patch.object(tiktok, "publish_photos_draft",
+                                   lambda imgs, niche_id, caption=None: "p1"), \
+                 mock.patch.object(tiktok, "check_publish_status",
+                                   lambda pid, niche_id: ("FAILED", "photo_pull_failed")), \
+                 mock.patch.object(autopilot, "ROOT", Path(tmp)), \
+                 mock.patch.object(autopilot, "STATE_FILE", Path(tmp) / "posted.json"):
+                push_draft.push_draft(folder)
+            state = json.loads((Path(tmp) / "posted.json").read_text())
+            self.assertFalse(state["uploads"][-1]["tiktok"])
+            self.assertEqual(state["uploads"][-1]["tiktok_status"], "FAILED")
 
     def test_niche_id_inferred_from_folder_name(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1803,6 +1948,8 @@ class PushDraftTest(unittest.TestCase):
                 return "p1"
 
             with mock.patch.object(tiktok, "publish_photos_draft", fake_publish), \
+                 mock.patch.object(tiktok, "check_publish_status",
+                                   lambda pid, niche_id: ("SEND_TO_USER_INBOX", None)), \
                  mock.patch.object(autopilot, "ROOT", Path(tmp)), \
                  mock.patch.object(autopilot, "STATE_FILE", Path(tmp) / "posted.json"):
                 push_draft.push_draft(folder)

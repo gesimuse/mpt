@@ -210,3 +210,44 @@ def publish_photos_draft(image_paths, niche_id, image_urls=None, caption=None, t
     log(f"queued to inbox as draft, publish_id={d['publish_id']}"
         + (" (with caption)" if caption else ""))
     return d["publish_id"]
+
+
+# Terminal states from /v2/post/publish/status/fetch/ -- anything else (PROCESSING_
+# UPLOAD, PROCESSING_DOWNLOAD, ...) means still in progress.
+_TERMINAL_STATUSES = {"SEND_TO_USER_INBOX", "PUBLISH_COMPLETE", "FAILED"}
+
+
+def check_publish_status(publish_id, niche_id, timeout=180, interval=5):
+    """Poll TikTok for what actually happened to a publish_id after init returned it.
+
+    init's 200 OK only means the job was ACCEPTED, not that it succeeded -- caught
+    live: a real run's init calls all returned a publish_id and got recorded as
+    successful uploads, but 4 of 8 had actually failed downstream
+    (photo_pull_failed/file_format_check_failed, a GitHub Pages build-latency race and
+    a since-fixed PNG-vs-JPEG bug) and never reached the inbox at all. Nothing was
+    ever polling this endpoint in production, only ever checked by hand during
+    development -- posted.json's tiktok:true was trusting the init call alone.
+
+    Returns (status, fail_reason) -- status is one of _TERMINAL_STATUSES, or
+    "TIMEOUT" if it never reached one within `timeout` seconds (treated as a failure
+    by the caller, not a success -- an unconfirmed draft must not count toward the
+    pending-drafts cap either)."""
+    ck = os.environ.get("TIKTOK_CLIENT_KEY")
+    cs = os.environ.get("TIKTOK_CLIENT_SECRET")
+    refresh = os.environ.get(f"TIKTOK_REFRESH_TOKEN_{niche_id.upper()}")
+    access = _access_token(ck, cs, refresh)
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        r = requests.post(
+            "https://open.tiktokapis.com/v2/post/publish/status/fetch/",
+            headers={"Authorization": f"Bearer {access}", "Content-Type": "application/json; charset=UTF-8"},
+            json={"publish_id": publish_id},
+            timeout=30,
+        )
+        r.raise_for_status()
+        data = r.json().get("data", {})
+        status = data.get("status")
+        if status in _TERMINAL_STATUSES:
+            return status, data.get("fail_reason")
+        time.sleep(interval)
+    return "TIMEOUT", None

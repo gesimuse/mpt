@@ -5,41 +5,49 @@
       "niche": "aibeauty",
       "topic": "local batch aibeauty-20260807-094820",
       "title": "A little extra never hurt.",
-      "tiktok": true,
+      "tiktok": false,
       "tiktok_via": "inbox",
       "tiktok_post_id": "p_inbox_url~v2.7671186877223028758",
       "tiktok_caption": "A little extra never hurt.\n\nCreated with AI.\n\n#aiart #aigenerated #aiphotography #confident",
-      "ts": "2026-08-07T10:26:29"
+      "ts": "2026-08-07T10:26:29",
+      "tiktok_status": "FAILED",
+      "tiktok_fail_reason": "photo_pull_failed"
     },
     {
       "niche": "aibeauty",
       "topic": "local batch aibeauty-20260807-094820",
       "title": "A little extra never hurt.",
-      "tiktok": true,
+      "tiktok": false,
       "tiktok_via": "inbox",
       "tiktok_post_id": "p_inbox_url~v2.7671188358345394198",
       "tiktok_caption": "A little extra never hurt.\n\nCreated with AI.\n\n#aiart #aigenerated #aiphotography #confident",
-      "ts": "2026-08-07T10:29:29"
+      "ts": "2026-08-07T10:29:29",
+      "tiktok_status": "FAILED",
+      "tiktok_fail_reason": "photo_pull_failed"
     },
     {
       "niche": "aibeauty",
       "topic": "local batch aibeauty-20260807-101207",
       "title": "Not sorry for the view.",
-      "tiktok": true,
+      "tiktok": false,
       "tiktok_via": "inbox",
       "tiktok_post_id": "p_inbox_url~v2.7671189132823054358",
       "tiktok_caption": "Not sorry for the view.\n\nCreated with AI.\n\n#aiart #aigenerated #aiphotography #confident",
-      "ts": "2026-08-07T10:32:15"
+      "ts": "2026-08-07T10:32:15",
+      "tiktok_status": "FAILED",
+      "tiktok_fail_reason": "photo_pull_failed"
     },
     {
       "niche": "aibeauty",
       "topic": "local batch aibeauty-20260807-101011",
       "title": "Golden hour and good angles.",
-      "tiktok": true,
+      "tiktok": false,
       "tiktok_via": "inbox",
       "tiktok_post_id": "p_inbox_url~v2.7671190782388439062",
       "tiktok_caption": "Golden hour and good angles.\n\nCreated with AI.\n\n#aiart #aigenerated #aiphotography #confident",
-      "ts": "2026-08-07T10:39:25"
+      "ts": "2026-08-07T10:39:25",
+      "tiktok_status": "FAILED",
+      "tiktok_fail_reason": "file_format_check_failed"
     },
     {
       "niche": "aibeauty",

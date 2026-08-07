@@ -44,12 +44,15 @@ Answer:
                   exposed genitals, or full nudity -> false regardless of anything else.
   age_appears_adult  true only if the subject clearly appears to be an adult. If there
                      is any doubt at all, false.
+  ethnicity_excluded  true if the subject appears Chinese or East Asian, false
+                     otherwise. Operator preference for this account, not a judgment
+                     of the subject -- answer only what the image shows.
   issues          short list of concrete problems, empty if none.
 
 Respond with the JSON object only. No description of the image, no preamble, no
 markdown fences -- the first character of your reply must be "{".
 {"realistic": n, "anatomy_ok": bool, "fully_clothed": bool, "age_appears_adult": bool,
-"issues": ["..."]}"""
+"ethnicity_excluded": bool, "issues": ["..."]}"""
 
 MIN_REALISTIC = int(os.environ.get("SUPERVISOR_MIN_REALISTIC", "6"))
 
@@ -151,25 +154,36 @@ def review_image(path, parse_retries=2):
         "anatomy_ok": all(v.get("anatomy_ok") for v in verdicts),
         "fully_clothed": all(v.get("fully_clothed") for v in verdicts),
         "age_appears_adult": all(v.get("age_appears_adult") for v in verdicts),
+        # Inverted from the "ok" fields above on purpose: this is a reject signal, so
+        # ANY model flagging it is enough, the same conservative direction the dual-
+        # model consult already takes for a refusal/parse-failure (one model saying
+        # "this is a problem" outweighs another saying "looks fine to me").
+        "ethnicity_excluded": any(v.get("ethnicity_excluded") for v in verdicts),
         "issues": [i for v in verdicts for i in (v.get("issues") or [])],
         "_models": [v.get("_model") for v in verdicts],
     }
 
 
 def passes(result, min_realistic=None):
-    """anatomy_ok and age_appears_adult stay hard requirements -- weird/non-human
-    anatomy and age are not something a quick look at the finished draft reliably
-    catches, and age is a non-negotiable line regardless. fully_clothed is no longer
-    enforced here (still recorded in the result and logged by filter_images() below,
-    just not gating) -- the account owner reviews every draft in the TikTok app
-    before posting and removes individual images from the carousel there, so nudity
-    is caught downstream by a human either way, and gating it here was mostly costing
-    variety, not adding real protection past that point."""
+    """anatomy_ok, age_appears_adult and ethnicity_excluded stay hard requirements.
+    fully_clothed is no longer enforced here (still recorded in the result and
+    logged by filter_images() below, just not gating) -- the account owner reviews
+    every draft in the TikTok app before posting and removes individual images from
+    the carousel there, so nudity is caught downstream by a human either way, and
+    gating it here was mostly costing variety, not adding real protection past that
+    point. ethnicity_excluded exists specifically because that downstream human
+    review does NOT catch which underlying CHECKPOINT is responsible for a pattern
+    across a whole batch -- a real batch came out consistently Chinese/Asian-
+    appearing from a checkpoint whose name did not say so, and rejecting each image
+    here is what feeds a low pass rate back into imageslides.py's model_stats
+    weighting, so that checkpoint stops getting picked without anyone needing to
+    have named it in advance."""
     min_realistic = min_realistic if min_realistic is not None else MIN_REALISTIC
     realistic = result.get("realistic")
     if not isinstance(realistic, (int, float)) or realistic < min_realistic:
         return False
-    return bool(result.get("anatomy_ok") and result.get("age_appears_adult"))
+    return bool(result.get("anatomy_ok") and result.get("age_appears_adult")
+               and not result.get("ethnicity_excluded"))
 
 
 def filter_images(paths, min_realistic=None):
@@ -181,7 +195,8 @@ def filter_images(paths, min_realistic=None):
         log(f"{Path(path).name}: {'PASS' if ok else 'REJECT'} "
             f"realistic={result.get('realistic')} anatomy_ok={result.get('anatomy_ok')} "
             f"fully_clothed={result.get('fully_clothed')} "
-            f"age_appears_adult={result.get('age_appears_adult')}"
+            f"age_appears_adult={result.get('age_appears_adult')} "
+            f"ethnicity_excluded={result.get('ethnicity_excluded')}"
             + (f" issues={result['issues']}" if result.get("issues") else ""))
         if ok:
             kept.append(path)

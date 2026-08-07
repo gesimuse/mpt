@@ -483,7 +483,7 @@ def harvest_from_gallery(model_version_id=None, query=None, limit=50, period="Mo
     filters -- verified live, 0 of 50 top-reactions-all-time posts carried a prompt.
     Kept only as a secondary top-up when the model-showcase pool above is too small;
     do not rely on this alone."""
-    params = {"limit": limit, "sort": sort, "period": period, "nsfw": "None"}
+    params = {"limit": limit, "sort": sort, "period": period}
     if model_version_id:
         params["modelVersionId"] = model_version_id
     if query:
