@@ -1040,6 +1040,88 @@ class StaticCheckTest(unittest.TestCase):
         self.assertEqual(undefined, [], "undefined names:\n" + "\n".join(undefined))
 
 
+class TikTokHostingTest(unittest.TestCase):
+    """host_file() drives real git commands (fetch, worktree add, commit, push) --
+    exercised here against a real local git remote rather than mocked, since a mocked
+    git call would not catch an actual command-syntax bug. GitHub Pages was chosen
+    over GitHub Releases after a live check found release-asset download URLs
+    302-redirect to a signed, ~1h-expiring URL, which TikTok's PULL_FROM_URL disallows;
+    Pages serves files directly with no redirect."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        root = Path(self.tmp.name)
+        self.remote = root / "remote.git"
+        self.repo = root / "repo"
+
+        subprocess.run(["git", "init", "--bare", str(self.remote)],
+                       check=True, capture_output=True)
+        subprocess.run(["git", "clone", str(self.remote), str(self.repo)],
+                       check=True, capture_output=True)
+        self._git("config", "user.name", "test")
+        self._git("config", "user.email", "test@example.com")
+        (self.repo / "README.md").write_text("main branch")
+        self._git("add", "README.md")
+        self._git("commit", "-m", "init")
+        self._git("push", "-u", "origin", "HEAD:main")
+
+        self._git("checkout", "--orphan", "gh-pages")
+        self._git("rm", "-rf", ".", allow_fail=True)
+        (self.repo / "media").mkdir()
+        (self.repo / "media" / ".gitkeep").write_text("")
+        self._git("add", "-A")
+        self._git("commit", "-m", "init gh-pages")
+        self._git("push", "-u", "origin", "gh-pages")
+        self._git("checkout", "main")
+
+        self.image = root / "source.png"
+        self.image.write_bytes(b"fake-image-bytes")
+
+        patches = [mock.patch.object(tiktok, "REPO_ROOT", self.repo),
+                  mock.patch.object(tiktok, "PAGES_WORKTREE", root / "pages-wt")]
+        for p in patches:
+            p.start()
+            self.addCleanup(p.stop)
+
+    def _git(self, *args, allow_fail=False):
+        r = subprocess.run(["git", *args], cwd=self.repo, capture_output=True, text=True)
+        if r.returncode != 0 and not allow_fail:
+            raise RuntimeError(r.stderr)
+        return r.stdout
+
+    def test_host_file_commits_and_returns_a_working_url(self):
+        url = tiktok.host_file(self.image, base_url="https://example.test/repo")
+        self.assertTrue(url.startswith("https://example.test/repo/media/"))
+        self.assertTrue(url.endswith("source.png"))
+        files = list((tiktok.PAGES_WORKTREE / "media").glob("*source.png"))
+        self.assertEqual(len(files), 1)
+        self.assertEqual(files[0].read_bytes(), b"fake-image-bytes")
+
+    def test_host_file_requires_base_url(self):
+        with mock.patch.dict(os.environ, {}, clear=True):
+            with self.assertRaises(RuntimeError) as ctx:
+                tiktok.host_file(self.image, base_url=None)
+        self.assertIn("PAGES_BASE_URL", str(ctx.exception))
+
+    def test_pushed_file_is_actually_on_the_remote(self):
+        """Not just committed locally -- the whole point is TikTok's servers fetching
+        it, which only works once it's actually pushed."""
+        tiktok.host_file(self.image, base_url="https://example.test/repo")
+        r = subprocess.run(["git", "ls-tree", "-r", "--name-only", "origin/gh-pages"],
+                           cwd=tiktok.PAGES_WORKTREE, capture_output=True, text=True)
+        self.assertIn("source.png", r.stdout)
+
+    def test_pruning_keeps_only_the_newest_files(self):
+        with mock.patch.object(tiktok, "KEEP_MEDIA", 3):
+            for i in range(5):
+                img = Path(self.tmp.name) / f"src{i}.png"
+                img.write_bytes(f"data{i}".encode())
+                tiktok.host_file(img, base_url="https://example.test/repo")
+        remaining = list((tiktok.PAGES_WORKTREE / "media").glob("*.png"))
+        self.assertLessEqual(len(remaining), 3)
+
+
 class TikTokEnabledTest(unittest.TestCase):
     def test_enabled_requires_all_three_credentials(self):
         with mock.patch.dict(os.environ, {"TIKTOK_CLIENT_KEY": "k", "TIKTOK_CLIENT_SECRET": "s",

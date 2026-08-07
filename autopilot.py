@@ -9,7 +9,9 @@ Env vars:
   CIVITAI_API_KEY                read-only: CivitAI search/gallery only, never near
                                   CivitAI's separate paid generation API
   TIKTOK_CLIENT_KEY / TIKTOK_CLIENT_SECRET / TIKTOK_REFRESH_TOKEN_<NICHEID>
-  GITHUB_TOKEN / GITHUB_REPOSITORY   hosts generated images so TikTok can fetch them
+  PAGES_BASE_URL                  e.g. https://gesimuse.github.io/mpt -- images are
+                                   committed to the gh-pages branch (tiktok.py) and
+                                   served directly from there for TikTok to fetch
 Optional:
   NICHES      comma-separated niche ids to run (default: all)
   DRY_RUN     generate + QA, write to ./out, never queue a draft -- the natural way to

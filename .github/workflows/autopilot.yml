@@ -28,7 +28,11 @@ jobs:
     permissions:
       contents: write   # allows the workflow to commit posted.json back
     steps:
+      # fetch-depth: 0 so tiktok.py's `git fetch origin gh-pages` + worktree has full
+      # history to work with, not just the default branch's shallow single commit.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
@@ -58,10 +62,13 @@ jobs:
           TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
           TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
           TIKTOK_REFRESH_TOKEN_AIBEAUTY: ${{ secrets.TIKTOK_REFRESH_TOKEN_AIBEAUTY }}
-          # Hosts generated images as a release asset so TikTok's PULL_FROM_URL can
-          # fetch them; Actions provides both automatically.
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
+          # Images are committed to the gh-pages branch (tiktok.py) and served
+          # directly from there -- GitHub Releases' download URLs redirect to a
+          # signed, ~1h-expiring URL, which TikTok's PULL_FROM_URL disallows.
+          PAGES_BASE_URL: https://gesimuse.github.io/mpt
+          # actions/checkout already configures push credentials for this repo (any
+          # branch, not just the default one), which is what tiktok.py's git push to
+          # gh-pages relies on -- nothing extra to set up here.
         run: python autopilot.py
 
       # Commit posted.json back to the repo. This both persists topic/upload

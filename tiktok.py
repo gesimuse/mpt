@@ -22,21 +22,28 @@ this pipeline, which was live-tested before being trusted. Treat the first real 
 a test: check that the draft actually lands in the aibeauty account's inbox before
 relying on this unattended.
 
-Images are hosted as GitHub release assets (public repo, stable URL, stays out of git
-history) purely so TikTok's servers have something to fetch from.
+Images are hosted on GitHub Pages (the repo's gh-pages branch, media/ folder), not
+GitHub Releases -- a live check found release-asset download URLs 302-redirect to a
+signed, ~1-hour-expiring release-assets.githubusercontent.com URL, and TikTok's own
+docs explicitly disallow PULL_FROM_URL redirecting. Pages serves files directly, no
+redirect, stable URL, confirmed live. The gh-pages branch is kept as a git worktree
+(orphan branch, shares objects with the main checkout) specifically so the noisy
+per-image commits stay out of main's source history.
 
 Env:
   TIKTOK_CLIENT_KEY / TIKTOK_CLIENT_SECRET   from the TikTok developer app
   TIKTOK_REFRESH_TOKEN_<NICHEID>             per-account OAuth refresh token
-  GITHUB_TOKEN / GITHUB_REPOSITORY           for hosting the images; Actions provides both
+  PAGES_BASE_URL                             e.g. https://gesimuse.github.io/mpt
 """
-import mimetypes, os, time
+import os, subprocess, time
 from pathlib import Path
 
 import requests
 
-MEDIA_TAG = "autopilot-media"
-KEEP_ASSETS = 20
+REPO_ROOT = Path(__file__).resolve().parent
+PAGES_WORKTREE = REPO_ROOT / ".gh-pages-worktree"
+PAGES_BRANCH = "gh-pages"
+KEEP_MEDIA = 30
 
 
 def log(msg): print(f"[tiktok] {msg}", flush=True)
@@ -49,60 +56,73 @@ def enabled(niche_id):
     return bool(ck and cs and refresh)
 
 
-# ---------- hosting (GitHub release asset, so PULL_FROM_URL has something to fetch) ----------
-def _gh_api(method, url, token, **kw):
-    r = requests.request(method, url, timeout=180, headers={
-        "Authorization": f"Bearer {token}",
-        "Accept": "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-        **kw.pop("headers", {}),
-    }, **kw)
-    if not r.ok:
-        raise RuntimeError(f"github {method} {url.split('/')[-1]}: {r.status_code} {r.text[:200]}")
-    return r
+# ---------- hosting (GitHub Pages, so PULL_FROM_URL has a stable, non-redirecting URL) ----------
+def _git(*args, cwd):
+    r = subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True, timeout=120)
+    if r.returncode != 0:
+        raise RuntimeError(f"git {' '.join(args)} failed: {r.stderr[:300]}")
+    return r.stdout
 
 
-def _release(repo, token):
-    """The rolling release that holds image assets, created on first use."""
-    base = f"https://api.github.com/repos/{repo}"
-    r = requests.get(f"{base}/releases/tags/{MEDIA_TAG}", timeout=60, headers={
-        "Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"})
-    if r.status_code == 200:
-        return r.json()
-    return _gh_api("POST", f"{base}/releases", token, json={
-        "tag_name": MEDIA_TAG,
-        "name": "Autopilot media",
-        "body": "Generated images hosted for TikTok to fetch. Managed automatically.",
-        "prerelease": True,
-    }).json()
+def _pages_worktree():
+    """A local checkout of gh-pages, used purely as static asset storage -- created
+    once and reused (a worktree, not a second clone, so it shares objects/history
+    with the main checkout instead of a second full network fetch)."""
+    if PAGES_WORKTREE.exists():
+        return PAGES_WORKTREE
+    _git("fetch", "origin", PAGES_BRANCH, cwd=REPO_ROOT)
+    _git("worktree", "add", str(PAGES_WORKTREE), PAGES_BRANCH, cwd=REPO_ROOT)
+    _git("config", "user.name", "autopilot-bot", cwd=PAGES_WORKTREE)
+    _git("config", "user.email", "actions@github.com", cwd=PAGES_WORKTREE)
+    return PAGES_WORKTREE
 
 
-def _prune(repo, token, release, keep=KEEP_ASSETS):
-    assets = sorted(release.get("assets", []), key=lambda a: a.get("created_at", ""))
-    for asset in assets[:-keep] if len(assets) > keep else []:
-        try:
-            _gh_api("DELETE", f"https://api.github.com/repos/{repo}/releases/assets/{asset['id']}", token)
-        except Exception as e:
-            log(f"could not delete old asset {asset.get('name')}: {str(e)[:80]}")
+def _prune_media(worktree, keep=None):
+    # keep's default is looked up here, not bound as a default argument -- a default
+    # of keep=KEEP_MEDIA would capture that value at function-definition time, so
+    # patching the module-level KEEP_MEDIA later (tests, or a future env var override)
+    # would silently have no effect. Caught by this file's own test suite.
+    keep = KEEP_MEDIA if keep is None else keep
+    media_dir = worktree / "media"
+    files = sorted(media_dir.glob("*"), key=lambda p: p.stat().st_mtime)
+    stale = files[:-keep] if len(files) > keep else []
+    for f in stale:
+        f.unlink(missing_ok=True)
+    return stale
 
 
-def host_file(path, token=None, repo=None):
-    """Upload a file as a release asset and return its public URL."""
-    token = token or (os.environ.get("GITHUB_TOKEN") or "").strip()
-    repo = repo or (os.environ.get("GITHUB_REPOSITORY") or "").strip()
-    if not token or not repo:
-        raise RuntimeError("GITHUB_TOKEN and GITHUB_REPOSITORY are needed to host the images")
+def host_file(path, base_url=None):
+    """Commit the file into gh-pages's media/ folder and return its Pages URL."""
+    base_url = base_url or (os.environ.get("PAGES_BASE_URL") or "").strip()
+    if not base_url:
+        raise RuntimeError("PAGES_BASE_URL is needed to host images "
+                           "(e.g. https://gesimuse.github.io/mpt)")
     path = Path(path)
-    release = _release(repo, token)
+    worktree = _pages_worktree()
     name = f"{int(time.time())}-{path.name}".replace(" ", "_")
-    upload = release["upload_url"].split("{")[0]
-    ctype = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
-    with open(path, "rb") as f:
-        asset = _gh_api("POST", f"{upload}?name={name}", token,
-                        headers={"Content-Type": ctype}, data=f).json()
-    _prune(repo, token, release)
-    log(f"hosted {name} ({path.stat().st_size // 1024}KB)")
-    return asset["browser_download_url"]
+    media_dir = worktree / "media"
+    media_dir.mkdir(parents=True, exist_ok=True)
+    dest = media_dir / name
+    dest.write_bytes(path.read_bytes())
+    stale = _prune_media(worktree)
+
+    _git("add", "-A", cwd=worktree)
+    _git("commit", "-m", f"media: {name}" + (f" (pruned {len(stale)})" if stale else ""),
+        cwd=worktree)
+    last = None
+    for _attempt in range(3):
+        try:
+            _git("push", "origin", PAGES_BRANCH, cwd=worktree)
+            break
+        except RuntimeError as e:
+            last = e
+            _git("pull", "--rebase", "origin", PAGES_BRANCH, cwd=worktree)
+    else:
+        raise RuntimeError(f"could not push {name} to {PAGES_BRANCH} after 3 attempts: {last}")
+
+    url = f"{base_url.rstrip('/')}/media/{name}"
+    log(f"hosted {name} ({dest.stat().st_size // 1024}KB) at {url}")
+    return url
 
 
 # ---------- TikTok OAuth ----------
