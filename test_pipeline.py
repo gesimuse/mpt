@@ -46,10 +46,19 @@ class ImageSlideshowTest(unittest.TestCase):
                 "outfits": ["wearing a wool coat and jeans"]}
 
     def test_swimwear_and_lingerie_are_not_blocked(self):
-        """The policy line is nudity, not how much skin an outfit shows."""
-        self.assertTrue(any("swimsuit" in o for o in imageslides.DEFAULT_OUTFITS))
+        """The policy line is nudity, not how much skin an outfit shows. Checks for
+        "bikini"/"lingerie" rather than "swimsuit" -- one-piece swimsuits were dropped
+        from the list entirely (operator preference), so "swimsuit" itself no longer
+        appears, but swim/lingerie-style outfits in general are still represented."""
+        self.assertTrue(any("bikini" in o for o in imageslides.DEFAULT_OUTFITS))
+        self.assertTrue(any("lingerie" in o for o in imageslides.DEFAULT_OUTFITS))
         self.assertNotIn("swimwear", imageslides.NEGATIVE_HARD)
         self.assertNotIn("lingerie", imageslides.NEGATIVE_HARD)
+
+    def test_one_piece_swimsuits_are_excluded(self):
+        """Explicit operator preference: no one-piece swimsuits."""
+        self.assertFalse(any("one-piece" in o or "one piece" in o
+                            for o in imageslides.DEFAULT_OUTFITS))
 
     def test_generate_raises_when_civitai_is_unavailable(self):
         """No static-formula fallback: a batch's model and prompt must come from a
