@@ -1,5 +1,9 @@
 {
-  "topics": {},
+  "topics": {
+    "aibeauty": [
+      "aibeauty-20260807-130955"
+    ]
+  },
   "uploads": [
     {
       "niche": "aibeauty",
@@ -88,6 +92,24 @@
       "tiktok_post_id": "p_inbox_url~v2.7671197478615648278",
       "tiktok_caption": "Golden hour and good angles.\n\nCreated with AI.\n\n#aiart #aigenerated #aiphotography #confident",
       "ts": "2026-08-07T11:04:23"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260807-130955",
+      "title": "Confidence looks good on me.",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7671286682284689430",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "Confidence looks good on me.\n\nCreated with AI.\n\n#aiart #aigenerated #aiphotography #confident",
+      "ts": "2026-08-07T13:51:18"
     }
-  ]
+  ],
+  "model_stats": {
+    "251478:283756": {
+      "name": "fashion-street-photography_and_film-v1",
+      "used": 10,
+      "passed": 9
+    }
+  }
 }
