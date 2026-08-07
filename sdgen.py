@@ -192,7 +192,7 @@ def generate_image(prompt, dest, model_key=None, negative_prompt="", seed=None,
     dest.parent.mkdir(parents=True, exist_ok=True)
     image.save(dest)
     dt = time.time() - t0
-    log(f"{model_key}: {dt:.0f}s -> {dest.name}")
+    log(f"{cache_key}: {dt:.0f}s -> {dest.name}")
     return dt
 
 

@@ -65,20 +65,59 @@ DEFAULT_MOOD = [
     "sultry pout, confident direct eye contact",
     "wet skin, dripping water, glistening body",
     "tight clingy fabric, curves accentuated, sultry pose",
+    "arched back pose, confident sultry expression",
+    "kneeling pose, looking up through lashes",
+    "lying back, relaxed sultry pose, soft lighting",
+    "stretching pose, arms overhead, confident energy",
+    "looking back over her shoulder, sultry smile",
+    "leaning forward, playful confident energy",
+    "hands running through hair, sultry confident gaze",
+    "sitting cross-legged, sultry relaxed pose",
+    "walking toward camera, confident sultry stride",
+    "reclining pose, soft dramatic shadows, sultry mood",
 ]
+# Location/situation, injected the same way as outfit -- only when the reference
+# prompt does not already name one, so a harvested "in a bustling gourmet kitchen"
+# doesn't collide with an injected "poolside cabana" in the same prompt. Was dropped
+# entirely when the static-formula fallback was removed; brought back here as an
+# additive layer instead, since without it every batch's setting is whatever the
+# harvested reference happened to describe -- often nothing sexy at all (a chef in a
+# kitchen, a pilot in a cockpit).
+DEFAULT_LOCATIONS = [
+    "in a dimly lit bedroom, silk sheets",
+    "poolside at a luxury villa, golden hour",
+    "in a steamy shower, glass fogged with steam",
+    "on a private yacht deck, ocean backdrop",
+    "in a hotel room, city lights through the window",
+    "on a rooftop bar at night, neon lighting",
+    "in a candlelit bathtub, warm ambient light",
+    "on a beach at sunset, waves in the background",
+    "in a red velvet lounge, moody dramatic lighting",
+    "backstage in a dressing room, mirror lights",
+    "in a rain-soaked room, window backlighting",
+    "on a balcony at night, city skyline behind her",
+]
+# "studio" deliberately excluded: it's ubiquitous photography jargon ("studio light",
+# "studio backdrop"), not a narrative setting -- including it meant almost every real
+# harvested prompt looked like it already had a location and location injection barely
+# ever fired, caught by this file's own test suite.
+_LOCATION_RE = re.compile(
+    r"\b(?:kitchen|cockpit|office|classroom|hospital|courtroom|gym|street|"
+    r"park|library|cafe|bedroom|shower|pool|yacht|hotel|rooftop|bathtub|beach|"
+    r"lounge|balcony|backstage)\b", re.I)
 
 # Hard line: no exposed nipples/genitals, no real nudity, no minors. Everything else
 # (swimwear, lingerie, loungewear) is within policy and is not filtered here.
-SAFETY_PREFIX = "adult woman in her late twenties"
+SAFETY_PREFIX = "beautiful adult woman in her late twenties"
 # Every image must read as sexy, not just "sometimes, when the random mood pick lands
 # right" -- this is the guaranteed baseline, always present; DEFAULT_MOOD on top of it
 # is what varies the specific pose/expression between images in the same batch.
-SEXY_CUE = "seductive, sexy, alluring"
+SEXY_CUE = "seductive, sexy, alluring, round breasts, round ass, beautiful"
 NEGATIVE_HARD = ("child, teen, minor, young girl, schoolgirl, nude, topless, "
                  "exposed nipples, exposed genitals, explicit sexual content")
 NEGATIVE_QUALITY = ("cartoon, illustration, painting, anime, 3d render, deformed, "
                     "extra fingers, extra limbs, mutated hands, bad anatomy, blurry, "
-                    "watermark, text, logo")
+                    "watermark, text, logo, malformed")
 
 
 def log(msg): print(f"[imageslides] {msg}", flush=True)
@@ -212,17 +251,20 @@ def image_caption(niche):
 
 
 def _build_prefix(niche, reference):
-    # An explicit outfit is only injected when the reference prompt does not already
-    # name one -- appending "wearing jeans and a coat" onto a prompt that already says
-    # "wearing a black dress" gives the model two contradictory outfits at once.
-    # SEXY_CUE and mood are both added unconditionally -- unlike an outfit, a pose/
-    # expression cue does not conflict with whatever the reference prompt already
+    # An explicit outfit/location is only injected when the reference prompt does not
+    # already name one -- appending "wearing jeans and a coat" onto a prompt that
+    # already says "wearing a black dress" (or "poolside cabana" onto "in a bustling
+    # gourmet kitchen") gives the model two contradictory settings in one prompt.
+    # SEXY_CUE and mood are both added unconditionally -- unlike outfit/location, a
+    # pose/expression cue does not conflict with whatever the reference prompt already
     # says. SEXY_CUE is the guaranteed baseline ("every image must be sexy" is a hard
     # requirement, not a random pick); mood adds per-image variety on top of it.
     outfit = random.choice(niche.get("outfits") or DEFAULT_OUTFITS)
     clothing = "" if _CLOTHING_RE.search(reference["prompt"]) else f"{outfit}, "
+    location = random.choice(niche.get("locations") or DEFAULT_LOCATIONS)
+    setting = "" if _LOCATION_RE.search(reference["prompt"]) else f"{location}, "
     mood = random.choice(niche.get("mood") or DEFAULT_MOOD)
-    return f"{SAFETY_PREFIX}, {clothing}{SEXY_CUE}, {mood}"
+    return f"{SAFETY_PREFIX}, {clothing}{setting}{SEXY_CUE}, {mood}"
 
 
 def generate(niche, count=None, workdir=None, max_rounds=2):

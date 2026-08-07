@@ -34,8 +34,14 @@ Answer:
   realistic       1-10. Does it read as a real photo, not obviously synthetic or warped?
   anatomy_ok      true only if hands, fingers, face and limbs are anatomically correct.
                   Extra or fused fingers, a warped face, or an impossible limb -> false.
-  fully_clothed   true only if the subject is clothed. Swimwear, lingerie and similar
-                  are clothed. Exposed breasts, genitals, or full nudity -> false.
+  fully_clothed   true ONLY if there is a real, visible garment covering BOTH the
+                  chest/breasts AND the hips/groin/rear -- check each half separately.
+                  Swimwear, lingerie, a bikini and similar count as a real garment.
+                  A pose or camera angle that keeps genitals out of frame is NOT the
+                  same as being clothed -- if the hip/rear/upper-thigh area shows bare
+                  skin with no waistband, hem, or fabric at all, that is false, even if
+                  nothing is technically exposed at this angle. Exposed breasts,
+                  exposed genitals, or full nudity -> false regardless of anything else.
   age_appears_adult  true only if the subject clearly appears to be an adult. If there
                      is any doubt at all, false.
   issues          short list of concrete problems, empty if none.

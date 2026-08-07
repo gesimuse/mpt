@@ -20,6 +20,7 @@ import civitai  # noqa: E402
 import imageslides  # noqa: E402
 import push_draft  # noqa: E402
 import sdgen  # noqa: E402
+import supervisor  # noqa: E402
 import tiktok  # noqa: E402
 
 NICHE = {"id": "aibeauty", "content_type": "images", "hashtags": "#aiart",
@@ -500,6 +501,42 @@ class OutfitConflictTest(unittest.TestCase):
         self.assertIn("sultry confident gaze", captured["prompts"][0])
 
 
+class LocationConflictTest(unittest.TestCase):
+    """Same failure mode as OutfitConflictTest, for setting/location instead of
+    clothing: injecting 'poolside cabana' onto a reference that already says 'in a
+    bustling gourmet kitchen' gives the model two contradictory settings at once."""
+
+    AIBEAUTY = {"id": "aibeauty", "locations": ["on a private yacht deck"],
+               "min_images": 1, "images_per_video": 2}
+
+    def _prompts_for_reference(self, prompt_text):
+        captured = {}
+
+        def fake_generate_batch(prompts, workdir, **kw):
+            captured["prompts"] = prompts
+            return [Path(f"/tmp/i{i}.png") for i in range(len(prompts))]
+
+        with mock.patch.object(civitai, "decide_reference", lambda q, prompt_filter=None: (
+                {"model_id": 1, "version_id": 2, "name": "X"},
+                {"prompt": prompt_text, "negative_prompt": ""})), \
+             mock.patch.object(imageslides.sdgen, "generate_batch", fake_generate_batch), \
+             mock.patch.object(imageslides.supervisor, "filter_images", lambda paths: paths), \
+             tempfile.TemporaryDirectory() as tmp:
+            imageslides.generate(self.AIBEAUTY, workdir=tmp)
+        return captured["prompts"]
+
+    def test_location_not_duplicated_when_source_already_names_one(self):
+        prompts = self._prompts_for_reference(
+            "portrait photo in a bustling gourmet kitchen, studio light")
+        self.assertIn("kitchen", prompts[0])
+        self.assertNotIn("yacht deck", prompts[0],
+                         "must not inject a second, conflicting location")
+
+    def test_location_is_injected_when_source_has_none(self):
+        prompts = self._prompts_for_reference("closeup portrait, dramatic lighting, studio")
+        self.assertIn("yacht deck", prompts[0])
+
+
 class CivitaiSearchTest(unittest.TestCase):
     """civitai_model accepts free text -- "realistic portrait woman" -- the same way
     civitai_query already works for prompts: search, then pick a real, usable result."""
@@ -815,6 +852,23 @@ class RunNicheTest(unittest.TestCase):
                 autopilot.write_pending_captions(state)
                 text = (Path(tmp) / "CAPTIONS.md").read_text()
         self.assertIn("caption one", text)
+
+
+class SupervisorRubricTest(unittest.TestCase):
+    """No live-model unit test exists for review_image() itself (it calls a real NIM
+    API, verified live during development instead), but the rubric wording is what
+    actually determines the fully_clothed verdict -- a live check found a pose with no
+    visible bottom garment at all (bare hip/rear, no waistband/hem/fabric) scored
+    fully_clothed=True, because the rubric only asked about exposed breasts/genitals,
+    not whether a real garment was actually present. This guards the fix in the
+    wording, not the model's behavior."""
+
+    def test_rubric_requires_a_real_garment_on_both_halves(self):
+        self.assertIn("hips/groin/rear", supervisor.RUBRIC)
+        self.assertIn("chest/breasts", supervisor.RUBRIC)
+
+    def test_rubric_rejects_bare_skin_regardless_of_camera_angle(self):
+        self.assertIn("camera angle", supervisor.RUBRIC.lower())
 
 
 class StaticCheckTest(unittest.TestCase):
