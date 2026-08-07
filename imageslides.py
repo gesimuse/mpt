@@ -192,7 +192,53 @@ DEFAULT_CIVITAI_QUERIES = [
 ]
 
 
-def decide_reference(niche):
+# A checkpoint needs at least this many recorded batches before its track record is
+# trusted enough to influence odds -- one lucky or unlucky early batch (small sample,
+# especially a round of only 3-6 images) must not permanently tilt selection. Below
+# this, or for a checkpoint never seen before, weight is the neutral 1.0 baseline.
+MIN_SAMPLES_TO_TRUST = 3
+# How strongly a proven track record can outweigh an untested one, at the extreme
+# (100% pass rate vs the neutral baseline) -- "slowly" biasing per the ask that
+# introduced this, not an on/off switch that starts ignoring weaker performers outright.
+MAX_WEIGHT_MULTIPLIER = 3.0
+
+
+def _model_weights(state):
+    """{model_id: float} from state["model_stats"] (used/passed counts per "model_id:
+    version_id" spec, recorded by generate() after each round's QA) -- fed to
+    civitai.decide_reference() to nudge future runs toward checkpoints with a good
+    pass rate, without ruling out anything untested. None/missing state -> {}, which
+    civitai.py already treats as "no preference, plain shuffle"."""
+    stats = (state or {}).get("model_stats") or {}
+    weights = {}
+    for spec, s in stats.items():
+        used = s.get("used", 0)
+        if used < MIN_SAMPLES_TO_TRUST:
+            continue
+        model_id = spec.split(":", 1)[0]
+        try:
+            model_id = int(model_id)
+        except ValueError:
+            continue
+        pass_rate = s.get("passed", 0) / used
+        weights[model_id] = 1.0 + pass_rate * (MAX_WEIGHT_MULTIPLIER - 1.0)
+    return weights
+
+
+def _record_model_result(state, spec, name, generated, approved):
+    """After a round's QA, log this checkpoint's outcome into state["model_stats"] --
+    the raw material _model_weights() turns into future selection odds. Keyed by the
+    canonical "model_id:version_id" spec, same as everywhere else in this file."""
+    if state is None:
+        return
+    stats = state.setdefault("model_stats", {})
+    entry = stats.setdefault(spec, {"name": name, "used": 0, "passed": 0})
+    entry["name"] = name  # keep the latest name, checkpoints occasionally get renamed
+    entry["used"] += generated
+    entry["passed"] += approved
+
+
+def decide_reference(niche, state=None):
     """Search CivitAI for a checkpoint with a real, on-subject showcase prompt, and
     commit to it for this whole run: one model, one reference photo, every slide in
     the batch is a variation of it, not a grab bag of unrelated faces.
@@ -204,13 +250,19 @@ def decide_reference(niche):
     highest for it. Rotating the query is what actually varies the THEME run to run,
     not just the exact photo within one theme.
 
+    state, when given, supplies model_stats -- past QA pass rates -- as soft odds
+    (see _model_weights()); without it, selection is a plain shuffle, same as before
+    this existed.
+
     civitai.py's search_candidates()/decide_reference() stay subject-agnostic; the
-    niche's gender/portrait rules are passed in as a filter rather than living there."""
+    niche's gender/portrait rules and preference weights are passed in rather than
+    living there."""
     queries = niche.get("civitai_queries") or (
         [niche["civitai_query"]] if niche.get("civitai_query") else DEFAULT_CIVITAI_QUERIES)
     query = random.choice(queries)
     resolved, reference = civitai.decide_reference(
-        query, prompt_filter=lambda p: _matches_subject(p, niche))
+        query, prompt_filter=lambda p: _matches_subject(p, niche),
+        weights=_model_weights(state))
     log(f"decided on {resolved['name']!r} v{resolved['version_id']} (query: {query!r}), "
         f"prompt: {reference['prompt'][:100]}")
     return resolved, reference
@@ -308,7 +360,7 @@ def _adopted_settings(reference):
     return out
 
 
-def generate(niche, count=None, workdir=None, max_rounds=2):
+def generate(niche, count=None, workdir=None, max_rounds=2, state=None):
     """Decide on a CivitAI checkpoint + reference prompt, generate `count` camera
     variations of it, keep what passes supervisor.py review, and repeat with a fresh
     round if the batch still falls short of min_images.
@@ -320,6 +372,12 @@ def generate(niche, count=None, workdir=None, max_rounds=2):
     once and reused it for every round, all rounds failed identically. A round like
     that makes the NEXT round re-decide (fresh search, likely a different checkpoint)
     instead of retrying the same broken one.
+
+    state, when given (autopilot.py's posted.json-backed dict), gets each round's
+    checkpoint outcome recorded into state["model_stats"] (_record_model_result) and
+    feeds past outcomes back into decide_reference() as soft selection odds -- the
+    "learn which checkpoints/prompts tend to work" loop. Without it, generate()
+    behaves exactly as before: plain shuffle, no memory across runs.
 
     Raises once max_rounds is exhausted without reaching min_images -- an image-only
     post with too few photos is not worth publishing, and a silent quality drop should
@@ -341,7 +399,7 @@ def generate(niche, count=None, workdir=None, max_rounds=2):
     # CivitAI search, not a hand-written scene/style list. If CivitAI can't be reached
     # at all, decide_reference() raises and the run fails loudly here, rather than
     # silently shipping generic images.
-    resolved, reference = decide_reference(niche)
+    resolved, reference = decide_reference(niche, state=state)
 
     for round_num in range(1, max_rounds + 1):
         civitai_spec = f"{resolved['model_id']}:{resolved['version_id']}"
@@ -372,13 +430,15 @@ def generate(niche, count=None, workdir=None, max_rounds=2):
         if not supervisor_on:
             log("SUPERVISOR_ENABLED=0: skipping vision QA")
         approved.extend(newly_approved)
+        _record_model_result(state, civitai_spec, resolved['name'],
+                             len(generated), len(newly_approved))
         log(f"round {round_num}/{max_rounds}: {len(newly_approved)}/{len(generated)} passed, "
             f"{len(approved)}/{min_images} needed")
         if len(approved) >= min_images:
             break
         if not generated and round_num < max_rounds:
             log("nothing generated this round; re-deciding a fresh checkpoint+prompt")
-            resolved, reference = decide_reference(niche)
+            resolved, reference = decide_reference(niche, state=state)
 
     if len(approved) < min_images:
         raise RuntimeError(

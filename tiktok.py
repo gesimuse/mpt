@@ -121,8 +121,28 @@ def host_file(path, base_url=None):
         raise RuntimeError(f"could not push {name} to {PAGES_BRANCH} after 3 attempts: {last}")
 
     url = f"{base_url.rstrip('/')}/media/{name}"
+    _wait_until_live(url)
     log(f"hosted {name} ({dest.stat().st_size // 1024}KB) at {url}")
     return url
+
+
+def _wait_until_live(url, timeout=120, interval=3):
+    """A live check found TikTok's own PULL_FROM_URL fetch failing with
+    photo_pull_failed right after a successful push -- git push succeeding only means
+    GitHub has the commit, not that Pages has finished building and deploying it
+    (confirmed separately: Pages build/propagate latency is real, not instant). TikTok
+    likely tries to fetch within seconds of our init call, well before that finishes.
+    Poll our own URL until it's actually serving before handing it to TikTok at all."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            r = requests.head(url, timeout=10, allow_redirects=False)
+            if r.status_code == 200:
+                return
+        except requests.RequestException:
+            pass
+        time.sleep(interval)
+    raise RuntimeError(f"{url} did not go live within {timeout}s of pushing it")
 
 
 # ---------- TikTok OAuth ----------

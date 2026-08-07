@@ -201,7 +201,12 @@ def generate_image(prompt, dest, model_key=None, negative_prompt="", seed=None,
     ).images[0]
     dest = Path(dest)
     dest.parent.mkdir(parents=True, exist_ok=True)
-    image.save(dest)
+    # JPEG, not PNG -- a live check found TikTok's Content Posting API rejecting
+    # PNG-sourced photo posts with file_format_check_failed; JPEG is what it actually
+    # expects. SD output has no alpha channel, but converting explicitly guards
+    # against a checkpoint/pipeline that ever returns RGBA (JPEG has no alpha, and
+    # PIL raises rather than silently dropping it).
+    image.convert("RGB").save(dest, "JPEG", quality=95)
     dt = time.time() - t0
     log(f"{cache_key}: {dt:.0f}s -> {dest.name}")
     return dt
@@ -215,7 +220,7 @@ def generate_batch(prompts, workdir, model_key=None, negative_prompts=None, civi
     negative_prompts = negative_prompts or [""] * len(prompts)
     paths = []
     for i, (prompt, neg) in enumerate(zip(prompts, negative_prompts)):
-        dest = Path(workdir) / f"sd_{i}.png"
+        dest = Path(workdir) / f"sd_{i}.jpg"
         try:
             generate_image(prompt, dest, model_key=model_key, negative_prompt=neg,
                            seed=random.randint(1, 10**9), civitai_model=civitai_model,

@@ -118,7 +118,7 @@ def run_niche(niche, state):
     used = state["topics"].setdefault(niche["id"], [])
     for _ in range(videos_this_run):
         stamp = time.strftime("%Y%m%d-%H%M%S")
-        images = imageslides.generate(niche)
+        images = imageslides.generate(niche, state=state)
         caption = imageslides.image_caption(niche)
         log(f"[{niche['id']}] caption (paste by hand when finishing the draft):\n{caption}")
 

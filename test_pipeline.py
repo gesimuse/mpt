@@ -68,7 +68,7 @@ class ImageSlideshowTest(unittest.TestCase):
                 "civitai_queries": ["query one", "query two", "query three"]}
         seen = set()
 
-        def fake_decide(query, prompt_filter=None):
+        def fake_decide(query, prompt_filter=None, weights=None):
             seen.add(query)
             return ({"model_id": 1, "version_id": 1, "name": "X"},
                    {"prompt": "portrait of a woman", "negative_prompt": ""})
@@ -110,7 +110,7 @@ class ImageSlideshowTest(unittest.TestCase):
         function -- that module stays subject-agnostic by design."""
         captured = {}
 
-        def fake_decide(query, prompt_filter=None):
+        def fake_decide(query, prompt_filter=None, weights=None):
             captured["query"] = query
             captured["accepts_woman"] = prompt_filter("portrait of a woman")
             captured["rejects_man_only"] = prompt_filter("portrait of a man")
@@ -130,7 +130,7 @@ class ImageSlideshowTest(unittest.TestCase):
         self.assertIn("#aiart", caption)
 
     @staticmethod
-    def _fake_decide(query, prompt_filter=None):
+    def _fake_decide(query, prompt_filter=None, weights=None):
         return ({"model_id": 4201, "version_id": 130072, "name": "Test Model"},
                {"prompt": "studio portrait, dramatic lighting", "negative_prompt": ""})
 
@@ -176,7 +176,7 @@ class ImageSlideshowTest(unittest.TestCase):
              {"prompt": "portrait, working checkpoint", "negative_prompt": ""}),
         ]
 
-        def fake_decide(niche_arg):
+        def fake_decide(niche_arg, state=None):
             return decisions.pop(0)
 
         def fake_generate_batch(prompts, workdir, civitai_model=None, **kw):
@@ -241,7 +241,10 @@ class FakePipe:
     def __call__(self, prompt, **kw):
         self.calls.append((prompt, kw))
         image = mock.Mock()
-        image.save = lambda dest: Path(dest).write_bytes(b"fake")
+        # sdgen.py saves via image.convert("RGB").save(dest, "JPEG", ...) now (PNG-
+        # sourced photo posts failed TikTok's own format check, live-confirmed) --
+        # the chained call needs mocking on convert's return value, not image itself.
+        image.convert.return_value.save = lambda dest, *a, **k: Path(dest).write_bytes(b"fake")
         result = mock.Mock()
         result.images = [image]
         return result
@@ -502,7 +505,7 @@ class OutfitConflictTest(unittest.TestCase):
             captured["prompts"] = prompts
             return [Path(f"/tmp/i{i}.png") for i in range(len(prompts))]
 
-        with mock.patch.object(civitai, "decide_reference", lambda q, prompt_filter=None: (
+        with mock.patch.object(civitai, "decide_reference", lambda q, prompt_filter=None, weights=None: (
                 {"model_id": 1, "version_id": 2, "name": "X"},
                 {"prompt": prompt_text, "negative_prompt": ""})), \
              mock.patch.object(imageslides.sdgen, "generate_batch", fake_generate_batch), \
@@ -533,7 +536,7 @@ class OutfitConflictTest(unittest.TestCase):
             captured["prompts"] = prompts
             return [Path(f"/tmp/i{i}.png") for i in range(len(prompts))]
 
-        with mock.patch.object(civitai, "decide_reference", lambda q, prompt_filter=None: (
+        with mock.patch.object(civitai, "decide_reference", lambda q, prompt_filter=None, weights=None: (
                 {"model_id": 1, "version_id": 2, "name": "X"},
                 {"prompt": "chef in a kitchen, studio light", "negative_prompt": ""})), \
              mock.patch.object(imageslides.sdgen, "generate_batch", fake_generate_batch), \
@@ -558,7 +561,7 @@ class LocationConflictTest(unittest.TestCase):
             captured["prompts"] = prompts
             return [Path(f"/tmp/i{i}.png") for i in range(len(prompts))]
 
-        with mock.patch.object(civitai, "decide_reference", lambda q, prompt_filter=None: (
+        with mock.patch.object(civitai, "decide_reference", lambda q, prompt_filter=None, weights=None: (
                 {"model_id": 1, "version_id": 2, "name": "X"},
                 {"prompt": prompt_text, "negative_prompt": ""})), \
              mock.patch.object(imageslides.sdgen, "generate_batch", fake_generate_batch), \
@@ -577,6 +580,103 @@ class LocationConflictTest(unittest.TestCase):
     def test_location_is_injected_when_source_has_none(self):
         prompts = self._prompts_for_reference("closeup portrait, dramatic lighting, studio")
         self.assertIn("yacht deck", prompts[0])
+
+
+class ModelPreferenceTest(unittest.TestCase):
+    """"Slowly having preferred models" -- a checkpoint's QA pass-rate history, kept
+    in posted.json's model_stats, nudges future selection odds without ruling out
+    anything untested. Not a hard switch: a checkpoint with a perfect record is at
+    most MAX_WEIGHT_MULTIPLIER times as likely to be picked, never guaranteed, and an
+    untested one still gets the same 1.0 baseline as everything else."""
+
+    def test_no_state_means_no_preference(self):
+        self.assertEqual(imageslides._model_weights(None), {})
+        self.assertEqual(imageslides._model_weights({}), {})
+
+    def test_below_sample_floor_is_ignored(self):
+        """One lucky or unlucky early batch must not permanently tilt selection."""
+        state = {"model_stats": {"1:1": {"name": "X", "used": 2, "passed": 2}}}
+        self.assertEqual(imageslides._model_weights(state), {})
+
+    def test_good_track_record_weighs_above_baseline(self):
+        state = {"model_stats": {"1:1": {"name": "X", "used": 10, "passed": 9}}}
+        weights = imageslides._model_weights(state)
+        self.assertGreater(weights[1], 1.0)
+        self.assertLessEqual(weights[1], imageslides.MAX_WEIGHT_MULTIPLIER)
+
+    def test_poor_track_record_stays_at_baseline_not_below(self):
+        """A checkpoint that never passes is de-prioritised by staying at the neutral
+        floor, not pushed below it -- weights are odds, not a ban list; civitai.py's
+        random.choices() still needs a positive weight to ever consider it again."""
+        state = {"model_stats": {"1:1": {"name": "X", "used": 10, "passed": 0}}}
+        weights = imageslides._model_weights(state)
+        self.assertEqual(weights[1], 1.0)
+
+    def test_record_model_result_accumulates_across_calls(self):
+        state = {}
+        imageslides._record_model_result(state, "1:1", "X", generated=6, approved=4)
+        imageslides._record_model_result(state, "1:1", "X", generated=6, approved=5)
+        entry = state["model_stats"]["1:1"]
+        self.assertEqual(entry["used"], 12)
+        self.assertEqual(entry["passed"], 9)
+
+    def test_record_model_result_does_nothing_without_state(self):
+        imageslides._record_model_result(None, "1:1", "X", generated=6, approved=4)  # must not raise
+
+
+class CivitaiWeightedSelectionTest(unittest.TestCase):
+    """civitai.decide_reference()'s own end of the preference loop: it doesn't know
+    what "good" means, only turns whatever weights it's handed into biased odds."""
+
+    def _candidate(self, id_, name, downloads=5000):
+        files = [{"downloadUrl": "u", "name": f"{name}.safetensors",
+                 "metadata": {"format": "SafeTensor"},
+                 "pickleScanResult": "Success", "virusScanResult": "Success", "primary": True}]
+        return {"id": id_, "name": name, "stats": {"downloadCount": downloads},
+               "modelVersions": [{"id": id_ * 100, "baseModel": "SD 1.5", "files": files}]}
+
+    def test_no_weights_behaves_like_a_plain_shuffle(self):
+        """Every qualifying candidate should still eventually get picked with no
+        weights given -- unchanged behaviour from before this feature existed."""
+        items = [self._candidate(1, "A"), self._candidate(2, "B"), self._candidate(3, "C")]
+
+        def fake_harvest(model_id, version_id):
+            return [{"prompt": "portrait of a woman", "negative_prompt": "", "reactions": 1}]
+
+        with mock.patch.object(civitai, "search_models", lambda q, **kw: items), \
+             mock.patch.object(civitai, "MIN_SEARCH_DOWNLOADS", 1000), \
+             mock.patch.object(civitai, "harvest_from_model", fake_harvest):
+            seen = {civitai.decide_reference("q")[0]["name"] for _ in range(40)}
+        self.assertEqual(seen, {"A", "B", "C"})
+
+    def test_heavily_weighted_candidate_is_picked_far_more_often(self):
+        items = [self._candidate(1, "Preferred"), self._candidate(2, "Other")]
+
+        def fake_harvest(model_id, version_id):
+            return [{"prompt": "portrait of a woman", "negative_prompt": "", "reactions": 1}]
+
+        with mock.patch.object(civitai, "search_models", lambda q, **kw: items), \
+             mock.patch.object(civitai, "MIN_SEARCH_DOWNLOADS", 1000), \
+             mock.patch.object(civitai, "harvest_from_model", fake_harvest):
+            picks = [civitai.decide_reference("q", weights={1: 20.0, 2: 1.0})[0]["name"]
+                    for _ in range(30)]
+        self.assertGreater(picks.count("Preferred"), picks.count("Other"))
+
+    def test_unresolvable_weighted_candidate_still_falls_through(self):
+        """A heavily-preferred candidate that turns out broken (bad file, no usable
+        prompt) must not block the fallback to whatever else qualifies."""
+        items = [self._candidate(1, "BrokenButPreferred"), self._candidate(2, "Working")]
+
+        def fake_harvest(model_id, version_id):
+            if model_id == 1:
+                return []  # nothing usable -- disqualified before weighting even matters
+            return [{"prompt": "portrait of a woman", "negative_prompt": "", "reactions": 1}]
+
+        with mock.patch.object(civitai, "search_models", lambda q, **kw: items), \
+             mock.patch.object(civitai, "MIN_SEARCH_DOWNLOADS", 1000), \
+             mock.patch.object(civitai, "harvest_from_model", fake_harvest):
+            resolved, _ = civitai.decide_reference("q", weights={1: 100.0})
+        self.assertEqual(resolved["name"], "Working")
 
 
 class AdoptedSettingsTest(unittest.TestCase):
@@ -626,7 +726,7 @@ class AdoptedSettingsTest(unittest.TestCase):
             captured.update(kw)
             return [Path(f"/tmp/i{i}.png") for i in range(len(prompts))]
 
-        def fake_decide(q, prompt_filter=None):
+        def fake_decide(q, prompt_filter=None, weights=None):
             return ({"model_id": 1, "version_id": 2, "name": "X"},
                    {"prompt": "portrait, studio light", "negative_prompt": "",
                     "width": 576, "height": 864, "sampler": "LCM",
@@ -926,7 +1026,7 @@ class RunNicheTest(unittest.TestCase):
         state = {"topics": {}, "uploads": []}
         with mock.patch.object(autopilot, "DRY_RUN", False), \
              mock.patch.object(tiktok, "enabled", lambda niche_id: True), \
-             mock.patch.object(imageslides, "generate", lambda n: fake_images), \
+             mock.patch.object(imageslides, "generate", lambda n, state=None: fake_images), \
              mock.patch.object(tiktok, "publish_photos_draft",
                                lambda imgs, niche_id, image_urls=None: "publish1"), \
              mock.patch.object(autopilot.os, "remove", lambda p: None), \
@@ -941,7 +1041,7 @@ class RunNicheTest(unittest.TestCase):
     def test_dry_run_writes_files_and_never_queues_a_draft(self):
         fake_images = [Path(f"/tmp/i{i}.png") for i in range(5)]
         with mock.patch.object(autopilot, "DRY_RUN", True), \
-             mock.patch.object(imageslides, "generate", lambda n: fake_images), \
+             mock.patch.object(imageslides, "generate", lambda n, state=None: fake_images), \
              mock.patch.object(tiktok, "publish_photos_draft",
                                mock.Mock(side_effect=AssertionError("must not push"))), \
              mock.patch.object(autopilot.shutil, "copy", lambda a, b: None), \
@@ -992,7 +1092,7 @@ class RunNicheTest(unittest.TestCase):
         state = {"topics": {}, "uploads": [self._upload() for _ in range(3)]}
         calls = []
 
-        def fake_generate(n):
+        def fake_generate(n, state=None):
             calls.append(1)
             return [Path(f"/tmp/i{len(calls)}.png")]
 
@@ -1079,7 +1179,12 @@ class TikTokHostingTest(unittest.TestCase):
         self.image.write_bytes(b"fake-image-bytes")
 
         patches = [mock.patch.object(tiktok, "REPO_ROOT", self.repo),
-                  mock.patch.object(tiktok, "PAGES_WORKTREE", root / "pages-wt")]
+                  mock.patch.object(tiktok, "PAGES_WORKTREE", root / "pages-wt"),
+                  # host_file() polls the real URL before returning it (a live check
+                  # found TikTok's fetch racing GitHub Pages' own build/deploy delay);
+                  # these tests use a fake base_url that never resolves, so that check
+                  # is exercised separately in WaitUntilLiveTest instead.
+                  mock.patch.object(tiktok, "_wait_until_live", lambda url, **kw: None)]
         for p in patches:
             p.start()
             self.addCleanup(p.stop)
@@ -1120,6 +1225,42 @@ class TikTokHostingTest(unittest.TestCase):
                 tiktok.host_file(img, base_url="https://example.test/repo")
         remaining = list((tiktok.PAGES_WORKTREE / "media").glob("*.png"))
         self.assertLessEqual(len(remaining), 3)
+
+
+class WaitUntilLiveTest(unittest.TestCase):
+    """A live check found TikTok's PULL_FROM_URL failing with photo_pull_failed right
+    after a successful push -- git push succeeding only means GitHub has the commit,
+    not that Pages has finished building and serving it. host_file() must not hand a
+    URL to TikTok until this confirms it's actually live."""
+
+    def test_returns_once_the_url_is_live(self):
+        responses = [mock.Mock(status_code=404), mock.Mock(status_code=404),
+                    mock.Mock(status_code=200)]
+        with mock.patch.object(tiktok.requests, "head",
+                               mock.Mock(side_effect=responses)), \
+             mock.patch.object(tiktok.time, "sleep"):
+            tiktok._wait_until_live("https://example.test/x.png", timeout=5, interval=0.01)
+
+    def test_raises_after_timeout_if_never_live(self):
+        with mock.patch.object(tiktok.requests, "head",
+                               lambda *a, **k: mock.Mock(status_code=404)), \
+             mock.patch.object(tiktok.time, "sleep"):
+            with self.assertRaises(RuntimeError) as ctx:
+                tiktok._wait_until_live("https://example.test/x.png", timeout=0.05, interval=0.01)
+        self.assertIn("did not go live", str(ctx.exception))
+
+    def test_connection_errors_are_retried_not_raised_immediately(self):
+        responses = [tiktok.requests.RequestException("dns fail"), mock.Mock(status_code=200)]
+
+        def fake_head(*a, **k):
+            r = responses.pop(0)
+            if isinstance(r, Exception):
+                raise r
+            return r
+
+        with mock.patch.object(tiktok.requests, "head", fake_head), \
+             mock.patch.object(tiktok.time, "sleep"):
+            tiktok._wait_until_live("https://example.test/x.png", timeout=5, interval=0.01)
 
 
 class TikTokEnabledTest(unittest.TestCase):
@@ -1204,7 +1345,7 @@ class PushDraftTest(unittest.TestCase):
         folder = Path(tmp) / "aibeauty-20260101-120000"
         folder.mkdir()
         for i in range(n):
-            (folder / f"sd_{i}.png").write_bytes(b"fake")
+            (folder / f"sd_{i}.jpg").write_bytes(b"fake")
         (folder / "caption.txt").write_text(caption)
         return folder
 

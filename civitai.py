@@ -225,18 +225,24 @@ def search_candidates(query, limit=20):
         yield item.get("id"), item.get("name"), version
 
 
-def decide_reference(query, prompt_filter=None, pool_size=8, top_n_prompts=5):
-    """Evaluate up to `pool_size` search candidates, then pick RANDOMLY among whichever
-    qualify -- both which model and which of its showcase prompts. One model, one
-    reference prompt, for the whole run this feeds, but not the SAME one every run.
+def decide_reference(query, prompt_filter=None, pool_size=8, top_n_prompts=5, weights=None):
+    """Evaluate up to `pool_size` search candidates, then pick among whichever qualify
+    -- both which model and which of its showcase prompts. One model, one reference
+    prompt, for the whole run this feeds, but not the SAME one every run.
 
     Earlier versions returned the first qualifying candidate's single highest-reaction
     prompt, every time -- since search_candidates() is sorted by download count and a
     given query resolves to the same ranking call after call, that made every run land
     on the exact same model and the exact same prompt (a live run kept coming back to
     one checkpoint's "chef in a kitchen" showcase image). Evaluating the whole pool
-    first and choosing randomly from what qualifies is what actually gives each run a
+    first and choosing among what qualifies is what actually gives each run a
     different look, the way "search CivitAI fresh each time" was meant to.
+
+    weights, an optional {model_id: float} map, lets a caller nudge the odds toward
+    checkpoints with a good track record without ruling out the rest -- a plain
+    shuffle (all weights equal) when not given. civitai.py doesn't know what "good"
+    means (that's imageslides.py's QA-pass-rate history); it only turns numbers it's
+    handed into biased odds.
 
     prompt_filter(prompt_text) -> bool lets a caller apply its own rules (subject,
     gender, whatever a niche cares about) without this module needing to know about
@@ -244,6 +250,7 @@ def decide_reference(query, prompt_filter=None, pool_size=8, top_n_prompts=5):
     resolve_from_search() already are. Returns (resolved, prompt); raises RuntimeError
     with every rejected candidate's reason if none qualify."""
     prompt_filter = prompt_filter or (lambda p: True)
+    weights = weights or {}
     tried = []
     qualifying = []  # [(model_id, name, version, [usable prompts])]
     for model_id, name, version in search_candidates(query, limit=pool_size):
@@ -259,8 +266,20 @@ def decide_reference(query, prompt_filter=None, pool_size=8, top_n_prompts=5):
             continue
         qualifying.append((model_id, name, version, prompts))
 
-    random.shuffle(qualifying)
-    for model_id, name, version, prompts in qualifying:
+    # Weighted sampling without replacement gives a full visit order, same shape as
+    # the shuffle it replaces (every candidate still gets a turn if earlier ones fail
+    # to resolve) -- just no longer uniform when a caller has opinions about some of
+    # these models. A candidate with no weight entry (never tried, or untracked) gets
+    # 1.0, the same baseline as "no preference at all" -- untried checkpoints keep
+    # getting a fair shot, not shut out in favour of whatever already has a track record.
+    pool = list(qualifying)
+    ordered = []
+    while pool:
+        w = [weights.get(model_id, 1.0) for model_id, *_ in pool]
+        pick = random.choices(range(len(pool)), weights=w, k=1)[0]
+        ordered.append(pool.pop(pick))
+
+    for model_id, name, version, prompts in ordered:
         try:
             resolved = _resolved(version, model_id, name=name)
         except RuntimeError as e:

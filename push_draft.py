@@ -32,9 +32,9 @@ def push_draft(folder, niche_id=None):
         raise ValueError(f"not a directory: {folder}")
     niche_id = niche_id or folder.name.rsplit("-", 2)[0]
 
-    images = sorted(folder.glob("*.png"))
+    images = sorted(folder.glob("*.jpg"))
     if len(images) < 2:
-        raise ValueError(f"{folder} has {len(images)} .png file(s); "
+        raise ValueError(f"{folder} has {len(images)} .jpg file(s); "
                          "a TikTok carousel needs at least 2")
     caption_file = folder / "caption.txt"
     caption = caption_file.read_text().strip() if caption_file.exists() else ""
