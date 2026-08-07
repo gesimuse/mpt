@@ -19,10 +19,25 @@ import requests
 NIM_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
 # In preference order. Vision model ids on NIM's catalogue have moved before (the chat
 # fallback chain in llm.py exists for the same reason); trying more than one absorbs that.
+#
+# meta/llama-3.2-90b-vision-instruct (the original second model) was replaced after a
+# live check found it refusing to engage with 15/15 real generated images -- not a
+# discriminating "this one's too explicit" signal, a blanket "I'm not going to engage
+# in this conversation topic" regardless of actual content, including several images
+# already confirmed by hand earlier in this project's history to be genuinely fine.
+# Since review_image() rejects-by-default on ANY model's refusal, that made the whole
+# QA gate reject 100% of every batch, every time, burning a full CI run's generation
+# budget on images that could never pass. nvidia/nemotron-nano-12b-v2-vl was checked
+# live as a replacement: engages properly on all 15 of the same images, returns clean
+# parseable JSON, and still discriminates per-image (correctly flagged fully_clothed
+# differently across otherwise-similar images, not a rubber stamp). It's not strictly
+# better at anatomy detection specifically -- both it and the 11B model missed the
+# same real malformed-hand case in a live check -- but that turned out to be a hard
+# case for both, not something the 90B model's refusals were ever actually catching.
 VISION_MODELS = [
     m.strip() for m in
     os.environ.get("SUPERVISOR_VISION_MODELS",
-                   "meta/llama-3.2-11b-vision-instruct,meta/llama-3.2-90b-vision-instruct")
+                   "meta/llama-3.2-11b-vision-instruct,nvidia/nemotron-nano-12b-v2-vl")
     .split(",") if m.strip()
 ]
 
