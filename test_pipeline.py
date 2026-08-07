@@ -1124,6 +1124,69 @@ class SupervisorRubricTest(unittest.TestCase):
         self.assertIn("camera angle", supervisor.RUBRIC.lower())
 
 
+class ReviewImageTest(unittest.TestCase):
+    """review_image() itself, hermetic: _ask_vision is mocked per model so the
+    multi-model agreement logic is under test, not any live model's judgment.
+
+    A live check found the primary model confidently and wrongly scoring an image
+    with full, unambiguous nudity as fully_clothed=True, while the secondary model
+    refused to even discuss the same image ("I'm not going to engage in this
+    conversation topic"). That refusal used to only matter as a fallback when the
+    primary's response failed to PARSE -- never when it parsed fine but was simply
+    wrong, which is exactly what let the bad image through. Now every configured
+    model is always consulted and must all agree, so a wrong-but-confident primary
+    can no longer single-handedly pass an image the secondary would refuse."""
+
+    GOOD = '{"realistic": 9, "anatomy_ok": true, "fully_clothed": true, "age_appears_adult": true, "issues": []}'
+    BAD_BUT_CONFIDENT = ('{"realistic": 9, "anatomy_ok": true, "fully_clothed": true, '
+                         '"age_appears_adult": true, "issues": []}')
+
+    def setUp(self):
+        patch = mock.patch.object(supervisor, "_b64", lambda path: "fakebase64")
+        patch.start()
+        self.addCleanup(patch.stop)
+
+    def test_all_models_agreeing_pass_actually_passes(self):
+        with mock.patch.object(supervisor, "_ask_vision",
+                               lambda model, prompt, b64, **kw: self.GOOD):
+            result = supervisor.review_image("x.jpg")
+        self.assertTrue(supervisor.passes(result))
+
+    def test_a_refusal_from_any_model_rejects_even_if_another_confidently_passed(self):
+        """Reproduces the exact live failure: primary model returns clean, parseable,
+        wrong JSON; secondary model refuses outright. Must still reject."""
+        def fake_ask(model, prompt, b64, **kw):
+            if model == supervisor.VISION_MODELS[0]:
+                return self.BAD_BUT_CONFIDENT
+            raise RuntimeError("no JSON object in response: I'm not going to engage in this topic.")
+
+        with mock.patch.object(supervisor, "_ask_vision", fake_ask):
+            result = supervisor.review_image("x.jpg")
+        self.assertFalse(supervisor.passes(result))
+
+    def test_any_single_model_saying_not_clothed_rejects_overall(self):
+        def fake_ask(model, prompt, b64, **kw):
+            if model == supervisor.VISION_MODELS[0]:
+                return self.GOOD
+            return ('{"realistic": 8, "anatomy_ok": true, "fully_clothed": false, '
+                   '"age_appears_adult": true, "issues": ["exposed skin"]}')
+
+        with mock.patch.object(supervisor, "_ask_vision", fake_ask):
+            result = supervisor.review_image("x.jpg")
+        self.assertFalse(result["fully_clothed"])
+        self.assertFalse(supervisor.passes(result))
+
+    def test_realistic_score_is_the_minimum_across_models(self):
+        def fake_ask(model, prompt, b64, **kw):
+            score = 9 if model == supervisor.VISION_MODELS[0] else 5
+            return (f'{{"realistic": {score}, "anatomy_ok": true, "fully_clothed": true, '
+                   f'"age_appears_adult": true, "issues": []}}')
+
+        with mock.patch.object(supervisor, "_ask_vision", fake_ask):
+            result = supervisor.review_image("x.jpg")
+        self.assertEqual(result["realistic"], 5)
+
+
 class StaticCheckTest(unittest.TestCase):
     def test_no_undefined_names(self):
         """pyflakes catches a NameError class of bug without executing anything."""

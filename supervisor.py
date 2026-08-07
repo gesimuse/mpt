@@ -111,30 +111,49 @@ def _extract_json(text):
 
 
 def review_image(path, parse_retries=2):
-    """One image, judged. Returns a dict; never silently passes an image it could not
-    actually inspect -- a review that fails to run is a rejection, not an approval.
+    """One image, judged by EVERY configured vision model, not just the first one that
+    returns parseable JSON. A live check found the primary model confidently and
+    wrongly scoring an image with full, unambiguous nudity as fully_clothed=True --
+    while the secondary model refused to even discuss the same image outright ("I'm
+    not going to engage in this conversation topic"). That refusal is a real safety
+    signal, not noise to route around: it was previously only ever consulted as a
+    fallback when the primary model's response failed to PARSE, never when it parsed
+    fine but was simply wrong, which is exactly what let that image through.
 
-    A model answering in prose instead of JSON is model noise, not model unavailability,
-    so it is retried against the same model before falling through to the next one --
-    the fallback model measured far slower and flakier from this network than the
-    primary, so treating every failure as "try the next model" wastes the time budget
-    on the worse option instead of just asking again."""
+    Every configured model must now independently agree the image passes -- a refusal,
+    an unparseable response, or a straight fail from ANY of them rejects the whole
+    thing. Never silently passes an image any model could not or would not actually
+    inspect. Doubles the per-image review cost (every model, every time, not one with
+    a fallback) -- a deliberate tradeoff given what a false pass here means."""
     image_b64 = _b64(path)
-    last = None
+    verdicts = []
     for model in VISION_MODELS:
+        result, last = None, None
         for attempt in range(parse_retries):
             try:
                 raw = _ask_vision(model, RUBRIC, image_b64)
                 result = _extract_json(raw)
                 result["_model"] = model
-                return result
+                break
             except Exception as e:
                 last = e
                 log(f"{model} attempt {attempt + 1}/{parse_retries} failed "
                     f"({type(e).__name__}: {str(e)[:100]})")
-    log(f"no vision model available, rejecting by default: {last}")
-    return {"realistic": 0, "anatomy_ok": False, "fully_clothed": False,
-           "age_appears_adult": False, "issues": [f"review unavailable: {last}"]}
+        if result is None:
+            log(f"{model}: no usable verdict, rejecting by default ({last})")
+            return {"realistic": 0, "anatomy_ok": False, "fully_clothed": False,
+                   "age_appears_adult": False,
+                   "issues": [f"{model} gave no usable verdict: {last}"]}
+        verdicts.append(result)
+
+    return {
+        "realistic": min(v.get("realistic", 0) or 0 for v in verdicts),
+        "anatomy_ok": all(v.get("anatomy_ok") for v in verdicts),
+        "fully_clothed": all(v.get("fully_clothed") for v in verdicts),
+        "age_appears_adult": all(v.get("age_appears_adult") for v in verdicts),
+        "issues": [i for v in verdicts for i in (v.get("issues") or [])],
+        "_models": [v.get("_model") for v in verdicts],
+    }
 
 
 def passes(result, min_realistic=None):
