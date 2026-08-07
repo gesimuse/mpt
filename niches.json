@@ -3,7 +3,7 @@
     {
       "id": "aibeauty",
       "name": "AIBeauty — AI portrait slideshows",
-      "purpose": "TikTok-only image carousels, posted natively via Buffer.",
+      "purpose": "TikTok-only image carousels, queued as native TikTok inbox drafts.",
       "content_type": "images",
       "images_per_video": 10,
       "max_images": 5,
