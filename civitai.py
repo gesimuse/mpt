@@ -186,13 +186,19 @@ _ETHNICITY_MODEL_NAME_RE = re.compile(
     r"\b(?:asian|chinese)\b|[一-鿿぀-ヿ가-힣]", re.I)
 
 
-def search_models(query, limit=20, sort="Most Downloaded"):
-    """Candidate checkpoints for a free-text query, most-downloaded first. No nsfw
-    param -- deliberately removed (operator preference), not a filter this niche
-    relies on: a live check found the exact same results with or without it, so it
-    was not what was surfacing ethnicity-biased checkpoints either way. See
-    _ETHNICITY_MODEL_NAME_RE for the check that actually addresses that."""
-    params = {"query": query, "types": "Checkpoint", "limit": limit, "sort": sort}
+def search_models(query, limit=20, sort="Most Downloaded", nsfw=False):
+    """Candidate checkpoints for a free-text query, most-downloaded first.
+
+    nsfw=False restored (operator request) -- was removed earlier, on the reasoning
+    that a live check found the same checkpoint results either way, so it wasn't
+    what was surfacing ethnicity-biased ones (still true; _ETHNICITY_MODEL_NAME_RE
+    is the actual fix for that). Re-added after a real run showed the secondary QA
+    vision model refusing to even look at 10/10 images in a round -- narrowing the
+    checkpoint pool back to nsfw=false-tagged models is one lever on how often
+    generated content lands in territory that model won't engage with at all,
+    though it's a checkpoint-level signal, not a guarantee about any one image."""
+    params = {"query": query, "types": "Checkpoint", "limit": limit, "sort": sort,
+              "nsfw": "false" if nsfw is False else nsfw}
     return _get(f"{API}/models", params=params).json().get("items", [])
 
 
