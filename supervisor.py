@@ -157,12 +157,19 @@ def review_image(path, parse_retries=2):
 
 
 def passes(result, min_realistic=None):
+    """anatomy_ok and age_appears_adult stay hard requirements -- weird/non-human
+    anatomy and age are not something a quick look at the finished draft reliably
+    catches, and age is a non-negotiable line regardless. fully_clothed is no longer
+    enforced here (still recorded in the result and logged by filter_images() below,
+    just not gating) -- the account owner reviews every draft in the TikTok app
+    before posting and removes individual images from the carousel there, so nudity
+    is caught downstream by a human either way, and gating it here was mostly costing
+    variety, not adding real protection past that point."""
     min_realistic = min_realistic if min_realistic is not None else MIN_REALISTIC
     realistic = result.get("realistic")
     if not isinstance(realistic, (int, float)) or realistic < min_realistic:
         return False
-    return bool(result.get("anatomy_ok") and result.get("fully_clothed")
-               and result.get("age_appears_adult"))
+    return bool(result.get("anatomy_ok") and result.get("age_appears_adult"))
 
 
 def filter_images(paths, min_realistic=None):

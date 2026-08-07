@@ -1179,7 +1179,12 @@ class ReviewImageTest(unittest.TestCase):
             result = supervisor.review_image("x.jpg")
         self.assertFalse(supervisor.passes(result))
 
-    def test_any_single_model_saying_not_clothed_rejects_overall(self):
+    def test_fully_clothed_is_recorded_but_no_longer_gates(self):
+        """The account owner reviews every draft in the TikTok app before posting and
+        can remove individual images from the carousel there -- nudity is caught
+        downstream by a human either way, so gating it here was mostly costing
+        variety without adding real protection past that point. anatomy_ok and
+        age_appears_adult still gate; only fully_clothed was loosened."""
         def fake_ask(model, prompt, b64, **kw):
             if model == supervisor.VISION_MODELS[0]:
                 return self.GOOD
@@ -1188,7 +1193,29 @@ class ReviewImageTest(unittest.TestCase):
 
         with mock.patch.object(supervisor, "_ask_vision", fake_ask):
             result = supervisor.review_image("x.jpg")
-        self.assertFalse(result["fully_clothed"])
+        self.assertFalse(result["fully_clothed"], "still recorded for visibility in logs")
+        self.assertTrue(supervisor.passes(result), "must not block on fully_clothed alone")
+
+    def test_anatomy_not_ok_still_rejects(self):
+        def fake_ask(model, prompt, b64, **kw):
+            if model == supervisor.VISION_MODELS[0]:
+                return self.GOOD
+            return ('{"realistic": 8, "anatomy_ok": false, "fully_clothed": true, '
+                   '"age_appears_adult": true, "issues": ["extra finger"]}')
+
+        with mock.patch.object(supervisor, "_ask_vision", fake_ask):
+            result = supervisor.review_image("x.jpg")
+        self.assertFalse(supervisor.passes(result))
+
+    def test_age_not_adult_still_rejects(self):
+        def fake_ask(model, prompt, b64, **kw):
+            if model == supervisor.VISION_MODELS[0]:
+                return self.GOOD
+            return ('{"realistic": 8, "anatomy_ok": true, "fully_clothed": true, '
+                   '"age_appears_adult": false, "issues": ["looks young"]}')
+
+        with mock.patch.object(supervisor, "_ask_vision", fake_ask):
+            result = supervisor.review_image("x.jpg")
         self.assertFalse(supervisor.passes(result))
 
     def test_realistic_score_is_the_minimum_across_models(self):
