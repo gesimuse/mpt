@@ -40,6 +40,10 @@ jobs:
           NICHES: ${{ github.event.inputs.niches }}
           NIM_API_KEY: ${{ secrets.NIM_API_KEY }}
           NIM_MODEL: ${{ secrets.NIM_MODEL }}
+          # Optional: raises the Hugging Face Hub rate limit for the LCM-LoRA download
+          # sdgen.py pulls every run (GH Actions runners have no persistent cache).
+          # huggingface_hub reads this from the env automatically, no code change needed.
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
           # Read-only: sent on GET requests to CivitAI's search/gallery endpoints only,
           # never near their separate paid generation API. Without it /api/v1/models
           # and /api/v1/images return 451; model-version lookups and downloads work
