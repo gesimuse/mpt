@@ -2,7 +2,8 @@
   "topics": {
     "aibeauty": [
       "aibeauty-20260807-130955",
-      "aibeauty-20260808-124127"
+      "aibeauty-20260808-124127",
+      "aibeauty-20260808-135725"
     ]
   },
   "uploads": [
@@ -115,6 +116,17 @@
       "tiktok_status": "SEND_TO_USER_INBOX",
       "tiktok_caption": "Just here for the lighting.\n\nCreated with AI.\n\n#aiart #aigenerated #aiphotography #confident",
       "ts": "2026-08-08T13:19:08"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260808-135725",
+      "title": "Not sorry for the view.",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7671670926395688982",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "Not sorry for the view.\n\nCreated with AI.\n\n#aiart #aigenerated #aiphotography #confident",
+      "ts": "2026-08-08T14:42:42"
     }
   ],
   "model_stats": {
@@ -127,6 +139,11 @@
       "name": "Realistic Vision V6.0 B1",
       "used": 10,
       "passed": 8
+    },
+    "89548:95334": {
+      "name": "HydraMix",
+      "used": 10,
+      "passed": 5
     }
   }
 }
