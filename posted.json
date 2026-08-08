@@ -1,7 +1,8 @@
 {
   "topics": {
     "aibeauty": [
-      "aibeauty-20260807-130955"
+      "aibeauty-20260807-130955",
+      "aibeauty-20260808-124127"
     ]
   },
   "uploads": [
@@ -103,6 +104,17 @@
       "tiktok_status": "SEND_TO_USER_INBOX",
       "tiktok_caption": "Confidence looks good on me.\n\nCreated with AI.\n\n#aiart #aigenerated #aiphotography #confident",
       "ts": "2026-08-07T13:51:18"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260808-124127",
+      "title": "Just here for the lighting.",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7671649550372931586",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "Just here for the lighting.\n\nCreated with AI.\n\n#aiart #aigenerated #aiphotography #confident",
+      "ts": "2026-08-08T13:19:08"
     }
   ],
   "model_stats": {
@@ -110,6 +122,11 @@
       "name": "fashion-street-photography_and_film-v1",
       "used": 10,
       "passed": 9
+    },
+    "4201:501240": {
+      "name": "Realistic Vision V6.0 B1",
+      "used": 10,
+      "passed": 8
     }
   }
 }
