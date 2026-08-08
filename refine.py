@@ -69,15 +69,15 @@ NEGATIVE_CUE_BY_KIND = {
 # inpaint hallucinating an unrelated object from scene text), so they keep the
 # base-prompt context; hands get a minimal, anatomy-only prompt instead.
 PROMPT_REPLACE_KINDS = {"hand"}
-# At most this many regions per kind get refined, highest confidence first. Was 2
-# (both hands, not just the best one) but a real GH Actions run showed each hand
-# region adding ~35-40s on top of an already ~200s/image real-world cost on that
-# runner (well past sdgen.py's older 61-125s estimate) -- with images_per_video=10
-# and max_rounds=2, that pushed worst case close enough to the workflow's 90min
-# timeout that a run got killed mid-flight, losing all its work. 1 for now trades
-# "fix the second hand too" for actually finishing within budget; revisit if the
-# timeout gets more headroom (see autopilot.yml's timeout-minutes).
-MAX_REGIONS_PER_KIND = int(os.environ.get("REFINE_MAX_REGIONS_PER_KIND", "1"))
+# At most this many regions per kind get refined, highest confidence first. Was
+# dropped to 1 (just the best hand, not both) after a real run got killed by the
+# workflow's old 90min timeout -- but that timeout is now 150min (see autopilot.yml),
+# and a real post-timeout-fix run finished a full round (10 images, face+hand) in
+# ~38min, comfortably inside the new budget even doubled. Restored to 2: a real
+# posted image was reported with a hideous hand shortly after this was dropped to 1
+# -- refining only the single best-confidence hand left the other one (commonly
+# also in frame -- a hand on a hip, the other holding something) untouched.
+MAX_REGIONS_PER_KIND = int(os.environ.get("REFINE_MAX_REGIONS_PER_KIND", "2"))
 # Square canvas the crop is resized onto before inpainting, then resized back from
 # afterward. Small on purpose -- see module docstring for the CPU-time reasoning.
 INPAINT_SIZE = int(os.environ.get("REFINE_INPAINT_SIZE", "384"))
