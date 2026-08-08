@@ -370,7 +370,15 @@ def _adopted_settings(reference):
     out = {}
     w, h = reference.get("width"), reference.get("height")
     if w and h and _SIZE_MIN <= w <= _SIZE_MAX and _SIZE_MIN <= h <= _SIZE_MAX:
-        out["width"], out["height"] = w, h
+        # SD's VAE downsamples by 8, so width/height must be multiples of 8 -- a real
+        # run crashed every single image in a round on this exact gap: a checkpoint's
+        # own posted Size (1025x768 style values do happen) was 513, which passed the
+        # min/max range check above but isn't divisible by 8, and diffusers raises
+        # rather than silently rounding. Round to the nearest multiple of 8 instead of
+        # rejecting the setting outright -- still much closer to what the creator
+        # actually posted than falling back to our own fixed default.
+        out["width"] = max(_SIZE_MIN, min(_SIZE_MAX, round(w / 8) * 8))
+        out["height"] = max(_SIZE_MIN, min(_SIZE_MAX, round(h / 8) * 8))
 
     sampler = (reference.get("sampler") or "").lower()
     if "lcm" in sampler:

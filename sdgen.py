@@ -109,6 +109,19 @@ def _load(model_key):
     return pipe
 
 
+#  from_single_file() infers a checkpoint's pipeline config (which components it has,
+# their shapes) from the checkpoint's own weight structure when not told otherwise --
+# a real run crashed on this exact gap: a genuine SD1.5 checkpoint (Vendo
+# Photorealistic 2, confirmed live, no config= override) got its structure
+# misidentified as lllyasviel/control_v11p_sd15_canny (a ControlNet, not a full
+# pipeline), and diffusers then failed looking for a model_index.json that ControlNet
+# repo was never going to have. Passing an explicit, known-good base config repo
+# per architecture sidesteps the guess entirely -- these are the standard base
+# repos non-first-party SD1.5/SDXL checkpoints are conventionally fine-tuned from.
+_BASE_CONFIG = {"sd15": "stable-diffusion-v1-5/stable-diffusion-v1-5",
+               "sdxl": "stabilityai/stable-diffusion-xl-base-1.0"}
+
+
 def _load_civitai(spec):
     """Download (once, cached by version id) and load an operator-chosen checkpoint.
     SD 1.5 and SDXL are both supported; the matching LCM-LoRA is picked automatically
@@ -123,7 +136,8 @@ def _load_civitai(spec):
 
     t0 = time.time()
     pipe = pipeline_cls.from_single_file(
-        str(resolved["path"]), torch_dtype=dtype, safety_checker=None)
+        str(resolved["path"]), torch_dtype=dtype, safety_checker=None,
+        config=_BASE_CONFIG[resolved["arch"]])
     pipe.scheduler = LCMScheduler.from_config(pipe.scheduler.config)
     pipe.load_lora_weights(LCM_LORA[resolved["arch"]])
     pipe.fuse_lora()

@@ -290,6 +290,33 @@ class SdgenTest(unittest.TestCase):
     def _passthrough_encode(pipe, arch, prompt, negative):
         return {"prompt": prompt, "negative_prompt": negative}
 
+    def test_load_civitai_passes_an_explicit_base_config_matching_arch(self):
+        """Live-caught bug: from_single_file() without an explicit config= infers the
+        pipeline structure from the checkpoint's own weights, and a real checkpoint
+        (genuinely SD1.5, no config override) got misidentified as a ControlNet repo
+        (lllyasviel/control_v11p_sd15_canny), which has no model_index.json --
+        diffusers raised trying to load one from it. Passing a known-good base config
+        repo per architecture sidesteps the guess."""
+        import diffusers
+        seen = {}
+
+        class FakePipeline:
+            @classmethod
+            def from_single_file(cls, path, **kw):
+                seen.update(kw)
+                p = mock.Mock()
+                p.scheduler = mock.Mock(config={})
+                return p
+
+        with mock.patch.object(sdgen.civitai, "resolve_and_download", lambda spec: {
+                "path": "/tmp/fake.safetensors", "arch": "sdxl", "name": "Fake"}), \
+             mock.patch.object(diffusers, "StableDiffusionXLPipeline", FakePipeline), \
+             mock.patch.object(diffusers, "LCMScheduler",
+                               mock.Mock(from_config=lambda c: mock.Mock())), \
+             mock.patch.dict(sdgen._pipes, {}, clear=True):
+            sdgen._load_civitai("some-spec")
+        self.assertEqual(seen["config"], sdgen._BASE_CONFIG["sdxl"])
+
     def test_civitai_model_takes_precedence_over_preset(self):
         """An operator-named checkpoint always wins over the built-in presets."""
         fake = FakePipe()
@@ -1121,6 +1148,26 @@ class AdoptedSettingsTest(unittest.TestCase):
         settings = imageslides._adopted_settings(
             {"width": None, "height": None, "sampler": "", "steps": None, "cfg_scale": None})
         self.assertEqual(settings, {})
+
+    def test_size_not_divisible_by_8_is_rounded_not_used_raw(self):
+        """A real run crashed every image in a round on this exact gap: a checkpoint's
+        own posted width (513) passed the min/max range check but isn't a multiple of
+        8, and diffusers raises rather than rounding -- 'height and width have to be
+        divisible by 8 but are 768 and 513'."""
+        settings = imageslides._adopted_settings(
+            {"width": 513, "height": 768, "sampler": "", "steps": None, "cfg_scale": None})
+        self.assertEqual(settings["width"] % 8, 0)
+        self.assertEqual(settings["height"] % 8, 0)
+        # 513 rounds to 512, the nearest multiple of 8 -- still much closer to what
+        # the creator posted than falling back to our own fixed default.
+        self.assertEqual(settings["width"], 512)
+        self.assertEqual(settings["height"], 768)
+
+    def test_rounding_never_pushes_size_outside_the_trusted_range(self):
+        settings = imageslides._adopted_settings(
+            {"width": 385, "height": 895, "sampler": "", "steps": None, "cfg_scale": None})
+        self.assertGreaterEqual(settings["width"], imageslides._SIZE_MIN)
+        self.assertLessEqual(settings["height"], imageslides._SIZE_MAX)
 
     def test_adopted_settings_reach_generate_batch(self):
         """End-to-end: whatever _adopted_settings() returns for the decided reference
