@@ -4,7 +4,8 @@
       "aibeauty-20260807-130955",
       "aibeauty-20260808-124127",
       "aibeauty-20260808-135725",
-      "aibeauty-20260809-054919"
+      "aibeauty-20260809-054919",
+      "aibeauty-20260809-075322"
     ]
   },
   "uploads": [
@@ -139,6 +140,17 @@
       "tiktok_status": "SEND_TO_USER_INBOX",
       "tiktok_caption": "Soft light, softer smile.\n\nCreated with AI.\n\n#aiart #aigenerated #aiphotography #confident",
       "ts": "2026-08-09T06:38:15"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260809-075322",
+      "title": "Confidence looks good on me.",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7671947610252757014",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "Confidence looks good on me.\n\nCreated with AI.\n\n#aiart #aigenerated #aiphotography #confident",
+      "ts": "2026-08-09T08:35:31"
     }
   ],
   "model_stats": {
@@ -154,8 +166,8 @@
     },
     "89548:95334": {
       "name": "HydraMix",
-      "used": 20,
-      "passed": 15
+      "used": 30,
+      "passed": 24
     }
   }
 }

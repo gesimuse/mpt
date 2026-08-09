@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-09T08:35:31 — aibeauty
+
+```
+Confidence looks good on me.
+
+Created with AI.
+
+#aiart #aigenerated #aiphotography #confident
+```
+
 ## 2026-08-09T06:38:15 — aibeauty
 
 ```
