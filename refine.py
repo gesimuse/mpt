@@ -14,21 +14,28 @@ loaded pipeline in memory, same weights, same LCM scheduler, same fused LoRA
 
 Detector: Bingsu/adetailer's own YOLOv8 face/hand models (Apache-2.0, free, a few MB
 each) -- the same weights ADetailer itself ships, downloaded once via huggingface_hub
-and cached like everything else HF-hosted in this pipeline.
+and cached like everything else HF-hosted in this pipeline. That YOLO detector only
+finds WHERE a face/hand is; what actually happens inside that region differs by
+kind. Faces get a plain text-prompted inpaint (below). Hands are handled by
+hand_pose.py instead -- text prompts like "five fingers" cannot reliably enforce
+finger topology (live-tested: failed on roughly half of real detected hands), so
+hands get real structural guidance from a MediaPipe-landmarks-driven ControlNet pose
+skeleton. See that module's docstring for the live evidence.
 
 Inpainting runs on a small CROPPED canvas, not the full frame, and is resized back
 into place afterward -- the same crop/inpaint/paste-back approach ADetailer itself
 uses. sdgen.py's own timing notes put a full 512x896 frame at 61-125s/image on a GH
 Actions CPU runner; inpainting the full frame again for every region would come
-close to doubling or tripling that per image, which the workflow's 90min timeout
-budget has no room for. A small square canvas (REFINE_INPAINT_SIZE, default 384) is
-a fraction of those pixels regardless of how big the original frame is.
+close to doubling or tripling that per image, which the workflow's timeout budget
+has no room for. A small square canvas (REFINE_INPAINT_SIZE, default 384) is a
+fraction of those pixels regardless of how big the original frame is.
 """
 import os
 
 from PIL import Image, ImageDraw, ImageFilter
 
 import clip_encode
+import hand_pose
 
 REFINE_ENABLED = os.environ.get("REFINE_FACES", "1").strip().lower() not in ("0", "false", "no")
 # Hand detection is the less mature of the two models (0.86 confidence for a clean
@@ -41,22 +48,13 @@ MIN_CONFIDENCE = float(os.environ.get("REFINE_MIN_CONFIDENCE", "0.5"))
 # found the raw YOLO box alone cropped too tight, right at the hairline/jaw, leaving
 # a visible seam; padding gives the inpaint room to blend naturally.
 PAD_FRACTION = 0.3
-# Faces mostly need polish -- too much strength risks changing who the person looks
-# like. Hands are the opposite problem: a genuinely malformed hand (extra/fused
-# fingers) is a structural error a light denoise cannot fix, it needs enough
-# strength to actually redraw the fingers, not just sharpen what's already there.
-STRENGTH_BY_KIND = {"face": 0.4, "hand": 0.6}
+# Hands are handled entirely separately now -- see hand_pose.py's module docstring.
+# Text-prompt-only inpainting (what this dict still governs, for faces) cannot
+# reliably enforce finger topology; hand_pose.py uses MediaPipe landmarks + a
+# ControlNet pose skeleton for real structural guidance instead, with its own
+# live-tuned strength/steps (hand_pose.STRENGTH/STEPS), not these.
+STRENGTH_BY_KIND = {"face": 0.4}
 DEFAULT_STRENGTH = float(os.environ.get("REFINE_STRENGTH", "0.4"))
-# Effective denoising steps = num_inference_steps * strength. Hands used to inherit
-# the base image's own step count (often 6), giving 6*0.6 = ~4 effective steps --
-# FEWER than the base render's own 6 steps that produced the malformed hand in the
-# first place. That's not enough room for the model to resolve genuine anatomy, only
-# to lightly perturb what's already there. Decoupled here: hands get their own step
-# count, LCM's own documented safe ceiling (matches _STEPS_MAX elsewhere in this
-# codebase) rather than whatever the base render happened to use, so 10*0.6 = 6
-# effective steps -- still inside LCM's valid range, meaningfully more room to
-# actually redraw fingers instead of just polishing a bad shape.
-STEPS_BY_KIND = {"hand": 10}
 # Extra wording appended to the base prompt/negative for this region only -- the base
 # prompt is about pose/outfit/location, not anatomy, so it does nothing to steer the
 # inpaint toward a correct hand specifically. Verified live: an inpaint pass using
@@ -216,12 +214,16 @@ def refine(image, pipe, prompt, negative_prompt, steps, guidance, kinds=("face",
             continue
         if not boxes:
             continue
+        is_hand = kind == "hand"
         # Built lazily, only once a region actually needs it -- skips the pipe
         # conversion entirely on an image with nothing to refine, and is still
-        # cached (by pipe identity) across kinds/images that DO need it.
-        inpaint_pipe = _inpaint_pipe_for(pipe)
-        strength = STRENGTH_BY_KIND.get(kind, DEFAULT_STRENGTH)
-        region_steps = STEPS_BY_KIND.get(kind, steps)
+        # cached (by pipe identity) across kinds/images that DO need it. Hands use a
+        # separate ControlNet-attached pipe (hand_pose.py) for real structural
+        # guidance -- see that module's docstring for why plain text-prompted
+        # inpainting (what faces still use) isn't reliable enough for hands.
+        inpaint_pipe = hand_pose.inpaint_pipe_for(pipe) if is_hand else _inpaint_pipe_for(pipe)
+        strength = hand_pose.STRENGTH if is_hand else STRENGTH_BY_KIND.get(kind, DEFAULT_STRENGTH)
+        region_steps = hand_pose.STEPS if is_hand else steps
         if kind in PROMPT_REPLACE_KINDS:
             region_prompt = PROMPT_CUE_BY_KIND.get(kind, prompt)
         else:
@@ -238,12 +240,30 @@ def refine(image, pipe, prompt, negative_prompt, steps, guidance, kinds=("face",
             canvas_w, canvas_h = _canvas_size(cw, ch)
             canvas = crop.resize((canvas_w, canvas_h), Image.LANCZOS)
             canvas_mask = _feathered_mask((canvas_w, canvas_h))
+            extra_kwargs = {}
+            if is_hand:
+                try:
+                    control_image = hand_pose.skeleton_for(canvas)
+                except Exception as e:
+                    log(f"hand landmark detection failed, skipping region "
+                       f"({type(e).__name__}: {str(e)[:100]})")
+                    continue
+                if control_image is None:
+                    # No recognizable hand structure to guide toward -- live-
+                    # confirmed this correlates with a hand malformed enough that
+                    # blind inpainting made it WORSE, not better. Leave it for
+                    # supervisor.py's anatomy_ok QA gate instead of guessing.
+                    log(f"no hand landmarks found (confidence {conf:.2f}, crop "
+                       f"{cw}x{ch}), skipping region")
+                    continue
+                extra_kwargs = {"control_image": control_image,
+                               "controlnet_conditioning_scale": hand_pose.CONTROLNET_CONDITIONING_SCALE}
             try:
                 refined_canvas = inpaint_pipe(
                     image=canvas, mask_image=canvas_mask,
                     num_inference_steps=region_steps, guidance_scale=guidance, strength=strength,
                     width=canvas_w, height=canvas_h,
-                    **encode_kwargs,
+                    **encode_kwargs, **extra_kwargs,
                 ).images[0]
             except Exception as e:
                 log(f"{kind} inpaint failed, keeping original region "

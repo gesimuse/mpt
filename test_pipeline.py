@@ -19,6 +19,7 @@ import autopilot  # noqa: E402
 import caption_writer  # noqa: E402
 import civitai  # noqa: E402
 import clip_encode  # noqa: E402
+import hand_pose  # noqa: E402
 import imageslides  # noqa: E402
 import push_draft  # noqa: E402
 import refine  # noqa: E402
@@ -523,6 +524,15 @@ class RefineTest(unittest.TestCase):
             lambda pipe, arch, prompt, negative: {"prompt": prompt, "negative_prompt": negative})
         patcher.start()
         self.addCleanup(patcher.stop)
+        # Hands route through hand_pose.py now (MediaPipe landmarks -> ControlNet
+        # skeleton -- see that module's docstring for why). Default stub returns a
+        # real control image for any canvas, so hand tests exercise the inpaint path
+        # by default; tests of the no-landmarks skip path override this explicitly.
+        from PIL import Image
+        skeleton_patcher = mock.patch.object(
+            hand_pose, "skeleton_for", lambda canvas: Image.new("RGB", canvas.size))
+        skeleton_patcher.start()
+        self.addCleanup(skeleton_patcher.stop)
 
     def test_crop_box_pads_and_clamps_to_image_bounds(self):
         # A box already touching the left/top edge must not pad past 0.
@@ -580,6 +590,44 @@ class RefineTest(unittest.TestCase):
              mock.patch.object(refine, "_detect_boxes", lambda img, kind: []):
             result = refine.refine(image, mock.Mock(), "p", "n", steps=6, guidance=1.8)
         self.assertIs(result, image)
+
+    def test_hand_with_no_landmarks_is_left_untouched_not_guessed_at(self):
+        """The core safety property of hand_pose.py: a hand malformed enough that
+        MediaPipe can't find any landmarks on it has no recognizable structure to
+        guide toward. Live-confirmed this correlates with a hand blind inpainting
+        makes WORSE, not better (a real severely-malformed hand turned into a
+        formless smudge). Must skip the region entirely and leave supervisor.py's
+        QA gate to catch it, not paste an unguided guess over it."""
+        from PIL import Image
+        image = Image.new("RGB", (300, 400), color=(10, 10, 10))
+        inpaint_pipe = mock.Mock(side_effect=AssertionError("must not be called"))
+        with mock.patch.object(refine, "REFINE_ENABLED", True), \
+             mock.patch.object(refine, "_detect_boxes",
+                               lambda img, kind: [([100, 150, 140, 190], 0.9)]), \
+             mock.patch.object(hand_pose, "skeleton_for", lambda canvas: None), \
+             mock.patch.object(hand_pose, "inpaint_pipe_for", lambda pipe: inpaint_pipe):
+            result = refine.refine(image, mock.Mock(), "p", "n", steps=6, guidance=1.8,
+                                   kinds=("hand",))
+        self.assertEqual(result.getpixel((120, 170)), (10, 10, 10), "must be left untouched")
+        inpaint_pipe.assert_not_called()
+
+    def test_hand_landmark_detection_failure_falls_back_to_the_original_image(self):
+        """Never raises -- a broken landmark detector (network error downloading the
+        model, etc.) must not lose an otherwise-good generation."""
+        from PIL import Image
+        image = Image.new("RGB", (300, 400), color=(10, 10, 10))
+
+        def boom(canvas):
+            raise RuntimeError("model download failed")
+
+        with mock.patch.object(refine, "REFINE_ENABLED", True), \
+             mock.patch.object(refine, "_detect_boxes",
+                               lambda img, kind: [([100, 150, 140, 190], 0.9)]), \
+             mock.patch.object(hand_pose, "inpaint_pipe_for", lambda pipe: mock.Mock()), \
+             mock.patch.object(hand_pose, "skeleton_for", boom):
+            result = refine.refine(image, mock.Mock(), "p", "n", steps=6, guidance=1.8,
+                                   kinds=("hand",))
+        self.assertEqual(result.getpixel((120, 170)), (10, 10, 10))
 
     def test_detection_failure_falls_back_to_the_original_image(self):
         """Never raises -- a broken detector must not lose an otherwise-good
@@ -640,7 +688,8 @@ class RefineTest(unittest.TestCase):
         with mock.patch.object(refine, "REFINE_ENABLED", True), \
              mock.patch.object(refine, "_detect_boxes",
                                lambda img, kind: [([100, 150, 140, 190], 0.9)]), \
-             mock.patch.object(refine, "_inpaint_pipe_for", lambda pipe: flaky_pipe):
+             mock.patch.object(refine, "_inpaint_pipe_for", lambda pipe: flaky_pipe), \
+             mock.patch.object(hand_pose, "inpaint_pipe_for", lambda pipe: fake_inpaint):
             result = refine.refine(image, mock.Mock(), "p", "n", steps=6, guidance=1.8,
                                    kinds=("face", "hand"))
         # Second kind's inpaint succeeded and is visible; first kind's failure didn't
@@ -668,7 +717,7 @@ class RefineTest(unittest.TestCase):
         with mock.patch.object(refine, "REFINE_ENABLED", True), \
              mock.patch.object(refine, "MAX_REGIONS_PER_KIND", 2), \
              mock.patch.object(refine, "_detect_boxes", lambda img, kind: boxes), \
-             mock.patch.object(refine, "_inpaint_pipe_for", lambda pipe: inpaint_pipe):
+             mock.patch.object(hand_pose, "inpaint_pipe_for", lambda pipe: inpaint_pipe):
             result = refine.refine(image, mock.Mock(), "p", "n", steps=6, guidance=1.8,
                                    kinds=("hand",))
         self.assertEqual(result.getpixel((40, 40)), (0, 0, 255))
@@ -683,7 +732,7 @@ class RefineTest(unittest.TestCase):
         boxes = [([x, x, x + 20, x + 20], 0.9 - x / 1000) for x in (10, 60, 110, 160)]
         with mock.patch.object(refine, "REFINE_ENABLED", True), \
              mock.patch.object(refine, "_detect_boxes", lambda img, kind: boxes), \
-             mock.patch.object(refine, "_inpaint_pipe_for", lambda pipe: inpaint_pipe):
+             mock.patch.object(hand_pose, "inpaint_pipe_for", lambda pipe: inpaint_pipe):
             refine.refine(image, mock.Mock(), "p", "n", steps=6, guidance=1.8, kinds=("hand",))
         self.assertEqual(inpaint_pipe.call_count, refine.MAX_REGIONS_PER_KIND)
 
@@ -706,21 +755,27 @@ class RefineTest(unittest.TestCase):
         with mock.patch.object(refine, "REFINE_ENABLED", True), \
              mock.patch.object(refine, "_detect_boxes",
                                lambda img, kind: [([20, 20, 60, 60], 0.9)]), \
-             mock.patch.object(refine, "_inpaint_pipe_for", lambda pipe: fake_inpaint):
+             mock.patch.object(hand_pose, "inpaint_pipe_for", lambda pipe: fake_inpaint):
             refine.refine(image, mock.Mock(), "selfie, holding phone", "base negative",
                          steps=6, guidance=1.8, kinds=("hand",))
         self.assertNotIn("holding phone", seen["prompt"])
         self.assertIn("five fingers", seen["prompt"])
         self.assertIn("base negative", seen["negative_prompt"])
         self.assertIn("fused fingers", seen["negative_prompt"])
-        self.assertEqual(seen["strength"], refine.STRENGTH_BY_KIND["hand"])
-        self.assertNotEqual(refine.STRENGTH_BY_KIND["hand"], refine.STRENGTH_BY_KIND["face"])
+        self.assertEqual(seen["strength"], hand_pose.STRENGTH)
+        self.assertNotEqual(hand_pose.STRENGTH, refine.STRENGTH_BY_KIND["face"])
         # Effective denoising steps = num_inference_steps * strength -- inheriting the
-        # base render's own steps (6) gave 6*0.6=~4 effective steps, FEWER than the
-        # base render itself used to produce the malformed hand in the first place.
-        # Hands get their own, higher step count now, decoupled from the caller's.
-        self.assertEqual(seen["num_inference_steps"], refine.STEPS_BY_KIND["hand"])
+        # base render's own steps (6) at hand_pose's old 0.6 strength gave ~4
+        # effective steps, FEWER than the base render itself used to produce the
+        # malformed hand in the first place. Hands get their own, decoupled step
+        # count and a ControlNet pose skeleton now (see hand_pose.py).
+        self.assertEqual(seen["num_inference_steps"], hand_pose.STEPS)
         self.assertNotEqual(seen["num_inference_steps"], 6)
+        # The pose skeleton must actually reach the inpaint call, not just get built
+        # and dropped -- this is the real structural-guidance mechanism, not the
+        # text prompt above.
+        self.assertIn("control_image", seen)
+        self.assertIsNotNone(seen["control_image"])
 
     def test_non_square_hand_crop_gets_a_non_square_canvas(self):
         """Wiring check for the aspect-ratio fix: a real hand box, once padded, is
@@ -738,7 +793,7 @@ class RefineTest(unittest.TestCase):
         with mock.patch.object(refine, "REFINE_ENABLED", True), \
              mock.patch.object(refine, "_detect_boxes",
                                lambda img, kind: [([100, 150, 130, 280], 0.9)]), \
-             mock.patch.object(refine, "_inpaint_pipe_for", lambda pipe: fake_inpaint):
+             mock.patch.object(hand_pose, "inpaint_pipe_for", lambda pipe: fake_inpaint):
             refine.refine(image, mock.Mock(), "p", "n", steps=6, guidance=1.8, kinds=("hand",))
         self.assertNotEqual(seen["width"], seen["height"])
         self.assertEqual(max(seen["width"], seen["height"]), refine.INPAINT_SIZE)

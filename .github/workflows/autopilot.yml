@@ -36,6 +36,12 @@ jobs:
     # direct result. 150min gives that actual number real headroom; refine.py's
     # MAX_REGIONS_PER_KIND was also dropped from 2 to 1 for the same reason (see
     # refine.py) -- both changes address the same incident, not either alone.
+    # hand_pose.py's ControlNet-guided hand inpaint (replacing the old plain-
+    # inpaint hand path) was only timed live on a desktop GPU (~20-40s/hand there);
+    # its real cost on this runner's CPU is UNVERIFIED -- ControlNet adds a real
+    # second forward pass on top of the base UNet, plausibly 1.3-1.8x a plain
+    # inpaint's own CPU time. Watch the next few real runs' actual durations
+    # against this budget rather than trusting this estimate.
     timeout-minutes: 150
     permissions:
       contents: write   # allows the workflow to commit posted.json back
@@ -72,6 +78,14 @@ jobs:
           # realesrgan package -- realesrgan's basicsr dependency fails to build here
           # (confirmed live, unrelated to this repo), super-image has no such issue.
           pip install super-image
+          # Pose-guided hand inpainting (hand_pose.py) -- MediaPipe hand landmarks +
+          # a ControlNet pose skeleton, real structural guidance instead of hoping
+          # text prompts alone produce correct finger topology (which live testing
+          # showed failing on roughly half of real detected hands: hallucinated
+          # objects, mismatched skin tone). Verified live in a clean venv that this
+          # combination installs cleanly and torch/torchvision stay matched (see the
+          # torchvision comment above -- same class of risk, checked the same way).
+          pip install mediapipe controlnet_aux
 
       - name: Run autopilot
         env:
