@@ -118,8 +118,8 @@ def run_niche(niche, state):
     used = state["topics"].setdefault(niche["id"], [])
     for _ in range(videos_this_run):
         stamp = time.strftime("%Y%m%d-%H%M%S")
-        images = imageslides.generate(niche, state=state)
-        caption = imageslides.image_caption(niche)
+        images, vibe = imageslides.generate(niche, state=state)
+        caption = imageslides.image_caption(niche, vibe=vibe)
         log(f"[{niche['id']}] caption (pre-filled on the draft; also saved to "
             f"CAPTIONS.md as a fallback):\n{caption}")
 

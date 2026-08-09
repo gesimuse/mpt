@@ -16,6 +16,7 @@ os.environ.setdefault("NIM_API_KEY", "test-key")
 os.environ.pop("DRY_RUN", None)
 
 import autopilot  # noqa: E402
+import caption_writer  # noqa: E402
 import civitai  # noqa: E402
 import clip_encode  # noqa: E402
 import imageslides  # noqa: E402
@@ -43,23 +44,23 @@ class Response:
 class ImageSlideshowTest(unittest.TestCase):
     AIBEAUTY = {"id": "aibeauty", "content_type": "images",
                 "hashtags": "#aiart", "ai_disclosure": "Created with AI. Not a real person.",
-                "captions": ["Slow mornings."], "scenes": ["a street"], "styles": ["35mm"],
-                "outfits": ["wearing a wool coat and jeans"]}
+                "captions": ["Slow mornings."], "scenes": ["a street"], "styles": ["35mm"]}
 
     def test_swimwear_and_lingerie_are_not_blocked(self):
         """The policy line is nudity, not how much skin an outfit shows. Checks for
         "bikini"/"lingerie" rather than "swimsuit" -- one-piece swimsuits were dropped
-        from the list entirely (operator preference), so "swimsuit" itself no longer
+        from the themes entirely (operator preference), so "swimsuit" itself no longer
         appears, but swim/lingerie-style outfits in general are still represented."""
-        self.assertTrue(any("bikini" in o for o in imageslides.DEFAULT_OUTFITS))
-        self.assertTrue(any("lingerie" in o for o in imageslides.DEFAULT_OUTFITS))
+        outfits = [t["outfit"] for t in imageslides.DEFAULT_THEMES]
+        self.assertTrue(any("bikini" in o for o in outfits))
+        self.assertTrue(any("lingerie" in o for o in outfits))
         self.assertNotIn("swimwear", imageslides.NEGATIVE_HARD)
         self.assertNotIn("lingerie", imageslides.NEGATIVE_HARD)
 
     def test_one_piece_swimsuits_are_excluded(self):
         """Explicit operator preference: no one-piece swimsuits."""
-        self.assertFalse(any("one-piece" in o or "one piece" in o
-                            for o in imageslides.DEFAULT_OUTFITS))
+        outfits = [t["outfit"] for t in imageslides.DEFAULT_THEMES]
+        self.assertFalse(any("one-piece" in o or "one piece" in o for o in outfits))
 
     def test_generate_raises_when_civitai_is_unavailable(self):
         """No static-formula fallback: a batch's model and prompt must come from a
@@ -147,6 +148,52 @@ class ImageSlideshowTest(unittest.TestCase):
         self.assertIn("Created with AI", caption)
         self.assertIn("#aiart", caption)
 
+    def test_caption_uses_the_llm_writer_when_a_vibe_is_given(self):
+        with mock.patch.object(imageslides.caption_writer, "write",
+                               lambda vibe: (f"About {vibe}.", "#freshtag #vibecheck")):
+            caption = imageslides.image_caption(self.AIBEAUTY, vibe="a rainy afternoon")
+        self.assertIn("About a rainy afternoon.", caption)
+        self.assertIn("#freshtag #vibecheck", caption)
+        self.assertIn("Created with AI", caption)
+
+    def test_caption_falls_back_to_the_static_pool_when_the_writer_fails(self):
+        """A caption-writing hiccup must never block an otherwise-good batch of
+        images from getting posted."""
+        with mock.patch.object(imageslides.caption_writer, "write",
+                               mock.Mock(side_effect=RuntimeError("NIM down"))):
+            caption = imageslides.image_caption(self.AIBEAUTY, vibe="a rainy afternoon")
+        self.assertIn("Slow mornings.", caption)
+
+    def test_caption_falls_back_to_the_static_pool_without_a_vibe(self):
+        """No vibe (e.g. a niche override with no vibe field) skips the LLM call
+        entirely rather than calling it with nothing meaningful to write about."""
+        with mock.patch.object(imageslides.caption_writer, "write",
+                               mock.Mock(side_effect=AssertionError("must not be called"))):
+            caption = imageslides.image_caption(self.AIBEAUTY, vibe=None)
+        self.assertIn("Slow mornings.", caption)
+
+    def test_theme_bundles_outfit_location_and_mood_coherently(self):
+        """Independent random picks could land a bikini with 'candlelit bathtub' and
+        'walking toward camera' in the same image -- individually fine, reads as a
+        random recombination, not a scene. A theme's outfit/location/mood must come
+        from the SAME bundle, not be shuffled independently."""
+        for theme in imageslides.DEFAULT_THEMES:
+            self.assertIn("vibe", theme)
+            self.assertIn("outfit", theme)
+            self.assertIn("location", theme)
+            self.assertIn("mood", theme)
+
+    def test_build_prefix_returns_the_chosen_themes_own_vibe(self):
+        reference = {"prompt": "closeup portrait, dramatic lighting, studio"}
+        niche = {"id": "aibeauty",
+                "themes": [{"vibe": "a specific test vibe", "outfit": "wearing a coat",
+                           "location": "in a room", "mood": "a calm pose"}]}
+        prefix, vibe = imageslides._build_prefix(niche, reference)
+        self.assertEqual(vibe, "a specific test vibe")
+        self.assertIn("wearing a coat", prefix)
+        self.assertIn("in a room", prefix)
+        self.assertIn("a calm pose", prefix)
+
     @staticmethod
     def _fake_decide(query, prompt_filter=None, weights=None):
         return ({"model_id": 4201, "version_id": 130072, "name": "Test Model"},
@@ -160,7 +207,7 @@ class ImageSlideshowTest(unittest.TestCase):
              mock.patch.object(imageslides.supervisor, "filter_images",
                                lambda paths: paths[:4]), \
              tempfile.TemporaryDirectory() as tmp:
-            approved = imageslides.generate(self.AIBEAUTY, workdir=tmp)
+            approved, vibe = imageslides.generate(self.AIBEAUTY, workdir=tmp)
         self.assertEqual(len(approved), 4)
 
     def test_short_round_triggers_a_second_round_of_fresh_variations(self):
@@ -176,7 +223,7 @@ class ImageSlideshowTest(unittest.TestCase):
              mock.patch.object(imageslides.supervisor, "filter_images",
                                lambda paths: filter_results.pop(0)), \
              tempfile.TemporaryDirectory() as tmp:
-            approved = imageslides.generate(self.AIBEAUTY, workdir=tmp)
+            approved, vibe = imageslides.generate(self.AIBEAUTY, workdir=tmp)
         self.assertEqual(len(approved), 4)
         self.assertEqual(filter_results, [], "both rounds must have run")
 
@@ -206,7 +253,7 @@ class ImageSlideshowTest(unittest.TestCase):
              mock.patch.object(imageslides.sdgen, "generate_batch", fake_generate_batch), \
              mock.patch.object(imageslides.supervisor, "filter_images", lambda paths: paths), \
              tempfile.TemporaryDirectory() as tmp:
-            approved = imageslides.generate(self.AIBEAUTY, workdir=tmp)
+            approved, vibe = imageslides.generate(self.AIBEAUTY, workdir=tmp)
         self.assertGreater(len(approved), 0)
         self.assertEqual(decisions, [], "both decide_reference calls must have happened")
 
@@ -230,7 +277,7 @@ class ImageSlideshowTest(unittest.TestCase):
              mock.patch.object(imageslides.sdgen, "generate_batch",
                                lambda *a, **k: fake_paths), \
              tempfile.TemporaryDirectory() as tmp:
-            approved = imageslides.generate(self.AIBEAUTY, workdir=tmp)
+            approved, vibe = imageslides.generate(self.AIBEAUTY, workdir=tmp)
         self.assertEqual(approved, fake_paths)
 
     def test_sexy_cue_is_always_present(self):
@@ -963,7 +1010,9 @@ class OutfitConflictTest(unittest.TestCase):
     the model two contradictory outfits in a single prompt -- e.g. jeans-and-coat
     glued onto a prompt that already said 'wearing a black dress'."""
 
-    AIBEAUTY = {"id": "aibeauty", "outfits": ["wearing a red gown"],
+    AIBEAUTY = {"id": "aibeauty",
+               "themes": [{"vibe": "a night out", "outfit": "wearing a red gown",
+                          "location": "in a room", "mood": "a confident pose"}],
                "min_images": 1, "images_per_video": 2}
 
     def _prompts_for_reference(self, prompt_text):
@@ -997,7 +1046,9 @@ class OutfitConflictTest(unittest.TestCase):
         with what the reference prompt already says, and it is what keeps the tone
         consistent even when the decided reference is mundane (a live search once
         decided on a showcase prompt describing a chef in a kitchen)."""
-        niche = {**self.AIBEAUTY, "mood": ["sultry confident gaze"]}
+        niche = {**self.AIBEAUTY,
+                "themes": [{"vibe": "a night out", "outfit": "wearing a red gown",
+                           "location": "in a room", "mood": "sultry confident gaze"}]}
         captured = {}
 
         def fake_generate_batch(prompts, workdir, **kw):
@@ -1019,7 +1070,9 @@ class LocationConflictTest(unittest.TestCase):
     clothing: injecting 'poolside cabana' onto a reference that already says 'in a
     bustling gourmet kitchen' gives the model two contradictory settings at once."""
 
-    AIBEAUTY = {"id": "aibeauty", "locations": ["on a private yacht deck"],
+    AIBEAUTY = {"id": "aibeauty",
+               "themes": [{"vibe": "a day on the water", "outfit": "wearing a swimsuit",
+                          "location": "on a private yacht deck", "mood": "a confident pose"}],
                "min_images": 1, "images_per_video": 2}
 
     def _prompts_for_reference(self, prompt_text):
@@ -1569,7 +1622,7 @@ class RunNicheTest(unittest.TestCase):
         state = {"topics": {}, "uploads": []}
         with mock.patch.object(autopilot, "DRY_RUN", False), \
              mock.patch.object(tiktok, "enabled", lambda niche_id: True), \
-             mock.patch.object(imageslides, "generate", lambda n, state=None: fake_images), \
+             mock.patch.object(imageslides, "generate", lambda n, state=None: (fake_images, None)), \
              mock.patch.object(tiktok, "publish_photos_draft",
                                lambda imgs, niche_id, image_urls=None, caption=None, title=None: "publish1"), \
              mock.patch.object(tiktok, "check_publish_status",
@@ -1593,7 +1646,7 @@ class RunNicheTest(unittest.TestCase):
         state = {"topics": {}, "uploads": []}
         with mock.patch.object(autopilot, "DRY_RUN", False), \
              mock.patch.object(tiktok, "enabled", lambda niche_id: True), \
-             mock.patch.object(imageslides, "generate", lambda n, state=None: fake_images), \
+             mock.patch.object(imageslides, "generate", lambda n, state=None: (fake_images, None)), \
              mock.patch.object(tiktok, "publish_photos_draft",
                                lambda imgs, niche_id, image_urls=None, caption=None, title=None: "publish1"), \
              mock.patch.object(tiktok, "check_publish_status",
@@ -1610,7 +1663,7 @@ class RunNicheTest(unittest.TestCase):
     def test_dry_run_writes_files_and_never_queues_a_draft(self):
         fake_images = [Path(f"/tmp/i{i}.png") for i in range(5)]
         with mock.patch.object(autopilot, "DRY_RUN", True), \
-             mock.patch.object(imageslides, "generate", lambda n, state=None: fake_images), \
+             mock.patch.object(imageslides, "generate", lambda n, state=None: (fake_images, None)), \
              mock.patch.object(tiktok, "publish_photos_draft",
                                mock.Mock(side_effect=AssertionError("must not push"))), \
              mock.patch.object(autopilot.shutil, "copy", lambda a, b: None), \
@@ -1663,7 +1716,7 @@ class RunNicheTest(unittest.TestCase):
 
         def fake_generate(n, state=None):
             calls.append(1)
-            return [Path(f"/tmp/i{len(calls)}.png")]
+            return [Path(f"/tmp/i{len(calls)}.png")], None
 
         with mock.patch.object(autopilot, "DRY_RUN", False), \
              mock.patch.object(tiktok, "enabled", lambda niche_id: True), \
@@ -1696,6 +1749,65 @@ class SupervisorRubricTest(unittest.TestCase):
 
     def test_rubric_asks_about_ethnicity_exclusion(self):
         self.assertIn("ethnicity_excluded", supervisor.RUBRIC)
+
+
+class CaptionWriterTest(unittest.TestCase):
+    """caption_writer.write() replaces the old fixed-pool caption/hashtags -- a
+    single "hashtags" string used on literally every post, forever, and a small
+    static "captions" pool that cycled back to the same 14 lines regardless of how
+    different the actual images were. Hermetic: _ask is mocked, no real NIM call."""
+
+    def test_parses_a_well_formed_response(self):
+        with mock.patch.object(caption_writer, "_ask", lambda prompt, **kw:
+                               "CAPTION: Golden hour, no filter needed.\n"
+                               "HASHTAGS: #aiart #beachday #goldenhour #confident"):
+            caption, tags = caption_writer.write("a sunny beach day")
+        self.assertEqual(caption, "Golden hour, no filter needed.")
+        self.assertEqual(tags, "#aiart #beachday #goldenhour #confident")
+
+    def test_strips_surrounding_quotes_from_the_caption(self):
+        with mock.patch.object(caption_writer, "_ask", lambda prompt, **kw:
+                               'CAPTION: "Quoted line."\nHASHTAGS: #aiart #vibe'):
+            caption, tags = caption_writer.write("a vibe")
+        self.assertEqual(caption, "Quoted line.")
+
+    def test_ignores_hashtag_like_words_missing_the_hash(self):
+        with mock.patch.object(caption_writer, "_ask", lambda prompt, **kw:
+                               "CAPTION: A line.\nHASHTAGS: #aiart notahashtag #confident"):
+            caption, tags = caption_writer.write("a vibe")
+        self.assertEqual(tags, "#aiart #confident")
+
+    def test_unparseable_response_raises(self):
+        """Must raise, not silently return something empty -- image_caption()'s
+        fallback to the static pool depends on this actually failing loudly."""
+        with mock.patch.object(caption_writer, "_ask", lambda prompt, **kw: "not the expected format at all"):
+            with self.assertRaises(RuntimeError):
+                caption_writer.write("a vibe")
+
+    def test_missing_api_key_raises(self):
+        with mock.patch.dict(os.environ, {}, clear=True):
+            with self.assertRaises(RuntimeError) as ctx:
+                caption_writer._ask("prompt")
+        self.assertIn("NIM_API_KEY", str(ctx.exception))
+
+    def test_transient_failures_are_retried(self):
+        calls = {"n": 0}
+
+        def fake_post(url, headers=None, json=None, timeout=None):
+            calls["n"] += 1
+            if calls["n"] < 2:
+                return mock.Mock(status_code=503, text="busy")
+            return mock.Mock(status_code=200, ok=True,
+                             raise_for_status=lambda: None,
+                             json=lambda: {"choices": [{"message": {"content":
+                                 "CAPTION: Retried fine.\nHASHTAGS: #aiart #vibe"}}]})
+
+        with mock.patch.dict(os.environ, {"NIM_API_KEY": "k"}), \
+             mock.patch.object(caption_writer.requests, "post", fake_post), \
+             mock.patch.object(caption_writer.time, "sleep", lambda s: None):
+            result = caption_writer._ask("prompt")
+        self.assertIn("Retried fine", result)
+        self.assertEqual(calls["n"], 2)
 
 
 class ReviewImageTest(unittest.TestCase):

@@ -19,90 +19,86 @@ and lingerie are within policy -- the earlier draft of this file blocked them en
 which is stricter than necessary and not what was asked for. The line is nudity, not
 how much skin an outfit shows.
 
-Delivery: TikTok's Photo Mode carousel, queued as a native inbox draft (tiktok.py) --
-no caption travels with it, by design: the account owner opens the app, adds trending
-sound, pastes the caption from CAPTIONS.md, and posts by hand. Not yet verified against
-a real TikTok account; see tiktok.py's module docstring.
+Delivery: TikTok's Photo Mode carousel, queued as a native inbox draft (tiktok.py),
+caption pre-filled on the draft (also saved to CAPTIONS.md as a fallback the account
+owner can paste by hand if the pre-fill doesn't take). The caption itself is written
+per post by caption_writer.write(), from the actual theme (see DEFAULT_THEMES) that
+batch used, not picked from a fixed pool -- the account owner still opens the app to
+add a trending sound and post by hand either way.
 """
 import os, random, re
 
+import caption_writer
 import civitai
 import sdgen
 import supervisor
 
-# Explicit outfits rather than a general "modest clothing" instruction: an earlier
-# attempt at the latter still produced a subject in underwear on a public-street prompt.
-# Naming a complete, specific outfit per image leaves nothing for the model to infer.
-DEFAULT_OUTFITS = [
-    "wearing straight-leg jeans, a white shirt and a long wool coat",
-    "wearing a midi skirt below the knee, a knitted jumper and ankle boots",
-    "wearing tailored trousers, a turtleneck and a trench coat",
-    "wearing wide-leg trousers, a blouse buttoned to the collar and a blazer",
-    "wearing a long-sleeved midi dress with opaque tights and flat shoes",
-    "wearing corduroy trousers, a cardigan over a t-shirt and a scarf",
-    "wearing a lace-trim camisole and matching shorts, loungewear at home",
-    "wearing a fitted bodycon mini dress and heels",
-    "wearing a two-piece bikini, beach setting",
-    "wearing a cropped tank top and high-waisted denim shorts",
-    "wearing a satin slip dress with thin straps",
-    "wearing a wet white t-shirt clinging to her figure, poolside",
-    "wearing a tight, clingy bodycon dress that hugs every curve",
-    "wearing a sheer, see-through lace dress over a bikini",
-    "wearing a soaking wet, transparent tank top and denim shorts",
-    "wearing a string bikini, beach setting",
-    "wearing a plunging halter mini dress, backless",
-    "wearing a lace lingerie set with a silk robe draped open",
-    "wearing a fitted leather mini skirt and a cropped top",
-    "wearing a sheer mesh top over a bralette",
-    "wearing a cut-out bodycon dress with side cutouts",
-    "wearing a corset top and a denim mini skirt",
-    "wearing an unbuttoned silk shirt tied over a bralette",
-    "wearing a strapless satin mini dress",
-    "wearing a sheer bodysuit under an open blazer",
-]
-# Pose/expression, appended unconditionally regardless of where the reference prompt
-# came from -- this is the actual tone lever, not the outfit list above (which most
-# harvested prompts already satisfy on their own and skip entirely).
-DEFAULT_MOOD = [
-    "confident sultry gaze, alluring pose",
-    "sensual over-the-shoulder glance, soft smile",
-    "playful confident energy, glamour photography lighting",
-    "sultry expression, soft dramatic shadows",
-    "flirty smile, relaxed confident posture",
-    "sultry pout, confident direct eye contact",
-    "wet skin, dripping water, glistening body",
-    "tight clingy fabric, curves accentuated, sultry pose",
-    "arched back pose, confident sultry expression",
-    "kneeling pose, looking up through lashes",
-    "lying back, relaxed sultry pose, soft lighting",
-    "stretching pose, arms overhead, confident energy",
-    "looking back over her shoulder, sultry smile",
-    "leaning forward, playful confident energy",
-    "hands running through hair, sultry confident gaze",
-    "sitting cross-legged, sultry relaxed pose",
-    "walking toward camera, confident sultry stride",
-    "reclining pose, soft dramatic shadows, sultry mood",
-]
-# Location/situation, injected the same way as outfit -- only when the reference
-# prompt does not already name one, so a harvested "in a bustling gourmet kitchen"
-# doesn't collide with an injected "poolside cabana" in the same prompt. Was dropped
-# entirely when the static-formula fallback was removed; brought back here as an
-# additive layer instead, since without it every batch's setting is whatever the
-# harvested reference happened to describe -- often nothing sexy at all (a chef in a
-# kitchen, a pilot in a cockpit).
-DEFAULT_LOCATIONS = [
-    "in a dimly lit bedroom, silk sheets",
-    "poolside at a luxury villa, golden hour",
-    "in a steamy shower, glass fogged with steam",
-    "on a private yacht deck, ocean backdrop",
-    "in a hotel room, city lights through the window",
-    "on a rooftop bar at night, neon lighting",
-    "in a candlelit bathtub, warm ambient light",
-    "on a beach at sunset, waves in the background",
-    "in a red velvet lounge, moody dramatic lighting",
-    "backstage in a dressing room, mirror lights",
-    "in a rain-soaked room, window backlighting",
-    "on a balcony at night, city skyline behind her",
+# Bundled outfit+location+mood+vibe, one coherent "moment" per entry, instead of
+# picking each independently. Independent random picks could land a bikini with
+# "candlelit bathtub" and "walking toward camera, confident stride" in the same
+# image -- individually fine, but reads as a random recombination, not a scene. Each
+# theme here is drawn from the same outfit/location/mood vocabulary the old separate
+# lists used (nothing lost), just bundled so a whole batch reads as one moment.
+# `vibe` is a short, human description of that moment, fed to caption_writer.write()
+# so the post's caption/hashtags are actually about what the batch looks like,
+# instead of picked from a fixed pool disconnected from the images.
+DEFAULT_THEMES = [
+    {"vibe": "a lazy morning at home",
+     "outfit": "wearing a lace-trim camisole and matching shorts, loungewear at home",
+     "location": "in a dimly lit bedroom, silk sheets",
+     "mood": "relaxed sultry pose, soft lighting"},
+    {"vibe": "a sunny beach day",
+     "outfit": "wearing a two-piece bikini, beach setting",
+     "location": "on a beach at sunset, waves in the background",
+     "mood": "playful confident energy, glamour photography lighting"},
+    {"vibe": "poolside at a luxury villa",
+     "outfit": "wearing a string bikini, beach setting",
+     "location": "poolside at a luxury villa, golden hour",
+     "mood": "confident sultry gaze, alluring pose"},
+    {"vibe": "getting ready for a night out",
+     "outfit": "wearing a fitted bodycon mini dress and heels",
+     "location": "backstage in a dressing room, mirror lights",
+     "mood": "flirty smile, relaxed confident posture"},
+    {"vibe": "a rooftop bar at night",
+     "outfit": "wearing a cut-out bodycon dress with side cutouts",
+     "location": "on a rooftop bar at night, neon lighting",
+     "mood": "sultry pout, confident direct eye contact"},
+    {"vibe": "a quiet night in a hotel room",
+     "outfit": "wearing a satin slip dress with thin straps",
+     "location": "in a hotel room, city lights through the window",
+     "mood": "lying back, relaxed sultry pose, soft lighting"},
+    {"vibe": "candlelight and quiet",
+     "outfit": "wearing a lace lingerie set with a silk robe draped open",
+     "location": "in a candlelit bathtub, warm ambient light",
+     "mood": "sultry expression, soft dramatic shadows"},
+    {"vibe": "steam and soft light",
+     "outfit": "wearing a soaking wet, transparent tank top and denim shorts",
+     "location": "in a steamy shower, glass fogged with steam",
+     "mood": "wet skin, dripping water, glistening body"},
+    {"vibe": "a day on the water",
+     "outfit": "wearing a plunging halter mini dress, backless",
+     "location": "on a private yacht deck, ocean backdrop",
+     "mood": "walking toward camera, confident sultry stride"},
+    {"vibe": "city lights from the balcony",
+     "outfit": "wearing a strapless satin mini dress",
+     "location": "on a balcony at night, city skyline behind her",
+     "mood": "leaning forward, playful confident energy"},
+    {"vibe": "a rainy moody afternoon",
+     "outfit": "wearing a sheer mesh top over a bralette",
+     "location": "in a rain-soaked room, window backlighting",
+     "mood": "sultry expression, soft dramatic shadows"},
+    {"vibe": "backstage before a shoot",
+     "outfit": "wearing a corset top and a denim mini skirt",
+     "location": "backstage in a dressing room, mirror lights",
+     "mood": "hands running through hair, sultry confident gaze"},
+    {"vibe": "an evening in, curves and candlelight",
+     "outfit": "wearing a tight, clingy bodycon dress that hugs every curve",
+     "location": "in a red velvet lounge, moody dramatic lighting",
+     "mood": "arched back pose, confident sultry expression"},
+    {"vibe": "just out of the pool",
+     "outfit": "wearing a wet white t-shirt clinging to her figure, poolside",
+     "location": "poolside at a luxury villa, golden hour",
+     "mood": "tight clingy fabric, curves accentuated, sultry pose"},
 ]
 # "studio" deliberately excluded: it's ubiquitous photography jargon ("studio light",
 # "studio backdrop"), not a narrative setting -- including it meant almost every real
@@ -324,14 +320,40 @@ def build_variations(prefix, reference_text, base_negative, n, niche):
     return prompts, [base_negative] * n
 
 
-def image_caption(niche):
+def _static_caption(niche):
+    """The old fixed-pool behaviour, kept as a fallback for when the LLM path is
+    unavailable or fails -- niches.json's own "hashtags" used to be a single string
+    posted on literally every image, forever, and "captions" a small pool (14
+    phrases) that cycles back to the same lines regardless of how different the
+    images actually are. Never the primary path anymore; see image_caption()."""
     lines = niche.get("captions") or ["Slow mornings and soft light."]
     tags = niche.get("hashtags", "")
     disclosure = niche.get("ai_disclosure", "AI-generated imagery")
     return f"{random.choice(lines)}\n\n{disclosure}\n\n{tags}".strip()
 
 
+def image_caption(niche, vibe=None):
+    """A fresh caption + hashtags per post, written by caption_writer.write() from
+    this batch's actual theme (vibe) -- falls back to the old static pool
+    (_static_caption) when no vibe is available (a niche overriding "themes" with
+    something that has no vibe field, unlikely) or the LLM call fails for any
+    reason. A caption-writing hiccup must never block an otherwise-good batch of
+    images from getting posted, so this never raises."""
+    disclosure = niche.get("ai_disclosure", "AI-generated imagery")
+    if vibe:
+        try:
+            caption, tags = caption_writer.write(vibe)
+            return f"{caption}\n\n{disclosure}\n\n{tags}".strip()
+        except Exception as e:
+            log(f"caption_writer failed, falling back to the static pool "
+                f"({type(e).__name__}: {str(e)[:100]})")
+    return _static_caption(niche)
+
+
 def _build_prefix(niche, reference):
+    """Returns (prefix, vibe) -- vibe is the theme's short human description, threaded
+    through to caption_writer.write() so the post's caption/hashtags are actually
+    about this batch's moment, not picked from a fixed pool disconnected from it."""
     # An explicit outfit/location is only injected when the reference prompt does not
     # already name one -- appending "wearing jeans and a coat" onto a prompt that
     # already says "wearing a black dress" (or "poolside cabana" onto "in a bustling
@@ -340,12 +362,11 @@ def _build_prefix(niche, reference):
     # pose/expression cue does not conflict with whatever the reference prompt already
     # says. SEXY_CUE is the guaranteed baseline ("every image must be sexy" is a hard
     # requirement, not a random pick); mood adds per-image variety on top of it.
-    outfit = random.choice(niche.get("outfits") or DEFAULT_OUTFITS)
-    clothing = "" if _CLOTHING_RE.search(reference["prompt"]) else f"{outfit}, "
-    location = random.choice(niche.get("locations") or DEFAULT_LOCATIONS)
-    setting = "" if _LOCATION_RE.search(reference["prompt"]) else f"{location}, "
-    mood = random.choice(niche.get("mood") or DEFAULT_MOOD)
-    return f"{SAFETY_PREFIX}, {clothing}{setting}{SEXY_CUE}, {mood}"
+    theme = random.choice(niche.get("themes") or DEFAULT_THEMES)
+    clothing = "" if _CLOTHING_RE.search(reference["prompt"]) else f"{theme['outfit']}, "
+    setting = "" if _LOCATION_RE.search(reference["prompt"]) else f"{theme['location']}, "
+    prefix = f"{SAFETY_PREFIX}, {clothing}{setting}{SEXY_CUE}, {theme['mood']}"
+    return prefix, theme["vibe"]
 
 
 # Bounds for adopting the checkpoint creator's own posted generation settings. Their
@@ -413,7 +434,11 @@ def generate(niche, count=None, workdir=None, max_rounds=2, state=None):
     Raises once max_rounds is exhausted without reaching min_images -- an image-only
     post with too few photos is not worth publishing, and a silent quality drop should
     never ship. Not an infinite retry: max_rounds caps the worst case at
-    max_rounds * count generations, each ~130s on a GH Actions runner."""
+    max_rounds * count generations, each ~130s on a GH Actions runner.
+
+    Returns (image_paths, vibe) -- vibe is the theme's short description (see
+    DEFAULT_THEMES), threaded through so the caller can write a caption that's
+    actually about this batch's moment, not a generic one."""
     import tempfile
     from pathlib import Path
 
@@ -426,6 +451,8 @@ def generate(niche, count=None, workdir=None, max_rounds=2, state=None):
     supervisor_on = os.environ.get("SUPERVISOR_ENABLED", "1").strip().lower() not in (
         "0", "false", "no")
     approved, generated_count = [], 0
+    vibe = None  # the last round's theme vibe -- returned alongside the images so the
+    # caller can write a caption that's actually about this batch's moment.
     # No static-formula fallback: every batch's model and prompt must come from a real
     # CivitAI search, not a hand-written scene/style list. If CivitAI can't be reached
     # at all, decide_reference() raises and the run fails loudly here, rather than
@@ -434,7 +461,7 @@ def generate(niche, count=None, workdir=None, max_rounds=2, state=None):
 
     for round_num in range(1, max_rounds + 1):
         civitai_spec = f"{resolved['model_id']}:{resolved['version_id']}"
-        prefix = _build_prefix(niche, reference)
+        prefix, vibe = _build_prefix(niche, reference)
         base_negative = ", ".join(
             x for x in (NEGATIVE_HARD, reference["negative_prompt"], NEGATIVE_QUALITY) if x)
         log(f"round {round_num}: {resolved['name']!r} | prefix: {prefix} | "
@@ -476,4 +503,4 @@ def generate(niche, count=None, workdir=None, max_rounds=2, state=None):
             f"only {len(approved)} of {generated_count} images passed review across "
             f"{max_rounds} round(s) (need at least {min_images}); not posting")
     log(f"{len(approved)}/{generated_count} images approved")
-    return approved[:max_images]
+    return approved[:max_images], vibe
