@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-09T18:41:45 — aibeauty
+
+```
+Nothing says good vibes like a bad tan
+
+Created with AI.
+
+#aiart #generativeart #summervibes #poolparty
+```
+
 ## 2026-08-09T13:58:31 — aibeauty
 
 ```
@@ -84,16 +94,6 @@ Created with AI.
 
 ```
 Some days just look like this.
-
-Created with AI.
-
-#aiart #aigenerated #aiphotography #confident
-```
-
-## 2026-08-07T10:54:26 — aibeauty
-
-```
-A little extra never hurt.
 
 Created with AI.
 
