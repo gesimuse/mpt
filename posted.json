@@ -5,7 +5,8 @@
       "aibeauty-20260808-124127",
       "aibeauty-20260808-135725",
       "aibeauty-20260809-054919",
-      "aibeauty-20260809-075322"
+      "aibeauty-20260809-075322",
+      "aibeauty-20260809-105904"
     ]
   },
   "uploads": [
@@ -151,6 +152,17 @@
       "tiktok_status": "SEND_TO_USER_INBOX",
       "tiktok_caption": "Confidence looks good on me.\n\nCreated with AI.\n\n#aiart #aigenerated #aiphotography #confident",
       "ts": "2026-08-09T08:35:31"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260809-105904",
+      "title": "This is your sign to go outside.",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7671993817571002390",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "This is your sign to go outside.\n\nCreated with AI.\n\n#aiart #aigenerated #aiphotography #confident",
+      "ts": "2026-08-09T11:34:49"
     }
   ],
   "model_stats": {
@@ -168,6 +180,21 @@
       "name": "HydraMix",
       "used": 30,
       "passed": 24
+    },
+    "167537:288911": {
+      "name": "BEAUTY_BY_STABLE_YOGI",
+      "used": 20,
+      "passed": 0
+    },
+    "5273:650381": {
+      "name": "WyvernMix (1.5 & XL)",
+      "used": 0,
+      "passed": 0
+    },
+    "139300:236963": {
+      "name": "Realistic-Digital-Genius",
+      "used": 10,
+      "passed": 10
     }
   }
 }
