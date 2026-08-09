@@ -18,6 +18,15 @@ on:
         description: "Comma-separated niche ids to run (blank = all, e.g. aibeauty)"
         required: false
         default: ""
+      max_pending_drafts:
+        description: >-
+          Override the pending-drafts cap for this manual run only (default 5,
+          matching TikTok's real per-24h limit). Only raise this if you've actually
+          cleared/posted drafts in the TikTok app since the last real generation --
+          this is our own local proxy count, not something TikTok exposes, so it has
+          no way to know about that on its own.
+        required: false
+        default: ""
 
 concurrency:
   group: autopilot
@@ -90,6 +99,10 @@ jobs:
       - name: Run autopilot
         env:
           NICHES: ${{ github.event.inputs.niches }}
+          # Empty string falls back to '5' (|| is falsy-coalescing in GH Actions
+          # expressions) -- autopilot.py's own int(os.environ.get(..., "5")) would
+          # crash on a literal empty string otherwise.
+          MAX_PENDING_DRAFTS: ${{ github.event.inputs.max_pending_drafts || '5' }}
           NIM_API_KEY: ${{ secrets.NIM_API_KEY }}
           NIM_MODEL: ${{ secrets.NIM_MODEL }}
           # Optional: raises the Hugging Face Hub rate limit for the LCM-LoRA download
