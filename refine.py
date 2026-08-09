@@ -47,6 +47,16 @@ PAD_FRACTION = 0.3
 # strength to actually redraw the fingers, not just sharpen what's already there.
 STRENGTH_BY_KIND = {"face": 0.4, "hand": 0.6}
 DEFAULT_STRENGTH = float(os.environ.get("REFINE_STRENGTH", "0.4"))
+# Effective denoising steps = num_inference_steps * strength. Hands used to inherit
+# the base image's own step count (often 6), giving 6*0.6 = ~4 effective steps --
+# FEWER than the base render's own 6 steps that produced the malformed hand in the
+# first place. That's not enough room for the model to resolve genuine anatomy, only
+# to lightly perturb what's already there. Decoupled here: hands get their own step
+# count, LCM's own documented safe ceiling (matches _STEPS_MAX elsewhere in this
+# codebase) rather than whatever the base render happened to use, so 10*0.6 = 6
+# effective steps -- still inside LCM's valid range, meaningfully more room to
+# actually redraw fingers instead of just polishing a bad shape.
+STEPS_BY_KIND = {"hand": 10}
 # Extra wording appended to the base prompt/negative for this region only -- the base
 # prompt is about pose/outfit/location, not anatomy, so it does nothing to steer the
 # inpaint toward a correct hand specifically. Verified live: an inpaint pass using
@@ -78,8 +88,14 @@ PROMPT_REPLACE_KINDS = {"hand"}
 # -- refining only the single best-confidence hand left the other one (commonly
 # also in frame -- a hand on a hip, the other holding something) untouched.
 MAX_REGIONS_PER_KIND = int(os.environ.get("REFINE_MAX_REGIONS_PER_KIND", "2"))
-# Square canvas the crop is resized onto before inpainting, then resized back from
-# afterward. Small on purpose -- see module docstring for the CPU-time reasoning.
+# Cap on the LONGER side of the canvas the crop is resized onto before inpainting,
+# then resized back from afterward -- small on purpose, see module docstring for the
+# CPU-time reasoning. NOT a forced square: a hand crop is usually tall/narrow (e.g.
+# 102x157 seen in a real run), and force-resizing that into a square canvas squishes
+# it horizontally before inpainting and stretches it back after, distorting finger
+# proportions on every single hand refine -- live-suspected as a real contributor to
+# hands looking worse after "refinement", not just failing to improve them. See
+# _canvas_size() below, which preserves the crop's own aspect ratio instead.
 INPAINT_SIZE = int(os.environ.get("REFINE_INPAINT_SIZE", "384"))
 # Pixels of the crop's own edge left outside the feathered mask, so the paste-back
 # blends into the surrounding, un-refined image instead of showing a hard rectangle.
@@ -116,6 +132,17 @@ def _detect_boxes(image, kind):
             if conf >= MIN_CONFIDENCE:
                 boxes.append((box, conf))
     return boxes
+
+
+def _canvas_size(cw, ch):
+    """Aspect-ratio-preserving inpaint canvas dims for a `cw`x`ch` crop: scaled so
+    the LONGER side hits INPAINT_SIZE, both dims rounded to a multiple of 8 (SD's VAE
+    requirement). NOT a forced square -- see INPAINT_SIZE's comment for why that
+    distorted proportions on every hand refine."""
+    scale = INPAINT_SIZE / max(cw, ch)
+    w = max(8, round(cw * scale / 8) * 8)
+    h = max(8, round(ch * scale / 8) * 8)
+    return w, h
 
 
 def _crop_box(size, box):
@@ -194,6 +221,7 @@ def refine(image, pipe, prompt, negative_prompt, steps, guidance, kinds=("face",
         # cached (by pipe identity) across kinds/images that DO need it.
         inpaint_pipe = _inpaint_pipe_for(pipe)
         strength = STRENGTH_BY_KIND.get(kind, DEFAULT_STRENGTH)
+        region_steps = STEPS_BY_KIND.get(kind, steps)
         if kind in PROMPT_REPLACE_KINDS:
             region_prompt = PROMPT_CUE_BY_KIND.get(kind, prompt)
         else:
@@ -207,13 +235,14 @@ def refine(image, pipe, prompt, negative_prompt, steps, guidance, kinds=("face",
             x0, y0, x1, y1 = _crop_box(result.size, box)
             crop = result.crop((x0, y0, x1, y1))
             cw, ch = crop.size
-            canvas = crop.resize((INPAINT_SIZE, INPAINT_SIZE), Image.LANCZOS)
-            canvas_mask = _feathered_mask((INPAINT_SIZE, INPAINT_SIZE))
+            canvas_w, canvas_h = _canvas_size(cw, ch)
+            canvas = crop.resize((canvas_w, canvas_h), Image.LANCZOS)
+            canvas_mask = _feathered_mask((canvas_w, canvas_h))
             try:
                 refined_canvas = inpaint_pipe(
                     image=canvas, mask_image=canvas_mask,
-                    num_inference_steps=steps, guidance_scale=guidance, strength=strength,
-                    width=INPAINT_SIZE, height=INPAINT_SIZE,
+                    num_inference_steps=region_steps, guidance_scale=guidance, strength=strength,
+                    width=canvas_w, height=canvas_h,
                     **encode_kwargs,
                 ).images[0]
             except Exception as e:
@@ -224,5 +253,6 @@ def refine(image, pipe, prompt, negative_prompt, steps, guidance, kinds=("face",
             paste_mask = _feathered_mask((cw, ch))
             result = result.copy()
             result.paste(refined_crop, (x0, y0), paste_mask)
-            log(f"refined {kind} (confidence {conf:.2f}, crop {cw}x{ch}, strength {strength})")
+            log(f"refined {kind} (confidence {conf:.2f}, crop {cw}x{ch}, "
+               f"canvas {canvas_w}x{canvas_h}, steps {region_steps}, strength {strength})")
     return result

@@ -494,6 +494,24 @@ class RefineTest(unittest.TestCase):
         self.assertGreater(x1 - x0, 0)
         self.assertGreater(y1 - y0, 0)
 
+    def test_canvas_size_preserves_aspect_ratio_not_forced_square(self):
+        """Live-suspected real contributor to hands looking worse after refinement,
+        not just failing to improve them: a hand crop is usually tall/narrow (e.g.
+        102x157, seen in a real run), and the canvas used to always be a forced
+        INPAINT_SIZE x INPAINT_SIZE square -- squishing it horizontally before
+        inpainting and stretching back after, distorting finger proportions on every
+        single hand refine."""
+        w, h = refine._canvas_size(100, 155)
+        self.assertAlmostEqual(w / h, 100 / 155, delta=0.05)
+        self.assertEqual(max(w, h), refine.INPAINT_SIZE)
+        self.assertEqual(w % 8, 0)
+        self.assertEqual(h % 8, 0)
+
+    def test_canvas_size_stays_square_for_a_square_crop(self):
+        w, h = refine._canvas_size(64, 64)
+        self.assertEqual(w, h)
+        self.assertEqual(w, refine.INPAINT_SIZE)
+
     def test_feathered_mask_is_bright_in_the_center_and_dim_at_the_edge(self):
         from PIL import Image
         mask = refine._feathered_mask((100, 100))
@@ -650,6 +668,33 @@ class RefineTest(unittest.TestCase):
         self.assertIn("fused fingers", seen["negative_prompt"])
         self.assertEqual(seen["strength"], refine.STRENGTH_BY_KIND["hand"])
         self.assertNotEqual(refine.STRENGTH_BY_KIND["hand"], refine.STRENGTH_BY_KIND["face"])
+        # Effective denoising steps = num_inference_steps * strength -- inheriting the
+        # base render's own steps (6) gave 6*0.6=~4 effective steps, FEWER than the
+        # base render itself used to produce the malformed hand in the first place.
+        # Hands get their own, higher step count now, decoupled from the caller's.
+        self.assertEqual(seen["num_inference_steps"], refine.STEPS_BY_KIND["hand"])
+        self.assertNotEqual(seen["num_inference_steps"], 6)
+
+    def test_non_square_hand_crop_gets_a_non_square_canvas(self):
+        """Wiring check for the aspect-ratio fix: a real hand box, once padded, is
+        clearly non-square, and the canvas actually handed to the inpaint pipe must
+        reflect that -- not silently forced back to square somewhere in refine()."""
+        from PIL import Image
+        image = Image.new("RGB", (300, 400))
+        seen = {}
+
+        def fake_inpaint(**kw):
+            seen.update(kw)
+            w, h = kw["width"], kw["height"]
+            return mock.Mock(images=[Image.new("RGB", (w, h))])
+
+        with mock.patch.object(refine, "REFINE_ENABLED", True), \
+             mock.patch.object(refine, "_detect_boxes",
+                               lambda img, kind: [([100, 150, 130, 280], 0.9)]), \
+             mock.patch.object(refine, "_inpaint_pipe_for", lambda pipe: fake_inpaint):
+            refine.refine(image, mock.Mock(), "p", "n", steps=6, guidance=1.8, kinds=("hand",))
+        self.assertNotEqual(seen["width"], seen["height"])
+        self.assertEqual(max(seen["width"], seen["height"]), refine.INPAINT_SIZE)
 
     def test_face_region_still_keeps_the_base_prompt(self):
         """Unlike hands, faces have no live-observed hallucination risk from scene
