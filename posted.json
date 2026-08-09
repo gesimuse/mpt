@@ -6,7 +6,8 @@
       "aibeauty-20260808-135725",
       "aibeauty-20260809-054919",
       "aibeauty-20260809-075322",
-      "aibeauty-20260809-105904"
+      "aibeauty-20260809-105904",
+      "aibeauty-20260809-132416"
     ]
   },
   "uploads": [
@@ -163,6 +164,17 @@
       "tiktok_status": "SEND_TO_USER_INBOX",
       "tiktok_caption": "This is your sign to go outside.\n\nCreated with AI.\n\n#aiart #aigenerated #aiphotography #confident",
       "ts": "2026-08-09T11:34:49"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260809-132416",
+      "title": "alone but not lonely",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7672030596994074647",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "alone but not lonely\n\nCreated with AI.\n\n#digitalart #aigenerated #hotelvibes #nightin",
+      "ts": "2026-08-09T13:58:31"
     }
   ],
   "model_stats": {
@@ -173,8 +185,8 @@
     },
     "4201:501240": {
       "name": "Realistic Vision V6.0 B1",
-      "used": 10,
-      "passed": 8
+      "used": 20,
+      "passed": 14
     },
     "89548:95334": {
       "name": "HydraMix",
@@ -195,6 +207,11 @@
       "name": "Realistic-Digital-Genius",
       "used": 10,
       "passed": 10
+    },
+    "108517:352289": {
+      "name": "Realia Photorealistic",
+      "used": 0,
+      "passed": 0
     }
   }
 }
