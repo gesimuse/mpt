@@ -269,6 +269,15 @@ def refine(image, pipe, prompt, negative_prompt, steps, guidance, kinds=("face",
                 log(f"{kind} inpaint failed, keeping original region "
                    f"({type(e).__name__}: {str(e)[:100]})")
                 continue
+            if is_hand and hand_pose._looks_glitched(refined_canvas):
+                # Live-caught: a real production run produced a hand replaced by
+                # chaotic rainbow/static noise even with a valid pose skeleton and
+                # the tuned strength -- see hand_pose.py's docstring for the full
+                # elimination process. Caught here, on the actual output, since
+                # nothing tried on the input side predicted it reliably.
+                log(f"{kind} inpaint looked glitched (confidence {conf:.2f}, crop "
+                   f"{cw}x{ch}), keeping original region")
+                continue
             refined_crop = refined_canvas.resize((cw, ch), Image.LANCZOS)
             paste_mask = _feathered_mask((cw, ch))
             result = result.copy()

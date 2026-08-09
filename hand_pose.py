@@ -40,6 +40,36 @@ stubbed with a MagicMock before importing controlnet_aux so its unrelated, unuse
 mediapipe_face submodule doesn't crash the whole package import at import time. The
 actual hand landmark detection here uses the new Tasks API directly, untouched by
 that stub.
+
+Second real failure mode, found the same way (live testing, not guessing): even at
+the tuned strength=0.35, a real production run still produced a hand replaced by
+chaotic rainbow/static noise. Root-caused by elimination, not assumption -- tried
+each candidate cause in turn against the exact failing crop: a garbled/tangled
+MediaPipe skeleton was the first suspect (visually confirmed on this specific case,
+compared side by side against a clean skeleton from the same image), but neither a
+stricter landmark-confidence threshold (the bad detection scored 0.96, higher than
+many good ones) nor several proposed geometric plausibility checks (fingertip
+angular spread, edge self-intersection count, per-finger path straightness)
+separated good skeletons from bad ones cleanly across the available samples --
+false positives on legitimate closed/curled-finger poses, false negatives on
+actually-tangled ones. Lowering controlnet_conditioning_scale (0.5, 0.3) to make the
+model less rigidly bound to the skeleton did NOT fix it. Running the exact same crop
+through plain inpainting with NO ControlNet at all still produced the same category
+of noise, which ruled out the skeleton/ControlNet as the cause entirely. Brightness/
+contrast of the input crop was also checked and ruled out (the clean examples span a
+wider brightness range than the one confirmed-bad case).
+
+What actually separates them, measured directly on the OUTPUT rather than predicted
+from the input: this failure mode has a distinct visual signature (chaotic
+per-pixel color-channel divergence -- literally the "rainbow static" look) that
+normal skin/fabric output doesn't have, however it was caused. _looks_glitched()
+below measures that directly and rejects the result if it's present, falling back
+to the un-refined region -- the same "leave it alone rather than guess" principle
+already used for the no-landmarks case, just applied after generation instead of
+before. Threshold tuned against a small live sample (4 confirmed-clean canvas-sized
+outputs scoring 3.1-4.6; the confirmed-bad production-default case scoring 6.05) --
+real margin, but a small sample; this is a safety net for the failure pattern
+actually observed, not a proof no other failure mode exists.
 """
 import os
 from pathlib import Path
@@ -57,6 +87,9 @@ MIN_LANDMARK_CONFIDENCE = float(os.environ.get("REFINE_HAND_LANDMARK_CONFIDENCE"
 STRENGTH = float(os.environ.get("REFINE_HAND_STRENGTH", "0.35"))
 CONTROLNET_CONDITIONING_SCALE = float(os.environ.get("REFINE_HAND_CONTROLNET_SCALE", "1.0"))
 STEPS = int(os.environ.get("REFINE_HAND_STEPS", "10"))
+# Live-tuned, see module docstring's "Second real failure mode" section -- margin
+# between 4 confirmed-clean outputs (3.1-4.6) and the confirmed-bad one (6.05).
+GLITCH_THRESHOLD = float(os.environ.get("REFINE_HAND_GLITCH_THRESHOLD", "5.5"))
 
 _controlnet = None
 _landmark_detector = None
@@ -64,6 +97,20 @@ _cn_inpaint_pipes = {}
 
 
 def log(msg): print(f"[hand_pose] {msg}", flush=True)
+
+
+def _looks_glitched(image):
+    """True if `image` has the chaotic per-pixel color-channel divergence ("rainbow
+    static") signature of the failure mode this module's docstring describes --
+    measured directly on the output, not predicted from the input (nothing tried on
+    the input side separated good from bad reliably). Mean absolute pixel-to-pixel
+    change in the R-G and G-B difference channels: real skin/fabric has smoothly
+    correlated color channels (low value here); this failure mode doesn't."""
+    arr = np.asarray(image.convert("RGB"), dtype=np.float32)
+    rg, gb = arr[..., 0] - arr[..., 1], arr[..., 1] - arr[..., 2]
+    noise = (np.abs(np.diff(rg, axis=0)).mean() + np.abs(np.diff(rg, axis=1)).mean()
+            + np.abs(np.diff(gb, axis=0)).mean() + np.abs(np.diff(gb, axis=1)).mean())
+    return noise > GLITCH_THRESHOLD
 
 
 def _ensure_landmarker_downloaded():

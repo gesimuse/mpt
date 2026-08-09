@@ -611,6 +611,27 @@ class RefineTest(unittest.TestCase):
         self.assertEqual(result.getpixel((120, 170)), (10, 10, 10), "must be left untouched")
         inpaint_pipe.assert_not_called()
 
+    def test_glitched_hand_output_is_discarded_not_pasted(self):
+        """Live-caught: a real production run produced a hand replaced by chaotic
+        rainbow/static noise even with a valid pose skeleton and the tuned strength
+        (see hand_pose.py's docstring for the elimination process that ruled out the
+        skeleton/ControlNet as the cause). Caught on the actual OUTPUT via
+        hand_pose._looks_glitched(), not predicted from the input -- must discard
+        the result and leave the original region in place, same as no-landmarks."""
+        from PIL import Image
+        image = Image.new("RGB", (300, 400), color=(10, 10, 10))
+        inpaint_pipe = mock.Mock(return_value=mock.Mock(
+            images=[Image.new("RGB", (refine.INPAINT_SIZE, refine.INPAINT_SIZE), color=(200, 50, 50))]))
+        with mock.patch.object(refine, "REFINE_ENABLED", True), \
+             mock.patch.object(refine, "_detect_boxes",
+                               lambda img, kind: [([100, 150, 140, 190], 0.9)]), \
+             mock.patch.object(hand_pose, "inpaint_pipe_for", lambda pipe: inpaint_pipe), \
+             mock.patch.object(hand_pose, "_looks_glitched", lambda img: True):
+            result = refine.refine(image, mock.Mock(), "p", "n", steps=6, guidance=1.8,
+                                   kinds=("hand",))
+        self.assertEqual(result.getpixel((120, 170)), (10, 10, 10),
+                         "glitched result must not be pasted")
+
     def test_hand_landmark_detection_failure_falls_back_to_the_original_image(self):
         """Never raises -- a broken landmark detector (network error downloading the
         model, etc.) must not lose an otherwise-good generation."""
@@ -847,6 +868,46 @@ class RefineTest(unittest.TestCase):
                          steps=6, guidance=1.8, kinds=("face",), arch="sdxl")
         self.assertEqual(seen["arch"], "sdxl")
         self.assertIn("base pose prompt", seen["prompt"])
+
+
+class HandPoseGlitchDetectionTest(unittest.TestCase):
+    """hand_pose._looks_glitched() -- see that module's docstring for the live
+    elimination process (garbled skeletons, ControlNet scale, plain inpainting with
+    no ControlNet at all, and crop brightness were all tried and ruled out as
+    predictors on the input side; this measures the actual output instead). Real
+    threshold calibration (4 confirmed-clean canvas outputs at 3.1-4.6, the
+    confirmed-bad production-default case at 6.05) lives in the module itself, not
+    duplicated here -- these tests cover the function's own logic with synthetic
+    images at the extremes, not the exact live threshold value."""
+
+    def test_smooth_uniform_image_does_not_look_glitched(self):
+        from PIL import Image
+        image = Image.new("RGB", (100, 100), color=(180, 140, 120))
+        self.assertFalse(hand_pose._looks_glitched(image))
+
+    def test_smooth_gradient_does_not_look_glitched(self):
+        """A real photo has smooth gradients (lighting falloff, skin tone shading),
+        not flat color -- must not itself trigger the glitch check."""
+        import numpy as np
+        from PIL import Image
+        arr = np.zeros((100, 100, 3), dtype=np.uint8)
+        for x in range(100):
+            arr[:, x] = [120 + x // 2, 90 + x // 3, 80 + x // 4]
+        self.assertFalse(hand_pose._looks_glitched(Image.fromarray(arr)))
+
+    def test_chaotic_per_pixel_noise_looks_glitched(self):
+        import numpy as np
+        from PIL import Image
+        rng = np.random.default_rng(0)
+        arr = rng.integers(0, 256, size=(100, 100, 3), dtype=np.uint8)
+        self.assertTrue(hand_pose._looks_glitched(Image.fromarray(arr)))
+
+    def test_threshold_is_env_overridable(self):
+        from PIL import Image
+        image = Image.new("RGB", (100, 100), color=(180, 140, 120))
+        with mock.patch.object(hand_pose, "GLITCH_THRESHOLD", -1.0):
+            self.assertTrue(hand_pose._looks_glitched(image),
+                           "a threshold below any real image's noise must always trigger")
 
 
 class UpscaleTest(unittest.TestCase):
