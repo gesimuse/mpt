@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-10T09:14:54 — aibeauty
+
+```
+Sunkissed and unapologetic
+
+Created with AI.
+
+#generativeart #aiart #luxuryvibes #poolsidebliss #vacationmode #summervibesonly
+```
+
 ## 2026-08-09T18:41:45 — aibeauty
 
 ```
@@ -84,16 +94,6 @@ Created with AI.
 
 ```
 Golden hour and good angles.
-
-Created with AI.
-
-#aiart #aigenerated #aiphotography #confident
-```
-
-## 2026-08-07T11:02:00 — aibeauty
-
-```
-Some days just look like this.
 
 Created with AI.
 
