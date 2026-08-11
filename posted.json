@@ -9,7 +9,8 @@
       "aibeauty-20260809-105904",
       "aibeauty-20260809-132416",
       "aibeauty-20260809-175716",
-      "aibeauty-20260810-082632"
+      "aibeauty-20260810-082632",
+      "aibeauty-20260811-055558"
     ]
   },
   "uploads": [
@@ -199,6 +200,17 @@
       "tiktok_status": "SEND_TO_USER_INBOX",
       "tiktok_caption": "Sunkissed and unapologetic\n\nCreated with AI.\n\n#generativeart #aiart #luxuryvibes #poolsidebliss #vacationmode #summervibesonly",
       "ts": "2026-08-10T09:14:54"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260811-055558",
+      "title": "Life's too long for mornings like this",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7672657694163044354",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "Life's too long for mornings like this\n\nCreated with AI.\n\n#aiart #digitalartistry #lazydays #morningvibes #homedelight",
+      "ts": "2026-08-11T06:30:42"
     }
   ],
   "model_stats": {
@@ -241,6 +253,11 @@
       "name": "XeroxRealMix",
       "used": 10,
       "passed": 6
+    },
+    "134124:217930": {
+      "name": "NLIGHT Realistic",
+      "used": 10,
+      "passed": 4
     }
   }
 }

@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-11T06:30:42 — aibeauty
+
+```
+Life's too long for mornings like this
+
+Created with AI.
+
+#aiart #digitalartistry #lazydays #morningvibes #homedelight
+```
+
 ## 2026-08-10T09:14:54 — aibeauty
 
 ```
@@ -84,16 +94,6 @@ Created with AI.
 
 ```
 Confidence looks good on me.
-
-Created with AI.
-
-#aiart #aigenerated #aiphotography #confident
-```
-
-## 2026-08-07T11:04:23 — aibeauty
-
-```
-Golden hour and good angles.
 
 Created with AI.
 
