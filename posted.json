@@ -11,7 +11,8 @@
       "aibeauty-20260809-175716",
       "aibeauty-20260810-082632",
       "aibeauty-20260811-055558",
-      "aibeauty-20260811-091933"
+      "aibeauty-20260811-091933",
+      "aibeauty-20260811-100113"
     ]
   },
   "uploads": [
@@ -223,6 +224,17 @@
       "tiktok_status": "SEND_TO_USER_INBOX",
       "tiktok_caption": "Golden hour and good angles.\n\nCreated with AI.\n\n#aiart #aigenerated #aiphotography #confident",
       "ts": "2026-08-11T09:54:58"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260811-100113",
+      "title": "Secrets are sweeter in the haze",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7672723860151715862",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "Secrets are sweeter in the haze\n\nCreated with AI.\n\n#neonlit #vaporwave #foggydawn #digitalart #hazeyoungthing #softfocus",
+      "ts": "2026-08-11T10:48:00"
     }
   ],
   "model_stats": {
@@ -270,6 +282,11 @@
       "name": "NLIGHT Realistic",
       "used": 20,
       "passed": 10
+    },
+    "83490:88738": {
+      "name": "Vendo Photorealistic 2",
+      "used": 10,
+      "passed": 6
     }
   }
 }
