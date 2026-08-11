@@ -13,7 +13,8 @@
       "aibeauty-20260811-055558",
       "aibeauty-20260811-091933",
       "aibeauty-20260811-100113",
-      "aibeauty-20260811-114206"
+      "aibeauty-20260811-114206",
+      "aibeauty-20260811-141319"
     ]
   },
   "uploads": [
@@ -247,6 +248,17 @@
       "tiktok_status": "SEND_TO_USER_INBOX",
       "tiktok_caption": "tonight the city's on my side\n\nCreated with AI.\n\n#aiart #artificialdreams #nightlifevibes #rooftopmood #cityscapephotography #lateevening",
       "ts": "2026-08-11T12:24:23"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260811-141319",
+      "title": "sunset on repeat",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7672787811212363799",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "sunset on repeat\n\nCreated with AI.\n\n#artificiallyme #dreamscape #watersketch #sunsetvibes #watercolorart #summervibesonly",
+      "ts": "2026-08-11T14:55:47"
     }
   ],
   "model_stats": {
@@ -299,6 +311,11 @@
       "name": "Vendo Photorealistic 2",
       "used": 10,
       "passed": 6
+    },
+    "1725032:1952208": {
+      "name": "Beauty Maji Realism [Cyber Realistic + Beauty Maji Realism]",
+      "used": 10,
+      "passed": 3
     }
   }
 }
