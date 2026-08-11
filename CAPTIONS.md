@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-11T09:54:58 — aibeauty
+
+```
+Golden hour and good angles.
+
+Created with AI.
+
+#aiart #aigenerated #aiphotography #confident
+```
+
 ## 2026-08-11T06:30:42 — aibeauty
 
 ```
@@ -84,16 +94,6 @@ Created with AI.
 
 ```
 Just here for the lighting.
-
-Created with AI.
-
-#aiart #aigenerated #aiphotography #confident
-```
-
-## 2026-08-07T13:51:18 — aibeauty
-
-```
-Confidence looks good on me.
 
 Created with AI.
 
