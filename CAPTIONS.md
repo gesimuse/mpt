@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-11T12:24:23 — aibeauty
+
+```
+tonight the city's on my side
+
+Created with AI.
+
+#aiart #artificialdreams #nightlifevibes #rooftopmood #cityscapephotography #lateevening
+```
+
 ## 2026-08-11T10:48:00 — aibeauty
 
 ```
@@ -84,16 +94,6 @@ Created with AI.
 
 ```
 Soft light, softer smile.
-
-Created with AI.
-
-#aiart #aigenerated #aiphotography #confident
-```
-
-## 2026-08-08T14:42:42 — aibeauty
-
-```
-Not sorry for the view.
 
 Created with AI.
 
