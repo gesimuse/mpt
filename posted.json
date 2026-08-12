@@ -16,7 +16,8 @@
       "aibeauty-20260811-114206",
       "aibeauty-20260811-141319",
       "aibeauty-20260812-081813",
-      "aibeauty-20260812-100433"
+      "aibeauty-20260812-100433",
+      "aibeauty-20260812-114400"
     ]
   },
   "uploads": [
@@ -283,6 +284,17 @@
       "tiktok_status": "SEND_TO_USER_INBOX",
       "tiktok_caption": "Alone in the city, with my thoughts.\n\nCreated with AI.\n\n#generativeart #neuralstyle #hotelnights #citysolitude #solitaryspaces #darkmoodyatmosphere",
       "ts": "2026-08-12T10:51:44"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260812-114400",
+      "title": "summer state of mind",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7673127280772122646",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "summer state of mind\n\nCreated with AI.\n\n#aiart #surrealism #beachvibes #sunsetmood #paradisefound #digitalartistry",
+      "ts": "2026-08-12T12:54:13"
     }
   ],
   "model_stats": {
@@ -338,8 +350,8 @@
     },
     "1725032:1952208": {
       "name": "Beauty Maji Realism [Cyber Realistic + Beauty Maji Realism]",
-      "used": 10,
-      "passed": 3
+      "used": 30,
+      "passed": 9
     },
     "139565:524032": {
       "name": "Realistic Stock Photo",
