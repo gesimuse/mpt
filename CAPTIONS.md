@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-12T10:51:44 — aibeauty
+
+```
+Alone in the city, with my thoughts.
+
+Created with AI.
+
+#generativeart #neuralstyle #hotelnights #citysolitude #solitaryspaces #darkmoodyatmosphere
+```
+
 ## 2026-08-12T08:57:30 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ alone but not lonely
 Created with AI.
 
 #digitalart #aigenerated #hotelvibes #nightin
-```
-
-## 2026-08-09T11:34:49 — aibeauty
-
-```
-This is your sign to go outside.
-
-Created with AI.
-
-#aiart #aigenerated #aiphotography #confident
 ```
