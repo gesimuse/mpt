@@ -14,7 +14,8 @@
       "aibeauty-20260811-091933",
       "aibeauty-20260811-100113",
       "aibeauty-20260811-114206",
-      "aibeauty-20260811-141319"
+      "aibeauty-20260811-141319",
+      "aibeauty-20260812-081813"
     ]
   },
   "uploads": [
@@ -259,6 +260,17 @@
       "tiktok_status": "SEND_TO_USER_INBOX",
       "tiktok_caption": "sunset on repeat\n\nCreated with AI.\n\n#artificiallyme #dreamscape #watersketch #sunsetvibes #watercolorart #summervibesonly",
       "ts": "2026-08-11T14:55:47"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260812-081813",
+      "title": "summer in my bones",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7673066284632672278",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "summer in my bones\n\nCreated with AI.\n\n#artificialintelligence #digitalart #sunkissed #waterlust #summervibes #relaxationmode",
+      "ts": "2026-08-12T08:57:30"
     }
   ],
   "model_stats": {
@@ -309,13 +321,18 @@
     },
     "83490:88738": {
       "name": "Vendo Photorealistic 2",
-      "used": 10,
-      "passed": 6
+      "used": 20,
+      "passed": 13
     },
     "1725032:1952208": {
       "name": "Beauty Maji Realism [Cyber Realistic + Beauty Maji Realism]",
       "used": 10,
       "passed": 3
+    },
+    "139565:524032": {
+      "name": "Realistic Stock Photo",
+      "used": 0,
+      "passed": 0
     }
   }
 }

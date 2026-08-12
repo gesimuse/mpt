@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-12T08:57:30 — aibeauty
+
+```
+summer in my bones
+
+Created with AI.
+
+#artificialintelligence #digitalart #sunkissed #waterlust #summervibes #relaxationmode
+```
+
 ## 2026-08-11T14:55:47 — aibeauty
 
 ```
@@ -84,16 +94,6 @@ Created with AI.
 
 ```
 This is your sign to go outside.
-
-Created with AI.
-
-#aiart #aigenerated #aiphotography #confident
-```
-
-## 2026-08-09T08:35:31 — aibeauty
-
-```
-Confidence looks good on me.
 
 Created with AI.
 
