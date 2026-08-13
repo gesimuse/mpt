@@ -19,7 +19,8 @@
       "aibeauty-20260812-100433",
       "aibeauty-20260812-114400",
       "aibeauty-20260813-061958",
-      "aibeauty-20260813-082016"
+      "aibeauty-20260813-082016",
+      "aibeauty-20260813-100603"
     ]
   },
   "uploads": [
@@ -319,13 +320,24 @@
       "tiktok_status": "SEND_TO_USER_INBOX",
       "tiktok_caption": "tonight's secrets are mine alone\n\nCreated with AI.\n\n#artificialimagination #nightroutine #digitalglam #generativeart #fashionfuture #secretlife",
       "ts": "2026-08-13T08:57:33"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260813-100603",
+      "title": "Summer is a state of mind",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7673473025194657814",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "Summer is a state of mind\n\nCreated with AI.\n\n#digitalart #aiart #poolvibes #summermood #artificialintelligence #generativeart",
+      "ts": "2026-08-13T11:15:35"
     }
   ],
   "model_stats": {
     "251478:283756": {
       "name": "fashion-street-photography_and_film-v1",
-      "used": 20,
-      "passed": 17
+      "used": 40,
+      "passed": 22
     },
     "4201:501240": {
       "name": "Realistic Vision V6.0 B1",

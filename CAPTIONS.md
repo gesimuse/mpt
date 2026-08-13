@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-13T11:15:35 — aibeauty
+
+```
+Summer is a state of mind
+
+Created with AI.
+
+#digitalart #aiart #poolvibes #summermood #artificialintelligence #generativeart
+```
+
 ## 2026-08-13T08:57:33 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Golden hour and good angles.
 Created with AI.
 
 #aiart #aigenerated #aiphotography #confident
-```
-
-## 2026-08-11T06:30:42 — aibeauty
-
-```
-Life's too long for mornings like this
-
-Created with AI.
-
-#aiart #digitalartistry #lazydays #morningvibes #homedelight
 ```
