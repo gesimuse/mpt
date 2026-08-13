@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-13T08:57:33 — aibeauty
+
+```
+tonight's secrets are mine alone
+
+Created with AI.
+
+#artificialimagination #nightroutine #digitalglam #generativeart #fashionfuture #secretlife
+```
+
 ## 2026-08-13T07:05:55 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Life's too long for mornings like this
 Created with AI.
 
 #aiart #digitalartistry #lazydays #morningvibes #homedelight
-```
-
-## 2026-08-10T09:14:54 — aibeauty
-
-```
-Sunkissed and unapologetic
-
-Created with AI.
-
-#generativeart #aiart #luxuryvibes #poolsidebliss #vacationmode #summervibesonly
 ```
