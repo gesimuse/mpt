@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-13T13:46:24 — aibeauty
+
+```
+Some days just look like this.
+
+Created with AI.
+
+#aiart #aigenerated #aiphotography #confident
+```
+
 ## 2026-08-13T11:15:35 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Secrets are sweeter in the haze
 Created with AI.
 
 #neonlit #vaporwave #foggydawn #digitalart #hazeyoungthing #softfocus
-```
-
-## 2026-08-11T09:54:58 — aibeauty
-
-```
-Golden hour and good angles.
-
-Created with AI.
-
-#aiart #aigenerated #aiphotography #confident
 ```
