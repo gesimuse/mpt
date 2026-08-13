@@ -17,7 +17,8 @@
       "aibeauty-20260811-141319",
       "aibeauty-20260812-081813",
       "aibeauty-20260812-100433",
-      "aibeauty-20260812-114400"
+      "aibeauty-20260812-114400",
+      "aibeauty-20260813-061958"
     ]
   },
   "uploads": [
@@ -295,6 +296,17 @@
       "tiktok_status": "SEND_TO_USER_INBOX",
       "tiktok_caption": "summer state of mind\n\nCreated with AI.\n\n#aiart #surrealism #beachvibes #sunsetmood #paradisefound #digitalartistry",
       "ts": "2026-08-12T12:54:13"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260813-061958",
+      "title": "Just drying off, but still on fire",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7673408810081617942",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "Just drying off, but still on fire\n\nCreated with AI.\n\n#digitalart #generativeart #artificialintelligence #poolsidevibes #summervibes #waterbaby",
+      "ts": "2026-08-13T07:05:55"
     }
   ],
   "model_stats": {
@@ -345,8 +357,8 @@
     },
     "83490:88738": {
       "name": "Vendo Photorealistic 2",
-      "used": 30,
-      "passed": 21
+      "used": 40,
+      "passed": 28
     },
     "1725032:1952208": {
       "name": "Beauty Maji Realism [Cyber Realistic + Beauty Maji Realism]",

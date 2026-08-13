@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-13T07:05:55 — aibeauty
+
+```
+Just drying off, but still on fire
+
+Created with AI.
+
+#digitalart #generativeart #artificialintelligence #poolsidevibes #summervibes #waterbaby
+```
+
 ## 2026-08-12T12:54:13 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Sunkissed and unapologetic
 Created with AI.
 
 #generativeart #aiart #luxuryvibes #poolsidebliss #vacationmode #summervibesonly
-```
-
-## 2026-08-09T18:41:45 — aibeauty
-
-```
-Nothing says good vibes like a bad tan
-
-Created with AI.
-
-#aiart #generativeart #summervibes #poolparty
 ```
