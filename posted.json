@@ -22,7 +22,8 @@
       "aibeauty-20260813-082016",
       "aibeauty-20260813-100603",
       "aibeauty-20260813-125954",
-      "aibeauty-20260814-061718"
+      "aibeauty-20260814-061718",
+      "aibeauty-20260814-092715"
     ]
   },
   "uploads": [
@@ -355,6 +356,17 @@
       "tiktok_status": "SEND_TO_USER_INBOX",
       "tiktok_caption": "when the steam clears, my heart stays hot\n\nCreated with AI.\n\n#neurodreams #moodart #softfocus #industriallight #foggylove #dreamyportraits",
       "ts": "2026-08-14T06:47:13"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260814-092715",
+      "title": "shh, I'm feeling myself",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7673826787574482966",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "shh, I'm feeling myself\n\nCreated with AI.\n\n#artificialdream #lowkeyluxury #candlelitvibes #selfcarepalettes #digitaldreaming #softcoreaesthetic",
+      "ts": "2026-08-14T10:08:07"
     }
   ],
   "model_stats": {
@@ -400,8 +412,8 @@
     },
     "134124:217930": {
       "name": "NLIGHT Realistic",
-      "used": 20,
-      "passed": 10
+      "used": 30,
+      "passed": 15
     },
     "83490:88738": {
       "name": "Vendo Photorealistic 2",
@@ -410,8 +422,8 @@
     },
     "1725032:1952208": {
       "name": "Beauty Maji Realism [Cyber Realistic + Beauty Maji Realism]",
-      "used": 30,
-      "passed": 9
+      "used": 50,
+      "passed": 11
     },
     "139565:524032": {
       "name": "Realistic Stock Photo",

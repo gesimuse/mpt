@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-14T10:08:07 — aibeauty
+
+```
+shh, I'm feeling myself
+
+Created with AI.
+
+#artificialdream #lowkeyluxury #candlelitvibes #selfcarepalettes #digitaldreaming #softcoreaesthetic
+```
+
 ## 2026-08-14T06:47:13 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ sunset on repeat
 Created with AI.
 
 #artificiallyme #dreamscape #watersketch #sunsetvibes #watercolorart #summervibesonly
-```
-
-## 2026-08-11T12:24:23 — aibeauty
-
-```
-tonight the city's on my side
-
-Created with AI.
-
-#aiart #artificialdreams #nightlifevibes #rooftopmood #cityscapephotography #lateevening
 ```
