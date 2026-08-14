@@ -21,7 +21,8 @@
       "aibeauty-20260813-061958",
       "aibeauty-20260813-082016",
       "aibeauty-20260813-100603",
-      "aibeauty-20260813-125954"
+      "aibeauty-20260813-125954",
+      "aibeauty-20260814-061718"
     ]
   },
   "uploads": [
@@ -343,6 +344,17 @@
       "tiktok_status": "SEND_TO_USER_INBOX",
       "tiktok_caption": "Some days just look like this.\n\nCreated with AI.\n\n#aiart #aigenerated #aiphotography #confident",
       "ts": "2026-08-13T13:46:24"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260814-061718",
+      "title": "when the steam clears, my heart stays hot",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7673775139091154966",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "when the steam clears, my heart stays hot\n\nCreated with AI.\n\n#neurodreams #moodart #softfocus #industriallight #foggylove #dreamyportraits",
+      "ts": "2026-08-14T06:47:13"
     }
   ],
   "model_stats": {
@@ -353,8 +365,8 @@
     },
     "4201:501240": {
       "name": "Realistic Vision V6.0 B1",
-      "used": 30,
-      "passed": 24
+      "used": 40,
+      "passed": 34
     },
     "89548:95334": {
       "name": "HydraMix",

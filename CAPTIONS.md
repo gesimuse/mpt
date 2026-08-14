@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-14T06:47:13 — aibeauty
+
+```
+when the steam clears, my heart stays hot
+
+Created with AI.
+
+#neurodreams #moodart #softfocus #industriallight #foggylove #dreamyportraits
+```
+
 ## 2026-08-13T13:46:24 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ tonight the city's on my side
 Created with AI.
 
 #aiart #artificialdreams #nightlifevibes #rooftopmood #cityscapephotography #lateevening
-```
-
-## 2026-08-11T10:48:00 — aibeauty
-
-```
-Secrets are sweeter in the haze
-
-Created with AI.
-
-#neonlit #vaporwave #foggydawn #digitalart #hazeyoungthing #softfocus
 ```
