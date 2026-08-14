@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-14T14:39:57 — aibeauty
+
+```
+Morning person... kinda
+
+Created with AI.
+
+#aiart #generativeart #lazydays #homedaze #morningvibes #relaxationmode
+```
+
 ## 2026-08-14T12:18:14 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Alone in the city, with my thoughts.
 Created with AI.
 
 #generativeart #neuralstyle #hotelnights #citysolitude #solitaryspaces #darkmoodyatmosphere
-```
-
-## 2026-08-12T08:57:30 — aibeauty
-
-```
-summer in my bones
-
-Created with AI.
-
-#artificialintelligence #digitalart #sunkissed #waterlust #summervibes #relaxationmode
 ```

@@ -24,7 +24,8 @@
       "aibeauty-20260813-125954",
       "aibeauty-20260814-061718",
       "aibeauty-20260814-092715",
-      "aibeauty-20260814-114244"
+      "aibeauty-20260814-114244",
+      "aibeauty-20260814-140933"
     ]
   },
   "uploads": [
@@ -379,6 +380,17 @@
       "tiktok_status": "SEND_TO_USER_INBOX",
       "tiktok_caption": "Feeling like a brand new person\n\nCreated with AI.\n\n#aiart #photomanipulation #summervibes #poolsidebliss #lifesafloat #poolife",
       "ts": "2026-08-14T12:18:14"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260814-140933",
+      "title": "Morning person... kinda",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7673896776479066134",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "Morning person... kinda\n\nCreated with AI.\n\n#aiart #generativeart #lazydays #homedaze #morningvibes #relaxationmode",
+      "ts": "2026-08-14T14:39:57"
     }
   ],
   "model_stats": {
@@ -389,8 +401,8 @@
     },
     "4201:501240": {
       "name": "Realistic Vision V6.0 B1",
-      "used": 40,
-      "passed": 34
+      "used": 50,
+      "passed": 42
     },
     "89548:95334": {
       "name": "HydraMix",
