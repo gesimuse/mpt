@@ -23,7 +23,8 @@
       "aibeauty-20260813-100603",
       "aibeauty-20260813-125954",
       "aibeauty-20260814-061718",
-      "aibeauty-20260814-092715"
+      "aibeauty-20260814-092715",
+      "aibeauty-20260814-114244"
     ]
   },
   "uploads": [
@@ -367,6 +368,17 @@
       "tiktok_status": "SEND_TO_USER_INBOX",
       "tiktok_caption": "shh, I'm feeling myself\n\nCreated with AI.\n\n#artificialdream #lowkeyluxury #candlelitvibes #selfcarepalettes #digitaldreaming #softcoreaesthetic",
       "ts": "2026-08-14T10:08:07"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260814-114244",
+      "title": "Feeling like a brand new person",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7673860206451165206",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "Feeling like a brand new person\n\nCreated with AI.\n\n#aiart #photomanipulation #summervibes #poolsidebliss #lifesafloat #poolife",
+      "ts": "2026-08-14T12:18:14"
     }
   ],
   "model_stats": {
@@ -412,8 +424,8 @@
     },
     "134124:217930": {
       "name": "NLIGHT Realistic",
-      "used": 30,
-      "passed": 15
+      "used": 40,
+      "passed": 20
     },
     "83490:88738": {
       "name": "Vendo Photorealistic 2",

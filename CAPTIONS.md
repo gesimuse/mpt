@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-14T12:18:14 — aibeauty
+
+```
+Feeling like a brand new person
+
+Created with AI.
+
+#aiart #photomanipulation #summervibes #poolsidebliss #lifesafloat #poolife
+```
+
 ## 2026-08-14T10:08:07 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ summer in my bones
 Created with AI.
 
 #artificialintelligence #digitalart #sunkissed #waterlust #summervibes #relaxationmode
-```
-
-## 2026-08-11T14:55:47 — aibeauty
-
-```
-sunset on repeat
-
-Created with AI.
-
-#artificiallyme #dreamscape #watersketch #sunsetvibes #watercolorart #summervibesonly
 ```
