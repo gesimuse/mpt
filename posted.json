@@ -25,7 +25,8 @@
       "aibeauty-20260814-061718",
       "aibeauty-20260814-092715",
       "aibeauty-20260814-114244",
-      "aibeauty-20260814-140933"
+      "aibeauty-20260814-140933",
+      "aibeauty-20260815-052829"
     ]
   },
   "uploads": [
@@ -391,6 +392,17 @@
       "tiktok_status": "SEND_TO_USER_INBOX",
       "tiktok_caption": "Morning person... kinda\n\nCreated with AI.\n\n#aiart #generativeart #lazydays #homedaze #morningvibes #relaxationmode",
       "ts": "2026-08-14T14:39:57"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260815-052829",
+      "title": "Drama on a grey day",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7674130644422625302",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "Drama on a grey day\n\nCreated with AI.\n\n#aiart #digitalart #moodyatmosphere #rainydays #atmosphericsurrealism #neuroaesthetic",
+      "ts": "2026-08-15T05:49:40"
     }
   ],
   "model_stats": {
@@ -446,8 +458,8 @@
     },
     "1725032:1952208": {
       "name": "Beauty Maji Realism [Cyber Realistic + Beauty Maji Realism]",
-      "used": 50,
-      "passed": 11
+      "used": 60,
+      "passed": 15
     },
     "139565:524032": {
       "name": "Realistic Stock Photo",

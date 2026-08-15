@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-15T05:49:40 — aibeauty
+
+```
+Drama on a grey day
+
+Created with AI.
+
+#aiart #digitalart #moodyatmosphere #rainydays #atmosphericsurrealism #neuroaesthetic
+```
+
 ## 2026-08-14T14:39:57 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ summer state of mind
 Created with AI.
 
 #aiart #surrealism #beachvibes #sunsetmood #paradisefound #digitalartistry
-```
-
-## 2026-08-12T10:51:44 — aibeauty
-
-```
-Alone in the city, with my thoughts.
-
-Created with AI.
-
-#generativeart #neuralstyle #hotelnights #citysolitude #solitaryspaces #darkmoodyatmosphere
 ```
