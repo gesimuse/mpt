@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-15T08:06:33 — aibeauty
+
+```
+alone in my best self
+
+Created with AI.
+
+#aiart #generativeart #minimalistvibes #hotelnightin
+```
+
 ## 2026-08-15T05:49:40 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Just drying off, but still on fire
 Created with AI.
 
 #digitalart #generativeart #artificialintelligence #poolsidevibes #summervibes #waterbaby
-```
-
-## 2026-08-12T12:54:13 — aibeauty
-
-```
-summer state of mind
-
-Created with AI.
-
-#aiart #surrealism #beachvibes #sunsetmood #paradisefound #digitalartistry
 ```
