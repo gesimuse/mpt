@@ -27,7 +27,8 @@
       "aibeauty-20260814-114244",
       "aibeauty-20260814-140933",
       "aibeauty-20260815-052829",
-      "aibeauty-20260815-072918"
+      "aibeauty-20260815-072918",
+      "aibeauty-20260815-111747"
     ]
   },
   "uploads": [
@@ -415,6 +416,17 @@
       "tiktok_status": "SEND_TO_USER_INBOX",
       "tiktok_caption": "alone in my best self\n\nCreated with AI.\n\n#aiart #generativeart #minimalistvibes #hotelnightin",
       "ts": "2026-08-15T08:06:33"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260815-111747",
+      "title": "City magic never sleeps with me",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7674226731456595990",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "City magic never sleeps with me\n\nCreated with AI.\n\n#aiart #citylights #skylinesofthefuture #neonluminance #urbanromance #digitaldreams",
+      "ts": "2026-08-15T11:59:38"
     }
   ],
   "model_stats": {
@@ -430,8 +442,8 @@
     },
     "89548:95334": {
       "name": "HydraMix",
-      "used": 40,
-      "passed": 34
+      "used": 50,
+      "passed": 42
     },
     "167537:288911": {
       "name": "BEAUTY_BY_STABLE_YOGI",

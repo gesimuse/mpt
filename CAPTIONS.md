@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-15T11:59:38 — aibeauty
+
+```
+City magic never sleeps with me
+
+Created with AI.
+
+#aiart #citylights #skylinesofthefuture #neonluminance #urbanromance #digitaldreams
+```
+
 ## 2026-08-15T08:06:33 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ tonight's secrets are mine alone
 Created with AI.
 
 #artificialimagination #nightroutine #digitalglam #generativeart #fashionfuture #secretlife
-```
-
-## 2026-08-13T07:05:55 — aibeauty
-
-```
-Just drying off, but still on fire
-
-Created with AI.
-
-#digitalart #generativeart #artificialintelligence #poolsidevibes #summervibes #waterbaby
 ```
