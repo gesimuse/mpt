@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-15T15:21:56 — aibeauty
+
+```
+Nightlife got nothing on me
+
+Created with AI.
+
+#neuralphotography #citylights #rooftopvibes #summernights #citylifeatnight #urbanromance
+```
+
 ## 2026-08-15T11:59:38 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Summer is a state of mind
 Created with AI.
 
 #digitalart #aiart #poolvibes #summermood #artificialintelligence #generativeart
-```
-
-## 2026-08-13T08:57:33 — aibeauty
-
-```
-tonight's secrets are mine alone
-
-Created with AI.
-
-#artificialimagination #nightroutine #digitalglam #generativeart #fashionfuture #secretlife
 ```
