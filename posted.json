@@ -31,7 +31,8 @@
       "aibeauty-20260815-111747",
       "aibeauty-20260815-144038",
       "aibeauty-20260816-064303",
-      "aibeauty-20260816-092644"
+      "aibeauty-20260816-092644",
+      "aibeauty-20260816-111743"
     ]
   },
   "uploads": [
@@ -463,6 +464,17 @@
       "tiktok_status": "SEND_TO_USER_INBOX",
       "tiktok_caption": "Ask me nothing, I won't tell.\n\nCreated with AI.\n\n#aiart #aigenerated #aiphotography #confident",
       "ts": "2026-08-16T10:05:22"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260816-111743",
+      "title": "lazy mornings are my love language",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7674596649897166870",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "lazy mornings are my love language\n\nCreated with AI.\n\n#artificialintelligenceart #sundayvibes #cozyat-home #morningmood #relaxationmode #selfcare",
+      "ts": "2026-08-16T11:55:28"
     }
   ],
   "model_stats": {
@@ -478,8 +490,8 @@
     },
     "89548:95334": {
       "name": "HydraMix",
-      "used": 60,
-      "passed": 52
+      "used": 70,
+      "passed": 61
     },
     "167537:288911": {
       "name": "BEAUTY_BY_STABLE_YOGI",

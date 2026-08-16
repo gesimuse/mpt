@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-16T11:55:28 — aibeauty
+
+```
+lazy mornings are my love language
+
+Created with AI.
+
+#artificialintelligenceart #sundayvibes #cozyat-home #morningmood #relaxationmode #selfcare
+```
+
 ## 2026-08-16T10:05:22 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ shh, I'm feeling myself
 Created with AI.
 
 #artificialdream #lowkeyluxury #candlelitvibes #selfcarepalettes #digitaldreaming #softcoreaesthetic
-```
-
-## 2026-08-14T06:47:13 — aibeauty
-
-```
-when the steam clears, my heart stays hot
-
-Created with AI.
-
-#neurodreams #moodart #softfocus #industriallight #foggylove #dreamyportraits
 ```
