@@ -29,7 +29,8 @@
       "aibeauty-20260815-052829",
       "aibeauty-20260815-072918",
       "aibeauty-20260815-111747",
-      "aibeauty-20260815-144038"
+      "aibeauty-20260815-144038",
+      "aibeauty-20260816-064303"
     ]
   },
   "uploads": [
@@ -439,6 +440,17 @@
       "tiktok_status": "SEND_TO_USER_INBOX",
       "tiktok_caption": "Nightlife got nothing on me\n\nCreated with AI.\n\n#neuralphotography #citylights #rooftopvibes #summernights #citylifeatnight #urbanromance",
       "ts": "2026-08-15T15:21:56"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260816-064303",
+      "title": "when the city's my melancholy",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7674533261720438806",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "when the city's my melancholy\n\nCreated with AI.\n\n#aiart #moodyvibes #rainydays #atmosphericart #lowlightaesthetic #moodyphotography",
+      "ts": "2026-08-16T07:49:37"
     }
   ],
   "model_stats": {
@@ -459,7 +471,7 @@
     },
     "167537:288911": {
       "name": "BEAUTY_BY_STABLE_YOGI",
-      "used": 20,
+      "used": 40,
       "passed": 0
     },
     "5273:650381": {
@@ -484,8 +496,8 @@
     },
     "134124:217930": {
       "name": "NLIGHT Realistic",
-      "used": 50,
-      "passed": 25
+      "used": 70,
+      "passed": 28
     },
     "83490:88738": {
       "name": "Vendo Photorealistic 2",

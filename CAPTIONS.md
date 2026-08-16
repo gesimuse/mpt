@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-16T07:49:37 — aibeauty
+
+```
+when the city's my melancholy
+
+Created with AI.
+
+#aiart #moodyvibes #rainydays #atmosphericart #lowlightaesthetic #moodyphotography
+```
+
 ## 2026-08-15T15:21:56 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Some days just look like this.
 Created with AI.
 
 #aiart #aigenerated #aiphotography #confident
-```
-
-## 2026-08-13T11:15:35 — aibeauty
-
-```
-Summer is a state of mind
-
-Created with AI.
-
-#digitalart #aiart #poolvibes #summermood #artificialintelligence #generativeart
 ```
