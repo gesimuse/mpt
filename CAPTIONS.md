@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-17T14:06:54 — aibeauty
+
+```
+Slaying the morning in my PJs
+
+Created with AI.
+
+#aiart #digitalart #morningvibes #cozyat_home #relaxationmode #solitudeisbliss
+```
+
 ## 2026-08-17T12:48:56 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ alone in my best self
 Created with AI.
 
 #aiart #generativeart #minimalistvibes #hotelnightin
-```
-
-## 2026-08-15T05:49:40 — aibeauty
-
-```
-Drama on a grey day
-
-Created with AI.
-
-#aiart #digitalart #moodyatmosphere #rainydays #atmosphericsurrealism #neuroaesthetic
 ```
