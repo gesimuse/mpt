@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-17T12:48:56 — aibeauty
+
+```
+Nights have a way of revealing everything
+
+Created with AI.
+
+#digitalart #softcoreaesthetic #quietmornings #candlelightphotography #moodboard #intimatespaces
+```
+
 ## 2026-08-17T08:29:28 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Drama on a grey day
 Created with AI.
 
 #aiart #digitalart #moodyatmosphere #rainydays #atmosphericsurrealism #neuroaesthetic
-```
-
-## 2026-08-14T14:39:57 — aibeauty
-
-```
-Morning person... kinda
-
-Created with AI.
-
-#aiart #generativeart #lazydays #homedaze #morningvibes #relaxationmode
 ```

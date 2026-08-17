@@ -34,7 +34,8 @@
       "aibeauty-20260816-092644",
       "aibeauty-20260816-111743",
       "aibeauty-20260817-053807",
-      "aibeauty-20260817-075228"
+      "aibeauty-20260817-075228",
+      "aibeauty-20260817-120657"
     ]
   },
   "uploads": [
@@ -499,6 +500,17 @@
       "tiktok_status": "SEND_TO_USER_INBOX",
       "tiktok_caption": "magic happens in the silence\n\nCreated with AI.\n\n#digitalart #contemporaryart #candlelightmood #mysteryatmosphere #softfocus #gentlehues",
       "ts": "2026-08-17T08:29:28"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260817-120657",
+      "title": "Nights have a way of revealing everything",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7674981318833571862",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "Nights have a way of revealing everything\n\nCreated with AI.\n\n#digitalart #softcoreaesthetic #quietmornings #candlelightphotography #moodboard #intimatespaces",
+      "ts": "2026-08-17T12:48:56"
     }
   ],
   "model_stats": {
@@ -514,8 +526,8 @@
     },
     "89548:95334": {
       "name": "HydraMix",
-      "used": 70,
-      "passed": 61
+      "used": 80,
+      "passed": 71
     },
     "167537:288911": {
       "name": "BEAUTY_BY_STABLE_YOGI",
@@ -544,8 +556,8 @@
     },
     "134124:217930": {
       "name": "NLIGHT Realistic",
-      "used": 70,
-      "passed": 28
+      "used": 80,
+      "passed": 33
     },
     "83490:88738": {
       "name": "Vendo Photorealistic 2",
