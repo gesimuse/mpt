@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-17T06:18:38 — aibeauty
+
+```
+where the night is quiet, and i'm loud
+
+Created with AI.
+
+#aiart #generatedart #softbokeh #candlelightmood #intimatemoments #eveningvibes
+```
+
 ## 2026-08-16T11:55:28 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Feeling like a brand new person
 Created with AI.
 
 #aiart #photomanipulation #summervibes #poolsidebliss #lifesafloat #poolife
-```
-
-## 2026-08-14T10:08:07 — aibeauty
-
-```
-shh, I'm feeling myself
-
-Created with AI.
-
-#artificialdream #lowkeyluxury #candlelitvibes #selfcarepalettes #digitaldreaming #softcoreaesthetic
 ```
