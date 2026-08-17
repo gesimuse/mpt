@@ -33,7 +33,8 @@
       "aibeauty-20260816-064303",
       "aibeauty-20260816-092644",
       "aibeauty-20260816-111743",
-      "aibeauty-20260817-053807"
+      "aibeauty-20260817-053807",
+      "aibeauty-20260817-075228"
     ]
   },
   "uploads": [
@@ -487,6 +488,17 @@
       "tiktok_status": "SEND_TO_USER_INBOX",
       "tiktok_caption": "where the night is quiet, and i'm loud\n\nCreated with AI.\n\n#aiart #generatedart #softbokeh #candlelightmood #intimatemoments #eveningvibes",
       "ts": "2026-08-17T06:18:38"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260817-075228",
+      "title": "magic happens in the silence",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7674914308207380482",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "magic happens in the silence\n\nCreated with AI.\n\n#digitalart #contemporaryart #candlelightmood #mysteryatmosphere #softfocus #gentlehues",
+      "ts": "2026-08-17T08:29:28"
     }
   ],
   "model_stats": {
@@ -542,8 +554,8 @@
     },
     "1725032:1952208": {
       "name": "Beauty Maji Realism [Cyber Realistic + Beauty Maji Realism]",
-      "used": 60,
-      "passed": 15
+      "used": 70,
+      "passed": 23
     },
     "139565:524032": {
       "name": "Realistic Stock Photo",
