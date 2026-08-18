@@ -37,7 +37,8 @@
       "aibeauty-20260817-075228",
       "aibeauty-20260817-120657",
       "aibeauty-20260817-133303",
-      "aibeauty-20260818-053311"
+      "aibeauty-20260818-053311",
+      "aibeauty-20260818-073717"
     ]
   },
   "uploads": [
@@ -535,6 +536,17 @@
       "tiktok_status": "SEND_TO_USER_INBOX",
       "tiktok_caption": "Summer mode activated\n\nCreated with AI.\n\n#aiart #artificialintelligenceart #beachvibes #summervibes #beachlife #coastalvibes",
       "ts": "2026-08-18T06:00:38"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260818-073717",
+      "title": "my happy place",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7675281434105923606",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "my happy place\n\nCreated with AI.\n\n#generativeart #surrealism #beachvibes #summervibes #digitalart #blueskies",
+      "ts": "2026-08-18T08:12:59"
     }
   ],
   "model_stats": {
@@ -580,8 +592,8 @@
     },
     "134124:217930": {
       "name": "NLIGHT Realistic",
-      "used": 80,
-      "passed": 33
+      "used": 90,
+      "passed": 37
     },
     "83490:88738": {
       "name": "Vendo Photorealistic 2",
