@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-18T10:13:43 — aibeauty
+
+```
+when the night is lit and the good times are yours alone
+
+Created with AI.
+
+#neuralbliss #digitaldreaming #candlelitmood #relaxationmode #softfocusaesthetic #romanticatmosphere
+```
+
 ## 2026-08-18T08:12:59 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ when the city's my melancholy
 Created with AI.
 
 #aiart #moodyvibes #rainydays #atmosphericart #lowlightaesthetic #moodyphotography
-```
-
-## 2026-08-15T15:21:56 — aibeauty
-
-```
-Nightlife got nothing on me
-
-Created with AI.
-
-#neuralphotography #citylights #rooftopvibes #summernights #citylifeatnight #urbanromance
 ```

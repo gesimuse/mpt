@@ -38,7 +38,8 @@
       "aibeauty-20260817-120657",
       "aibeauty-20260817-133303",
       "aibeauty-20260818-053311",
-      "aibeauty-20260818-073717"
+      "aibeauty-20260818-073717",
+      "aibeauty-20260818-093315"
     ]
   },
   "uploads": [
@@ -547,6 +548,17 @@
       "tiktok_status": "SEND_TO_USER_INBOX",
       "tiktok_caption": "my happy place\n\nCreated with AI.\n\n#generativeart #surrealism #beachvibes #summervibes #digitalart #blueskies",
       "ts": "2026-08-18T08:12:59"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260818-093315",
+      "title": "when the night is lit and the good times are yours alone",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7675312651249305622",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "when the night is lit and the good times are yours alone\n\nCreated with AI.\n\n#neuralbliss #digitaldreaming #candlelitmood #relaxationmode #softfocusaesthetic #romanticatmosphere",
+      "ts": "2026-08-18T10:13:43"
     }
   ],
   "model_stats": {
@@ -577,8 +589,8 @@
     },
     "139300:236963": {
       "name": "Realistic-Digital-Genius",
-      "used": 10,
-      "passed": 10
+      "used": 20,
+      "passed": 20
     },
     "108517:352289": {
       "name": "Realia Photorealistic",
