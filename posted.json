@@ -36,7 +36,8 @@
       "aibeauty-20260817-053807",
       "aibeauty-20260817-075228",
       "aibeauty-20260817-120657",
-      "aibeauty-20260817-133303"
+      "aibeauty-20260817-133303",
+      "aibeauty-20260818-053311"
     ]
   },
   "uploads": [
@@ -523,13 +524,24 @@
       "tiktok_status": "SEND_TO_USER_INBOX",
       "tiktok_caption": "Slaying the morning in my PJs\n\nCreated with AI.\n\n#aiart #digitalart #morningvibes #cozyat_home #relaxationmode #solitudeisbliss",
       "ts": "2026-08-17T14:06:54"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260818-053311",
+      "title": "Summer mode activated",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7675247507059886102",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "Summer mode activated\n\nCreated with AI.\n\n#aiart #artificialintelligenceart #beachvibes #summervibes #beachlife #coastalvibes",
+      "ts": "2026-08-18T06:00:38"
     }
   ],
   "model_stats": {
     "251478:283756": {
       "name": "fashion-street-photography_and_film-v1",
-      "used": 50,
-      "passed": 28
+      "used": 60,
+      "passed": 34
     },
     "4201:501240": {
       "name": "Realistic Vision V6.0 B1",
