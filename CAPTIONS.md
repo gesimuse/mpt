@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-19T06:07:02 — aibeauty
+
+```
+sunset on my terms
+
+Created with AI.
+
+#aifineart #neuralart #darkcity #rooftopvibes #nightlife #urbanlandscape
+```
+
 ## 2026-08-18T10:13:43 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Ask me nothing, I won't tell.
 Created with AI.
 
 #aiart #aigenerated #aiphotography #confident
-```
-
-## 2026-08-16T07:49:37 — aibeauty
-
-```
-when the city's my melancholy
-
-Created with AI.
-
-#aiart #moodyvibes #rainydays #atmosphericart #lowlightaesthetic #moodyphotography
 ```

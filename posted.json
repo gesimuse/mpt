@@ -39,7 +39,8 @@
       "aibeauty-20260817-133303",
       "aibeauty-20260818-053311",
       "aibeauty-20260818-073717",
-      "aibeauty-20260818-093315"
+      "aibeauty-20260818-093315",
+      "aibeauty-20260819-053413"
     ]
   },
   "uploads": [
@@ -559,6 +560,17 @@
       "tiktok_status": "SEND_TO_USER_INBOX",
       "tiktok_caption": "when the night is lit and the good times are yours alone\n\nCreated with AI.\n\n#neuralbliss #digitaldreaming #candlelitmood #relaxationmode #softfocusaesthetic #romanticatmosphere",
       "ts": "2026-08-18T10:13:43"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260819-053413",
+      "title": "sunset on my terms",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7675619948953208855",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "sunset on my terms\n\nCreated with AI.\n\n#aifineart #neuralart #darkcity #rooftopvibes #nightlife #urbanlandscape",
+      "ts": "2026-08-19T06:07:02"
     }
   ],
   "model_stats": {
@@ -569,8 +581,8 @@
     },
     "4201:501240": {
       "name": "Realistic Vision V6.0 B1",
-      "used": 70,
-      "passed": 59
+      "used": 80,
+      "passed": 66
     },
     "89548:95334": {
       "name": "HydraMix",
