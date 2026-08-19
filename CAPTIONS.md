@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-19T10:41:54 — aibeauty
+
+```
+when mornings get lazy like me
+
+Created with AI.
+
+#aiart #digitalartistry #relaxationmode #cozyvibes #softfocus #lazydays
+```
+
 ## 2026-08-19T08:15:24 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ where the night is quiet, and i'm loud
 Created with AI.
 
 #aiart #generatedart #softbokeh #candlelightmood #intimatemoments #eveningvibes
-```
-
-## 2026-08-16T11:55:28 — aibeauty
-
-```
-lazy mornings are my love language
-
-Created with AI.
-
-#artificialintelligenceart #sundayvibes #cozyat-home #morningmood #relaxationmode #selfcare
 ```

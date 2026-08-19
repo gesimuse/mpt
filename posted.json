@@ -41,7 +41,8 @@
       "aibeauty-20260818-073717",
       "aibeauty-20260818-093315",
       "aibeauty-20260819-053413",
-      "aibeauty-20260819-073655"
+      "aibeauty-20260819-073655",
+      "aibeauty-20260819-093418"
     ]
   },
   "uploads": [
@@ -583,6 +584,17 @@
       "tiktok_status": "SEND_TO_USER_INBOX",
       "tiktok_caption": "summer in my soul\n\nCreated with AI.\n\n#aiart #generativeart #waterlife #beachvibes #oceanlovers #sunkissedmood",
       "ts": "2026-08-19T08:15:24"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260819-093418",
+      "title": "when mornings get lazy like me",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7675690850176960534",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "when mornings get lazy like me\n\nCreated with AI.\n\n#aiart #digitalartistry #relaxationmode #cozyvibes #softfocus #lazydays",
+      "ts": "2026-08-19T10:41:54"
     }
   ],
   "model_stats": {
@@ -628,8 +640,8 @@
     },
     "134124:217930": {
       "name": "NLIGHT Realistic",
-      "used": 90,
-      "passed": 37
+      "used": 110,
+      "passed": 43
     },
     "83490:88738": {
       "name": "Vendo Photorealistic 2",
