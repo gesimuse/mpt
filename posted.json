@@ -43,7 +43,8 @@
       "aibeauty-20260819-053413",
       "aibeauty-20260819-073655",
       "aibeauty-20260819-093418",
-      "aibeauty-20260819-112237"
+      "aibeauty-20260819-112237",
+      "aibeauty-20260819-133803"
     ]
   },
   "uploads": [
@@ -607,6 +608,17 @@
       "tiktok_status": "SEND_TO_USER_INBOX",
       "tiktok_caption": "tonight's good enough\n\nCreated with AI.\n\n#digitalart #moody #candlelightaesthetic #atmosphere #contemplation",
       "ts": "2026-08-19T11:44:08"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260819-133803",
+      "title": "Leaving a splash everywhere I go",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7675742990752712726",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "Leaving a splash everywhere I go\n\nCreated with AI.\n\n#aiart #digitalart #summervibes #poolsidechills #laidbackaesthetic #artificialintelligenceart",
+      "ts": "2026-08-19T14:03:26"
     }
   ],
   "model_stats": {
@@ -652,8 +664,8 @@
     },
     "134124:217930": {
       "name": "NLIGHT Realistic",
-      "used": 110,
-      "passed": 43
+      "used": 120,
+      "passed": 47
     },
     "83490:88738": {
       "name": "Vendo Photorealistic 2",
