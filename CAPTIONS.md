@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-19T11:44:08 — aibeauty
+
+```
+tonight's good enough
+
+Created with AI.
+
+#digitalart #moody #candlelightaesthetic #atmosphere #contemplation
+```
+
 ## 2026-08-19T10:41:54 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ magic happens in the silence
 Created with AI.
 
 #digitalart #contemporaryart #candlelightmood #mysteryatmosphere #softfocus #gentlehues
-```
-
-## 2026-08-17T06:18:38 — aibeauty
-
-```
-where the night is quiet, and i'm loud
-
-Created with AI.
-
-#aiart #generatedart #softbokeh #candlelightmood #intimatemoments #eveningvibes
 ```
