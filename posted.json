@@ -40,7 +40,8 @@
       "aibeauty-20260818-053311",
       "aibeauty-20260818-073717",
       "aibeauty-20260818-093315",
-      "aibeauty-20260819-053413"
+      "aibeauty-20260819-053413",
+      "aibeauty-20260819-073655"
     ]
   },
   "uploads": [
@@ -571,6 +572,17 @@
       "tiktok_status": "SEND_TO_USER_INBOX",
       "tiktok_caption": "sunset on my terms\n\nCreated with AI.\n\n#aifineart #neuralart #darkcity #rooftopvibes #nightlife #urbanlandscape",
       "ts": "2026-08-19T06:07:02"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260819-073655",
+      "title": "summer in my soul",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7675653073926342678",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "summer in my soul\n\nCreated with AI.\n\n#aiart #generativeart #waterlife #beachvibes #oceanlovers #sunkissedmood",
+      "ts": "2026-08-19T08:15:24"
     }
   ],
   "model_stats": {
@@ -586,8 +598,8 @@
     },
     "89548:95334": {
       "name": "HydraMix",
-      "used": 80,
-      "passed": 71
+      "used": 90,
+      "passed": 81
     },
     "167537:288911": {
       "name": "BEAUTY_BY_STABLE_YOGI",
