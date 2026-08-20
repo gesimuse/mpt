@@ -44,7 +44,8 @@
       "aibeauty-20260819-073655",
       "aibeauty-20260819-093418",
       "aibeauty-20260819-112237",
-      "aibeauty-20260819-133803"
+      "aibeauty-20260819-133803",
+      "aibeauty-20260820-074017"
     ]
   },
   "uploads": [
@@ -619,13 +620,24 @@
       "tiktok_status": "SEND_TO_USER_INBOX",
       "tiktok_caption": "Leaving a splash everywhere I go\n\nCreated with AI.\n\n#aiart #digitalart #summervibes #poolsidechills #laidbackaesthetic #artificialintelligenceart",
       "ts": "2026-08-19T14:03:26"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260820-074017",
+      "title": "Flickering in the dark",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7676026502143739926",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "Flickering in the dark\n\nCreated with AI.\n\n#neonlifestyle #softfocus #atmospherelight #moodyportraits #vaporwaveaesthetic #lowlitlove",
+      "ts": "2026-08-20T08:24:57"
     }
   ],
   "model_stats": {
     "251478:283756": {
       "name": "fashion-street-photography_and_film-v1",
-      "used": 60,
-      "passed": 34
+      "used": 70,
+      "passed": 40
     },
     "4201:501240": {
       "name": "Realistic Vision V6.0 B1",

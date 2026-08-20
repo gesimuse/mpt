@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-20T08:24:57 — aibeauty
+
+```
+Flickering in the dark
+
+Created with AI.
+
+#neonlifestyle #softfocus #atmospherelight #moodyportraits #vaporwaveaesthetic #lowlitlove
+```
+
 ## 2026-08-19T14:03:26 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Slaying the morning in my PJs
 Created with AI.
 
 #aiart #digitalart #morningvibes #cozyat_home #relaxationmode #solitudeisbliss
-```
-
-## 2026-08-17T12:48:56 — aibeauty
-
-```
-Nights have a way of revealing everything
-
-Created with AI.
-
-#digitalart #softcoreaesthetic #quietmornings #candlelightphotography #moodboard #intimatespaces
 ```
