@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-20T12:09:42 — aibeauty
+
+```
+just got out of my element
+
+Created with AI.
+
+#aiart #artificialintelligenceart #summervibes #poolpartyvibes #artificialaesthetic #generativeart
+```
+
 ## 2026-08-20T10:12:20 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ my happy place
 Created with AI.
 
 #generativeart #surrealism #beachvibes #summervibes #digitalart #blueskies
-```
-
-## 2026-08-18T06:00:38 — aibeauty
-
-```
-Summer mode activated
-
-Created with AI.
-
-#aiart #artificialintelligenceart #beachvibes #summervibes #beachlife #coastalvibes
 ```
