@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-20T10:12:20 — aibeauty
+
+```
+when mornings go from lazy to lovely
+
+Created with AI.
+
+#aiart #digitalart #sundayvibes #lazydays #morningmood
+```
+
 ## 2026-08-20T08:24:57 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Summer mode activated
 Created with AI.
 
 #aiart #artificialintelligenceart #beachvibes #summervibes #beachlife #coastalvibes
-```
-
-## 2026-08-17T14:06:54 — aibeauty
-
-```
-Slaying the morning in my PJs
-
-Created with AI.
-
-#aiart #digitalart #morningvibes #cozyat_home #relaxationmode #solitudeisbliss
 ```

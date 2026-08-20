@@ -45,7 +45,8 @@
       "aibeauty-20260819-093418",
       "aibeauty-20260819-112237",
       "aibeauty-20260819-133803",
-      "aibeauty-20260820-074017"
+      "aibeauty-20260820-074017",
+      "aibeauty-20260820-093447"
     ]
   },
   "uploads": [
@@ -631,6 +632,17 @@
       "tiktok_status": "SEND_TO_USER_INBOX",
       "tiktok_caption": "Flickering in the dark\n\nCreated with AI.\n\n#neonlifestyle #softfocus #atmospherelight #moodyportraits #vaporwaveaesthetic #lowlitlove",
       "ts": "2026-08-20T08:24:57"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260820-093447",
+      "title": "when mornings go from lazy to lovely",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7676054358471149590",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "when mornings go from lazy to lovely\n\nCreated with AI.\n\n#aiart #digitalart #sundayvibes #lazydays #morningmood",
+      "ts": "2026-08-20T10:12:20"
     }
   ],
   "model_stats": {
@@ -686,8 +698,8 @@
     },
     "1725032:1952208": {
       "name": "Beauty Maji Realism [Cyber Realistic + Beauty Maji Realism]",
-      "used": 80,
-      "passed": 29
+      "used": 90,
+      "passed": 34
     },
     "139565:524032": {
       "name": "Realistic Stock Photo",
