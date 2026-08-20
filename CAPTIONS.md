@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-20T15:29:31 — aibeauty
+
+```
+Secrets are made to be spilled
+
+Created with AI.
+
+#digitalart #aiart #edgybeauty #glamourdark #luciferianaesthetic #gothicinspiration
+```
+
 ## 2026-08-20T12:09:42 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ when the night is lit and the good times are yours alone
 Created with AI.
 
 #neuralbliss #digitaldreaming #candlelitmood #relaxationmode #softfocusaesthetic #romanticatmosphere
-```
-
-## 2026-08-18T08:12:59 — aibeauty
-
-```
-my happy place
-
-Created with AI.
-
-#generativeart #surrealism #beachvibes #summervibes #digitalart #blueskies
 ```

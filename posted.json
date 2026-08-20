@@ -47,7 +47,8 @@
       "aibeauty-20260819-133803",
       "aibeauty-20260820-074017",
       "aibeauty-20260820-093447",
-      "aibeauty-20260820-112402"
+      "aibeauty-20260820-112402",
+      "aibeauty-20260820-142808"
     ]
   },
   "uploads": [
@@ -655,6 +656,17 @@
       "tiktok_status": "SEND_TO_USER_INBOX",
       "tiktok_caption": "just got out of my element\n\nCreated with AI.\n\n#aiart #artificialintelligenceart #summervibes #poolpartyvibes #artificialaesthetic #generativeart",
       "ts": "2026-08-20T12:09:42"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260820-142808",
+      "title": "Secrets are made to be spilled",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7676136032791578646",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "Secrets are made to be spilled\n\nCreated with AI.\n\n#digitalart #aiart #edgybeauty #glamourdark #luciferianaesthetic #gothicinspiration",
+      "ts": "2026-08-20T15:29:31"
     }
   ],
   "model_stats": {
@@ -670,8 +682,8 @@
     },
     "89548:95334": {
       "name": "HydraMix",
-      "used": 90,
-      "passed": 81
+      "used": 100,
+      "passed": 90
     },
     "167537:288911": {
       "name": "BEAUTY_BY_STABLE_YOGI",
@@ -705,8 +717,8 @@
     },
     "83490:88738": {
       "name": "Vendo Photorealistic 2",
-      "used": 60,
-      "passed": 45
+      "used": 70,
+      "passed": 50
     },
     "1725032:1952208": {
       "name": "Beauty Maji Realism [Cyber Realistic + Beauty Maji Realism]",
