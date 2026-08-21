@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-21T06:27:10 — aibeauty
+
+```
+Soft light, softer smile.
+
+Created with AI.
+
+#aiart #aigenerated #aiphotography #confident
+```
+
 ## 2026-08-20T15:29:31 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ sunset on my terms
 Created with AI.
 
 #aifineart #neuralart #darkcity #rooftopvibes #nightlife #urbanlandscape
-```
-
-## 2026-08-18T10:13:43 — aibeauty
-
-```
-when the night is lit and the good times are yours alone
-
-Created with AI.
-
-#neuralbliss #digitaldreaming #candlelitmood #relaxationmode #softfocusaesthetic #romanticatmosphere
 ```

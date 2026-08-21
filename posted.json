@@ -48,7 +48,8 @@
       "aibeauty-20260820-074017",
       "aibeauty-20260820-093447",
       "aibeauty-20260820-112402",
-      "aibeauty-20260820-142808"
+      "aibeauty-20260820-142808",
+      "aibeauty-20260821-053623"
     ]
   },
   "uploads": [
@@ -667,6 +668,17 @@
       "tiktok_status": "SEND_TO_USER_INBOX",
       "tiktok_caption": "Secrets are made to be spilled\n\nCreated with AI.\n\n#digitalart #aiart #edgybeauty #glamourdark #luciferianaesthetic #gothicinspiration",
       "ts": "2026-08-20T15:29:31"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260821-053623",
+      "title": "Soft light, softer smile.",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7676367273117321238",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "Soft light, softer smile.\n\nCreated with AI.\n\n#aiart #aigenerated #aiphotography #confident",
+      "ts": "2026-08-21T06:27:10"
     }
   ],
   "model_stats": {
@@ -682,8 +694,8 @@
     },
     "89548:95334": {
       "name": "HydraMix",
-      "used": 100,
-      "passed": 90
+      "used": 110,
+      "passed": 100
     },
     "167537:288911": {
       "name": "BEAUTY_BY_STABLE_YOGI",
