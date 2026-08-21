@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-21T12:02:48 — aibeauty
+
+```
+Sun-kissed secrets
+
+Created with AI.
+
+#aiart #digitalart #wateryvibes #summervibes #oceanlife #relaxationmode
+```
+
 ## 2026-08-21T10:14:41 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ when mornings get lazy like me
 Created with AI.
 
 #aiart #digitalartistry #relaxationmode #cozyvibes #softfocus #lazydays
-```
-
-## 2026-08-19T08:15:24 — aibeauty
-
-```
-summer in my soul
-
-Created with AI.
-
-#aiart #generativeart #waterlife #beachvibes #oceanlovers #sunkissedmood
 ```
