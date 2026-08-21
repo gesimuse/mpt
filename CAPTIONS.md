@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-21T10:14:41 — aibeauty
+
+```
+Life is better in the soft light
+
+Created with AI.
+
+#digitalart #softfocus #eveningmood #intimacyvibes #candlelightromance #nightsin
+```
+
 ## 2026-08-21T06:27:10 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ summer in my soul
 Created with AI.
 
 #aiart #generativeart #waterlife #beachvibes #oceanlovers #sunkissedmood
-```
-
-## 2026-08-19T06:07:02 — aibeauty
-
-```
-sunset on my terms
-
-Created with AI.
-
-#aifineart #neuralart #darkcity #rooftopvibes #nightlife #urbanlandscape
 ```

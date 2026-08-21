@@ -49,7 +49,8 @@
       "aibeauty-20260820-093447",
       "aibeauty-20260820-112402",
       "aibeauty-20260820-142808",
-      "aibeauty-20260821-053623"
+      "aibeauty-20260821-053623",
+      "aibeauty-20260821-093618"
     ]
   },
   "uploads": [
@@ -679,6 +680,17 @@
       "tiktok_status": "SEND_TO_USER_INBOX",
       "tiktok_caption": "Soft light, softer smile.\n\nCreated with AI.\n\n#aiart #aigenerated #aiphotography #confident",
       "ts": "2026-08-21T06:27:10"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260821-093618",
+      "title": "Life is better in the soft light",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7676426062884636694",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "Life is better in the soft light\n\nCreated with AI.\n\n#digitalart #softfocus #eveningmood #intimacyvibes #candlelightromance #nightsin",
+      "ts": "2026-08-21T10:14:41"
     }
   ],
   "model_stats": {
@@ -689,8 +701,8 @@
     },
     "4201:501240": {
       "name": "Realistic Vision V6.0 B1",
-      "used": 80,
-      "passed": 66
+      "used": 90,
+      "passed": 74
     },
     "89548:95334": {
       "name": "HydraMix",
