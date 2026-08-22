@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-22T08:04:54 — aibeauty
+
+```
+in the quiet, i find my voice
+
+Created with AI.
+
+#neuralart #digitalpainting #softcore #candlelightmood #amidsttheshadows #quietintimacy
+```
+
 ## 2026-08-22T06:07:27 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Leaving a splash everywhere I go
 Created with AI.
 
 #aiart #digitalart #summervibes #poolsidechills #laidbackaesthetic #artificialintelligenceart
-```
-
-## 2026-08-19T11:44:08 — aibeauty
-
-```
-tonight's good enough
-
-Created with AI.
-
-#digitalart #moody #candlelightaesthetic #atmosphere #contemplation
 ```
