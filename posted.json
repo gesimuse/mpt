@@ -53,7 +53,8 @@
       "aibeauty-20260821-093618",
       "aibeauty-20260821-112236",
       "aibeauty-20260822-053106",
-      "aibeauty-20260822-073051"
+      "aibeauty-20260822-073051",
+      "aibeauty-20260822-092700"
     ]
   },
   "uploads": [
@@ -727,6 +728,17 @@
       "tiktok_status": "SEND_TO_USER_INBOX",
       "tiktok_caption": "in the quiet, i find my voice\n\nCreated with AI.\n\n#neuralart #digitalpainting #softcore #candlelightmood #amidsttheshadows #quietintimacy",
       "ts": "2026-08-22T08:04:54"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260822-092700",
+      "title": "life's too short for bad hotel Wi-Fi",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7676792161064863766",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "life's too short for bad hotel Wi-Fi\n\nCreated with AI.\n\n#aiart #digitalpainting #luxuryvibes #nightsin #hotelromance #cozyretreats",
+      "ts": "2026-08-22T09:55:18"
     }
   ],
   "model_stats": {
@@ -777,8 +789,8 @@
     },
     "83490:88738": {
       "name": "Vendo Photorealistic 2",
-      "used": 70,
-      "passed": 50
+      "used": 80,
+      "passed": 57
     },
     "1725032:1952208": {
       "name": "Beauty Maji Realism [Cyber Realistic + Beauty Maji Realism]",

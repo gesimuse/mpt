@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-22T09:55:18 — aibeauty
+
+```
+life's too short for bad hotel Wi-Fi
+
+Created with AI.
+
+#aiart #digitalpainting #luxuryvibes #nightsin #hotelromance #cozyretreats
+```
+
 ## 2026-08-22T08:04:54 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Flickering in the dark
 Created with AI.
 
 #neonlifestyle #softfocus #atmospherelight #moodyportraits #vaporwaveaesthetic #lowlitlove
-```
-
-## 2026-08-19T14:03:26 — aibeauty
-
-```
-Leaving a splash everywhere I go
-
-Created with AI.
-
-#aiart #digitalart #summervibes #poolsidechills #laidbackaesthetic #artificialintelligenceart
 ```
