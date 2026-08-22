@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-22T06:07:27 — aibeauty
+
+```
+sunkissed, free and totally fine with my life
+
+Created with AI.
+
+#aiart #digitalart #sunsoaked #waterlover #boatlife #summervibes
+```
+
 ## 2026-08-21T12:02:48 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ tonight's good enough
 Created with AI.
 
 #digitalart #moody #candlelightaesthetic #atmosphere #contemplation
-```
-
-## 2026-08-19T10:41:54 — aibeauty
-
-```
-when mornings get lazy like me
-
-Created with AI.
-
-#aiart #digitalartistry #relaxationmode #cozyvibes #softfocus #lazydays
 ```

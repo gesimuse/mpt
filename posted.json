@@ -51,7 +51,8 @@
       "aibeauty-20260820-142808",
       "aibeauty-20260821-053623",
       "aibeauty-20260821-093618",
-      "aibeauty-20260821-112236"
+      "aibeauty-20260821-112236",
+      "aibeauty-20260822-053106"
     ]
   },
   "uploads": [
@@ -703,13 +704,24 @@
       "tiktok_status": "SEND_TO_USER_INBOX",
       "tiktok_caption": "Sun-kissed secrets\n\nCreated with AI.\n\n#aiart #digitalart #wateryvibes #summervibes #oceanlife #relaxationmode",
       "ts": "2026-08-21T12:02:48"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260822-053106",
+      "title": "sunkissed, free and totally fine with my life",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7676733439885936662",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "sunkissed, free and totally fine with my life\n\nCreated with AI.\n\n#aiart #digitalart #sunsoaked #waterlover #boatlife #summervibes",
+      "ts": "2026-08-22T06:07:27"
     }
   ],
   "model_stats": {
     "251478:283756": {
       "name": "fashion-street-photography_and_film-v1",
-      "used": 70,
-      "passed": 40
+      "used": 80,
+      "passed": 48
     },
     "4201:501240": {
       "name": "Realistic Vision V6.0 B1",
