@@ -54,7 +54,8 @@
       "aibeauty-20260821-112236",
       "aibeauty-20260822-053106",
       "aibeauty-20260822-073051",
-      "aibeauty-20260822-092700"
+      "aibeauty-20260822-092700",
+      "aibeauty-20260822-132511"
     ]
   },
   "uploads": [
@@ -739,6 +740,17 @@
       "tiktok_status": "SEND_TO_USER_INBOX",
       "tiktok_caption": "life's too short for bad hotel Wi-Fi\n\nCreated with AI.\n\n#aiart #digitalpainting #luxuryvibes #nightsin #hotelromance #cozyretreats",
       "ts": "2026-08-22T09:55:18"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260822-132511",
+      "title": "Got my night, who's got the music?",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7676855255132538902",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "Got my night, who's got the music?\n\nCreated with AI.\n\n#aiart #neuralnetwork #artificialintelligence #digitalartistry #getready #nightoutvibes",
+      "ts": "2026-08-22T14:00:05"
     }
   ],
   "model_stats": {
@@ -794,8 +806,8 @@
     },
     "1725032:1952208": {
       "name": "Beauty Maji Realism [Cyber Realistic + Beauty Maji Realism]",
-      "used": 90,
-      "passed": 34
+      "used": 100,
+      "passed": 38
     },
     "139565:524032": {
       "name": "Realistic Stock Photo",

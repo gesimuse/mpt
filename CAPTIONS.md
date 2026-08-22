@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-22T14:00:05 — aibeauty
+
+```
+Got my night, who's got the music?
+
+Created with AI.
+
+#aiart #neuralnetwork #artificialintelligence #digitalartistry #getready #nightoutvibes
+```
+
 ## 2026-08-22T09:55:18 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ when mornings go from lazy to lovely
 Created with AI.
 
 #aiart #digitalart #sundayvibes #lazydays #morningmood
-```
-
-## 2026-08-20T08:24:57 — aibeauty
-
-```
-Flickering in the dark
-
-Created with AI.
-
-#neonlifestyle #softfocus #atmospherelight #moodyportraits #vaporwaveaesthetic #lowlitlove
 ```
