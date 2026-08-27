@@ -63,6 +63,13 @@ jobs:
         # TikTok + git; no torch/mediapipe/ollama needed for the video path.
         run: pip install "kaggle<2.0" requests
 
+      - name: Install ffmpeg
+        # videogen.py shells out to ffmpeg to normalize frame rate before TikTok
+        # publish (TikTok rejected a real draft with frame_rate_check_failed on
+        # motionforge's raw output) -- confirmed NOT preinstalled on this runner
+        # despite it being on GitHub's documented ubuntu-latest software list.
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends ffmpeg
+
       - name: Run autopilot (video niche only)
         env:
           NICHES: aibeautyvideo
