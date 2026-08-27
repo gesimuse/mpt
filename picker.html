@@ -244,8 +244,9 @@ async function ghPut(path, token, branch, contentB64, sha, message) {
 // autopilot.py itself writes for a generated batch (minus image_prompts, which we
 // have no way to know for an arbitrary upload) -- so the video picker's own
 // recentBatches() picks it up as just another photo to animate, no special-casing.
-async function registerUpload(imageUrl, title, token) {
-  for (let attempt = 0; attempt < 2; attempt++) {
+async function registerUpload(imageUrl, title, token, onRetry) {
+  const MAX_ATTEMPTS = 5;
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     const file = await ghGet("posted.json", token, "main");
     const state = JSON.parse(b64ToUtf8(file.content));
     state.uploads = state.uploads || [];
@@ -264,9 +265,16 @@ async function registerUpload(imageUrl, title, token) {
       utf8ToB64(JSON.stringify(state, null, 2)), file.sha,
       "picker: register manually uploaded image");
     if (r.ok) return entry;
-    if (r.status === 409 && attempt === 0) continue; // posted.json moved under us; retry once
+    if (r.status === 409 && attempt < MAX_ATTEMPTS - 1) {
+      // posted.json moved under us (cron or another picker session writing at the
+      // same time) -- re-GET and retry with a fresh sha instead of failing.
+      if (onRetry) onRetry(attempt + 1, MAX_ATTEMPTS);
+      await new Promise(res => setTimeout(res, 800 * (attempt + 1)));
+      continue;
+    }
     const t = await r.text();
-    throw new Error(`couldn't register upload: ${r.status} ${t.slice(0, 300)}`);
+    throw new Error(`couldn't register upload after ${attempt + 1} attempt(s): `
+                     + `${r.status} ${t.slice(0, 300)}`);
   }
 }
 
@@ -484,6 +492,7 @@ function wireUploadTile() {
     const file = uploadFile.files[0];
     if (!file) return;
     doneBtn.disabled = true;
+    status("", "");
     try {
       doneBtn.textContent = "Uploading...";
       const url = await uploadImage(file, token);
@@ -491,11 +500,19 @@ function wireUploadTile() {
         (doneBtn.textContent = `Publishing... (${secs}s)`));
       if (!live) uploadMsg("Still not live on Pages after 2min -- registering anyway.", "err");
       doneBtn.textContent = "Registering...";
-      const entry = await registerUpload(url, file.name, token);
+      const entry = await registerUpload(url, file.name, token, (n, max) =>
+        (doneBtn.textContent = `Registering (retry ${n}/${max})...`));
       addGeneratedThumb(url, null, true);
       resetUploadTile();
       uploadMsg("Uploaded and added to the picker — selected below.", "ok");
+      status("Uploaded and registered — it'll show up in the picker on future loads too.", "ok");
     } catch (err) {
+      // Loud AND persistent: uploadMsg alone is easy to miss and a page refresh
+      // wipes it (and the whole upload tile) with nothing to show the failure
+      // actually happened -- the top status banner survives longer in view and
+      // is the first thing a reload of loadPicker() overwrites, not silently.
+      status(`Upload didn't register: ${err.message} -- the photo is on gh-pages `
+             + `but NOT yet in the picker; don't refresh, click Done again to retry.`, "err");
       uploadMsg(err.message, "err");
       doneBtn.disabled = false;
       doneBtn.textContent = "Done";
