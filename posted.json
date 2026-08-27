@@ -3,7 +3,8 @@
     "aibeauty": [
       "aibeauty-20260827-161633",
       "aibeauty-20260827-180820",
-      "aibeauty-20260827-192941"
+      "aibeauty-20260827-192941",
+      "aibeauty-20260827-205610"
     ]
   },
   "uploads": [
@@ -127,6 +128,31 @@
       "video_url": "https://gesimuse.github.io/mpt/media/1787862654-final.mp4",
       "ts": "2026-08-27T20:32:08",
       "motionforge_source_url": "https://gesimuse.github.io/mpt/media/1787856223-sd_1.jpg"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260827-205610",
+      "title": "Not sorry for the view.",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7678827532556371990",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "Not sorry for the view.\n\nCreated with AI.\n\n#aiart #aigenerated #aiphotography #confident",
+      "image_urls": [
+        "https://gesimuse.github.io/mpt/media/1787866346-sd_0.jpg",
+        "https://gesimuse.github.io/mpt/media/1787866372-sd_1.jpg",
+        "https://gesimuse.github.io/mpt/media/1787866401-sd_2.jpg",
+        "https://gesimuse.github.io/mpt/media/1787866430-sd_3.jpg",
+        "https://gesimuse.github.io/mpt/media/1787866459-sd_4.jpg"
+      ],
+      "image_prompts": [
+        "beautiful adult latina woman in her late twenties, in a red velvet lounge, moody dramatic lighting, seductive, sexy, alluring, round breasts, round ass, beautiful, arched back pose, confident sultry expression, profile view, moody side lighting, (masterpiece, best quality), intricate details, realistic, photorealistic, a close up of a woman wearing earrings, inspired by Emma Andijewska, draped in crystals, silver color, long earrings, sandra chevier, huge earrings, 2019, blue-eyed, platinum jewellery, earring, flawless structure, silver earring",
+        "beautiful adult latina woman in her late twenties, in a red velvet lounge, moody dramatic lighting, seductive, sexy, alluring, round breasts, round ass, beautiful, arched back pose, confident sultry expression, full length shot, head to toe, natural stance, (masterpiece, best quality), intricate details, realistic, photorealistic, a close up of a woman wearing earrings, inspired by Emma Andijewska, draped in crystals, silver color, long earrings, sandra chevier, huge earrings, 2019, blue-eyed, platinum jewellery, earring, flawless structure, silver earring",
+        "beautiful adult latina woman in her late twenties, in a red velvet lounge, moody dramatic lighting, seductive, sexy, alluring, round breasts, round ass, beautiful, arched back pose, confident sultry expression, wide shot, natural window light, (masterpiece, best quality), intricate details, realistic, photorealistic, a close up of a woman wearing earrings, inspired by Emma Andijewska, draped in crystals, silver color, long earrings, sandra chevier, huge earrings, 2019, blue-eyed, platinum jewellery, earring, flawless structure, silver earring",
+        "beautiful adult latina woman in her late twenties, in a red velvet lounge, moody dramatic lighting, seductive, sexy, alluring, round breasts, round ass, beautiful, arched back pose, confident sultry expression, three-quarter view, soft studio lighting, (masterpiece, best quality), intricate details, realistic, photorealistic, a close up of a woman wearing earrings, inspired by Emma Andijewska, draped in crystals, silver color, long earrings, sandra chevier, huge earrings, 2019, blue-eyed, platinum jewellery, earring, flawless structure, silver earring",
+        "beautiful adult latina woman in her late twenties, in a red velvet lounge, moody dramatic lighting, seductive, sexy, alluring, round breasts, round ass, beautiful, arched back pose, confident sultry expression, slightly low angle, golden hour light, (masterpiece, best quality), intricate details, realistic, photorealistic, a close up of a woman wearing earrings, inspired by Emma Andijewska, draped in crystals, silver color, long earrings, sandra chevier, huge earrings, 2019, blue-eyed, platinum jewellery, earring, flawless structure, silver earring"
+      ],
+      "ts": "2026-08-27T21:34:51"
     }
   ],
   "model_stats": {
@@ -139,6 +165,11 @@
       "name": "HydraMix",
       "used": 20,
       "passed": 20
+    },
+    "83490:88738": {
+      "name": "Vendo Photorealistic 2",
+      "used": 10,
+      "passed": 10
     }
   }
 }
