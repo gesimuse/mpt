@@ -8,8 +8,8 @@
 Zero-local-setup picker: served from gh-pages, fetches posted.json from
 raw.githubusercontent (public, CORS-open), fires workflow_dispatch on
 autopilot_video.yml via api.github.com. The only thing the user needs to do
-ONCE is create a fine-grained PAT with actions:write on this repo and paste
-it into the field below -- it's cached in localStorage after that.
+ONCE is create a fine-grained PAT with actions:write on this repo, paste it
+below, and hit Verify & save -- it's cached in localStorage after that.
 
 Deployed by .github/workflows/deploy_picker.yml on every push to main that
 touches picker.html.
@@ -50,9 +50,21 @@ button:hover:not(:disabled) { background: #006edb; }
 .msg { padding: 12px 16px; border-radius: 6px; margin: 12px 0; font-size: 14px; }
 .ok  { background: #e6f9ec; color: #0a5c2a; border: 1px solid #b6e7c1; }
 .err { background: #fde8e8; color: #8a1a1a; border: 1px solid #f0b8b8; }
+.pending { background: #fff8e1; color: #7a5c00; border: 1px solid #f0dfa0; }
 details { margin: 12px 0; }
 summary { cursor: pointer; color: #0a84ff; font-size: 13px; }
 code, small { font-size: 12px; color: #555; }
+.pat-row { display: flex; gap: 8px; align-items: flex-start; }
+.pat-row input { flex: 1; }
+.pat-row button { margin-top: 0; padding: 10px 16px; font-size: 14px; white-space: nowrap; }
+.btn-secondary { background: #fff; color: #444; border: 1px solid #ccc !important; }
+.btn-secondary:hover:not(:disabled) { background: #f4f4f4 !important; }
+#pat.verified { border-color: #2fa84f; background: #f4fcf6; }
+.badge { display: inline-flex; align-items: center; gap: 6px; font-size: 13px;
+         color: #0a5c2a; font-weight: 500; margin-top: 8px; }
+.badge::before { content: '✓'; display: inline-flex; align-items: center; justify-content: center;
+                  width: 16px; height: 16px; border-radius: 50%; background: #2fa84f;
+                  color: #fff; font-size: 11px; }
 </style>
 </head>
 <body>
@@ -61,18 +73,23 @@ code, small { font-size: 12px; color: #555; }
 Confirm. That fires <code>autopilot_video.yml</code> in the repo; the mp4 lands
 in your TikTok inbox as a draft (~10 min later).</p>
 
-<details>
+<details id="setup">
 <summary>One-time setup (fine-grained PAT)</summary>
 <p><small>Create a fine-grained PAT at
 <a href="https://github.com/settings/personal-access-tokens/new" target="_blank">
 github.com/settings/personal-access-tokens/new</a> &rarr; scope it to only
 this repo (<code>gesimuse/mpt</code>) &rarr; Repository permissions: set
-<b>Actions</b> to <b>Read and write</b>. Paste the token below; it stays in
-your browser's localStorage on this device only.</small></p>
+<b>Actions</b> to <b>Read and write</b>. Paste the token below and press Verify;
+it stays in your browser's localStorage on this device only.</small></p>
 </details>
 
-<label>GitHub PAT (cached in this browser):</label>
-<input type="password" id="pat" placeholder="github_pat_..." autocomplete="off">
+<label>GitHub PAT:</label>
+<div class="pat-row">
+  <input type="password" id="pat" placeholder="github_pat_..." autocomplete="off">
+  <button type="button" id="verifyBtn" class="btn-secondary">Verify &amp; save</button>
+  <button type="button" id="clearBtn" class="btn-secondary">Clear</button>
+</div>
+<div id="patStatus"></div>
 
 <div id="status"></div>
 <div id="picker"></div>
@@ -87,11 +104,91 @@ const NICHES_URL = `https://raw.githubusercontent.com/${OWNER}/${REPO}/main/nich
 
 const $ = (id) => document.getElementById(id);
 const pat = $("pat");
+const verifyBtn = $("verifyBtn");
+const clearBtn = $("clearBtn");
+
 pat.value = localStorage.getItem("mpt_pat") || "";
-pat.addEventListener("input", () => localStorage.setItem("mpt_pat", pat.value));
+let verifiedLogin = localStorage.getItem("mpt_pat_verified_login") || "";
 
 function status(msg, cls) {
   $("status").innerHTML = msg ? `<div class="msg ${cls}">${msg}</div>` : "";
+}
+
+function patStatus(msg, cls) {
+  $("patStatus").innerHTML = msg ? `<div class="msg ${cls}">${msg}</div>` : "";
+}
+
+function markUnverified() {
+  verifiedLogin = "";
+  localStorage.removeItem("mpt_pat_verified_login");
+  pat.classList.remove("verified");
+  patStatus("", "");
+}
+
+pat.addEventListener("input", () => {
+  localStorage.setItem("mpt_pat", pat.value);
+  markUnverified();
+});
+
+clearBtn.addEventListener("click", () => {
+  pat.value = "";
+  localStorage.removeItem("mpt_pat");
+  markUnverified();
+  $("setup").open = true;
+});
+
+async function verifyPat() {
+  const token = pat.value.trim();
+  if (!token) { patStatus("Paste a PAT first.", "err"); return; }
+  verifyBtn.disabled = true;
+  patStatus("Checking token against the repo...", "pending");
+  try {
+    const r = await fetch(
+      `https://api.github.com/repos/${OWNER}/${REPO}/actions/workflows/${WORKFLOW}`,
+      {
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Accept": "application/vnd.github+json",
+          "X-GitHub-Api-Version": "2022-11-28",
+        },
+      });
+    if (r.status === 200) {
+      const me = await fetch("https://api.github.com/user", {
+        headers: { "Authorization": `Bearer ${token}`, "Accept": "application/vnd.github+json" },
+      }).then(x => x.ok ? x.json() : null).catch(() => null);
+      verifiedLogin = (me && me.login) || "token";
+      localStorage.setItem("mpt_pat", token);
+      localStorage.setItem("mpt_pat_verified_login", verifiedLogin);
+      pat.classList.add("verified");
+      patStatus(`<span class="badge">Verified as ${verifiedLogin} &middot; saved in this browser</span>`, "ok");
+      $("setup").open = false;
+    } else if (r.status === 401) {
+      markUnverified();
+      patStatus("Token invalid or expired (401). Generate a new PAT.", "err");
+    } else if (r.status === 404) {
+      markUnverified();
+      patStatus("Token can't see this workflow (404) &mdash; check it's scoped to gesimuse/mpt "
+                + "with Actions: Read and write.", "err");
+    } else {
+      markUnverified();
+      patStatus(`Unexpected response: ${r.status} ${await r.text().then(t => t.slice(0, 200))}`, "err");
+    }
+  } catch (e) {
+    markUnverified();
+    patStatus("Network error: " + e.message, "err");
+  } finally {
+    verifyBtn.disabled = false;
+  }
+}
+
+verifyBtn.addEventListener("click", verifyPat);
+
+if (pat.value && verifiedLogin) {
+  pat.classList.add("verified");
+  patStatus(`<span class="badge">Verified as ${verifiedLogin} &middot; saved in this browser</span>`, "ok");
+  $("setup").open = false;
+} else if (!pat.value) {
+  $("setup").open = true;
 }
 
 function recentBatches(uploads, limit) {
@@ -173,6 +270,7 @@ async function onSubmit(e) {
   e.preventDefault();
   const token = pat.value.trim();
   if (!token) { status("Paste a GitHub PAT first.", "err"); return; }
+  if (!verifiedLogin) { status("Heads up: PAT not verified yet, trying anyway...", "pending"); }
   const fd = new FormData(e.target);
   const inputs = {
     image_url: fd.get("image_url"),
