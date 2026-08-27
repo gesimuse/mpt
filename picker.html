@@ -8,8 +8,9 @@
 Zero-local-setup picker: served from gh-pages, fetches posted.json from
 raw.githubusercontent (public, CORS-open), fires workflow_dispatch on
 autopilot_video.yml via api.github.com. The only thing the user needs to do
-ONCE is create a fine-grained PAT with actions:write on this repo, paste it
-below, and hit Verify & save -- it's cached in localStorage after that.
+ONCE is create a fine-grained PAT with actions:write (and contents:write, for
+the upload-your-own-image option) on this repo, paste it below, and hit
+Verify & save -- it's cached in localStorage after that.
 
 Deployed by .github/workflows/deploy_picker.yml on every push to main that
 touches picker.html.
@@ -65,6 +66,8 @@ code, small { font-size: 12px; color: #555; }
 .badge::before { content: '✓'; display: inline-flex; align-items: center; justify-content: center;
                   width: 16px; height: 16px; border-radius: 50%; background: #2fa84f;
                   color: #fff; font-size: 11px; }
+#uploadFile { display: block; margin: 6px 0; }
+#uploadPreview img { max-width: 160px; border-radius: 8px; display: block; margin-top: 8px; }
 </style>
 </head>
 <body>
@@ -79,8 +82,9 @@ in your TikTok inbox as a draft (~10 min later).</p>
 <a href="https://github.com/settings/personal-access-tokens/new" target="_blank">
 github.com/settings/personal-access-tokens/new</a> &rarr; scope it to only
 this repo (<code>gesimuse/mpt</code>) &rarr; Repository permissions: set
-<b>Actions</b> to <b>Read and write</b>. Paste the token below and press Verify;
-it stays in your browser's localStorage on this device only.</small></p>
+<b>Actions</b> to <b>Read and write</b> and <b>Contents</b> to <b>Read and write</b>
+(Contents is needed to upload your own images). Paste the token below and press
+Verify; it stays in your browser's localStorage on this device only.</small></p>
 </details>
 
 <label>GitHub PAT:</label>
@@ -90,6 +94,12 @@ it stays in your browser's localStorage on this device only.</small></p>
   <button type="button" id="clearBtn" class="btn-secondary">Clear</button>
 </div>
 <div id="patStatus"></div>
+
+<h2>Or upload your own image</h2>
+<p><small>Skips the recent-batches list below &mdash; uploads straight to
+<code>gh-pages/media/</code> and uses that as the source image.</small></p>
+<input type="file" id="uploadFile" accept="image/*">
+<div id="uploadPreview"></div>
 
 <div id="status"></div>
 <div id="picker"></div>
@@ -183,6 +193,61 @@ async function verifyPat() {
 
 verifyBtn.addEventListener("click", verifyPat);
 
+const uploadFile = $("uploadFile");
+uploadFile.addEventListener("change", () => {
+  const f = uploadFile.files[0];
+  if (!f) { $("uploadPreview").innerHTML = ""; return; }
+  $("uploadPreview").innerHTML = `<img src="${URL.createObjectURL(f)}">`;
+  document.querySelectorAll('input[name="image_url"]').forEach(r => r.checked = false);
+});
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result.split(",")[1]);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+
+async function uploadImage(file, token) {
+  const b64 = await fileToBase64(file);
+  const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+  const path = `media/upload-${Date.now()}.${ext}`;
+  const r = await fetch(
+    `https://api.github.com/repos/${OWNER}/${REPO}/contents/${path}`,
+    {
+      method: "PUT",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
+      body: JSON.stringify({
+        message: `picker: upload ${path}`,
+        content: b64,
+        branch: "gh-pages",
+      }),
+    });
+  if (!r.ok) {
+    const t = await r.text();
+    throw new Error(`upload failed: ${r.status} ${t.slice(0, 300)}`);
+  }
+  return `https://gesimuse.github.io/mpt/${path}`;
+}
+
+async function waitUntilLive(url, timeoutMs) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    try {
+      const r = await fetch(url + "?t=" + Date.now(), { method: "HEAD", cache: "no-store" });
+      if (r.ok) return true;
+    } catch (e) { /* keep polling */ }
+    await new Promise(res => setTimeout(res, 3000));
+  }
+  return false;
+}
+
 if (pat.value && verifiedLogin) {
   pat.classList.add("verified");
   patStatus(`<span class="badge">Verified as ${verifiedLogin} &middot; saved in this browser</span>`, "ok");
@@ -247,7 +312,7 @@ async function loadPicker() {
       const cls = used.has(url) ? "thumb used" : "thumb";
       html += `<label class="${cls}">`
            +  `<img src="${url}" loading="lazy">`
-           +  `<input type="radio" name="image_url" value="${url}" required>`
+           +  `<input type="radio" name="image_url" value="${url}">`
            +  `</label>`;
     }
     html += `</div>`;
@@ -264,6 +329,11 @@ async function loadPicker() {
        +  `</form>`;
   $("picker").innerHTML = html;
   $("frm").addEventListener("submit", onSubmit);
+  document.querySelectorAll('input[name="image_url"]').forEach(r =>
+    r.addEventListener("change", () => {
+      uploadFile.value = "";
+      $("uploadPreview").innerHTML = "";
+    }));
 }
 
 async function onSubmit(e) {
@@ -272,13 +342,31 @@ async function onSubmit(e) {
   if (!token) { status("Paste a GitHub PAT first.", "err"); return; }
   if (!verifiedLogin) { status("Heads up: PAT not verified yet, trying anyway...", "pending"); }
   const fd = new FormData(e.target);
+  const file = uploadFile.files[0];
+  let imageUrl = fd.get("image_url");
+  if (!file && !imageUrl) {
+    status("Pick an image from a batch, or upload your own, first.", "err");
+    return;
+  }
+  $("btn").disabled = true;
+  if (file) {
+    status("Uploading image to gh-pages...", "pending");
+    try {
+      imageUrl = await uploadImage(file, token);
+    } catch (uploadErr) {
+      status("Upload failed: " + uploadErr.message, "err");
+      $("btn").disabled = false;
+      return;
+    }
+    status("Uploaded, waiting for it to go live on Pages...", "pending");
+    await waitUntilLive(imageUrl, 45000);
+  }
   const inputs = {
-    image_url: fd.get("image_url"),
+    image_url: imageUrl,
     motion_prompt: fd.get("motion_prompt"),
     length_s: fd.get("length_s"),
     steps: fd.get("steps"),
   };
-  $("btn").disabled = true;
   status("Dispatching...", "ok");
   try {
     const r = await fetch(
