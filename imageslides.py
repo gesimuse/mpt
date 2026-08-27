@@ -30,8 +30,23 @@ import os, random, re
 
 import caption_writer
 import civitai
-import sdgen
-import supervisor
+
+try:
+    import sdgen
+    import supervisor
+except ImportError:
+    # The lean video-only workflow (autopilot_video.yml, `pip install kaggle
+    # requests` only) still does a plain `import imageslides` at module level for
+    # image_caption()/decide_reference() -- a live run crashed there with
+    # "ModuleNotFoundError: No module named 'PIL'" pulled in via sdgen -> refine ->
+    # PIL/torch/diffusers/ultralytics/mediapipe, none of which that workflow
+    # installs (or needs -- it only animates an existing image, never generates
+    # one). None here, not a lazy import inside generate(): test_pipeline.py's
+    # mock.patch.object(imageslides.sdgen, ...) pattern needs these to already be
+    # real module attributes before generate() ever runs. generate() itself raises
+    # a clear error below if it's actually called without them.
+    sdgen = None
+    supervisor = None
 
 # Bundled outfit+location+mood+vibe, one coherent "moment" per entry, instead of
 # picking each independently. Independent random picks could land a bikini with
@@ -458,6 +473,11 @@ def generate(niche, count=None, workdir=None, max_rounds=2, state=None):
     generic prompt shared across the whole batch. Entries can be None for a path
     whose originating prompt couldn't be recovered (defensive; shouldn't happen
     in practice since sdgen.generate_batch names files sd_<index>.jpg)."""
+    if sdgen is None or supervisor is None:
+        raise RuntimeError(
+            "sdgen/supervisor unavailable (PIL/torch/diffusers not installed) -- "
+            "generate() needs the full local image-gen stack; the video-only "
+            "workflow should never call this, only image_caption()/decide_reference()")
     import tempfile
     from pathlib import Path
 
