@@ -4,7 +4,8 @@
       "aibeauty-20260827-161633",
       "aibeauty-20260827-180820",
       "aibeauty-20260827-192941",
-      "aibeauty-20260827-205610"
+      "aibeauty-20260827-205610",
+      "aibeauty-20260827-224321"
     ]
   },
   "uploads": [
@@ -153,6 +154,31 @@
         "beautiful adult latina woman in her late twenties, in a red velvet lounge, moody dramatic lighting, seductive, sexy, alluring, round breasts, round ass, beautiful, arched back pose, confident sultry expression, slightly low angle, golden hour light, (masterpiece, best quality), intricate details, realistic, photorealistic, a close up of a woman wearing earrings, inspired by Emma Andijewska, draped in crystals, silver color, long earrings, sandra chevier, huge earrings, 2019, blue-eyed, platinum jewellery, earring, flawless structure, silver earring"
       ],
       "ts": "2026-08-27T21:34:51"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260827-224321",
+      "title": "Just here for the lighting.",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7678853532392687638",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "Just here for the lighting.\n\nCreated with AI.\n\n#aiart #aigenerated #aiphotography #confident",
+      "image_urls": [
+        "https://gesimuse.github.io/mpt/media/1787872561-sd_0.jpg",
+        "https://gesimuse.github.io/mpt/media/1787872588-sd_1.jpg",
+        "https://gesimuse.github.io/mpt/media/1787872614-sd_2.jpg",
+        "https://gesimuse.github.io/mpt/media/1787872643-sd_3.jpg",
+        "https://gesimuse.github.io/mpt/media/1787872676-sd_4.jpg"
+      ],
+      "image_prompts": [
+        "beautiful adult latina woman in her late twenties, seductive, sexy, alluring, round breasts, round ass, beautiful, walking toward camera, confident sultry stride, full body portrait, standing, wide angle, portrait of a stylish young woman of mixed ethnicity, wearing modern street fashion, sleek black jacket, subtle makeup, hoop earrings, standing in a city street at night, colorful neon signs in the background, soft rim lighting, cinematic atmosphere, highly detailed face, shallow depth of field, photorealistic, 4k",
+        "beautiful adult latina woman in her late twenties, seductive, sexy, alluring, round breasts, round ass, beautiful, walking toward camera, confident sultry stride, wide shot, natural window light, portrait of a stylish young woman of mixed ethnicity, wearing modern street fashion, sleek black jacket, subtle makeup, hoop earrings, standing in a city street at night, colorful neon signs in the background, soft rim lighting, cinematic atmosphere, highly detailed face, shallow depth of field, photorealistic, 4k",
+        "beautiful adult latina woman in her late twenties, seductive, sexy, alluring, round breasts, round ass, beautiful, walking toward camera, confident sultry stride, slightly low angle, golden hour light, portrait of a stylish young woman of mixed ethnicity, wearing modern street fashion, sleek black jacket, subtle makeup, hoop earrings, standing in a city street at night, colorful neon signs in the background, soft rim lighting, cinematic atmosphere, highly detailed face, shallow depth of field, photorealistic, 4k",
+        "beautiful adult latina woman in her late twenties, seductive, sexy, alluring, round breasts, round ass, beautiful, walking toward camera, confident sultry stride, candid framing, natural daylight, portrait of a stylish young woman of mixed ethnicity, wearing modern street fashion, sleek black jacket, subtle makeup, hoop earrings, standing in a city street at night, colorful neon signs in the background, soft rim lighting, cinematic atmosphere, highly detailed face, shallow depth of field, photorealistic, 4k",
+        "beautiful adult latina woman in her late twenties, seductive, sexy, alluring, round breasts, round ass, beautiful, walking toward camera, confident sultry stride, over-the-shoulder framing, warm ambient light, portrait of a stylish young woman of mixed ethnicity, wearing modern street fashion, sleek black jacket, subtle makeup, hoop earrings, standing in a city street at night, colorful neon signs in the background, soft rim lighting, cinematic atmosphere, highly detailed face, shallow depth of field, photorealistic, 4k"
+      ],
+      "ts": "2026-08-27T23:18:26"
     }
   ],
   "model_stats": {
@@ -168,6 +194,16 @@
     },
     "83490:88738": {
       "name": "Vendo Photorealistic 2",
+      "used": 10,
+      "passed": 10
+    },
+    "108517:352289": {
+      "name": "Realia Photorealistic",
+      "used": 0,
+      "passed": 0
+    },
+    "1725032:1952208": {
+      "name": "Beauty Maji Realism [Cyber Realistic + Beauty Maji Realism]",
       "used": 10,
       "passed": 10
     }

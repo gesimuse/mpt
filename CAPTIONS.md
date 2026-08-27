@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-27T23:18:26 — aibeauty
+
+```
+Just here for the lighting.
+
+Created with AI.
+
+#aiart #aigenerated #aiphotography #confident
+```
+
 ## 2026-08-27T21:34:51 — aibeauty
 
 ```
