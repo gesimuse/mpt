@@ -8,6 +8,20 @@
       "motionforge_image_url": "https://pages/media/img.jpg",
       "motionforge_prompt": "she smiles, tilts head",
       "ts": "2026-08-27T13:13:53"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "manual upload 1787841519401",
+      "title": "00031-3127479456.png",
+      "tiktok": true,
+      "tiktok_via": "picker_manual_upload",
+      "image_urls": [
+        "https://gesimuse.github.io/mpt/media/upload-1787841488983.png"
+      ],
+      "image_prompts": [
+        null
+      ],
+      "ts": "2026-08-27T14:38:39"
     }
   ]
 }
