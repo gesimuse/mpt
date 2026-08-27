@@ -1,5 +1,9 @@
 {
-  "topics": {},
+  "topics": {
+    "aibeauty": [
+      "aibeauty-20260827-161633"
+    ]
+  },
   "uploads": [
     {
       "niche": "aibeautyvideo",
@@ -34,6 +38,38 @@
       "tiktok_caption": "Some days just look like this.\n\nCreated with AI.\n\n#aiart #aivideo #wan22 #confident",
       "motionforge_source_url": "https://gesimuse.github.io/mpt/media/upload-1787841582241.png",
       "ts": "2026-08-27T14:59:48"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260827-161633",
+      "title": "Summer just got a lot hotter",
+      "tiktok": false,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7678752798577657878",
+      "tiktok_status": "FAILED",
+      "tiktok_caption": "Summer just got a lot hotter\n\nCreated with AI.\n\n#aibeachvibes #sunseekers #islandstateofmind #artificialparadise",
+      "image_urls": [
+        "https://gesimuse.github.io/mpt/media/1787848845-sd_0.jpg",
+        "https://gesimuse.github.io/mpt/media/1787848869-sd_1.jpg",
+        "https://gesimuse.github.io/mpt/media/1787848900-sd_2.jpg",
+        "https://gesimuse.github.io/mpt/media/1787848927-sd_3.jpg",
+        "https://gesimuse.github.io/mpt/media/1787848956-sd_4.jpg"
+      ],
+      "image_prompts": [
+        "beautiful adult latina woman in her late twenties, seductive, sexy, alluring, round breasts, round ass, beautiful, playful confident energy, glamour photography lighting, eye-level shot, diffused overcast light, 1. A young female chef (ethnicity: Hispanic, age: late 20s) in a bustling gourmet kitchen (setting: contemporary). She's wearing a stylish, tailored white chef's coat (fabric: stain-resistant cotton) with her name elegantly embroidered, paired with black, comfortable culinary pants. Her hair is tied up neatly under a chic chef's hat, and her makeup is minimal yet radiant. She's skillfully plating an exquisite dish (cuisine: fusion), with a focused and creative expression, surrounded by fresh, vibrant ingredients and state-of-the-art kitchen equipment.",
+        "beautiful adult latina woman in her late twenties, seductive, sexy, alluring, round breasts, round ass, beautiful, playful confident energy, glamour photography lighting, slightly low angle, golden hour light, 1. A young female chef (ethnicity: Hispanic, age: late 20s) in a bustling gourmet kitchen (setting: contemporary). She's wearing a stylish, tailored white chef's coat (fabric: stain-resistant cotton) with her name elegantly embroidered, paired with black, comfortable culinary pants. Her hair is tied up neatly under a chic chef's hat, and her makeup is minimal yet radiant. She's skillfully plating an exquisite dish (cuisine: fusion), with a focused and creative expression, surrounded by fresh, vibrant ingredients and state-of-the-art kitchen equipment.",
+        "beautiful adult latina woman in her late twenties, seductive, sexy, alluring, round breasts, round ass, beautiful, playful confident energy, glamour photography lighting, three-quarter view, soft studio lighting, 1. A young female chef (ethnicity: Hispanic, age: late 20s) in a bustling gourmet kitchen (setting: contemporary). She's wearing a stylish, tailored white chef's coat (fabric: stain-resistant cotton) with her name elegantly embroidered, paired with black, comfortable culinary pants. Her hair is tied up neatly under a chic chef's hat, and her makeup is minimal yet radiant. She's skillfully plating an exquisite dish (cuisine: fusion), with a focused and creative expression, surrounded by fresh, vibrant ingredients and state-of-the-art kitchen equipment.",
+        "beautiful adult latina woman in her late twenties, seductive, sexy, alluring, round breasts, round ass, beautiful, playful confident energy, glamour photography lighting, candid framing, natural daylight, 1. A young female chef (ethnicity: Hispanic, age: late 20s) in a bustling gourmet kitchen (setting: contemporary). She's wearing a stylish, tailored white chef's coat (fabric: stain-resistant cotton) with her name elegantly embroidered, paired with black, comfortable culinary pants. Her hair is tied up neatly under a chic chef's hat, and her makeup is minimal yet radiant. She's skillfully plating an exquisite dish (cuisine: fusion), with a focused and creative expression, surrounded by fresh, vibrant ingredients and state-of-the-art kitchen equipment.",
+        "beautiful adult latina woman in her late twenties, seductive, sexy, alluring, round breasts, round ass, beautiful, playful confident energy, glamour photography lighting, full length shot, head to toe, natural stance, 1. A young female chef (ethnicity: Hispanic, age: late 20s) in a bustling gourmet kitchen (setting: contemporary). She's wearing a stylish, tailored white chef's coat (fabric: stain-resistant cotton) with her name elegantly embroidered, paired with black, comfortable culinary pants. Her hair is tied up neatly under a chic chef's hat, and her makeup is minimal yet radiant. She's skillfully plating an exquisite dish (cuisine: fusion), with a focused and creative expression, surrounded by fresh, vibrant ingredients and state-of-the-art kitchen equipment."
+      ],
+      "ts": "2026-08-27T16:43:06"
     }
-  ]
+  ],
+  "model_stats": {
+    "167537:288911": {
+      "name": "BEAUTY_BY_STABLE_YOGI",
+      "used": 10,
+      "passed": 10
+    }
+  }
 }
