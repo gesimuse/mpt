@@ -227,13 +227,14 @@ async function uploadImage(file, token) {
   return `https://gesimuse.github.io/mpt/${path}`;
 }
 
-async function waitUntilLive(url, timeoutMs) {
+async function waitUntilLive(url, timeoutMs, onTick) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     try {
       const r = await fetch(url + "?t=" + Date.now(), { method: "HEAD", cache: "no-store" });
       if (r.ok) return true;
     } catch (e) { /* keep polling */ }
+    if (onTick) onTick(Math.round((Date.now() - start) / 1000));
     await new Promise(res => setTimeout(res, 3000));
   }
   return false;
@@ -273,6 +274,7 @@ async function loadPicker() {
   let batches = [];
   let used = new Set();
   let suggested = "";
+  let loadError = null;
   try {
     // Cache-bust so we don't sit on raw.githubusercontent's ~5min CDN.
     const bust = "?t=" + Date.now();
@@ -286,8 +288,7 @@ async function loadPicker() {
     const videoNiche = (niches.niches || []).find(n => n.id === "aibeautyvideo") || {};
     suggested = videoNiche.motionforge_prompt || "";
   } catch (e) {
-    status("Couldn't load posted.json / niches.json (" + e.message + "). "
-           + "You can still upload your own image below and write the prompt by hand.", "err");
+    loadError = e.message;
   }
 
   // The prompt editor + Confirm button always render, even if the recent-batches
@@ -341,7 +342,12 @@ async function loadPicker() {
     uploadRadio.checked = true;
   });
 
-  if (batches.length) status("", "");
+  if (loadError) {
+    status("Couldn't load posted.json / niches.json (" + loadError + "). "
+           + "You can still upload your own image above and write the prompt by hand.", "err");
+  } else {
+    status("", "");
+  }
 }
 
 async function onSubmit(e) {
@@ -371,8 +377,14 @@ async function onSubmit(e) {
       $("btn").disabled = false;
       return;
     }
-    status("Uploaded, waiting for it to go live on Pages...", "pending");
-    await waitUntilLive(imageUrl, 45000);
+    const live = await waitUntilLive(imageUrl, 120000, (secs) =>
+      status(`Uploaded, waiting for GitHub Pages to publish it... (${secs}s)`, "pending"));
+    if (!live) {
+      status("GitHub Pages still hasn't published the upload after 2 minutes -- "
+             + "dispatching anyway, but the video job may fail to fetch the image. "
+             + `Check manually: <a href="${imageUrl}" target="_blank">${imageUrl}</a>`, "err");
+      await new Promise(res => setTimeout(res, 4000));
+    }
   }
   const inputs = {
     image_url: imageUrl,
