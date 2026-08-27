@@ -66,15 +66,20 @@ code, small { font-size: 12px; color: #555; }
 .badge::before { content: '✓'; display: inline-flex; align-items: center; justify-content: center;
                   width: 16px; height: 16px; border-radius: 50%; background: #2fa84f;
                   color: #fff; font-size: 11px; }
-#uploadFile { display: block; margin: 6px 0; }
-#uploadPreview img { max-width: 160px; border-radius: 8px; display: block; margin-top: 8px; }
+.thumb.upload-tile { display: flex; align-items: center; justify-content: center;
+                      border: 2px dashed #ccc; color: #888; font-size: 13px;
+                      text-align: center; padding: 8px; }
+.thumb.upload-tile:has(input:checked) { border-style: solid; }
+.thumb.upload-tile img { display: none; }
+.thumb.upload-tile.has-file img { display: block; }
+.thumb.upload-tile.has-file .upload-placeholder { display: none; }
 </style>
 </head>
 <body>
 <h1>MPT video picker</h1>
-<p>Pick one of the recent aibeauty images, edit the motion prompt, press
-Confirm. That fires <code>autopilot_video.yml</code> in the repo; the mp4 lands
-in your TikTok inbox as a draft (~10 min later).</p>
+<p>Pick one of the recent aibeauty images (or upload your own), edit the motion
+prompt, press Confirm. That fires <code>autopilot_video.yml</code> in the repo;
+the mp4 lands in your TikTok inbox as a draft (~10 min later).</p>
 
 <details id="setup">
 <summary>One-time setup (fine-grained PAT)</summary>
@@ -94,12 +99,6 @@ Verify; it stays in your browser's localStorage on this device only.</small></p>
   <button type="button" id="clearBtn" class="btn-secondary">Clear</button>
 </div>
 <div id="patStatus"></div>
-
-<h2>Or upload your own image</h2>
-<p><small>Skips the recent-batches list below &mdash; uploads straight to
-<code>gh-pages/media/</code> and uses that as the source image.</small></p>
-<input type="file" id="uploadFile" accept="image/*">
-<div id="uploadPreview"></div>
 
 <div id="status"></div>
 <div id="picker"></div>
@@ -192,14 +191,6 @@ async function verifyPat() {
 }
 
 verifyBtn.addEventListener("click", verifyPat);
-
-const uploadFile = $("uploadFile");
-uploadFile.addEventListener("change", () => {
-  const f = uploadFile.files[0];
-  if (!f) { $("uploadPreview").innerHTML = ""; return; }
-  $("uploadPreview").innerHTML = `<img src="${URL.createObjectURL(f)}">`;
-  document.querySelectorAll('input[name="image_url"]').forEach(r => r.checked = false);
-});
 
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
@@ -300,24 +291,29 @@ async function loadPicker() {
   }
 
   // The prompt editor + Confirm button always render, even if the recent-batches
-  // list above failed to load -- upload-your-own doesn't depend on it.
+  // list above failed to load -- the upload tile below doesn't depend on it.
   let html = `<form id="frm">`;
-  if (batches.length) {
-    for (const b of batches) {
-      html += `<h2>${b.ts || "?"} &middot; ${(b.title || "").slice(0, 80)}</h2><div class="grid">`;
-      for (const url of b.image_urls) {
-        const cls = used.has(url) ? "thumb used" : "thumb";
-        html += `<label class="${cls}">`
-             +  `<img src="${url}" loading="lazy">`
-             +  `<input type="radio" name="image_url" value="${url}">`
-             +  `</label>`;
-      }
-      html += `</div>`;
+  html += `<h2>Pick a source image</h2><div class="grid">`
+       +  `<label class="thumb upload-tile" id="uploadTile">`
+       +    `<span class="upload-placeholder">+ upload<br>your own</span>`
+       +    `<img id="uploadThumbImg">`
+       +    `<input type="radio" name="image_url" value="__upload__" id="uploadRadio">`
+       +  `</label>`;
+  for (const b of batches) {
+    for (const url of b.image_urls) {
+      const cls = used.has(url) ? "thumb used" : "thumb";
+      html += `<label class="${cls}">`
+           +  `<img src="${url}" loading="lazy">`
+           +  `<input type="radio" name="image_url" value="${url}">`
+           +  `</label>`;
     }
-  } else {
-    html += `<p><small>No recent aibeauty photo batches to pick from &mdash; `
-         +  `use the upload field above instead.</small></p>`;
   }
+  html += `</div>`;
+  if (!batches.length) {
+    html += `<p><small>No recent aibeauty photo batches to pick from &mdash; `
+         +  `use the upload tile above instead.</small></p>`;
+  }
+  html += `<input type="file" id="uploadFile" accept="image/*" style="display:none">`;
   html += `<label>Motion prompt:</label>`
        +  `<textarea name="motion_prompt" required>${suggested.replace(/</g, "&lt;")}</textarea>`
        +  `<div class="row">`
@@ -330,11 +326,21 @@ async function loadPicker() {
        +  `</form>`;
   $("picker").innerHTML = html;
   $("frm").addEventListener("submit", onSubmit);
-  document.querySelectorAll('input[name="image_url"]').forEach(r =>
-    r.addEventListener("change", () => {
-      uploadFile.value = "";
-      $("uploadPreview").innerHTML = "";
-    }));
+
+  const uploadFile = $("uploadFile");
+  const uploadTile = $("uploadTile");
+  const uploadRadio = $("uploadRadio");
+  uploadTile.addEventListener("click", (ev) => {
+    if (ev.target !== uploadFile) uploadFile.click();
+  });
+  uploadFile.addEventListener("change", () => {
+    const f = uploadFile.files[0];
+    if (!f) return;
+    $("uploadThumbImg").src = URL.createObjectURL(f);
+    uploadTile.classList.add("has-file");
+    uploadRadio.checked = true;
+  });
+
   if (batches.length) status("", "");
 }
 
@@ -344,10 +350,15 @@ async function onSubmit(e) {
   if (!token) { status("Paste a GitHub PAT first.", "err"); return; }
   if (!verifiedLogin) { status("Heads up: PAT not verified yet, trying anyway...", "pending"); }
   const fd = new FormData(e.target);
-  const file = uploadFile.files[0];
   let imageUrl = fd.get("image_url");
-  if (!file && !imageUrl) {
-    status("Pick an image from a batch, or upload your own, first.", "err");
+  const isUpload = imageUrl === "__upload__";
+  const file = isUpload ? $("uploadFile").files[0] : null;
+  if (!imageUrl) {
+    status("Pick a source image first.", "err");
+    return;
+  }
+  if (isUpload && !file) {
+    status("Selected upload, but no file chosen -- click the upload tile again.", "err");
     return;
   }
   $("btn").disabled = true;
