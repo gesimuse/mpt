@@ -73,9 +73,7 @@ jobs:
 
       - name: Install Ollama and pull models
         # ponytail: fresh install + fresh pull every run -- GH runners have no
-        # persistent cache. llama3.2-vision is ~7.9GB, so this eats real time out of
-        # the 150min budget; move to a self-hosted runner or a remote Ollama (set
-        # OLLAMA_URL) if it starts squeezing generation time.
+        # persistent cache.
         run: |
           curl -fsSL https://ollama.com/install.sh | sh
           nohup ollama serve > /tmp/ollama.log 2>&1 &
@@ -83,12 +81,12 @@ jobs:
             curl -sf http://localhost:11434/api/tags > /dev/null && break
             sleep 1
           done
-          # llava:7b (not llama3.2-vision) -- mllama architecture isn't supported by
-          # the llama-server engine current Ollama versions ship with; a live CI run
-          # rejected every image with 'unknown model architecture: mllama'. llava
-          # uses a standard llama backbone + CLIP vision encoder, universally
-          # supported. See supervisor.py's docstring for full context.
-          ollama pull llava:7b
+          # llama3.2-vision (supervisor.py's vision QA model) is NOT pulled here --
+          # SUPERVISOR_ENABLED=0 below skips that gate entirely (manual review in
+          # the TikTok app covers it), so pulling its ~7.9GB would just burn CI time
+          # for a model that never gets used. Re-add this pull if SUPERVISOR_ENABLED
+          # flips back to "1". llama3.2:3b (caption_writer.py) is unrelated and
+          # still needed either way.
           ollama pull llama3.2:3b
 
       - name: Install deps
@@ -155,6 +153,14 @@ jobs:
           # actions/checkout already configures push credentials for this repo (any
           # branch, not just the default one), which is what tiktok.py's git push to
           # gh-pages relies on -- nothing extra to set up here.
+          #
+          # Supervisor vision QA disabled for now -- the account owner reviews every
+          # draft in the TikTok app before posting anyway, so it's a real CPU cost
+          # (llama3.2-vision on this runner's 2 vCPUs, correcting llava:7b's badly
+          # miscalibrated `realistic` score -- see supervisor.py's docstring) for a
+          # gate that isn't the actual safety net here. Code stays in place and
+          # correct for whenever this flips back on; just skip running it.
+          SUPERVISOR_ENABLED: "0"
         run: python autopilot.py
 
       # Commit posted.json back to the repo. This both persists topic/upload

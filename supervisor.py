@@ -6,13 +6,20 @@ mistakes -- extra fingers, warped hands, merged limbs, an asymmetric face. Those
 more common at 4 steps than at 25, so nothing is exempt from this check.
 
 Runs against a local Ollama instance's OpenAI-compatible endpoint. Default vision model
-is llava:7b -- pull it once with `ollama pull llava:7b`.
+is llama3.2-vision -- pull it once with `ollama pull llama3.2-vision`.
 
-llama3.2-vision was the earlier default but its mllama architecture is not supported by
-the llama-server engine current Ollama versions ship with -- a real CI run rejected
-every image with 'unknown model architecture: mllama' from llama-server. llava uses a
-standard llama backbone + CLIP vision encoder, universally supported by every Ollama
-build. Half the size too (~4.7GB vs 7.9GB), so CI pulls finish faster.
+llava:7b was tried as a replacement after an old CI run rejected every image with
+'unknown model architecture: mllama' from llama-server (llama3.2-vision's mllama
+architecture wasn't supported by the llama-server engine Ollama shipped at the time).
+But llava:7b's own `realistic` (1-10) score turned out badly miscalibrated -- confirmed
+live: it scored 1/10 on multiple genuinely convincing, clearly-photorealistic generated
+images, rejecting nearly everything regardless of actual quality. Re-tested
+llama3.2-vision directly against Ollama 0.24.0 and the mllama error is gone (Ollama's
+own engine has since caught up); it scored the SAME images 9/10, correctly. CI installs
+Ollama via `curl -fsSL https://ollama.com/install.sh | sh` with no version pin, so it
+always gets the current release too -- same fix applies there, not just locally. Larger
+pull than llava:7b (~7.9GB vs ~4.7GB), but a correct verdict matters more than a faster
+download of a model that can't do the one numeric judgment call this whole gate leans on.
 """
 import base64, json, os, re, time
 from pathlib import Path
@@ -24,7 +31,7 @@ import requests
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434/v1/chat/completions")
 VISION_MODELS = [
     m.strip() for m in
-    os.environ.get("SUPERVISOR_VISION_MODELS", "llava:7b").split(",") if m.strip()
+    os.environ.get("SUPERVISOR_VISION_MODELS", "llama3.2-vision").split(",") if m.strip()
 ]
 
 RUBRIC = """You inspect one AI-generated photo before it is allowed to reach a public
