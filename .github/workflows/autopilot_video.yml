@@ -1,0 +1,94 @@
+name: MPT Autopilot Video (aibeautyvideo)
+# No cron -- the video niche is intentionally manual. Run push_video.py locally,
+# pick an image, edit the motion prompt, press Confirm; that fires this
+# workflow_dispatch with the chosen inputs. Video generation happens on Kaggle
+# (via the vendored motionforge Kaggle bridge, calling HF ZeroGPU's Wan 2.2 I2V
+# rCM Space), the resulting mp4 is posted as a TikTok inbox draft by MPT.
+on:
+  workflow_dispatch:
+    inputs:
+      image_url:
+        description: "Source image URL (from gh-pages media/; push_video.py fills this)"
+        required: true
+        type: string
+      motion_prompt:
+        description: "Motion prompt"
+        required: true
+        type: string
+      length_s:
+        description: "Video length in seconds (max 5.0)"
+        required: false
+        default: "5.0"
+        type: string
+      steps:
+        description: "Wan rCM inference steps (4-8)"
+        required: false
+        default: "4"
+        type: string
+
+concurrency:
+  group: autopilot-video
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    # Kaggle push + motionforge/scripts/poll_kaggle.py (default 110min timeout,
+    # 60s interval). Real Wan 2.2 I2V rCM run is ~1-2min gen + Kaggle cold start;
+    # 30min ceiling protects the runner if Kaggle stalls.
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Clone motionforge (Kaggle bridge scripts)
+        # Cloned at runtime rather than vendored -- their scripts stay under their
+        # own repo's history/license; we always get the maintained version.
+        run: git clone --depth 1 https://github.com/gesimuse/motionforge motionforge_ext
+
+      - name: Install deps
+        # kaggle<2.0 keeps the KAGGLE_USERNAME/KAGGLE_KEY auth path (matches
+        # motionforge's run_local.sh); 2.x switched to OAuth. requests handles
+        # TikTok + git; no torch/mediapipe/ollama needed for the video path.
+        run: pip install "kaggle<2.0" requests
+
+      - name: Run autopilot (video niche only)
+        env:
+          NICHES: aibeautyvideo
+          MOTIONFORGE_DIR: ${{ github.workspace }}/motionforge_ext
+          # autopilot.py._run_video_niche reads these overrides -- push_video.py's
+          # local UI is what put them here via workflow_dispatch inputs.
+          VIDEO_IMAGE_URL: ${{ inputs.image_url }}
+          VIDEO_PROMPT: ${{ inputs.motion_prompt }}
+          VIDEO_LENGTH_S: ${{ inputs.length_s }}
+          VIDEO_STEPS: ${{ inputs.steps }}
+          # Kaggle CLI auth. motionforge's kernel does no compute; it just proxies
+          # to the HF Space. KAGGLE_KEY is what the CLI expects; motionforge's
+          # run_local.sh happens to name the secret KAGGLE_API_TOKEN, and
+          # videogen.py aliases one to the other so either name works.
+          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+          KAGGLE_KEY: ${{ secrets.KAGGLE_API_TOKEN }}
+          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
+          TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
+          TIKTOK_REFRESH_TOKEN_AIBEAUTY: ${{ secrets.TIKTOK_REFRESH_TOKEN_AIBEAUTY }}
+          PAGES_BASE_URL: https://gesimuse.github.io/mpt
+        run: python autopilot.py
+
+      - name: Persist state (keepalive)
+        if: always()
+        run: |
+          git config user.name "autopilot-bot"
+          git config user.email "actions@github.com"
+          git add posted.json CAPTIONS.md
+          git diff --cached --quiet || git commit -m "chore: autopilot-video run $(date -u +%F_%H:%M)"
+          git pull --rebase origin ${{ github.ref_name }} || true
+          git push || echo "push failed (non-fatal)"

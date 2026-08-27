@@ -1,0 +1,62 @@
+{
+  "niches": [
+    {
+      "id": "aibeauty",
+      "name": "AIBeauty — AI portrait slideshows",
+      "purpose": "TikTok-only image carousels, queued as native TikTok inbox drafts.",
+      "content_type": "images",
+      "images_per_video": 10,
+      "max_images": 5,
+      "min_images": 3,
+      "videos_per_run": 1,
+      "hashtags": "#aiart #aigenerated #aiphotography #confident",
+      "ai_disclosure": "Created with AI.",
+      "captions": [
+        "Confidence looks good on me.",
+        "Not sorry for the view.",
+        "Golden hour and good angles.",
+        "A little extra never hurt.",
+        "Some days just look like this.",
+        "Soft light, softer smile.",
+        "Main character energy.",
+        "Just here for the lighting.",
+        "This is your sign to go outside.",
+        "Ask me nothing, I won't tell.",
+        "Ok but make it iconic.",
+        "Feeling myself, no apologies.",
+        "Built different, styled better.",
+        "Not everyone gets this angle."
+      ],
+      "civitai_queries": [
+        "realistic portrait woman",
+        "photorealistic woman",
+        "beauty portrait",
+        "cinematic portrait woman",
+        "sexy realistic woman",
+        "realistic beauty model",
+        "instagram model realistic",
+        "fashion editorial woman",
+        "realistic fashion model"
+      ]
+    },
+    {
+      "id": "aibeautyvideo",
+      "name": "AIBeauty video — reuse an aibeauty still, animate via Wan 2.2 I2V rCM",
+      "purpose": "Pick the most recent aibeauty photo, animate it with Wan 2.2 I2V rCM on HF ZeroGPU, post as a TikTok inbox video draft on the same channel as the photos.",
+      "content_type": "video_via_motionforge",
+      "source_niche": "aibeauty",
+      "tiktok_token_niche": "aibeauty",
+      "videos_per_run": 1,
+      "hashtags": "#aiart #aivideo #wan22 #confident",
+      "ai_disclosure": "Created with AI.",
+      "motionforge_prompt": "she smiles, tilts head, hair moves in the wind",
+      "motionforge_length_s": "5.0",
+      "motionforge_steps": "4",
+      "captions": [
+        "Some days just look like this.",
+        "Feeling myself, no apologies.",
+        "Main character energy."
+      ]
+    }
+  ]
+}

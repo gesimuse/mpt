@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+!.env.example
+.DS_Store
+out/
+.claude/
+# tiktok.py's local worktree of the gh-pages branch -- a checkout of a different
+# branch, never content that belongs in a main-branch commit.
+.gh-pages-worktree/

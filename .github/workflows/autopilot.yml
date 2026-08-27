@@ -1,0 +1,171 @@
+name: MPT Autopilot (aibeauty)
+on:
+  schedule:
+    # 5 runs/day, videos_per_run: 1 in niches.json -- one draft per run, spread across
+    # daytime hours (07/09/11/13/15 GMT+2 -- 05/07/09/11/13 UTC) rather than bursting
+    # all 5 at once or posting overnight. Matches TikTok's own documented cap of 5
+    # pending (unposted) drafts per rolling 24h (spam_risk_too_many_pending_share past
+    # that); autopilot.py's own pending-drafts check (_pending_drafts_last_24h) skips
+    # or clamps a run if manual pushes have already eaten into that cap.
+    - cron: "0 5 * * *"
+    - cron: "0 7 * * *"
+    - cron: "0 9 * * *"
+    - cron: "0 11 * * *"
+    - cron: "0 13 * * *"
+  workflow_dispatch:
+    inputs:
+      niches:
+        description: "Comma-separated niche ids to run (blank = all, e.g. aibeauty)"
+        required: false
+        default: ""
+      max_pending_drafts:
+        description: >-
+          Override the pending-drafts cap for this manual run only (default 5,
+          matching TikTok's real per-24h limit). Only raise this if you've actually
+          cleared/posted drafts in the TikTok app since the last real generation --
+          this is our own local proxy count, not something TikTok exposes, so it has
+          no way to know about that on its own.
+        required: false
+        default: ""
+
+concurrency:
+  group: autopilot
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    # 1 batch (videos_per_run) x up to 2 rounds x images_per_video generations.
+    # A real run measured ~200-245s/image on the actual GH Actions CPU runner
+    # (base render + refine.py's face/hand touch-up + upscale.py's 2x pass, all
+    # included in that number -- real-world, not the older ~130s base-only
+    # estimate this comment used to cite). Worst case 2 rounds x 10 images x
+    # ~245s = ~82min just for generation, before dep install/model download/QA
+    # API calls -- a real run got killed by a 90min timeout mid-round-2 as a
+    # direct result. 150min gives that actual number real headroom; refine.py's
+    # MAX_REGIONS_PER_KIND was also dropped from 2 to 1 for the same reason (see
+    # refine.py) -- both changes address the same incident, not either alone.
+    # hand_pose.py's ControlNet-guided hand inpaint (replacing the old plain-
+    # inpaint hand path) was only timed live on a desktop GPU (~20-40s/hand there);
+    # its real cost on this runner's CPU is UNVERIFIED -- ControlNet adds a real
+    # second forward pass on top of the base UNet, plausibly 1.3-1.8x a plain
+    # inpaint's own CPU time. Watch the next few real runs' actual durations
+    # against this budget rather than trusting this estimate.
+    timeout-minutes: 150
+    permissions:
+      contents: write   # allows the workflow to commit posted.json back
+    steps:
+      # fetch-depth: 0 so tiktok.py's `git fetch origin gh-pages` + worktree has full
+      # history to work with, not just the default branch's shallow single commit.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install system deps
+        # mediapipe's hand_landmarker dlopens libEGL.so.1 at import; not present on
+        # the bare ubuntu-latest runner, so hand refine crashes with
+        # "libEGL.so.1: cannot open shared object file". libegl1 fixes it.
+        run: sudo apt-get update && sudo apt-get install -y libegl1 libgles2
+
+      - name: Install Ollama and pull models
+        # ponytail: fresh install + fresh pull every run -- GH runners have no
+        # persistent cache. llama3.2-vision is ~7.9GB, so this eats real time out of
+        # the 150min budget; move to a self-hosted runner or a remote Ollama (set
+        # OLLAMA_URL) if it starts squeezing generation time.
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          nohup ollama serve > /tmp/ollama.log 2>&1 &
+          for i in {1..30}; do
+            curl -sf http://localhost:11434/api/tags > /dev/null && break
+            sleep 1
+          done
+          # llava:7b (not llama3.2-vision) -- mllama architecture isn't supported by
+          # the llama-server engine current Ollama versions ship with; a live CI run
+          # rejected every image with 'unknown model architecture: mllama'. llava
+          # uses a standard llama backbone + CLIP vision encoder, universally
+          # supported. See supervisor.py's docstring for full context.
+          ollama pull llava:7b
+          ollama pull llama3.2:3b
+
+      - name: Install deps
+        run: |
+          pip install requests
+          # torchvision installed HERE, pinned to the same CPU wheel index as torch --
+          # this workflow never installed torchvision at all before ultralytics/
+          # super-image were added below, both of which depend on it. Left unpinned,
+          # pip pulled a plain-PyPI torchvision build (not the +cpu one) that doesn't
+          # match torch's own +cpu build, which broke diffusers' own import chain
+          # with a bare "Failed to import ... pipeline_stable_diffusion" on a real
+          # run -- a classic torch/torchvision ABI mismatch, confirmed by checking
+          # that run's own "Successfully installed ... torchvision-0.28.0" line (no
+          # +cpu suffix, unlike torch's). Installing it explicitly, matched, first,
+          # means ultralytics/super-image see it already satisfied and don't touch it.
+          pip install --index-url https://download.pytorch.org/whl/cpu torch torchvision
+          pip install diffusers transformers accelerate safetensors peft compel
+          # Face/hand detection for refine.py's ADetailer-style touch-up pass.
+          # ultralytics pulls opencv-python-headless + a few other deps of its own.
+          pip install ultralytics
+          # 2x super-resolution pass (upscale.py). super-image, not the more common
+          # realesrgan package -- realesrgan's basicsr dependency fails to build here
+          # (confirmed live, unrelated to this repo), super-image has no such issue.
+          pip install super-image
+          # Pose-guided hand inpainting (hand_pose.py) -- MediaPipe hand landmarks +
+          # a ControlNet pose skeleton, real structural guidance instead of hoping
+          # text prompts alone produce correct finger topology (which live testing
+          # showed failing on roughly half of real detected hands: hallucinated
+          # objects, mismatched skin tone). Verified live in a clean venv that this
+          # combination installs cleanly and torch/torchvision stay matched (see the
+          # torchvision comment above -- same class of risk, checked the same way).
+          # mediapipe pinned below 1.0: a local GPU run confirmed mediapipe 1.0.1
+          # deletes the legacy `mp.solutions` API entirely (only the new Tasks API
+          # remains), which controlnet_aux 0.0.10's mediapipe_face submodule still
+          # imports unconditionally -- `import controlnet_aux` itself crashes with
+          # "module 'mediapipe' has no attribute 'solutions'" before hand_pose.py
+          # ever runs. 0.10.21 is the last release before that removal.
+          pip install "mediapipe==0.10.21" controlnet_aux
+
+      - name: Run autopilot
+        env:
+          NICHES: ${{ github.event.inputs.niches }}
+          # Empty string falls back to '5' (|| is falsy-coalescing in GH Actions
+          # expressions) -- autopilot.py's own int(os.environ.get(..., "5")) would
+          # crash on a literal empty string otherwise.
+          MAX_PENDING_DRAFTS: ${{ github.event.inputs.max_pending_drafts || '5' }}
+          # Optional: raises the Hugging Face Hub rate limit for the LCM-LoRA download
+          # sdgen.py pulls every run (GH Actions runners have no persistent cache).
+          # huggingface_hub reads this from the env automatically, no code change needed.
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          # Read-only: sent on GET requests to CivitAI's search/gallery endpoints only,
+          # never near their separate paid generation API. Without it /api/v1/models
+          # and /api/v1/images return 451; model-version lookups and downloads work
+          # either way, so image generation still runs without this key, just with
+          # less prompt/model variety (falls back to the built-in prompt formula).
+          CIVITAI_API_KEY: ${{ secrets.CIVITAI_API_KEY }}
+          TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
+          TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
+          TIKTOK_REFRESH_TOKEN_AIBEAUTY: ${{ secrets.TIKTOK_REFRESH_TOKEN_AIBEAUTY }}
+          # Images are committed to the gh-pages branch (tiktok.py) and served
+          # directly from there -- GitHub Releases' download URLs redirect to a
+          # signed, ~1h-expiring URL, which TikTok's PULL_FROM_URL disallows.
+          PAGES_BASE_URL: https://gesimuse.github.io/mpt
+          # actions/checkout already configures push credentials for this repo (any
+          # branch, not just the default one), which is what tiktok.py's git push to
+          # gh-pages relies on -- nothing extra to set up here.
+        run: python autopilot.py
+
+      # Commit posted.json back to the repo. This both persists topic/upload
+      # history between runs AND counts as repo activity, so GitHub never
+      # auto-disables the schedule (60-day inactivity rule).
+      - name: Persist state (keepalive)
+        if: always()
+        run: |
+          git config user.name "autopilot-bot"
+          git config user.email "actions@github.com"
+          git add posted.json CAPTIONS.md
+          git diff --cached --quiet || git commit -m "chore: autopilot run $(date -u +%F_%H:%M)"
+          git pull --rebase origin ${{ github.ref_name }} || true
+          git push || echo "push failed (non-fatal)"
