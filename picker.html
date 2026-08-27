@@ -1,0 +1,214 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>MPT video picker</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!--
+Zero-local-setup picker: served from gh-pages, fetches posted.json from
+raw.githubusercontent (public, CORS-open), fires workflow_dispatch on
+autopilot_video.yml via api.github.com. The only thing the user needs to do
+ONCE is create a fine-grained PAT with actions:write on this repo and paste
+it into the field below -- it's cached in localStorage after that.
+
+Deployed by .github/workflows/deploy_picker.yml on every push to main that
+touches picker.html.
+-->
+<style>
+body { font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+       max-width: 960px; margin: 24px auto; padding: 0 16px; color: #1c1c1c; }
+h1 { font-size: 22px; margin: 0 0 8px; }
+h2 { font-size: 13px; color: #666; margin: 20px 0 6px; font-weight: 500;
+     text-transform: uppercase; letter-spacing: 0.05em; }
+p { color: #444; line-height: 1.5; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 8px; margin-bottom: 12px; }
+.thumb { position: relative; cursor: pointer; border: 3px solid transparent;
+         border-radius: 8px; overflow: hidden; aspect-ratio: 2/3; background: #eee; }
+.thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.thumb.used { opacity: 0.35; }
+.thumb.used::after { content: 'used'; position: absolute; top: 6px; left: 6px;
+                    background: #000c; color: #fff; font-size: 11px;
+                    padding: 2px 6px; border-radius: 3px; font-weight: 500; }
+.thumb input { position: absolute; top: 6px; right: 6px; transform: scale(1.5);
+              cursor: pointer; accent-color: #0a84ff; }
+.thumb:has(input:checked) { border-color: #0a84ff; }
+label { display: block; margin: 10px 0 4px; font-size: 13px; color: #555;
+        font-weight: 500; }
+input[type=text], input[type=password], textarea {
+  width: 100%; font: 14px system-ui; padding: 10px; border: 1px solid #ccc;
+  border-radius: 6px; box-sizing: border-box; background: #fff; }
+textarea { resize: vertical; min-height: 72px; }
+input:focus, textarea:focus { outline: 2px solid #0a84ff; outline-offset: -1px;
+                              border-color: transparent; }
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+button { margin-top: 16px; padding: 12px 24px; font: 500 15px system-ui;
+         background: #0a84ff; color: #fff; border: 0; border-radius: 6px;
+         cursor: pointer; }
+button:disabled { background: #ccc; cursor: not-allowed; }
+button:hover:not(:disabled) { background: #006edb; }
+.msg { padding: 12px 16px; border-radius: 6px; margin: 12px 0; font-size: 14px; }
+.ok  { background: #e6f9ec; color: #0a5c2a; border: 1px solid #b6e7c1; }
+.err { background: #fde8e8; color: #8a1a1a; border: 1px solid #f0b8b8; }
+details { margin: 12px 0; }
+summary { cursor: pointer; color: #0a84ff; font-size: 13px; }
+code, small { font-size: 12px; color: #555; }
+</style>
+</head>
+<body>
+<h1>MPT video picker</h1>
+<p>Pick one of the recent aibeauty images, edit the motion prompt, press
+Confirm. That fires <code>autopilot_video.yml</code> in the repo; the mp4 lands
+in your TikTok inbox as a draft (~10 min later).</p>
+
+<details>
+<summary>One-time setup (fine-grained PAT)</summary>
+<p><small>Create a fine-grained PAT at
+<a href="https://github.com/settings/personal-access-tokens/new" target="_blank">
+github.com/settings/personal-access-tokens/new</a> &rarr; scope it to only
+this repo (<code>gesimuse/mpt</code>) &rarr; Repository permissions: set
+<b>Actions</b> to <b>Read and write</b>. Paste the token below; it stays in
+your browser's localStorage on this device only.</small></p>
+</details>
+
+<label>GitHub PAT (cached in this browser):</label>
+<input type="password" id="pat" placeholder="github_pat_..." autocomplete="off">
+
+<div id="status"></div>
+<div id="picker"></div>
+
+<script>
+const OWNER = "gesimuse";
+const REPO = "mpt";
+const WORKFLOW = "autopilot_video.yml";
+const BATCH_LIMIT = 4;
+const POSTED_URL = `https://raw.githubusercontent.com/${OWNER}/${REPO}/main/posted.json`;
+const NICHES_URL = `https://raw.githubusercontent.com/${OWNER}/${REPO}/main/niches.json`;
+
+const $ = (id) => document.getElementById(id);
+const pat = $("pat");
+pat.value = localStorage.getItem("mpt_pat") || "";
+pat.addEventListener("input", () => localStorage.setItem("mpt_pat", pat.value));
+
+function status(msg, cls) {
+  $("status").innerHTML = msg ? `<div class="msg ${cls}">${msg}</div>` : "";
+}
+
+function recentBatches(uploads, limit) {
+  const out = [];
+  for (let i = uploads.length - 1; i >= 0 && out.length < limit; i--) {
+    const u = uploads[i];
+    if (u.niche === "aibeauty" && u.tiktok && (u.image_urls || []).length) {
+      out.push(u);
+    }
+  }
+  return out;
+}
+
+function usedUrls(uploads) {
+  const s = new Set();
+  for (const u of uploads) {
+    if (u.niche === "aibeautyvideo" && u.motionforge_source_url) {
+      s.add(u.motionforge_source_url);
+    }
+  }
+  return s;
+}
+
+async function loadPicker() {
+  status("Loading recent images...", "ok");
+  let posted, niches;
+  try {
+    // Cache-bust so we don't sit on raw.githubusercontent's ~5min CDN.
+    const bust = "?t=" + Date.now();
+    [posted, niches] = await Promise.all([
+      fetch(POSTED_URL + bust).then(r => r.json()),
+      fetch(NICHES_URL + bust).then(r => r.json()),
+    ]);
+  } catch (e) {
+    status("Failed to load posted.json / niches.json: " + e.message, "err");
+    return;
+  }
+
+  const uploads = posted.uploads || [];
+  const batches = recentBatches(uploads, BATCH_LIMIT);
+  const used = usedUrls(uploads);
+  const videoNiche = (niches.niches || []).find(n => n.id === "aibeautyvideo") || {};
+  const suggested = videoNiche.motionforge_prompt || "";
+
+  if (!batches.length) {
+    status("No recent aibeauty photo batches with image_urls found. Wait for "
+           + "the next photo cron run.", "err");
+    return;
+  }
+
+  status("", "");
+  let html = `<form id="frm">`;
+  for (const b of batches) {
+    html += `<h2>${b.ts || "?"} &middot; ${(b.title || "").slice(0, 80)}</h2><div class="grid">`;
+    for (const url of b.image_urls) {
+      const cls = used.has(url) ? "thumb used" : "thumb";
+      html += `<label class="${cls}">`
+           +  `<img src="${url}" loading="lazy">`
+           +  `<input type="radio" name="image_url" value="${url}" required>`
+           +  `</label>`;
+    }
+    html += `</div>`;
+  }
+  html += `<label>Motion prompt:</label>`
+       +  `<textarea name="motion_prompt" required>${suggested.replace(/</g, "&lt;")}</textarea>`
+       +  `<div class="row">`
+       +  `<div><label>Length (s, max 5):</label>`
+       +    `<input type="text" name="length_s" value="5.0"></div>`
+       +  `<div><label>Steps (4-8):</label>`
+       +    `<input type="text" name="steps" value="4"></div>`
+       +  `</div>`
+       +  `<button type="submit" id="btn">Confirm &amp; send to MotionForge</button>`
+       +  `</form>`;
+  $("picker").innerHTML = html;
+  $("frm").addEventListener("submit", onSubmit);
+}
+
+async function onSubmit(e) {
+  e.preventDefault();
+  const token = pat.value.trim();
+  if (!token) { status("Paste a GitHub PAT first.", "err"); return; }
+  const fd = new FormData(e.target);
+  const inputs = {
+    image_url: fd.get("image_url"),
+    motion_prompt: fd.get("motion_prompt"),
+    length_s: fd.get("length_s"),
+    steps: fd.get("steps"),
+  };
+  $("btn").disabled = true;
+  status("Dispatching...", "ok");
+  try {
+    const r = await fetch(
+      `https://api.github.com/repos/${OWNER}/${REPO}/actions/workflows/${WORKFLOW}/dispatches`,
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Accept": "application/vnd.github+json",
+          "X-GitHub-Api-Version": "2022-11-28",
+        },
+        body: JSON.stringify({ ref: "main", inputs }),
+      });
+    if (r.status === 204) {
+      const runsUrl = `https://github.com/${OWNER}/${REPO}/actions/workflows/${WORKFLOW}`;
+      status(`Dispatched! Watch it run: <a href="${runsUrl}" target="_blank">Actions tab</a>`, "ok");
+    } else {
+      const t = await r.text();
+      status(`Dispatch failed: ${r.status} ${t.slice(0, 400)}`, "err");
+    }
+  } catch (err) {
+    status("Network error: " + err.message, "err");
+  } finally {
+    $("btn").disabled = false;
+  }
+}
+
+loadPicker();
+</script>
+</body>
+</html>
