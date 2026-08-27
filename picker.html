@@ -66,20 +66,33 @@ code, small { font-size: 12px; color: #555; }
 .badge::before { content: '✓'; display: inline-flex; align-items: center; justify-content: center;
                   width: 16px; height: 16px; border-radius: 50%; background: #2fa84f;
                   color: #fff; font-size: 11px; }
-.thumb.upload-tile { display: flex; align-items: center; justify-content: center;
-                      border: 2px dashed #ccc; color: #888; font-size: 13px;
-                      text-align: center; padding: 8px; }
-.thumb.upload-tile:has(input:checked) { border-style: solid; }
-.thumb.upload-tile img { display: none; }
+.thumb.upload-tile { display: flex; flex-direction: column; align-items: center;
+                      justify-content: center; border: 2px dashed #ccc; color: #888;
+                      font-size: 13px; text-align: center; padding: 8px; cursor: pointer; }
+.thumb.upload-tile img { display: none; position: absolute; inset: 0;
+                          width: 100%; height: 100%; object-fit: cover; }
 .thumb.upload-tile.has-file img { display: block; }
 .thumb.upload-tile.has-file .upload-placeholder { display: none; }
+.upload-actions { display: none; position: absolute; bottom: 6px; left: 6px; right: 6px;
+                   gap: 6px; z-index: 1; }
+.thumb.upload-tile.has-file .upload-actions { display: flex; }
+.upload-actions button { margin: 0; padding: 6px 0; font-size: 12px; flex: 1;
+                          border-radius: 5px; }
+.upload-actions .cancel { background: #fff; color: #444; flex: 0 0 auto; padding: 6px 10px; }
+#uploadMsg { grid-column: 1 / -1; font-size: 12px; margin: -4px 0 8px; }
+#uploadMsg.err { color: #8a1a1a; }
+#uploadMsg.pending { color: #7a5c00; }
+#uploadMsg.ok { color: #0a5c2a; }
 </style>
 </head>
 <body>
 <h1>MPT video picker</h1>
-<p>Pick one of the recent aibeauty images (or upload your own), edit the motion
-prompt, press Confirm. That fires <code>autopilot_video.yml</code> in the repo;
-the mp4 lands in your TikTok inbox as a draft (~10 min later).</p>
+<p>Pick one of the recent aibeauty images, edit the motion prompt (pre-filled
+per image where we know what generated it), press Confirm. That fires
+<code>autopilot_video.yml</code> in the repo; the mp4 lands in your TikTok inbox
+as a draft (~10 min later). To add your own photo: click the upload tile, pick
+a file, press Done -- it gets added to the grid like any other generated image,
+ready to pick now or later.</p>
 
 <details id="setup">
 <summary>One-time setup (fine-grained PAT)</summary>
@@ -118,6 +131,8 @@ const clearBtn = $("clearBtn");
 
 pat.value = localStorage.getItem("mpt_pat") || "";
 let verifiedLogin = localStorage.getItem("mpt_pat_verified_login") || "";
+let DEFAULT_PROMPT = ""; // niche-level generic motion prompt, fallback when an
+                          // image has no per-image prompt of its own
 
 function status(msg, cls) {
   $("status").innerHTML = msg ? `<div class="msg ${cls}">${msg}</div>` : "";
@@ -199,6 +214,60 @@ function fileToBase64(file) {
     r.onerror = reject;
     r.readAsDataURL(file);
   });
+}
+
+// Round-trips posted.json (UTF-8 JSON) through the Contents API's base64, which is
+// byte-oriented -- btoa/atob alone mangle anything outside Latin-1 (captions/titles
+// routinely aren't).
+function utf8ToB64(str) { return btoa(unescape(encodeURIComponent(str))); }
+function b64ToUtf8(b64) { return decodeURIComponent(escape(atob(b64.replace(/\n/g, "")))); }
+
+async function ghGet(path, token, ref) {
+  const r = await fetch(
+    `https://api.github.com/repos/${OWNER}/${REPO}/contents/${path}?ref=${ref}`,
+    { headers: { "Authorization": `Bearer ${token}`, "Accept": "application/vnd.github+json",
+                 "X-GitHub-Api-Version": "2022-11-28" } });
+  if (!r.ok) throw new Error(`GET ${path}: ${r.status}`);
+  return r.json();
+}
+
+async function ghPut(path, token, branch, contentB64, sha, message) {
+  return fetch(`https://api.github.com/repos/${OWNER}/${REPO}/contents/${path}`, {
+    method: "PUT",
+    headers: { "Authorization": `Bearer ${token}`, "Accept": "application/vnd.github+json",
+               "X-GitHub-Api-Version": "2022-11-28" },
+    body: JSON.stringify({ message, content: contentB64, branch, sha }),
+  });
+}
+
+// Appends a new "aibeauty" entry to posted.json on main, identical in shape to what
+// autopilot.py itself writes for a generated batch (minus image_prompts, which we
+// have no way to know for an arbitrary upload) -- so the video picker's own
+// recentBatches() picks it up as just another photo to animate, no special-casing.
+async function registerUpload(imageUrl, title, token) {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const file = await ghGet("posted.json", token, "main");
+    const state = JSON.parse(b64ToUtf8(file.content));
+    state.uploads = state.uploads || [];
+    const entry = {
+      niche: "aibeauty",
+      topic: `manual upload ${Date.now()}`,
+      title: title || "Manually uploaded photo",
+      tiktok: true,
+      tiktok_via: "picker_manual_upload",
+      image_urls: [imageUrl],
+      image_prompts: [null],
+      ts: new Date().toISOString().slice(0, 19),
+    };
+    state.uploads.push(entry);
+    const r = await ghPut("posted.json", token, "main",
+      utf8ToB64(JSON.stringify(state, null, 2)), file.sha,
+      "picker: register manually uploaded image");
+    if (r.ok) return entry;
+    if (r.status === 409 && attempt === 0) continue; // posted.json moved under us; retry once
+    const t = await r.text();
+    throw new Error(`couldn't register upload: ${r.status} ${t.slice(0, 300)}`);
+  }
 }
 
 async function uploadImage(file, token) {
@@ -291,6 +360,8 @@ async function loadPicker() {
     loadError = e.message;
   }
 
+  DEFAULT_PROMPT = suggested;
+
   // The prompt editor + Confirm button always render, even if the recent-batches
   // list above failed to load -- the upload tile below doesn't depend on it.
   let html = `<form id="frm">`;
@@ -298,18 +369,23 @@ async function loadPicker() {
        +  `<label class="thumb upload-tile" id="uploadTile">`
        +    `<span class="upload-placeholder">+ upload<br>your own</span>`
        +    `<img id="uploadThumbImg">`
-       +    `<input type="radio" name="image_url" value="__upload__" id="uploadRadio">`
+       +    `<div class="upload-actions">`
+       +      `<button type="button" id="uploadDoneBtn">Done</button>`
+       +      `<button type="button" class="cancel" id="uploadCancelBtn">&times;</button>`
+       +    `</div>`
        +  `</label>`;
   for (const b of batches) {
-    for (const url of b.image_urls) {
+    b.image_urls.forEach((url, i) => {
       const cls = used.has(url) ? "thumb used" : "thumb";
+      const prompt = (b.image_prompts && b.image_prompts[i]) || "";
       html += `<label class="${cls}">`
            +  `<img src="${url}" loading="lazy">`
-           +  `<input type="radio" name="image_url" value="${url}">`
+           +  `<input type="radio" name="image_url" value="${url}" `
+           +    `data-prompt="${prompt.replace(/"/g, "&quot;")}">`
            +  `</label>`;
-    }
+    });
   }
-  html += `</div>`;
+  html += `</div><div id="uploadMsg"></div>`;
   if (!batches.length) {
     html += `<p><small>No recent aibeauty photo batches to pick from &mdash; `
          +  `use the upload tile above instead.</small></p>`;
@@ -327,20 +403,8 @@ async function loadPicker() {
        +  `</form>`;
   $("picker").innerHTML = html;
   $("frm").addEventListener("submit", onSubmit);
-
-  const uploadFile = $("uploadFile");
-  const uploadTile = $("uploadTile");
-  const uploadRadio = $("uploadRadio");
-  uploadTile.addEventListener("click", (ev) => {
-    if (ev.target !== uploadFile) uploadFile.click();
-  });
-  uploadFile.addEventListener("change", () => {
-    const f = uploadFile.files[0];
-    if (!f) return;
-    $("uploadThumbImg").src = URL.createObjectURL(f);
-    uploadTile.classList.add("has-file");
-    uploadRadio.checked = true;
-  });
+  wireImageRadios();
+  wireUploadTile();
 
   if (loadError) {
     status("Couldn't load posted.json / niches.json (" + loadError + "). "
@@ -350,41 +414,105 @@ async function loadPicker() {
   }
 }
 
+// Selecting any image (generated or a previously-registered upload) seeds the
+// prompt textarea with THAT image's own prompt when we have one, so per-image
+// suggestions don't get stuck showing the first/generic one.
+function wireImageRadios() {
+  document.querySelectorAll('input[name="image_url"]').forEach(r =>
+    r.addEventListener("change", () => {
+      const ta = document.querySelector('textarea[name="motion_prompt"]');
+      if (ta) ta.value = r.dataset.prompt || DEFAULT_PROMPT;
+    }));
+}
+
+function addGeneratedThumb(url, prompt, selectIt) {
+  const label = document.createElement("label");
+  label.className = "thumb";
+  label.innerHTML = `<img src="${url}" loading="lazy">`
+    + `<input type="radio" name="image_url" value="${url}" `
+    + `data-prompt="${(prompt || "").replace(/"/g, "&quot;")}">`;
+  $("uploadTile").insertAdjacentElement("afterend", label);
+  const radio = label.querySelector("input");
+  radio.addEventListener("change", () => {
+    const ta = document.querySelector('textarea[name="motion_prompt"]');
+    if (ta) ta.value = radio.dataset.prompt || DEFAULT_PROMPT;
+  });
+  if (selectIt) radio.click(); // native click fires 'change', unlike setting .checked directly
+}
+
+function uploadMsg(text, cls) {
+  const el = $("uploadMsg");
+  el.className = cls || "";
+  el.textContent = text || "";
+}
+
+function resetUploadTile() {
+  const uploadFile = $("uploadFile");
+  uploadFile.value = "";
+  $("uploadTile").classList.remove("has-file");
+  $("uploadThumbImg").removeAttribute("src");
+  $("uploadDoneBtn").disabled = false;
+  $("uploadDoneBtn").textContent = "Done";
+}
+
+function wireUploadTile() {
+  const uploadFile = $("uploadFile");
+  const uploadTile = $("uploadTile");
+  const doneBtn = $("uploadDoneBtn");
+  const cancelBtn = $("uploadCancelBtn");
+
+  uploadTile.addEventListener("click", (ev) => {
+    if (uploadTile.classList.contains("has-file")) return; // let Done/Cancel handle clicks
+    uploadFile.click();
+  });
+  uploadFile.addEventListener("change", () => {
+    const f = uploadFile.files[0];
+    if (!f) return;
+    $("uploadThumbImg").src = URL.createObjectURL(f);
+    uploadTile.classList.add("has-file");
+    uploadMsg("", "");
+  });
+  cancelBtn.addEventListener("click", (ev) => {
+    ev.stopPropagation();
+    resetUploadTile();
+    uploadMsg("", "");
+  });
+  doneBtn.addEventListener("click", async (ev) => {
+    ev.stopPropagation();
+    const token = pat.value.trim();
+    if (!token) { uploadMsg("Paste + verify a GitHub PAT first.", "err"); return; }
+    const file = uploadFile.files[0];
+    if (!file) return;
+    doneBtn.disabled = true;
+    try {
+      doneBtn.textContent = "Uploading...";
+      const url = await uploadImage(file, token);
+      const live = await waitUntilLive(url, 120000, (secs) =>
+        (doneBtn.textContent = `Publishing... (${secs}s)`));
+      if (!live) uploadMsg("Still not live on Pages after 2min -- registering anyway.", "err");
+      doneBtn.textContent = "Registering...";
+      const entry = await registerUpload(url, file.name, token);
+      addGeneratedThumb(url, null, true);
+      resetUploadTile();
+      uploadMsg("Uploaded and added to the picker — selected below.", "ok");
+    } catch (err) {
+      uploadMsg(err.message, "err");
+      doneBtn.disabled = false;
+      doneBtn.textContent = "Done";
+    }
+  });
+}
+
 async function onSubmit(e) {
   e.preventDefault();
   const token = pat.value.trim();
   if (!token) { status("Paste a GitHub PAT first.", "err"); return; }
   if (!verifiedLogin) { status("Heads up: PAT not verified yet, trying anyway...", "pending"); }
   const fd = new FormData(e.target);
-  let imageUrl = fd.get("image_url");
-  const isUpload = imageUrl === "__upload__";
-  const file = isUpload ? $("uploadFile").files[0] : null;
+  const imageUrl = fd.get("image_url");
   if (!imageUrl) {
-    status("Pick a source image first.", "err");
+    status("Pick a source image first (or upload one and press Done).", "err");
     return;
-  }
-  if (isUpload && !file) {
-    status("Selected upload, but no file chosen -- click the upload tile again.", "err");
-    return;
-  }
-  $("btn").disabled = true;
-  if (file) {
-    status("Uploading image to gh-pages...", "pending");
-    try {
-      imageUrl = await uploadImage(file, token);
-    } catch (uploadErr) {
-      status("Upload failed: " + uploadErr.message, "err");
-      $("btn").disabled = false;
-      return;
-    }
-    const live = await waitUntilLive(imageUrl, 120000, (secs) =>
-      status(`Uploaded, waiting for GitHub Pages to publish it... (${secs}s)`, "pending"));
-    if (!live) {
-      status("GitHub Pages still hasn't published the upload after 2 minutes -- "
-             + "dispatching anyway, but the video job may fail to fetch the image. "
-             + `Check manually: <a href="${imageUrl}" target="_blank">${imageUrl}</a>`, "err");
-      await new Promise(res => setTimeout(res, 4000));
-    }
   }
   const inputs = {
     image_url: imageUrl,
@@ -392,6 +520,7 @@ async function onSubmit(e) {
     length_s: fd.get("length_s"),
     steps: fd.get("steps"),
   };
+  $("btn").disabled = true;
   status("Dispatching...", "ok");
   try {
     const r = await fetch(
