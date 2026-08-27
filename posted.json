@@ -1,7 +1,8 @@
 {
   "topics": {
     "aibeauty": [
-      "aibeauty-20260827-161633"
+      "aibeauty-20260827-161633",
+      "aibeauty-20260827-180820"
     ]
   },
   "uploads": [
@@ -63,11 +64,41 @@
         "beautiful adult latina woman in her late twenties, seductive, sexy, alluring, round breasts, round ass, beautiful, playful confident energy, glamour photography lighting, full length shot, head to toe, natural stance, 1. A young female chef (ethnicity: Hispanic, age: late 20s) in a bustling gourmet kitchen (setting: contemporary). She's wearing a stylish, tailored white chef's coat (fabric: stain-resistant cotton) with her name elegantly embroidered, paired with black, comfortable culinary pants. Her hair is tied up neatly under a chic chef's hat, and her makeup is minimal yet radiant. She's skillfully plating an exquisite dish (cuisine: fusion), with a focused and creative expression, surrounded by fresh, vibrant ingredients and state-of-the-art kitchen equipment."
       ],
       "ts": "2026-08-27T16:43:06"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260827-180820",
+      "title": "Not sorry for the view.",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7678784346804291606",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "Not sorry for the view.\n\nCreated with AI.\n\n#aiart #aigenerated #aiphotography #confident",
+      "image_urls": [
+        "https://gesimuse.github.io/mpt/media/1787856193-sd_0.jpg",
+        "https://gesimuse.github.io/mpt/media/1787856223-sd_1.jpg",
+        "https://gesimuse.github.io/mpt/media/1787856257-sd_2.jpg",
+        "https://gesimuse.github.io/mpt/media/1787856280-sd_3.jpg",
+        "https://gesimuse.github.io/mpt/media/1787856311-sd_4.jpg"
+      ],
+      "image_prompts": [
+        "beautiful adult latina woman in her late twenties, wearing a soaking wet, transparent tank top and denim shorts, in a steamy shower, glass fogged with steam, seductive, sexy, alluring, round breasts, round ass, beautiful, wet skin, dripping water, glistening body, wide shot, natural window light, a 30yo, 30 years old mongolian woman\nhighly detailed mid shot portrait photo, sharp focus on eyes, cinematic lighting",
+        "beautiful adult latina woman in her late twenties, wearing a soaking wet, transparent tank top and denim shorts, in a steamy shower, glass fogged with steam, seductive, sexy, alluring, round breasts, round ass, beautiful, wet skin, dripping water, glistening body, three-quarter view, soft studio lighting, a 30yo, 30 years old mongolian woman\nhighly detailed mid shot portrait photo, sharp focus on eyes, cinematic lighting",
+        "beautiful adult latina woman in her late twenties, wearing a soaking wet, transparent tank top and denim shorts, in a steamy shower, glass fogged with steam, seductive, sexy, alluring, round breasts, round ass, beautiful, wet skin, dripping water, glistening body, profile view, moody side lighting, a 30yo, 30 years old mongolian woman\nhighly detailed mid shot portrait photo, sharp focus on eyes, cinematic lighting",
+        "beautiful adult latina woman in her late twenties, wearing a soaking wet, transparent tank top and denim shorts, in a steamy shower, glass fogged with steam, seductive, sexy, alluring, round breasts, round ass, beautiful, wet skin, dripping water, glistening body, candid framing, natural daylight, a 30yo, 30 years old mongolian woman\nhighly detailed mid shot portrait photo, sharp focus on eyes, cinematic lighting",
+        "beautiful adult latina woman in her late twenties, wearing a soaking wet, transparent tank top and denim shorts, in a steamy shower, glass fogged with steam, seductive, sexy, alluring, round breasts, round ass, beautiful, wet skin, dripping water, glistening body, eye-level shot, diffused overcast light, a 30yo, 30 years old mongolian woman\nhighly detailed mid shot portrait photo, sharp focus on eyes, cinematic lighting"
+      ],
+      "ts": "2026-08-27T18:45:48"
     }
   ],
   "model_stats": {
     "167537:288911": {
       "name": "BEAUTY_BY_STABLE_YOGI",
+      "used": 10,
+      "passed": 10
+    },
+    "89548:95334": {
+      "name": "HydraMix",
       "used": 10,
       "passed": 10
     }
