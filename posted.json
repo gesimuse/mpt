@@ -22,6 +22,20 @@
         null
       ],
       "ts": "2026-08-27T14:38:39"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "manual upload 1787841610024",
+      "title": "00031-3127479456.png",
+      "tiktok": true,
+      "tiktok_via": "picker_manual_upload",
+      "image_urls": [
+        "https://gesimuse.github.io/mpt/media/upload-1787841582241.png"
+      ],
+      "image_prompts": [
+        null
+      ],
+      "ts": "2026-08-27T14:40:10"
     }
   ]
 }
