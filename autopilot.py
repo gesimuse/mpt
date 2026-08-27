@@ -202,6 +202,35 @@ def _pick_source_image_url(niche, state):
     return None
 
 
+def _publish_video(niche, state, token_niche, video_url, caption, topic, extra_fields):
+    """Publish an already-hosted mp4 URL to TikTok and record the outcome in state --
+    shared by both a fresh generation and a retry of one already generated, so a
+    TikTok-side failure always leaves the SAME shape behind (video_url,
+    tiktok_fail_reason included) for the picker to list and let the account owner
+    download or retry regardless of whether TikTok ever accepted it."""
+    publish_id = tiktok.publish_video_draft(
+        None, niche["id"], video_url=video_url, caption=caption, token_niche=token_niche)
+    status, fail_reason = (
+        tiktok.check_publish_status(publish_id, niche["id"], token_niche=token_niche)
+        if publish_id else (None, None))
+    if publish_id and status != "SEND_TO_USER_INBOX":
+        log(f"[{niche['id']}] draft did not actually reach the inbox: "
+            f"status={status} fail_reason={fail_reason}")
+    state["uploads"].append({
+        "niche": niche["id"], "topic": topic,
+        "title": caption.splitlines()[0][:95],
+        "tiktok": status == "SEND_TO_USER_INBOX", "tiktok_via": "inbox_video",
+        "tiktok_post_id": publish_id, "tiktok_status": status,
+        "tiktok_fail_reason": fail_reason,
+        "tiktok_caption": caption,
+        "video_url": video_url,
+        "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        **extra_fields,
+    })
+    save_state(state)
+    write_pending_captions(state)
+
+
 def _run_video_niche(niche, state):
     """Reuse an image the photo niche already generated + QA'd, animate it with
     videogen.py (HF ZeroGPU / Wan 2.2 I2V rCM), publish the mp4 as a TikTok inbox
@@ -221,6 +250,25 @@ def _run_video_niche(niche, state):
     if not DRY_RUN and not tiktok.enabled(token_niche):
         log(f"[{niche['id']}] skipped: TIKTOK_REFRESH_TOKEN_{token_niche.upper()} not set")
         return
+
+    # VIDEO_RETRY_URL (the picker's Retry button on an already-generated video that
+    # TikTok rejected) skips Kaggle/motionforge entirely -- no reason to pay another
+    # multi-minute generation to re-attempt publishing the SAME mp4 that already
+    # exists and is already hosted.
+    retry_url = os.environ.get("VIDEO_RETRY_URL", "").strip()
+    if retry_url:
+        prompt = (os.environ.get("VIDEO_PROMPT", "").strip()
+                  or niche.get("motionforge_prompt", "").strip())
+        caption = imageslides.image_caption(niche, vibe=prompt or None)
+        log(f"[{niche['id']}] retrying publish of {retry_url} (no regeneration)")
+        if DRY_RUN:
+            log(f"[{niche['id']}] DRY_RUN: would retry-publish {retry_url}")
+            return
+        stamp = time.strftime("%Y%m%d-%H%M%S")
+        _publish_video(niche, state, token_niche, retry_url, caption,
+                       f"video retry {stamp}", {"tiktok_via": "inbox_video_retry"})
+        return
+
     # Env overrides win over auto-pick -- push_video.py's local UI fires
     # workflow_dispatch with the user's chosen image + edited prompt as inputs,
     # which the workflow surfaces as VIDEO_IMAGE_URL / VIDEO_PROMPT here.
@@ -249,25 +297,13 @@ def _run_video_niche(niche, state):
         log(f"[{niche['id']}] DRY_RUN: no upload, video at {dest_dir}")
         return
 
-    publish_id = tiktok.publish_video_draft(
-        video_path, niche["id"], caption=caption, token_niche=token_niche)
-    status, fail_reason = (
-        tiktok.check_publish_status(publish_id, niche["id"], token_niche=token_niche)
-        if publish_id else (None, None))
-    if publish_id and status != "SEND_TO_USER_INBOX":
-        log(f"[{niche['id']}] draft did not actually reach the inbox: "
-            f"status={status} fail_reason={fail_reason}")
-    state["uploads"].append({
-        "niche": niche["id"], "topic": f"video {stamp}",
-        "title": caption.splitlines()[0][:95],
-        "tiktok": status == "SEND_TO_USER_INBOX", "tiktok_via": "inbox_video",
-        "tiktok_post_id": publish_id, "tiktok_status": status,
-        "tiktok_caption": caption,
-        "motionforge_source_url": image_url,
-        "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
-    })
-    save_state(state)
-    write_pending_captions(state)
+    # Host regardless of what happens next -- a generated video must never become
+    # invisible just because TikTok's own downstream check rejects it (a live run
+    # hit exactly this: frame_rate_check_failed, mp4 was fine, just nowhere to see
+    # or retry it from since nothing recorded the hosted URL).
+    video_url = tiktok.host_file(video_path)
+    _publish_video(niche, state, token_niche, video_url, caption,
+                   f"video {stamp}", {"motionforge_source_url": image_url})
     try:
         os.remove(video_path)
     except OSError:

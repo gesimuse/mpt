@@ -8,12 +8,12 @@ on:
   workflow_dispatch:
     inputs:
       image_url:
-        description: "Source image URL (from gh-pages media/; push_video.py fills this)"
-        required: true
+        description: "Source image URL (from gh-pages media/; push_video.py fills this). Leave blank when using retry_video_url."
+        required: false
         type: string
       motion_prompt:
         description: "Motion prompt"
-        required: true
+        required: false
         type: string
       length_s:
         description: "Video length in seconds (max 5.0)"
@@ -24,6 +24,10 @@ on:
         description: "Wan rCM inference steps (4-8)"
         required: false
         default: "4"
+        type: string
+      retry_video_url:
+        description: "Already-generated mp4 URL to republish as-is, skipping Kaggle/motionforge entirely (the picker's Retry button on a failed video)"
+        required: false
         type: string
 
 concurrency:
@@ -69,6 +73,7 @@ jobs:
           VIDEO_PROMPT: ${{ inputs.motion_prompt }}
           VIDEO_LENGTH_S: ${{ inputs.length_s }}
           VIDEO_STEPS: ${{ inputs.steps }}
+          VIDEO_RETRY_URL: ${{ inputs.retry_video_url }}
           # Kaggle CLI auth. motionforge's kernel does no compute; it just proxies
           # to the HF Space. KAGGLE_KEY is what the CLI expects; motionforge's
           # run_local.sh happens to name the secret KAGGLE_API_TOKEN, and

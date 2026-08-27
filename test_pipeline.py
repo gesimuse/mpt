@@ -2655,14 +2655,17 @@ class AutopilotVideoNicheTest(unittest.TestCase):
                            "length_s": length_s, "steps": steps}
             return "/tmp/final.mp4"
 
-        def fake_publish(video_path, niche_id, caption=None, token_niche=None, **kw):
+        def fake_publish(video_path, niche_id, video_url=None, caption=None, token_niche=None, **kw):
             calls["publish"] = {"video_path": video_path, "niche_id": niche_id,
-                                "token_niche": token_niche, "caption": caption}
+                                "video_url": video_url, "token_niche": token_niche,
+                                "caption": caption}
             return "pv_1"
 
         with mock.patch.dict(os.environ, self.ENV_WITH_TOKEN, clear=True), \
              mock.patch.object(autopilot, "DRY_RUN", False), \
              mock.patch.object(autopilot.videogen, "generate", fake_generate), \
+             mock.patch.object(autopilot.tiktok, "host_file",
+                              lambda p: "https://pages/media/vid.mp4"), \
              mock.patch.object(autopilot.tiktok, "publish_video_draft", fake_publish), \
              mock.patch.object(autopilot.tiktok, "check_publish_status",
                               lambda pid, niche_id, token_niche=None: ("SEND_TO_USER_INBOX", None)), \
@@ -2674,10 +2677,16 @@ class AutopilotVideoNicheTest(unittest.TestCase):
         self.assertEqual(calls["gen"]["image_url"], "https://pages/media/a.jpg")
         self.assertEqual(calls["gen"]["prompt"], "she smiles")
         self.assertEqual(calls["publish"]["token_niche"], "aibeauty")
-        # The video upload records the source url so subsequent runs don't reuse it.
+        # publish_video_draft gets the URL we already hosted, not a bare video_path
+        # for it to host again itself.
+        self.assertEqual(calls["publish"]["video_url"], "https://pages/media/vid.mp4")
+        # The video upload records the source url so subsequent runs don't reuse it,
+        # plus the hosted mp4 url so it stays visible/downloadable/retriable even if
+        # TikTok's own check later rejects it.
         video_up = state["uploads"][-1]
         self.assertEqual(video_up["niche"], "aibeautyvideo")
         self.assertEqual(video_up["motionforge_source_url"], "https://pages/media/a.jpg")
+        self.assertEqual(video_up["video_url"], "https://pages/media/vid.mp4")
         self.assertTrue(video_up["tiktok"])
 
     def test_video_image_url_env_override_beats_auto_pick(self):
@@ -2699,6 +2708,8 @@ class AutopilotVideoNicheTest(unittest.TestCase):
              mock.patch.object(autopilot.videogen, "generate",
                               lambda url, prompt, **kw: (calls.setdefault(
                                   "gen", {"url": url, "prompt": prompt}) or "/tmp/final.mp4")), \
+             mock.patch.object(autopilot.tiktok, "host_file",
+                              lambda p: "https://pages/media/vid.mp4"), \
              mock.patch.object(autopilot.tiktok, "publish_video_draft",
                               lambda *a, **kw: "pv_1"), \
              mock.patch.object(autopilot.tiktok, "check_publish_status",
@@ -2712,6 +2723,38 @@ class AutopilotVideoNicheTest(unittest.TestCase):
         self.assertEqual(calls["gen"]["prompt"], "she looks up and laughs")
         self.assertEqual(state["uploads"][-1]["motionforge_source_url"],
                         "https://pages/media/user-picked.jpg")
+
+    def test_video_retry_url_skips_regeneration(self):
+        """The picker's Retry button on an already-generated (but TikTok-rejected)
+        video sets VIDEO_RETRY_URL -- must republish that exact mp4 straight to
+        TikTok without ever touching videogen.generate() or picking a source image."""
+        state = {"topics": {}, "uploads": []}
+        calls = {}
+
+        env = dict(self.ENV_WITH_TOKEN)
+        env["VIDEO_RETRY_URL"] = "https://pages/media/1787842736-final.mp4"
+
+        with mock.patch.dict(os.environ, env, clear=True), \
+             mock.patch.object(autopilot, "DRY_RUN", False), \
+             mock.patch.object(autopilot.videogen, "generate",
+                              mock.Mock(side_effect=AssertionError("must not regenerate"))), \
+             mock.patch.object(autopilot.tiktok, "host_file",
+                              mock.Mock(side_effect=AssertionError("must not re-host"))), \
+             mock.patch.object(autopilot.tiktok, "publish_video_draft",
+                              lambda *a, **kw: calls.setdefault("publish", kw) or "pv_retry"), \
+             mock.patch.object(autopilot.tiktok, "check_publish_status",
+                              lambda *a, **kw: ("SEND_TO_USER_INBOX", None)), \
+             mock.patch.object(autopilot, "save_state", lambda s: None), \
+             mock.patch.object(autopilot, "write_pending_captions", lambda s: None):
+            autopilot.run_niche(self.VIDEO_NICHE, state)
+
+        self.assertEqual(calls["publish"]["video_url"],
+                        "https://pages/media/1787842736-final.mp4")
+        video_up = state["uploads"][-1]
+        self.assertEqual(video_up["tiktok_via"], "inbox_video_retry")
+        self.assertEqual(video_up["video_url"], "https://pages/media/1787842736-final.mp4")
+        self.assertTrue(video_up["tiktok"])
+        self.assertNotIn("motionforge_source_url", video_up)
 
 
 class PickerHtmlTest(unittest.TestCase):
