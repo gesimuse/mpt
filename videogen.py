@@ -17,7 +17,7 @@ Needs env: KAGGLE_USERNAME, KAGGLE_API_TOKEN (motionforge's run_local.sh names i
 KAGGLE_API_TOKEN even though Kaggle's own env var is KAGGLE_KEY; we set both
 below), HF_TOKEN. Motionforge's scripts read IMAGE_URL/PROMPT/LENGTH_S/STEPS from
 env, which we set per call."""
-import os, shutil, subprocess, sys, tempfile
+import os, subprocess, sys, tempfile
 from pathlib import Path
 
 
@@ -84,6 +84,28 @@ def generate(image_url, prompt, length_s=5.0, steps=4, seed=None,
     out_dir = Path(out_dir) if out_dir else Path(tempfile.mkdtemp(prefix="videogen_"))
     out_dir.mkdir(parents=True, exist_ok=True)
     dest = out_dir / "final.mp4"
-    shutil.copy(src, dest)
+    _normalize_for_tiktok(src, dest)
     log(f"wrote {dest} ({dest.stat().st_size // 1024}KB)")
     return str(dest)
+
+
+# TikTok's Content Posting API rejected a real draft with fail_reason=
+# frame_rate_check_failed -- confirmed live, publish_id came back accepted but
+# check_publish_status later showed FAILED. Wan 2.2 I2V rCM's raw output frame rate
+# isn't in TikTok's accepted range; motionforge's own final.mp4 was never meant to
+# be TikTok-ready as-is, it's a generic video export. Re-encode to a safe, common
+# frame rate here rather than pushing the raw Kaggle output straight through.
+_TIKTOK_FPS = 30
+
+
+def _normalize_for_tiktok(src, dest):
+    try:
+        subprocess.run(
+            ["ffmpeg", "-y", "-i", str(src), "-r", str(_TIKTOK_FPS),
+             "-c:v", "libx264", "-pix_fmt", "yuv420p", "-movflags", "+faststart",
+             str(dest)],
+            check=True, capture_output=True, text=True)
+    except FileNotFoundError:
+        raise RuntimeError("ffmpeg not found -- can't normalize frame rate for TikTok")
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f"ffmpeg frame-rate normalize failed: {e.stderr[-500:]}")

@@ -2757,9 +2757,14 @@ class VideoGenTest(unittest.TestCase):
             out_dir = Path(tmp) / "out"
             calls = []
 
-            def fake_run(cmd, cwd=None, env=None, check=None):
+            def fake_run(cmd, cwd=None, env=None, check=None, capture_output=None,
+                        text=None):
                 calls.append({"cmd": cmd, "cwd": cwd, "env": env})
-                return mock.Mock(returncode=0)
+                if cmd[0] == "ffmpeg":
+                    # Real ffmpeg would transcode; simulate that by writing the
+                    # dest path (the last arg) so the caller sees a real file.
+                    Path(cmd[-1]).write_bytes(b"normalizedmp4payload")
+                return mock.Mock(returncode=0, stderr="")
 
             env = {"KAGGLE_USERNAME": "u", "KAGGLE_API_TOKEN": "t", "HF_TOKEN": "hf",
                   "MOTIONFORGE_DIR": str(mf)}
@@ -2770,12 +2775,15 @@ class VideoGenTest(unittest.TestCase):
                                        out_dir=str(out_dir))
 
             self.assertTrue(Path(out).exists())
-            self.assertEqual(Path(out).read_bytes(), b"fakemp4payload")
-            # Three subprocess calls: prepare_kernel, kaggle push, poll_kaggle.
-            self.assertEqual(len(calls), 3)
+            self.assertEqual(Path(out).read_bytes(), b"normalizedmp4payload")
+            # Four subprocess calls: prepare_kernel, kaggle push, poll_kaggle, then
+            # the ffmpeg frame-rate normalize before handing the mp4 back.
+            self.assertEqual(len(calls), 4)
             self.assertIn("prepare_kernel.py", calls[0]["cmd"][-1])
             self.assertEqual(calls[1]["cmd"][:3], ["kaggle", "kernels", "push"])
             self.assertIn("poll_kaggle.py", calls[2]["cmd"][-1])
+            self.assertEqual(calls[3]["cmd"][0], "ffmpeg")
+            self.assertIn("-r", calls[3]["cmd"])
             # motionforge scripts read IMAGE_URL/PROMPT/LENGTH_S/STEPS from env.
             passed = calls[0]["env"]
             self.assertEqual(passed["IMAGE_URL"], "https://x/img.jpg")
