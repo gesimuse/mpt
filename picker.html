@@ -279,43 +279,44 @@ function usedUrls(uploads) {
 
 async function loadPicker() {
   status("Loading recent images...", "ok");
-  let posted, niches;
+  let batches = [];
+  let used = new Set();
+  let suggested = "";
   try {
     // Cache-bust so we don't sit on raw.githubusercontent's ~5min CDN.
     const bust = "?t=" + Date.now();
-    [posted, niches] = await Promise.all([
+    const [posted, niches] = await Promise.all([
       fetch(POSTED_URL + bust).then(r => r.json()),
       fetch(NICHES_URL + bust).then(r => r.json()),
     ]);
+    const uploads = posted.uploads || [];
+    batches = recentBatches(uploads, BATCH_LIMIT);
+    used = usedUrls(uploads);
+    const videoNiche = (niches.niches || []).find(n => n.id === "aibeautyvideo") || {};
+    suggested = videoNiche.motionforge_prompt || "";
   } catch (e) {
-    status("Failed to load posted.json / niches.json: " + e.message, "err");
-    return;
+    status("Couldn't load posted.json / niches.json (" + e.message + "). "
+           + "You can still upload your own image below and write the prompt by hand.", "err");
   }
 
-  const uploads = posted.uploads || [];
-  const batches = recentBatches(uploads, BATCH_LIMIT);
-  const used = usedUrls(uploads);
-  const videoNiche = (niches.niches || []).find(n => n.id === "aibeautyvideo") || {};
-  const suggested = videoNiche.motionforge_prompt || "";
-
-  if (!batches.length) {
-    status("No recent aibeauty photo batches with image_urls found. Wait for "
-           + "the next photo cron run.", "err");
-    return;
-  }
-
-  status("", "");
+  // The prompt editor + Confirm button always render, even if the recent-batches
+  // list above failed to load -- upload-your-own doesn't depend on it.
   let html = `<form id="frm">`;
-  for (const b of batches) {
-    html += `<h2>${b.ts || "?"} &middot; ${(b.title || "").slice(0, 80)}</h2><div class="grid">`;
-    for (const url of b.image_urls) {
-      const cls = used.has(url) ? "thumb used" : "thumb";
-      html += `<label class="${cls}">`
-           +  `<img src="${url}" loading="lazy">`
-           +  `<input type="radio" name="image_url" value="${url}">`
-           +  `</label>`;
+  if (batches.length) {
+    for (const b of batches) {
+      html += `<h2>${b.ts || "?"} &middot; ${(b.title || "").slice(0, 80)}</h2><div class="grid">`;
+      for (const url of b.image_urls) {
+        const cls = used.has(url) ? "thumb used" : "thumb";
+        html += `<label class="${cls}">`
+             +  `<img src="${url}" loading="lazy">`
+             +  `<input type="radio" name="image_url" value="${url}">`
+             +  `</label>`;
+      }
+      html += `</div>`;
     }
-    html += `</div>`;
+  } else {
+    html += `<p><small>No recent aibeauty photo batches to pick from &mdash; `
+         +  `use the upload field above instead.</small></p>`;
   }
   html += `<label>Motion prompt:</label>`
        +  `<textarea name="motion_prompt" required>${suggested.replace(/</g, "&lt;")}</textarea>`
@@ -334,6 +335,7 @@ async function loadPicker() {
       uploadFile.value = "";
       $("uploadPreview").innerHTML = "";
     }));
+  if (batches.length) status("", "");
 }
 
 async function onSubmit(e) {
