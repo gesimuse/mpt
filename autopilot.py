@@ -124,7 +124,7 @@ def run_niche(niche, state):
     used = state["topics"].setdefault(niche["id"], [])
     for _ in range(videos_this_run):
         stamp = time.strftime("%Y%m%d-%H%M%S")
-        images, vibe = imageslides.generate(niche, state=state)
+        images, vibe, image_prompts = imageslides.generate(niche, state=state)
         caption = imageslides.image_caption(niche, vibe=vibe)
         log(f"[{niche['id']}] caption (pre-filled on the draft; also saved to "
             f"CAPTIONS.md as a fallback):\n{caption}")
@@ -166,6 +166,11 @@ def run_niche(niche, state):
             "tiktok_post_id": publish_id, "tiktok_status": status,
             "tiktok_caption": caption,
             "image_urls": image_urls,
+            # Per-image SD prompt (same order as image_urls) -- the actual framing/
+            # pose/lighting that generated each photo, so the video picker can
+            # suggest a motion prompt grounded in that specific image instead of
+            # one generic prompt shared by the whole batch.
+            "image_prompts": image_prompts,
             "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
         })
         save_state(state)

@@ -111,7 +111,18 @@ _LOCATION_RE = re.compile(
 
 # Hard line: no exposed nipples/genitals, no real nudity, no minors. Everything else
 # (swimwear, lingerie, loungewear) is within policy and is not filtered here.
-SAFETY_PREFIX = "beautiful adult woman in her late twenties"
+#
+# "caucasian" added after supervisor.py's ethnicity_excluded gate (Chinese/East Asian
+# appearance -- an explicit operator preference, see that module) was rejecting far
+# too large a share of a live batch. sdgen.py's NEGATIVE_HARD already listed
+# "chinese, chinese woman" and that alone wasn't enough -- negative-prompt terms are
+# a weak lever against a holistic attribute like perceived ethnicity, especially
+# against a checkpoint whose own training skews that way regardless of prompt. A
+# positive descriptor in the prefix that's glued onto EVERY image, across every
+# checkpoint, is a much stronger lever for SD/SDXL sampling than suppressing it in
+# the negative prompt. supervisor.py's gate stays in place either way -- this only
+# reduces how often it has to fire, not what it enforces.
+SAFETY_PREFIX = "beautiful adult latina woman in her late twenties"
 # Every image must read as sexy, not just "sometimes, when the random mood pick lands
 # right" -- this is the guaranteed baseline, always present; DEFAULT_MOOD on top of it
 # is what varies the specific pose/expression between images in the same batch.
@@ -438,9 +449,15 @@ def generate(niche, count=None, workdir=None, max_rounds=2, state=None):
     never ship. Not an infinite retry: max_rounds caps the worst case at
     max_rounds * count generations, each ~130s on a GH Actions runner.
 
-    Returns (image_paths, vibe) -- vibe is the theme's short description (see
-    DEFAULT_THEMES), threaded through so the caller can write a caption that's
-    actually about this batch's moment, not a generic one."""
+    Returns (image_paths, vibe, image_prompts) -- vibe is the theme's short
+    description (see DEFAULT_THEMES), threaded through so the caller can write a
+    caption that's actually about this batch's moment, not a generic one.
+    image_prompts is the actual per-image SD prompt behind each returned path
+    (same order), so a picker UI can show a motion-forge suggestion grounded in
+    what that specific photo's framing/pose/lighting actually is, instead of one
+    generic prompt shared across the whole batch. Entries can be None for a path
+    whose originating prompt couldn't be recovered (defensive; shouldn't happen
+    in practice since sdgen.generate_batch names files sd_<index>.jpg)."""
     import tempfile
     from pathlib import Path
 
@@ -453,6 +470,11 @@ def generate(niche, count=None, workdir=None, max_rounds=2, state=None):
     supervisor_on = os.environ.get("SUPERVISOR_ENABLED", "1").strip().lower() not in (
         "0", "false", "no")
     approved, generated_count = [], 0
+    # str(path) -> the SD prompt that actually produced it, so the caller can hand a
+    # picker UI a per-image motion-forge suggestion instead of one prompt for the
+    # whole batch. sdgen.generate_batch names files sd_<index>.jpg (index into that
+    # round's `prompts`), which survives supervisor.py's filtering unchanged.
+    prompt_by_path = {}
     # Broken-supervisor fallback book-keeping. Populated by rounds where the
     # supervisor could not reach a verdict on ANY image (mllama arch error, model
     # server down); consumed after the last round to decide whether to push raw
@@ -490,6 +512,11 @@ def generate(niche, count=None, workdir=None, max_rounds=2, state=None):
         except RuntimeError as e:
             generated = []
             log(f"round {round_num}: checkpoint unusable ({str(e)[:150]})")
+
+        for path in generated:
+            m = re.search(r"sd_(\d+)\.[^.]+$", str(path))
+            if m and int(m.group(1)) < len(prompts):
+                prompt_by_path[str(path)] = prompts[int(m.group(1))]
 
         generated_count += len(generated)
         if supervisor_on:
@@ -533,9 +560,11 @@ def generate(niche, count=None, workdir=None, max_rounds=2, state=None):
             log(f"supervisor unavailable across all rounds -- pushing "
                 f"{len(broken_generations)} raw generations without QA "
                 f"(account owner still reviews the draft in TikTok before posting)")
-            return broken_generations[:max_images], vibe
+            kept = broken_generations[:max_images]
+            return kept, vibe, [prompt_by_path.get(str(p)) for p in kept]
         raise RuntimeError(
             f"only {len(approved)} of {generated_count} images passed review across "
             f"{max_rounds} round(s) (need at least {min_images}); not posting")
     log(f"{len(approved)}/{generated_count} images approved")
-    return approved[:max_images], vibe
+    kept = approved[:max_images]
+    return kept, vibe, [prompt_by_path.get(str(p)) for p in kept]

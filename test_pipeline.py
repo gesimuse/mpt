@@ -208,7 +208,7 @@ class ImageSlideshowTest(unittest.TestCase):
              mock.patch.object(imageslides.supervisor, "filter_images",
                                lambda paths: paths[:4]), \
              tempfile.TemporaryDirectory() as tmp:
-            approved, vibe = imageslides.generate(self.AIBEAUTY, workdir=tmp)
+            approved, vibe, _prompts = imageslides.generate(self.AIBEAUTY, workdir=tmp)
         self.assertEqual(len(approved), 4)
 
     def test_short_round_triggers_a_second_round_of_fresh_variations(self):
@@ -224,7 +224,7 @@ class ImageSlideshowTest(unittest.TestCase):
              mock.patch.object(imageslides.supervisor, "filter_images",
                                lambda paths: filter_results.pop(0)), \
              tempfile.TemporaryDirectory() as tmp:
-            approved, vibe = imageslides.generate(self.AIBEAUTY, workdir=tmp)
+            approved, vibe, _prompts = imageslides.generate(self.AIBEAUTY, workdir=tmp)
         self.assertEqual(len(approved), 4)
         self.assertEqual(filter_results, [], "both rounds must have run")
 
@@ -254,7 +254,7 @@ class ImageSlideshowTest(unittest.TestCase):
              mock.patch.object(imageslides.sdgen, "generate_batch", fake_generate_batch), \
              mock.patch.object(imageslides.supervisor, "filter_images", lambda paths: paths), \
              tempfile.TemporaryDirectory() as tmp:
-            approved, vibe = imageslides.generate(self.AIBEAUTY, workdir=tmp)
+            approved, vibe, _prompts = imageslides.generate(self.AIBEAUTY, workdir=tmp)
         self.assertGreater(len(approved), 0)
         self.assertEqual(decisions, [], "both decide_reference calls must have happened")
 
@@ -291,7 +291,7 @@ class ImageSlideshowTest(unittest.TestCase):
              mock.patch.object(imageslides.supervisor, "filter_images",
                                lambda paths: broken_result), \
              tempfile.TemporaryDirectory() as tmp:
-            approved, vibe = imageslides.generate(
+            approved, vibe, _prompts = imageslides.generate(
                 {**self.AIBEAUTY, "min_images": 3, "max_images": 5}, workdir=tmp)
         # The generated images must come back so downstream can push them --
         # never mind that supervisor didn't approve any, because supervisor
@@ -324,7 +324,7 @@ class ImageSlideshowTest(unittest.TestCase):
              mock.patch.object(imageslides.sdgen, "generate_batch",
                                lambda *a, **k: fake_paths), \
              tempfile.TemporaryDirectory() as tmp:
-            approved, vibe = imageslides.generate(self.AIBEAUTY, workdir=tmp)
+            approved, vibe, _prompts = imageslides.generate(self.AIBEAUTY, workdir=tmp)
         self.assertEqual(approved, fake_paths)
 
     def test_sexy_cue_is_always_present(self):
@@ -1793,7 +1793,7 @@ class RunNicheTest(unittest.TestCase):
         state = {"topics": {}, "uploads": []}
         with mock.patch.object(autopilot, "DRY_RUN", False), \
              mock.patch.object(tiktok, "enabled", lambda niche_id: True), \
-             mock.patch.object(imageslides, "generate", lambda n, state=None: (fake_images, None)), \
+             mock.patch.object(imageslides, "generate", lambda n, state=None: (fake_images, None, [None] * len(fake_images))), \
              mock.patch.object(tiktok, "host_file", lambda p: f"https://pages/media/{Path(p).name}"), \
              mock.patch.object(tiktok, "publish_photos_draft",
                                lambda imgs, niche_id, image_urls=None, caption=None, title=None: "publish1"), \
@@ -1820,7 +1820,7 @@ class RunNicheTest(unittest.TestCase):
         state = {"topics": {}, "uploads": []}
         with mock.patch.object(autopilot, "DRY_RUN", False), \
              mock.patch.object(tiktok, "enabled", lambda niche_id: True), \
-             mock.patch.object(imageslides, "generate", lambda n, state=None: (fake_images, None)), \
+             mock.patch.object(imageslides, "generate", lambda n, state=None: (fake_images, None, [None] * len(fake_images))), \
              mock.patch.object(tiktok, "host_file", lambda p: f"https://pages/media/{Path(p).name}"), \
              mock.patch.object(tiktok, "publish_photos_draft",
                                lambda imgs, niche_id, image_urls=None, caption=None, title=None: "publish1"), \
@@ -1838,7 +1838,7 @@ class RunNicheTest(unittest.TestCase):
     def test_dry_run_writes_files_and_never_queues_a_draft(self):
         fake_images = [Path(f"/tmp/i{i}.png") for i in range(5)]
         with mock.patch.object(autopilot, "DRY_RUN", True), \
-             mock.patch.object(imageslides, "generate", lambda n, state=None: (fake_images, None)), \
+             mock.patch.object(imageslides, "generate", lambda n, state=None: (fake_images, None, [None] * len(fake_images))), \
              mock.patch.object(tiktok, "publish_photos_draft",
                                mock.Mock(side_effect=AssertionError("must not push"))), \
              mock.patch.object(autopilot.shutil, "copy", lambda a, b: None), \
@@ -1891,7 +1891,7 @@ class RunNicheTest(unittest.TestCase):
 
         def fake_generate(n, state=None):
             calls.append(1)
-            return [Path(f"/tmp/i{len(calls)}.png")], None
+            return [Path(f"/tmp/i{len(calls)}.png")], None, [None]
 
         with mock.patch.object(autopilot, "DRY_RUN", False), \
              mock.patch.object(tiktok, "enabled", lambda niche_id: True), \

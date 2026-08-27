@@ -59,7 +59,8 @@ GUIDANCE = float(os.environ.get("SD_GUIDANCE", "1.8"))
 
 NEGATIVE_HARD = ("child, teen, minor, young girl, schoolgirl, loli, nude, topless, "
                  "exposed nipples, exposed genitals, explicit, nsfw, "
-                 "celebrity likeness, real person, chinese, chinese woman")
+                 "celebrity likeness, real person, chinese, chinese woman, asian, "
+                 "east asian, korean, japanese, asian woman")
 NEGATIVE_QUALITY = ("cartoon, illustration, painting, anime, 3d render, deformed, "
                     "extra fingers, extra limbs, mutated hands, bad anatomy, blurry, "
                     "watermark, text, logo")
