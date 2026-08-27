@@ -88,6 +88,19 @@ code, small { font-size: 12px; color: #555; }
               border: 0; font-size: 14px; line-height: 22px; cursor: pointer; z-index: 2; }
 .thumb .del:hover { background: #c0392bd9; }
 .thumb.removing { opacity: 0.3; pointer-events: none; }
+.video-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px;
+             border: 1px solid #e5e5e5; border-radius: 8px; margin-bottom: 8px;
+             flex-wrap: wrap; }
+.video-badge { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 10px;
+               white-space: nowrap; }
+.video-badge.ok { background: #e6f9ec; color: #0a5c2a; }
+.video-badge.err { background: #fde8e8; color: #8a1a1a; }
+.video-badge.pending { background: #eee; color: #555; }
+.video-meta { flex: 1; min-width: 180px; }
+.video-title { font-size: 13px; font-weight: 500; display: block; }
+.video-sub { font-size: 11px; color: #888; }
+.video-actions { display: flex; gap: 8px; align-items: center; }
+.video-actions a, .video-actions button { margin: 0; padding: 6px 12px; font-size: 12px; }
 </style>
 </head>
 <body>
@@ -120,6 +133,13 @@ Verify; it stays in your browser's localStorage on this device only.</small></p>
 
 <div id="status"></div>
 <div id="picker"></div>
+
+<h2>Generated videos</h2>
+<p><small>Every video motionforge has produced, whether or not TikTok accepted
+it -- the mp4 is hosted the moment it's generated, so a failed post never
+means a lost video. Failed ones get a Retry button that republishes the
+SAME mp4 without regenerating.</small></p>
+<div id="videoList"></div>
 
 <script>
 const OWNER = "gesimuse";
@@ -375,11 +395,20 @@ function usedUrls(uploads) {
   return s;
 }
 
+function recentVideos(uploads, limit) {
+  const out = [];
+  for (let i = uploads.length - 1; i >= 0 && out.length < limit; i--) {
+    if (uploads[i].niche === "aibeautyvideo") out.push(uploads[i]);
+  }
+  return out;
+}
+
 async function loadPicker() {
   status("Loading recent images...", "ok");
   let batches = [];
   let used = new Set();
   let suggested = "";
+  let videos = [];
   let loadError = null;
   try {
     // Cache-bust so we don't sit on raw.githubusercontent's ~5min CDN.
@@ -391,11 +420,14 @@ async function loadPicker() {
     const uploads = posted.uploads || [];
     batches = recentBatches(uploads, BATCH_LIMIT);
     used = usedUrls(uploads);
+    videos = recentVideos(uploads, 10);
     const videoNiche = (niches.niches || []).find(n => n.id === "aibeautyvideo") || {};
     suggested = videoNiche.motionforge_prompt || "";
   } catch (e) {
     loadError = e.message;
   }
+
+  renderVideoList(videos);
 
   DEFAULT_PROMPT = suggested;
 
@@ -510,6 +542,81 @@ function wireDeleteButtons() {
     } catch (err) {
       label.classList.remove("removing");
       status("Couldn't remove: " + err.message, "err");
+    }
+  });
+}
+
+function videoStatus(v) {
+  if (v.tiktok) return { cls: "ok", label: "Sent to inbox" };
+  if (v.tiktok_status) {
+    return { cls: "err", label: `Failed${v.tiktok_fail_reason ? ": " + v.tiktok_fail_reason : ""}` };
+  }
+  return { cls: "pending", label: "Not sent (no TikTok token configured)" };
+}
+
+function renderVideoList(videos) {
+  if (!videos.length) {
+    $("videoList").innerHTML = `<p><small>No videos generated yet.</small></p>`;
+    return;
+  }
+  let html = "";
+  for (const v of videos) {
+    const st = videoStatus(v);
+    const canRetry = !v.tiktok && v.video_url;
+    html += `<div class="video-row">`
+         +  `<span class="video-badge ${st.cls}">${st.label}</span>`
+         +  `<div class="video-meta">`
+         +    `<span class="video-title">${(v.title || v.topic || "").replace(/</g, "&lt;")}</span>`
+         +    `<span class="video-sub">${v.ts || ""}${v.tiktok_via === "inbox_video_retry" ? " (retry)" : ""}</span>`
+         +  `</div>`
+         +  `<div class="video-actions">`
+         +    (v.video_url ? `<a href="${v.video_url}" target="_blank">Download</a>` : "")
+         +    (canRetry ? `<button type="button" class="btn-secondary retry-video" `
+                         + `data-url="${v.video_url.replace(/"/g, "&quot;")}">Retry post</button>` : "")
+         +  `</div>`
+         +  `</div>`;
+  }
+  $("videoList").innerHTML = html;
+  wireVideoRetryButtons();
+}
+
+function wireVideoRetryButtons() {
+  $("videoList").addEventListener("click", async (ev) => {
+    const btn = ev.target.closest(".retry-video");
+    if (!btn) return;
+    const token = pat.value.trim();
+    if (!token) { status("Paste + verify a GitHub PAT first.", "err"); return; }
+    const url = btn.dataset.url;
+    btn.disabled = true;
+    btn.textContent = "Retrying...";
+    try {
+      const r = await fetch(
+        `https://api.github.com/repos/${OWNER}/${REPO}/actions/workflows/${WORKFLOW}/dispatches`,
+        {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+          },
+          // No regeneration -- autopilot.py's VIDEO_RETRY_URL branch republishes
+          // this exact mp4 straight to TikTok, skipping Kaggle/motionforge.
+          body: JSON.stringify({ ref: "main", inputs: { retry_video_url: url } }),
+        });
+      if (r.status === 204) {
+        const runsUrl = `https://github.com/${OWNER}/${REPO}/actions/workflows/${WORKFLOW}`;
+        status(`Retry dispatched. Watch it run: <a href="${runsUrl}" target="_blank">Actions tab</a>`, "ok");
+        btn.textContent = "Retried";
+      } else {
+        const t = await r.text();
+        status(`Retry dispatch failed: ${r.status} ${t.slice(0, 400)}`, "err");
+        btn.disabled = false;
+        btn.textContent = "Retry post";
+      }
+    } catch (err) {
+      status("Network error: " + err.message, "err");
+      btn.disabled = false;
+      btn.textContent = "Retry post";
     }
   });
 }
