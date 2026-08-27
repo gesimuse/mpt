@@ -83,6 +83,11 @@ code, small { font-size: 12px; color: #555; }
 #uploadMsg.err { color: #8a1a1a; }
 #uploadMsg.pending { color: #7a5c00; }
 #uploadMsg.ok { color: #0a5c2a; }
+.thumb .del { position: absolute; bottom: 6px; left: 6px; width: 22px; height: 22px;
+              margin: 0; padding: 0; border-radius: 50%; background: #000a; color: #fff;
+              border: 0; font-size: 14px; line-height: 22px; cursor: pointer; z-index: 2; }
+.thumb .del:hover { background: #c0392bd9; }
+.thumb.removing { opacity: 0.3; pointer-events: none; }
 </style>
 </head>
 <body>
@@ -92,7 +97,7 @@ per image where we know what generated it), press Confirm. That fires
 <code>autopilot_video.yml</code> in the repo; the mp4 lands in your TikTok inbox
 as a draft (~10 min later). To add your own photo: click the upload tile, pick
 a file, press Done -- it gets added to the grid like any other generated image,
-ready to pick now or later.</p>
+ready to pick now or later. The &times; on a thumbnail removes it from the list.</p>
 
 <details id="setup">
 <summary>One-time setup (fine-grained PAT)</summary>
@@ -240,42 +245,66 @@ async function ghPut(path, token, branch, contentB64, sha, message) {
   });
 }
 
-// Appends a new "aibeauty" entry to posted.json on main, identical in shape to what
-// autopilot.py itself writes for a generated batch (minus image_prompts, which we
-// have no way to know for an arbitrary upload) -- so the video picker's own
-// recentBatches() picks it up as just another photo to animate, no special-casing.
-async function registerUpload(imageUrl, title, token, onRetry) {
+// Read-modify-write posted.json on main with retry-on-409 (it moves under us when
+// the photo/video cron or another picker session writes at the same time). `mutate`
+// gets the parsed state to edit in place; return false from it to signal "nothing
+// to do" (caller skips the PUT and returns null instead of retrying pointlessly).
+async function mutatePostedJson(token, mutate, message, onRetry) {
   const MAX_ATTEMPTS = 5;
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     const file = await ghGet("posted.json", token, "main");
     const state = JSON.parse(b64ToUtf8(file.content));
     state.uploads = state.uploads || [];
-    const entry = {
-      niche: "aibeauty",
-      topic: `manual upload ${Date.now()}`,
-      title: title || "Manually uploaded photo",
-      tiktok: true,
-      tiktok_via: "picker_manual_upload",
-      image_urls: [imageUrl],
-      image_prompts: [null],
-      ts: new Date().toISOString().slice(0, 19),
-    };
-    state.uploads.push(entry);
+    if (mutate(state) === false) return null;
     const r = await ghPut("posted.json", token, "main",
-      utf8ToB64(JSON.stringify(state, null, 2)), file.sha,
-      "picker: register manually uploaded image");
-    if (r.ok) return entry;
+      utf8ToB64(JSON.stringify(state, null, 2)), file.sha, message);
+    if (r.ok) return state;
     if (r.status === 409 && attempt < MAX_ATTEMPTS - 1) {
-      // posted.json moved under us (cron or another picker session writing at the
-      // same time) -- re-GET and retry with a fresh sha instead of failing.
       if (onRetry) onRetry(attempt + 1, MAX_ATTEMPTS);
       await new Promise(res => setTimeout(res, 800 * (attempt + 1)));
       continue;
     }
     const t = await r.text();
-    throw new Error(`couldn't register upload after ${attempt + 1} attempt(s): `
+    throw new Error(`posted.json write failed after ${attempt + 1} attempt(s): `
                      + `${r.status} ${t.slice(0, 300)}`);
   }
+}
+
+// Appends a new "aibeauty" entry to posted.json on main, identical in shape to what
+// autopilot.py itself writes for a generated batch (minus image_prompts, which we
+// have no way to know for an arbitrary upload) -- so the video picker's own
+// recentBatches() picks it up as just another photo to animate, no special-casing.
+async function registerUpload(imageUrl, title, token, onRetry) {
+  const entry = {
+    niche: "aibeauty",
+    topic: `manual upload ${Date.now()}`,
+    title: title || "Manually uploaded photo",
+    tiktok: true,
+    tiktok_via: "picker_manual_upload",
+    image_urls: [imageUrl],
+    image_prompts: [null],
+    ts: new Date().toISOString().slice(0, 19),
+  };
+  await mutatePostedJson(token, (state) => { state.uploads.push(entry); },
+    "picker: register manually uploaded image", onRetry);
+  return entry;
+}
+
+// Removes one image from its posted.json entry (by ts + url, the only stable
+// pairing the schema gives us); drops the whole entry once its last image is gone
+// rather than leaving an empty image_urls behind.
+async function deleteImage(ts, url, token, onRetry) {
+  await mutatePostedJson(token, (state) => {
+    const entry = state.uploads.find(u => u.ts === ts);
+    if (!entry) return false;
+    const i = (entry.image_urls || []).indexOf(url);
+    if (i === -1) return false;
+    entry.image_urls.splice(i, 1);
+    if (entry.image_prompts) entry.image_prompts.splice(i, 1);
+    if (!entry.image_urls.length) {
+      state.uploads.splice(state.uploads.indexOf(entry), 1);
+    }
+  }, "picker: remove image", onRetry);
 }
 
 async function uploadImage(file, token) {
@@ -373,7 +402,7 @@ async function loadPicker() {
   // The prompt editor + Confirm button always render, even if the recent-batches
   // list above failed to load -- the upload tile below doesn't depend on it.
   let html = `<form id="frm">`;
-  html += `<h2>Pick a source image</h2><div class="grid">`
+  html += `<h2>Pick a source image</h2><div class="grid" id="pickerGrid">`
        +  `<label class="thumb upload-tile" id="uploadTile">`
        +    `<span class="upload-placeholder">+ upload<br>your own</span>`
        +    `<img id="uploadThumbImg">`
@@ -390,6 +419,8 @@ async function loadPicker() {
            +  `<img src="${url}" loading="lazy">`
            +  `<input type="radio" name="image_url" value="${url}" `
            +    `data-prompt="${prompt.replace(/"/g, "&quot;")}">`
+           +  `<button type="button" class="del" data-ts="${b.ts}" `
+           +    `data-url="${url.replace(/"/g, "&quot;")}" title="Remove from picker">&times;</button>`
            +  `</label>`;
     });
   }
@@ -413,6 +444,7 @@ async function loadPicker() {
   $("frm").addEventListener("submit", onSubmit);
   wireImageRadios();
   wireUploadTile();
+  wireDeleteButtons();
 
   if (loadError) {
     status("Couldn't load posted.json / niches.json (" + loadError + "). "
@@ -433,12 +465,14 @@ function wireImageRadios() {
     }));
 }
 
-function addGeneratedThumb(url, prompt, selectIt) {
+function addGeneratedThumb(url, prompt, selectIt, ts) {
   const label = document.createElement("label");
   label.className = "thumb";
   label.innerHTML = `<img src="${url}" loading="lazy">`
     + `<input type="radio" name="image_url" value="${url}" `
-    + `data-prompt="${(prompt || "").replace(/"/g, "&quot;")}">`;
+    + `data-prompt="${(prompt || "").replace(/"/g, "&quot;")}">`
+    + `<button type="button" class="del" data-ts="${ts}" `
+    + `data-url="${url.replace(/"/g, "&quot;")}" title="Remove from picker">&times;</button>`;
   $("uploadTile").insertAdjacentElement("afterend", label);
   const radio = label.querySelector("input");
   radio.addEventListener("change", () => {
@@ -446,6 +480,38 @@ function addGeneratedThumb(url, prompt, selectIt) {
     if (ta) ta.value = radio.dataset.prompt || DEFAULT_PROMPT;
   });
   if (selectIt) radio.click(); // native click fires 'change', unlike setting .checked directly
+}
+
+// Delegated on the grid itself (not per-button) so it also covers thumbs
+// addGeneratedThumb() inserts later without needing to be re-wired.
+function wireDeleteButtons() {
+  $("pickerGrid").addEventListener("click", async (ev) => {
+    const btn = ev.target.closest(".del");
+    if (!btn) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    const label = btn.closest("label");
+    const { ts, url } = btn.dataset;
+    if (!confirm("Remove this image from the picker? (Doesn't delete the file, "
+                 + "just stops offering it here.)")) return;
+    const token = pat.value.trim();
+    if (!token) { status("Paste + verify a GitHub PAT first.", "err"); return; }
+    label.classList.add("removing");
+    try {
+      await deleteImage(ts, url, token, (n, max) =>
+        status(`Removing (retry ${n}/${max})...`, "pending"));
+      const wasSelected = label.querySelector("input")?.checked;
+      label.remove();
+      if (wasSelected) {
+        const ta = document.querySelector('textarea[name="motion_prompt"]');
+        if (ta) ta.value = DEFAULT_PROMPT;
+      }
+      status("Removed.", "ok");
+    } catch (err) {
+      label.classList.remove("removing");
+      status("Couldn't remove: " + err.message, "err");
+    }
+  });
 }
 
 function uploadMsg(text, cls) {
@@ -502,7 +568,7 @@ function wireUploadTile() {
       doneBtn.textContent = "Registering...";
       const entry = await registerUpload(url, file.name, token, (n, max) =>
         (doneBtn.textContent = `Registering (retry ${n}/${max})...`));
-      addGeneratedThumb(url, null, true);
+      addGeneratedThumb(url, null, true, entry.ts);
       resetUploadTile();
       uploadMsg("Uploaded and added to the picker — selected below.", "ok");
       status("Uploaded and registered — it'll show up in the picker on future loads too.", "ok");
