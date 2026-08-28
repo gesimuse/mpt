@@ -11,7 +11,8 @@
       "aibeauty-20260828-145118",
       "aibeauty-20260828-171418",
       "aibeauty-20260828-191648",
-      "aibeauty-20260828-204504"
+      "aibeauty-20260828-204504",
+      "aibeauty-20260828-212123"
     ]
   },
   "uploads": [
@@ -315,6 +316,38 @@
         "The woman tilts her head to the right, revealing a hint of her smile, as her hair subtly falls around her."
       ],
       "ts": "2026-08-28T20:57:25"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260828-212123",
+      "title": "Built different, styled better.",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7679199221182859286",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "Built different, styled better.\n\nCreated with AI.\n\n#aiart #aigenerated #aiphotography #confident",
+      "image_urls": [
+        "https://gesimuse.github.io/mpt/media/1787952733-sd_0.jpg",
+        "https://gesimuse.github.io/mpt/media/1787952765-sd_1.jpg",
+        "https://gesimuse.github.io/mpt/media/1787952800-sd_2.jpg",
+        "https://gesimuse.github.io/mpt/media/1787952826-sd_3.jpg",
+        "https://gesimuse.github.io/mpt/media/1787952854-sd_4.jpg"
+      ],
+      "image_prompts": [
+        "beautiful adult latina woman in her late twenties, backstage in a dressing room, mirror lights, seductive, sexy, alluring, round breasts, round ass, beautiful, flirty smile, relaxed confident posture, full length shot, head to toe, natural stance, (masterpiece, best quality), intricate details, realistic, photorealistic, a close up of a woman wearing earrings, inspired by Emma Andijewska, draped in crystals, silver color, long earrings, sandra chevier, huge earrings, 2019, blue-eyed, platinum jewellery, earring, flawless structure, silver earring",
+        "beautiful adult latina woman in her late twenties, backstage in a dressing room, mirror lights, seductive, sexy, alluring, round breasts, round ass, beautiful, flirty smile, relaxed confident posture, close-up shot, shallow depth of field, (masterpiece, best quality), intricate details, realistic, photorealistic, a close up of a woman wearing earrings, inspired by Emma Andijewska, draped in crystals, silver color, long earrings, sandra chevier, huge earrings, 2019, blue-eyed, platinum jewellery, earring, flawless structure, silver earring",
+        "beautiful adult latina woman in her late twenties, backstage in a dressing room, mirror lights, seductive, sexy, alluring, round breasts, round ass, beautiful, flirty smile, relaxed confident posture, candid framing, natural daylight, (masterpiece, best quality), intricate details, realistic, photorealistic, a close up of a woman wearing earrings, inspired by Emma Andijewska, draped in crystals, silver color, long earrings, sandra chevier, huge earrings, 2019, blue-eyed, platinum jewellery, earring, flawless structure, silver earring",
+        "beautiful adult latina woman in her late twenties, backstage in a dressing room, mirror lights, seductive, sexy, alluring, round breasts, round ass, beautiful, flirty smile, relaxed confident posture, wide shot, natural window light, (masterpiece, best quality), intricate details, realistic, photorealistic, a close up of a woman wearing earrings, inspired by Emma Andijewska, draped in crystals, silver color, long earrings, sandra chevier, huge earrings, 2019, blue-eyed, platinum jewellery, earring, flawless structure, silver earring",
+        "beautiful adult latina woman in her late twenties, backstage in a dressing room, mirror lights, seductive, sexy, alluring, round breasts, round ass, beautiful, flirty smile, relaxed confident posture, slightly low angle, golden hour light, (masterpiece, best quality), intricate details, realistic, photorealistic, a close up of a woman wearing earrings, inspired by Emma Andijewska, draped in crystals, silver color, long earrings, sandra chevier, huge earrings, 2019, blue-eyed, platinum jewellery, earring, flawless structure, silver earring"
+      ],
+      "motion_prompts": [
+        "She gives a soft, subtle smile as her eyes gaze downward, her upper lip curling slightly.",
+        "She slowly tilts her head to the right, as if deep in thought, with subtle, relaxed hair movement.",
+        "The woman tilts her head slightly to the left, revealing her earring.",
+        "She tilts her head slightly to the left, then smiles, as a single strand of hair falls across her cheek.",
+        "She subtly raises an eyebrow and smiles, as her hair subtly catches a faint, softening light."
+      ],
+      "ts": "2026-08-28T21:36:18"
     }
   ],
   "model_stats": {
@@ -330,8 +363,8 @@
     },
     "83490:88738": {
       "name": "Vendo Photorealistic 2",
-      "used": 20,
-      "passed": 20
+      "used": 30,
+      "passed": 30
     },
     "108517:352289": {
       "name": "Realia Photorealistic",
