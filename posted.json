@@ -196,6 +196,20 @@
         "She tilts her head to the right, her eyes following her gaze downward."
       ],
       "ts": "2026-08-26T14:31:46"
+    },
+    {
+      "niche": "aibeautyvideo",
+      "topic": "video 20260828-145859",
+      "title": "Some days just look like this.",
+      "tiktok": true,
+      "tiktok_via": "inbox_video",
+      "tiktok_post_id": "v_inbox_url~v2.7679097745575987222",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_fail_reason": null,
+      "tiktok_caption": "Some days just look like this.\n\nCreated with AI.\n\n#aiart #aivideo #wan22 #confident",
+      "video_url": "https://gesimuse.github.io/mpt/media/1787929257-final.mp4",
+      "ts": "2026-08-28T15:02:05",
+      "motionforge_source_url": "https://gesimuse.github.io/mpt/media/1787872643-sd_3.jpg"
     }
   ],
   "model_stats": {
