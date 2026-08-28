@@ -2861,6 +2861,14 @@ class VideoGenTest(unittest.TestCase):
             return mock.Mock(returncode=0, stderr="")
         return run
 
+    @staticmethod
+    def _fake_urlretrieve():
+        """generate() downloads the source image before calling the Space --
+        stub out the network fetch with a fake local file."""
+        def urlretrieve(url, dest):
+            Path(dest).write_bytes(b"fakejpegpayload")
+        return urlretrieve
+
     def test_calls_space_directly_and_normalizes_for_tiktok(self):
         with tempfile.TemporaryDirectory() as tmp:
             src_mp4 = Path(tmp) / "raw.mp4"
@@ -2873,6 +2881,8 @@ class VideoGenTest(unittest.TestCase):
 
             with mock.patch.dict(os.environ, {"HF_TOKEN": "hf_tok"}, clear=True), \
                  mock.patch.object(videogen.subprocess, "run", self._fake_run(calls)), \
+                 mock.patch.object(videogen.urllib.request, "urlretrieve",
+                                  self._fake_urlretrieve()), \
                  mock.patch("gradio_client.Client", return_value=fake_client) as MockClient, \
                  mock.patch("gradio_client.handle_file", side_effect=lambda x: x):
                 out = videogen.generate("https://x/img.jpg", "she smiles",
@@ -2914,6 +2924,8 @@ class VideoGenTest(unittest.TestCase):
 
             with mock.patch.dict(os.environ, {"HF_TOKENS": "tok_a,tok_b"}, clear=True), \
                  mock.patch.object(videogen.subprocess, "run", self._fake_run([])), \
+                 mock.patch.object(videogen.urllib.request, "urlretrieve",
+                                  self._fake_urlretrieve()), \
                  mock.patch("gradio_client.Client", side_effect=fake_client_factory), \
                  mock.patch("gradio_client.handle_file", side_effect=lambda x: x):
                 out = videogen.generate("https://x/img.jpg", "hi", out_dir=str(out_dir))
@@ -2936,6 +2948,8 @@ class VideoGenTest(unittest.TestCase):
 
         with mock.patch.dict(os.environ, {"HF_TOKENS": "tok_a,tok_b"}, clear=True), \
              mock.patch.object(videogen.subprocess, "run", self._fake_run([])), \
+             mock.patch.object(videogen.urllib.request, "urlretrieve",
+                              self._fake_urlretrieve()), \
              mock.patch("gradio_client.Client", side_effect=fake_client_factory), \
              mock.patch("gradio_client.handle_file", side_effect=lambda x: x):
             with self.assertRaises(AppError):
@@ -2946,6 +2960,8 @@ class VideoGenTest(unittest.TestCase):
     def test_missing_video_in_space_response_raises(self):
         with mock.patch.dict(os.environ, {"HF_TOKEN": "tok"}, clear=True), \
              mock.patch.object(videogen.subprocess, "run", self._fake_run([])), \
+             mock.patch.object(videogen.urllib.request, "urlretrieve",
+                              self._fake_urlretrieve()), \
              mock.patch("gradio_client.Client") as MockClient, \
              mock.patch("gradio_client.handle_file", side_effect=lambda x: x):
             MockClient.return_value.predict.return_value = None

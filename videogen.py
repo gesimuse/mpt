@@ -14,13 +14,27 @@ in ~30 lines; the kernel is a thin proxy."
 Needs env: HF_TOKEN, or HF_TOKENS (comma-separated) to rotate across more
 than one HF account's free ZeroGPU quota (5min/day per account -- tokens
 from the SAME account share one pool, rotating those does nothing)."""
-import os, subprocess
+import os, subprocess, tempfile, urllib.request
 from pathlib import Path
 
 
 def log(msg): print(f"[videogen] {msg}", flush=True)
 
 SPACE_ID = "linoyts/wan2-2-i2v-rCM"
+
+
+def _fetch_image(image_url, tmp_dir):
+    """Download image_url to a local file and return its path. handle_file()
+    claims to accept a bare URL directly, but a live run passing the URL
+    straight through got an opaque AppError back from the Space (its own
+    exception, no detail exposed) failing almost instantly -- consistent
+    with the image input never actually loading. Downloading it ourselves
+    first (what the original Kaggle-kernel design always did) sidesteps
+    whatever that was."""
+    dest = Path(tmp_dir) / "input.jpg"
+    urllib.request.urlretrieve(image_url, dest)
+    log(f"image: {image_url[:80]} -> {dest} ({dest.stat().st_size // 1024}KB)")
+    return dest
 
 
 def _tokens():
@@ -43,13 +57,13 @@ def _is_quota_error(e: Exception) -> bool:
     return "zerogpu quota" in msg or "exceeded your free" in msg
 
 
-def _call_space(image_url, prompt, negative_prompt, length_s, steps, seed, token):
+def _call_space(image_path, prompt, negative_prompt, length_s, steps, seed, token):
     from gradio_client import Client, handle_file
     client = Client(SPACE_ID, token=token or None)
     log(f"calling Space (seconds={length_s}, steps={steps}, seed={seed}, "
         f"token={'set' if token else 'anonymous'})")
     return client.predict(
-        input_image=handle_file(image_url),  # gradio_client fetches URLs directly
+        input_image=handle_file(str(image_path)),
         prompt=prompt,
         steps=steps,
         negative_prompt=negative_prompt or "",
@@ -71,11 +85,14 @@ def generate(image_url, prompt, length_s=5.0, steps=4, seed=None,
     from gradio_client.exceptions import AppError
     subprocess.run(["pip", "install", "-q", "gradio_client"], check=True)
 
+    work_dir = tempfile.mkdtemp(prefix="videogen_in_")
+    image_path = _fetch_image(image_url, work_dir)
+
     tokens = _tokens()
     result, last_err, succeeded = None, None, False
     for i, token in enumerate(tokens):
         try:
-            result = _call_space(image_url, prompt, negative_prompt, length_s,
+            result = _call_space(image_path, prompt, negative_prompt, length_s,
                                  steps, seed, token)
             succeeded = True
             break
@@ -102,7 +119,6 @@ def generate(image_url, prompt, length_s=5.0, steps=4, seed=None,
     if not video_path:
         raise RuntimeError(f"unexpected Space return: {result!r}")
 
-    import tempfile
     out_dir = Path(out_dir) if out_dir else Path(tempfile.mkdtemp(prefix="videogen_"))
     out_dir.mkdir(parents=True, exist_ok=True)
     dest = out_dir / "final.mp4"
