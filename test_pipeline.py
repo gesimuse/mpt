@@ -2006,9 +2006,11 @@ class MotionWriterTest(unittest.TestCase):
 
 
 class AutopilotMotionPromptsTest(unittest.TestCase):
-    """_motion_prompts_for: the photo niche has no motionforge_prompt of its own
-    (that field lives on the video niche's config), so a failure here must fall
-    back to the module's own generic constant, not crash or return an SD prompt."""
+    """_motion_prompts_for: a failure must produce None, NOT a baked-in generic
+    string -- a fixed fallback here would make every image, in every batch,
+    forever (while Ollama stays unreachable, as it is in CI today) show the exact
+    same prompt in the picker. None lets the picker fall back to that image's own
+    SD prompt instead, keeping photos visually distinguishable."""
 
     def test_none_entries_pass_through_without_calling_motion_writer(self):
         with mock.patch.object(autopilot.motion_writer, "write",
@@ -2022,11 +2024,11 @@ class AutopilotMotionPromptsTest(unittest.TestCase):
             out = autopilot._motion_prompts_for(["sd prompt a", "sd prompt b"])
         self.assertEqual(out, ["motion for: sd prompt a", "motion for: sd prompt b"])
 
-    def test_failure_falls_back_to_generic_motion_prompt(self):
+    def test_failure_is_none_not_a_generic_fallback_string(self):
         with mock.patch.object(autopilot.motion_writer, "write",
                               mock.Mock(side_effect=RuntimeError("ollama down"))):
             out = autopilot._motion_prompts_for(["sd prompt"])
-        self.assertEqual(out, [autopilot._FALLBACK_MOTION_PROMPT])
+        self.assertEqual(out, [None])
 
 
 class ReviewImageTest(unittest.TestCase):

@@ -59,17 +59,15 @@ MAX_PENDING_DRAFTS = int(os.environ.get("MAX_PENDING_DRAFTS", "5"))
 def log(msg): print(f"[autopilot] {msg}", flush=True)
 
 
-_FALLBACK_MOTION_PROMPT = "she smiles, tilts head, hair moves in the wind"
-
-
 def _motion_prompts_for(image_prompts):
-    """One motion instruction per image_prompt, via motion_writer (LLM) -- falls
-    back to a generic motion phrase on any failure (Ollama unreachable, as it
-    always is in CI today) rather than handing the video niche the raw
-    SD-generation prompt, which describes the still, not a motion. Called from the
-    photo niche (aibeauty), which has no motionforge_prompt of its own -- that
-    field lives on the video niche's config in niches.json -- hence the constant
-    here instead of a per-niche lookup."""
+    """One motion instruction per image_prompt, via motion_writer (LLM) -- None on
+    any failure (Ollama unreachable, as it always is in CI today), NOT a baked-in
+    generic string. A fixed fallback string here would make every image in a batch
+    (and every batch, forever, while Ollama stays unreachable) show the identical
+    prompt in the picker -- worse than before this feature existed, when the
+    picker at least showed each image's own (if imperfect) SD prompt. Leaving it
+    None lets the picker fall back to that per-image SD prompt instead, so
+    photos stay visually distinguishable even without a working LLM."""
     out = []
     for p in image_prompts:
         if not p:
@@ -78,9 +76,9 @@ def _motion_prompts_for(image_prompts):
         try:
             out.append(motion_writer.write(p))
         except Exception as e:
-            log(f"motion_writer failed, falling back to a generic motion prompt "
+            log(f"motion_writer failed, no motion prompt recorded for this image "
                 f"({type(e).__name__}: {str(e)[:100]})")
-            out.append(_FALLBACK_MOTION_PROMPT)
+            out.append(None)
     return out
 
 
