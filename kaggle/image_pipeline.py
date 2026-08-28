@@ -86,9 +86,36 @@ def main() -> None:
              # this at import/load time even though this pipeline never uses
              # torchao's quantization APIs directly).
              "torchao>=0.16.0",
+             # Re-pinned here too (already installed above via the cu128 index) --
+             # a live run's diffusers import broke with a truncated one-line
+             # error ("Failed to import diffusers.pipelines.stable_diffusion...",
+             # sdgen.py's own per-image handler caps error text at 100 chars, so
+             # the real cause was never visible). Prime suspect: ultralytics or
+             # super-image silently pulling in a plain-PyPI torchvision build
+             # that doesn't match the cu128 one, the exact torch/torchvision ABI
+             # mismatch autopilot.yml's own comments already document for the
+             # CPU path. Re-stating the pin here should make pip either keep it
+             # or fail loudly on a real conflict, instead of silently swapping it.
+             "torchvision==0.22.0",
              "ultralytics", "super-image", "mediapipe==0.10.21", "controlnet_aux",
              "requests"],
             check=True)
+
+        # Diagnostic: sdgen.py's own per-image exception handler truncates
+        # errors to 100 chars, which is exactly what hid the real cause of a
+        # prior live failure here. Import the actual failing module directly,
+        # first, so if it breaks again the FULL traceback lands in status.json
+        # instead of another one-line guess.
+        try:
+            import diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion  # noqa: F401
+        except Exception:
+            import traceback
+            # sys.exit (SystemExit), not raise -- the outer `except Exception`
+            # below would otherwise overwrite this detailed status.json with
+            # its own truncated str(e) version.
+            write_status("failed", False, {"error": "diffusers import failed",
+                                           "traceback": traceback.format_exc()})
+            sys.exit(1)
 
         import os
         os.environ["SUPERVISOR_ENABLED"] = "0"
