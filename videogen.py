@@ -45,7 +45,7 @@ def _is_quota_error(e: Exception) -> bool:
 
 def _call_space(image_url, prompt, negative_prompt, length_s, steps, seed, token):
     from gradio_client import Client, handle_file
-    client = Client(SPACE_ID, hf_token=token or None)
+    client = Client(SPACE_ID, token=token or None)
     log(f"calling Space (seconds={length_s}, steps={steps}, seed={seed}, "
         f"token={'set' if token else 'anonymous'})")
     return client.predict(

@@ -2881,7 +2881,7 @@ class VideoGenTest(unittest.TestCase):
 
             self.assertTrue(Path(out).exists())
             self.assertEqual(Path(out).read_bytes(), b"normalizedmp4payload")
-            MockClient.assert_called_once_with("linoyts/wan2-2-i2v-rCM", hf_token="hf_tok")
+            MockClient.assert_called_once_with("linoyts/wan2-2-i2v-rCM", token="hf_tok")
             kw = fake_client.predict.call_args.kwargs
             self.assertEqual(kw["prompt"], "she smiles")
             self.assertEqual(kw["duration_seconds"], 5.0)
@@ -2902,10 +2902,10 @@ class VideoGenTest(unittest.TestCase):
             out_dir = Path(tmp) / "out"
             seen_tokens = []
 
-            def fake_client_factory(space_id, hf_token=None):
-                seen_tokens.append(hf_token)
+            def fake_client_factory(space_id, token=None):
+                seen_tokens.append(token)
                 client = mock.Mock()
-                if hf_token == "tok_a":
+                if token == "tok_a":
                     client.predict.side_effect = AppError(
                         message="exceeded your free ZeroGPU quota (60s requested vs 5s left)")
                 else:
@@ -2928,8 +2928,8 @@ class VideoGenTest(unittest.TestCase):
         from gradio_client.exceptions import AppError
         seen_tokens = []
 
-        def fake_client_factory(space_id, hf_token=None):
-            seen_tokens.append(hf_token)
+        def fake_client_factory(space_id, token=None):
+            seen_tokens.append(token)
             client = mock.Mock()
             client.predict.side_effect = AppError(message="some unrelated Space error")
             return client
