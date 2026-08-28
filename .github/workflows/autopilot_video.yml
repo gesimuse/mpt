@@ -23,7 +23,7 @@ on:
       steps:
         description: "Wan rCM inference steps (4-8)"
         required: false
-        default: "4"
+        default: "8"
         type: string
       retry_video_url:
         description: "Already-generated mp4 URL to republish as-is, skipping Kaggle/motionforge entirely (the picker's Retry button on a failed video)"
