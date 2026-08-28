@@ -1,5 +1,25 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-28T15:20:02 — aibeautyvideo
+
+```
+Feeling myself, no apologies.
+
+Created with AI.
+
+#aiart #aivideo #wan22 #confident
+```
+
+## 2026-08-28T14:51:18 — aibeauty
+
+```
+Feeling myself, no apologies.
+
+Created with AI.
+
+#aiart #aigenerated #aiphotography #confident
+```
+
 ## 2026-08-28T15:02:05 — aibeautyvideo
 
 ```
@@ -14,16 +34,6 @@ Created with AI.
 
 ```
 Just here for the lighting.
-
-Created with AI.
-
-#aiart #aigenerated #aiphotography #confident
-```
-
-## 2026-08-26T13:48:29 — aibeauty
-
-```
-Feeling myself, no apologies.
 
 Created with AI.
 
