@@ -49,7 +49,14 @@ import requests
 REPO_ROOT = Path(__file__).resolve().parent
 PAGES_WORKTREE = REPO_ROOT / ".gh-pages-worktree"
 PAGES_BRANCH = "gh-pages"
-KEEP_MEDIA = 30
+# picker.html's own display window alone needs 4 batches x 5 images (20) + 10
+# videos (10) = 30 files alive at once with zero slack -- a live run showed
+# exactly this: files still referenced by picker's "last 4 batches" got pruned
+# out from under it (404s in the grid) once a day's actual run volume (several
+# image batches + video attempts + the odd manual "+upload your own") pushed
+# past the old cap of 30. This is still a blunt oldest-by-mtime cutoff, not
+# reference-aware -- raised well past picker's own minimum need for headroom.
+KEEP_MEDIA = 60
 
 
 def log(msg): print(f"[tiktok] {msg}", flush=True)
