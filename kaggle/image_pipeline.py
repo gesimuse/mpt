@@ -66,7 +66,9 @@ def main() -> None:
         subprocess.run(
             [sys.executable, "-m", "pip", "install", "-q",
              "torch==2.7.0", "torchvision==0.22.0",
-             "--index-url", "https://download.pytorch.org/whl/cu121"],
+             # cu121's index only carries torch up through 2.5.1 -- a live run
+             # confirmed 2.7.0 isn't published there. cu124 has it.
+             "--index-url", "https://download.pytorch.org/whl/cu124"],
             check=True)
 
         log("installing remaining deps (matches autopilot.yml's list, minus ollama -- "
