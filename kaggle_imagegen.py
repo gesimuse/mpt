@@ -92,6 +92,20 @@ def _poll(slug, env, timeout=1800, interval=15):
     raise RuntimeError(f"kernel did not reach a terminal state within {timeout}s")
 
 
+def _kernel_log_tail(out_root, n_chars=4000):
+    """`kaggle kernels output` also downloads the kernel's own stdout/stderr as
+    <slug>.log. sdgen.py's per-image handler truncates its own log lines to 100
+    chars (see its own docstring on why), but the FULL traceback/reason is still
+    in this file even then -- surface its tail on any failure so the real cause
+    shows up directly in the GH Actions log instead of just a generic
+    "no images were generated"/status error with no way to dig further from here."""
+    log_file = out_root / f"{KERNEL_SLUG}.log"
+    if not log_file.exists():
+        return None
+    text = log_file.read_text(errors="replace")
+    return text[-n_chars:]
+
+
 def _generate_batch_on_kaggle(resolved, prompts, negatives, adopted, workdir):
     """Push one kernel bearing an already-R2-resolved checkpoint link plus this
     round's prompts, poll it, and copy the resulting images into `workdir`.
@@ -127,15 +141,18 @@ def _generate_batch_on_kaggle(resolved, prompts, negatives, adopted, workdir):
     if not status_file.exists():
         # The Wan2.2 experiment hit this exact shape of failure repeatedly: a
         # hard kill (OOM or similar) below Python's own exception handling,
-        # so neither a traceback nor status.json ever gets written. Standard
-        # SD1.5/SDXL fp16 shouldn't hit that (see module docstring), but if it
-        # ever does, there's no diagnostic to offer beyond this.
-        raise RuntimeError("kernel finished but wrote no status.json (a silent "
-                           "hard-kill, not a catchable error -- no diagnosis "
-                           "possible from here)")
+        # so neither a traceback nor status.json ever gets written.
+        tail = _kernel_log_tail(out_root)
+        raise RuntimeError(
+            "kernel finished but wrote no status.json (a silent hard-kill, not "
+            "a catchable error)" + (f" -- kernel log tail:\n{tail}" if tail else
+                                    " -- no kernel log either, no diagnosis possible"))
     status = json.loads(status_file.read_text())
     if not status.get("ok"):
-        raise RuntimeError(f"kernel reported failure: {status.get('error')}")
+        tail = _kernel_log_tail(out_root)
+        raise RuntimeError(
+            f"kernel reported failure: {status.get('error')}"
+            + (f"\nkernel log tail:\n{tail}" if tail else ""))
 
     images_dir = out_root / "images"
     names = status.get("images") or []
