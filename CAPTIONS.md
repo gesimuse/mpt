@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-28T17:26:09 — aibeauty
+
+```
+Not everyone gets this angle.
+
+Created with AI.
+
+#aiart #aigenerated #aiphotography #confident
+```
+
 ## 2026-08-28T15:20:02 — aibeautyvideo
 
 ```

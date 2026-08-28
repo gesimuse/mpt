@@ -8,7 +8,8 @@
       "aibeauty-20260827-224321",
       "aibeauty-20260828-125928",
       "aibeauty-20260828-141747",
-      "aibeauty-20260828-145118"
+      "aibeauty-20260828-145118",
+      "aibeauty-20260828-171418"
     ]
   },
   "uploads": [
@@ -223,6 +224,38 @@
       "video_url": "https://gesimuse.github.io/mpt/media/1787930338-final.mp4",
       "ts": "2026-08-28T15:20:02",
       "motionforge_source_url": "https://gesimuse.github.io/mpt/media/1787929345-sd_2.jpg"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260828-171418",
+      "title": "Not everyone gets this angle.",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7679134830433044502",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "Not everyone gets this angle.\n\nCreated with AI.\n\n#aiart #aigenerated #aiphotography #confident",
+      "image_urls": [
+        "https://gesimuse.github.io/mpt/media/1787937792-sd_0.jpg",
+        "https://gesimuse.github.io/mpt/media/1787937818-sd_1.jpg",
+        "https://gesimuse.github.io/mpt/media/1787937844-sd_2.jpg",
+        "https://gesimuse.github.io/mpt/media/1787937874-sd_3.jpg",
+        "https://gesimuse.github.io/mpt/media/1787937906-sd_4.jpg"
+      ],
+      "image_prompts": [
+        "beautiful adult latina woman in her late twenties, seductive, sexy, alluring, round breasts, round ass, beautiful, confident sultry gaze, alluring pose, over-the-shoulder framing, warm ambient light, (emb-anada:0.7), large sweater, off-shoulder, (flat chest:1.3), standing, looking back, in classroom, windows, rimlit, slim, tattoo on back, slender, looking at viewer, (masterpiece), (best quality:1.2), absurdres, intricate details, (highly detailed skin:1.2) (highly detailed face:1.3)",
+        "beautiful adult latina woman in her late twenties, seductive, sexy, alluring, round breasts, round ass, beautiful, confident sultry gaze, alluring pose, full body shot, standing pose, wide framing, (emb-anada:0.7), large sweater, off-shoulder, (flat chest:1.3), standing, looking back, in classroom, windows, rimlit, slim, tattoo on back, slender, looking at viewer, (masterpiece), (best quality:1.2), absurdres, intricate details, (highly detailed skin:1.2) (highly detailed face:1.3)",
+        "beautiful adult latina woman in her late twenties, seductive, sexy, alluring, round breasts, round ass, beautiful, confident sultry gaze, alluring pose, three-quarter view, soft studio lighting, (emb-anada:0.7), large sweater, off-shoulder, (flat chest:1.3), standing, looking back, in classroom, windows, rimlit, slim, tattoo on back, slender, looking at viewer, (masterpiece), (best quality:1.2), absurdres, intricate details, (highly detailed skin:1.2) (highly detailed face:1.3)",
+        "beautiful adult latina woman in her late twenties, seductive, sexy, alluring, round breasts, round ass, beautiful, confident sultry gaze, alluring pose, wide shot, natural window light, (emb-anada:0.7), large sweater, off-shoulder, (flat chest:1.3), standing, looking back, in classroom, windows, rimlit, slim, tattoo on back, slender, looking at viewer, (masterpiece), (best quality:1.2), absurdres, intricate details, (highly detailed skin:1.2) (highly detailed face:1.3)",
+        "beautiful adult latina woman in her late twenties, seductive, sexy, alluring, round breasts, round ass, beautiful, confident sultry gaze, alluring pose, full body portrait, standing, wide angle, (emb-anada:0.7), large sweater, off-shoulder, (flat chest:1.3), standing, looking back, in classroom, windows, rimlit, slim, tattoo on back, slender, looking at viewer, (masterpiece), (best quality:1.2), absurdres, intricate details, (highly detailed skin:1.2) (highly detailed face:1.3)"
+      ],
+      "motion_prompts": [
+        "She tilts her head to the right, her gaze following the movement.",
+        "She tilts her head slightly to the right, subtly relaxing her gaze.",
+        "She slowly raises her head, subtly tilting it as she gazes directly at the viewer.",
+        "She gives a subtle, enigmatic smile and tilts her head slightly to the right as she gazes at the viewer.",
+        "She slowly tilts her head to the right, revealing a hint of her full lips, as she gazes back at the viewer."
+      ],
+      "ts": "2026-08-28T17:26:09"
     }
   ],
   "model_stats": {
@@ -255,6 +288,11 @@
       "name": "WyvernMix (1.5 & XL)",
       "used": 0,
       "passed": 0
+    },
+    "134124:217930": {
+      "name": "NLIGHT Realistic",
+      "used": 10,
+      "passed": 10
     }
   }
 }
