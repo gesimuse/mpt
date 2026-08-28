@@ -10,7 +10,8 @@
       "aibeauty-20260828-141747",
       "aibeauty-20260828-145118",
       "aibeauty-20260828-171418",
-      "aibeauty-20260828-191648"
+      "aibeauty-20260828-191648",
+      "aibeauty-20260828-204504"
     ]
   },
   "uploads": [
@@ -282,6 +283,38 @@
       "video_url": "https://gesimuse.github.io/mpt/media/1787946393-final.mp4",
       "ts": "2026-08-28T19:47:39",
       "motionforge_source_url": "https://gesimuse.github.io/mpt/media/1787929316-sd_1.jpg"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260828-204504",
+      "title": "Not everyone gets this angle.",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7679189292081645590",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "Not everyone gets this angle.\n\nCreated with AI.\n\n#aiart #aigenerated #aiphotography #confident",
+      "image_urls": [
+        "https://gesimuse.github.io/mpt/media/1787950449-sd_0.jpg",
+        "https://gesimuse.github.io/mpt/media/1787950474-sd_1.jpg",
+        "https://gesimuse.github.io/mpt/media/1787950500-sd_2.jpg",
+        "https://gesimuse.github.io/mpt/media/1787950530-sd_3.jpg",
+        "https://gesimuse.github.io/mpt/media/1787950556-sd_4.jpg"
+      ],
+      "image_prompts": [
+        "beautiful adult latina woman in her late twenties, on a balcony at night, city skyline behind her, seductive, sexy, alluring, round breasts, round ass, beautiful, leaning forward, playful confident energy, eye-level shot, diffused overcast light, (MASTERPIECE:1. 2), (REALISTIC:1. 4), (POST PROCESSING:1. 3), (SHARP FOCUS:1. 3), 8K, mid body shot (85mm photo) , A Woman, Portrait, outdoor, Empire Waist dress, bokeh, wavy hair , (highly detailed body, highly detailed face, highly detailed eye, best quality:1. 2)",
+        "beautiful adult latina woman in her late twenties, on a balcony at night, city skyline behind her, seductive, sexy, alluring, round breasts, round ass, beautiful, leaning forward, playful confident energy, wide shot, natural window light, (MASTERPIECE:1. 2), (REALISTIC:1. 4), (POST PROCESSING:1. 3), (SHARP FOCUS:1. 3), 8K, mid body shot (85mm photo) , A Woman, Portrait, outdoor, Empire Waist dress, bokeh, wavy hair , (highly detailed body, highly detailed face, highly detailed eye, best quality:1. 2)",
+        "beautiful adult latina woman in her late twenties, on a balcony at night, city skyline behind her, seductive, sexy, alluring, round breasts, round ass, beautiful, leaning forward, playful confident energy, full body portrait, standing, wide angle, (MASTERPIECE:1. 2), (REALISTIC:1. 4), (POST PROCESSING:1. 3), (SHARP FOCUS:1. 3), 8K, mid body shot (85mm photo) , A Woman, Portrait, outdoor, Empire Waist dress, bokeh, wavy hair , (highly detailed body, highly detailed face, highly detailed eye, best quality:1. 2)",
+        "beautiful adult latina woman in her late twenties, on a balcony at night, city skyline behind her, seductive, sexy, alluring, round breasts, round ass, beautiful, leaning forward, playful confident energy, three-quarter view, soft studio lighting, (MASTERPIECE:1. 2), (REALISTIC:1. 4), (POST PROCESSING:1. 3), (SHARP FOCUS:1. 3), 8K, mid body shot (85mm photo) , A Woman, Portrait, outdoor, Empire Waist dress, bokeh, wavy hair , (highly detailed body, highly detailed face, highly detailed eye, best quality:1. 2)",
+        "beautiful adult latina woman in her late twenties, on a balcony at night, city skyline behind her, seductive, sexy, alluring, round breasts, round ass, beautiful, leaning forward, playful confident energy, slightly low angle, golden hour light, (MASTERPIECE:1. 2), (REALISTIC:1. 4), (POST PROCESSING:1. 3), (SHARP FOCUS:1. 3), 8K, mid body shot (85mm photo) , A Woman, Portrait, outdoor, Empire Waist dress, bokeh, wavy hair , (highly detailed body, highly detailed face, highly detailed eye, best quality:1. 2)"
+      ],
+      "motion_prompts": [
+        "She tilts her head slightly to the left, her eyes locked on a point in the distance.",
+        "She smoothly tilts her head to the right, raising an eyebrow slightly in a subtle, flirtatious gesture.",
+        "She tilts her head to the right and smiles softly, with her wavy hair gently swaying.",
+        "The woman smiles, her eyes briefly flickering upwards before returning to the horizon.",
+        "The woman tilts her head to the right, revealing a hint of her smile, as her hair subtly falls around her."
+      ],
+      "ts": "2026-08-28T20:57:25"
     }
   ],
   "model_stats": {
@@ -317,6 +350,11 @@
     },
     "134124:217930": {
       "name": "NLIGHT Realistic",
+      "used": 10,
+      "passed": 10
+    },
+    "105036:128367": {
+      "name": "MIX realistic",
       "used": 10,
       "passed": 10
     }
