@@ -83,6 +83,14 @@ def generate(image_url, prompt, length_s=5.0, steps=4, seed=None,
     TikTok). Raises if every token is exhausted or the Space itself fails --
     caller treats it as a skipped run."""
     from gradio_client.exceptions import AppError
+    # autopilot.py's _run_video_niche passes these through straight from env
+    # vars (VIDEO_STEPS/VIDEO_LENGTH_S), so they arrive as strings -- the
+    # Space's steps/duration_seconds are both Slider (float) components, and
+    # a live run crashed there with an opaque, unhelpful "the upstream Gradio
+    # app has raised an exception" every time. The old Kaggle-kernel design
+    # never hit this because its template substitution did int("__STEPS__")/
+    # float("__LENGTH_S__") before ever reaching predict().
+    length_s, steps = float(length_s), int(steps)
     subprocess.run(["pip", "install", "-q", "gradio_client"], check=True)
 
     work_dir = tempfile.mkdtemp(prefix="videogen_in_")
