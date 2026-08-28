@@ -304,9 +304,10 @@ async function mutatePostedJson(token, mutate, message, onRetry) {
 }
 
 // Appends a new "aibeauty" entry to posted.json on main, identical in shape to what
-// autopilot.py itself writes for a generated batch (minus image_prompts, which we
-// have no way to know for an arbitrary upload) -- so the video picker's own
-// recentBatches() picks it up as just another photo to animate, no special-casing.
+// autopilot.py itself writes for a generated batch (minus image_prompts/
+// motion_prompts, which we have no way to know for an arbitrary upload) -- so the
+// video picker's own recentBatches() picks it up as just another photo to animate,
+// no special-casing.
 async function registerUpload(imageUrl, title, token, onRetry) {
   const entry = {
     niche: "aibeauty",
@@ -316,6 +317,7 @@ async function registerUpload(imageUrl, title, token, onRetry) {
     tiktok_via: "picker_manual_upload",
     image_urls: [imageUrl],
     image_prompts: [null],
+    motion_prompts: [null],
     ts: new Date().toISOString().slice(0, 19),
   };
   await mutatePostedJson(token, (state) => { state.uploads.push(entry); },
@@ -334,6 +336,7 @@ async function deleteImage(ts, url, token, onRetry) {
     if (i === -1) return false;
     entry.image_urls.splice(i, 1);
     if (entry.image_prompts) entry.image_prompts.splice(i, 1);
+    if (entry.motion_prompts) entry.motion_prompts.splice(i, 1);
     if (!entry.image_urls.length) {
       state.uploads.splice(state.uploads.indexOf(entry), 1);
     }
@@ -353,6 +356,7 @@ async function deleteImages(items, token, onRetry) {
       if (i === -1) continue;
       entry.image_urls.splice(i, 1);
       if (entry.image_prompts) entry.image_prompts.splice(i, 1);
+      if (entry.motion_prompts) entry.motion_prompts.splice(i, 1);
       changed = true;
     }
     if (!changed) return false;
@@ -515,7 +519,11 @@ async function loadPicker() {
   for (const b of batches) {
     b.image_urls.forEach((url, i) => {
       const cls = used.has(url) ? "thumb used" : "thumb";
-      const prompt = (b.image_prompts && b.image_prompts[i]) || "";
+      // motion_prompts (an LLM-written action, e.g. "she smiles and tilts her
+      // head") is what pre-fills the textarea -- NOT image_prompts, which is the
+      // still's own SD generation prompt (outfit/setting/lighting) and would ask
+      // the video model to reproduce the photo rather than animate it.
+      const prompt = (b.motion_prompts && b.motion_prompts[i]) || "";
       html += `<label class="${cls}">`
            +  `<img src="${url}" loading="lazy">`
            +  `<input type="radio" name="image_url" value="${url}" `
