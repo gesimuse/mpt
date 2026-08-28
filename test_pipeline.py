@@ -2650,14 +2650,27 @@ class AutopilotVideoNicheTest(unittest.TestCase):
         self.assertEqual(autopilot._pick_source_image_url(self.VIDEO_NICHE, state),
                         "https://pages/media/c.jpg")
 
-    def test_skips_urls_already_animated(self):
+    def test_skips_urls_already_successfully_animated(self):
         state = {"topics": {}, "uploads": [
             self._photo_upload(["https://pages/media/a.jpg"]),
             {"niche": "aibeautyvideo", "motionforge_source_url": "https://pages/media/a.jpg",
-             "ts": "2026-08-27T15:00:00"},
+             "tiktok": True, "ts": "2026-08-27T15:00:00"},
         ]}
-        # a.jpg already animated -- no fresh URL available.
+        # a.jpg already successfully animated -- no fresh URL available.
         self.assertIsNone(autopilot._pick_source_image_url(self.VIDEO_NICHE, state))
+
+    def test_failed_video_attempt_returns_the_image_to_the_pool(self):
+        """A video attempt that failed (Kaggle error, TikTok rejected the draft)
+        must not burn its source image forever -- confirmed live: a
+        frame_rate_check_failed draft left the source image permanently
+        unavailable in the picker even though nothing was ever actually posted."""
+        state = {"topics": {}, "uploads": [
+            self._photo_upload(["https://pages/media/a.jpg"]),
+            {"niche": "aibeautyvideo", "motionforge_source_url": "https://pages/media/a.jpg",
+             "tiktok": False, "tiktok_status": "FAILED", "ts": "2026-08-27T15:00:00"},
+        ]}
+        self.assertEqual(autopilot._pick_source_image_url(self.VIDEO_NICHE, state),
+                        "https://pages/media/a.jpg")
 
     def test_skips_source_uploads_that_never_reached_tiktok(self):
         """Failed drafts (tiktok=false) don't count as valid source images -- their

@@ -449,9 +449,13 @@ function recentBatches(uploads, limit) {
 }
 
 function usedUrls(uploads) {
+  // Only a SUCCESSFUL video attempt marks its source image "used" -- a failed
+  // one (Kaggle error, TikTok rejected the draft) must bring the image back into
+  // the pickable list, since nothing actually shipped for it. Matches
+  // autopilot.py's own _pick_source_image_url, which the same fix landed in.
   const s = new Set();
   for (const u of uploads) {
-    if (u.niche === "aibeautyvideo" && u.motionforge_source_url) {
+    if (u.niche === "aibeautyvideo" && u.tiktok && u.motionforge_source_url) {
       s.add(u.motionforge_source_url);
     }
   }

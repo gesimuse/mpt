@@ -216,13 +216,16 @@ def run_niche(niche, state):
 def _pick_source_image_url(niche, state):
     """The most recent successfully-posted image from the photo niche this video
     niche is chained to (default: strip 'video' suffix off the id, so 'aibeautyvideo'
-    reuses 'aibeauty'). Skips uploads we've already animated -- state["uploads"]
-    entries this function created carry motionforge_source_url, and we compare
-    against that. Returns None when there's nothing fresh to work with (photo cron
-    hasn't run yet, or every recent image is already video'd)."""
+    reuses 'aibeauty'). Skips images we've already SUCCESSFULLY animated -- a video
+    attempt that failed (Kaggle error, TikTok rejected the draft) must not burn its
+    source image forever; the whole point of a retriable failure is that the image
+    is still fair game for another attempt. state["uploads"] entries this function
+    created carry motionforge_source_url, and we compare against those where
+    tiktok=true. Returns None when there's nothing fresh to work with (photo cron
+    hasn't run yet, or every recent image is already successfully video'd)."""
     source_niche = niche.get("source_niche") or niche["id"].removesuffix("video")
     used = {u.get("motionforge_source_url") for u in state.get("uploads", [])
-            if u.get("niche") == niche["id"]}
+            if u.get("niche") == niche["id"] and u.get("tiktok")}
     for u in reversed(state.get("uploads", [])):
         if u.get("niche") != source_niche or not u.get("tiktok"):
             continue
