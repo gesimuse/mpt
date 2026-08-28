@@ -33,7 +33,8 @@ p { color: #444; line-height: 1.5; }
                     padding: 2px 6px; border-radius: 3px; font-weight: 500; }
 .thumb input { position: absolute; top: 6px; right: 6px; transform: scale(1.5);
               cursor: pointer; accent-color: #0a84ff; }
-.thumb:has(input:checked) { border-color: #0a84ff; }
+.thumb:has(input[type=radio]:checked) { border-color: #0a84ff; }
+.thumb:has(.pick-del:checked) { outline: 2px solid #c0392b; outline-offset: 2px; }
 label { display: block; margin: 10px 0 4px; font-size: 13px; color: #555;
         font-weight: 500; }
 input[type=text], input[type=password], textarea {
@@ -88,6 +89,17 @@ code, small { font-size: 12px; color: #555; }
               border: 0; font-size: 14px; line-height: 22px; cursor: pointer; z-index: 2; }
 .thumb .del:hover { background: #c0392bd9; }
 .thumb.removing { opacity: 0.3; pointer-events: none; }
+/* Overrides the generic ".thumb input" top/right/transform rule (meant for the
+   image_url radio) -- without resetting top/transform here, "bottom" loses to
+   the earlier "top" (both being set with an explicit height is over-constrained,
+   and top wins), so the checkbox would render on top of the radio, not below it. */
+.thumb .pick-del { position: absolute; top: auto; bottom: 6px; left: auto; right: 6px;
+                    width: 18px; height: 18px; margin: 0; transform: none;
+                    z-index: 2; accent-color: #c0392b; cursor: pointer; }
+#bulkBar { display: none; align-items: center; gap: 10px; margin: -2px 0 10px; }
+#bulkBar button { margin: 0; padding: 8px 14px; font-size: 13px; }
+#bulkBar .btn-danger { background: #c0392b; color: #fff; border: 0 !important; }
+#bulkBar .btn-danger:hover:not(:disabled) { background: #a5311f; }
 .video-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px;
              border: 1px solid #e5e5e5; border-radius: 8px; margin-bottom: 8px;
              flex-wrap: wrap; }
@@ -110,7 +122,8 @@ per image where we know what generated it), press Confirm. That fires
 <code>autopilot_video.yml</code> in the repo; the mp4 lands in your TikTok inbox
 as a draft (~10 min later). To add your own photo: click the upload tile, pick
 a file, press Done -- it gets added to the grid like any other generated image,
-ready to pick now or later. The &times; on a thumbnail removes it from the list.</p>
+ready to pick now or later. The &times; on a thumbnail removes it from the list;
+the checkbox lets you select several and remove them all in one go.</p>
 
 <details id="setup">
 <summary>One-time setup (fine-grained PAT)</summary>
@@ -327,6 +340,30 @@ async function deleteImage(ts, url, token, onRetry) {
   }, "picker: remove image", onRetry);
 }
 
+// Same removal as deleteImage, but for many images in ONE read-modify-write --
+// deleting N images one at a time meant N separate commits (and N full
+// posted.json round-trips) for what the user experiences as a single bulk action.
+async function deleteImages(items, token, onRetry) {
+  await mutatePostedJson(token, (state) => {
+    let changed = false;
+    for (const { ts, url } of items) {
+      const entry = state.uploads.find(u => u.ts === ts);
+      if (!entry) continue;
+      const i = (entry.image_urls || []).indexOf(url);
+      if (i === -1) continue;
+      entry.image_urls.splice(i, 1);
+      if (entry.image_prompts) entry.image_prompts.splice(i, 1);
+      changed = true;
+    }
+    if (!changed) return false;
+    for (let idx = state.uploads.length - 1; idx >= 0; idx--) {
+      if (!(state.uploads[idx].image_urls || []).length && "image_urls" in state.uploads[idx]) {
+        state.uploads.splice(idx, 1);
+      }
+    }
+  }, `picker: remove ${items.length} image(s)`, onRetry);
+}
+
 async function uploadImage(file, token) {
   const b64 = await fileToBase64(file);
   const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
@@ -434,7 +471,12 @@ async function loadPicker() {
   // The prompt editor + Confirm button always render, even if the recent-batches
   // list above failed to load -- the upload tile below doesn't depend on it.
   let html = `<form id="frm">`;
-  html += `<h2>Pick a source image</h2><div class="grid" id="pickerGrid">`
+  html += `<h2>Pick a source image</h2>`
+       +  `<div id="bulkBar">`
+       +    `<button type="button" id="bulkDeleteBtn" class="btn-danger">`
+       +      `Remove <span id="bulkCount">0</span> selected</button>`
+       +  `</div>`
+       +  `<div class="grid" id="pickerGrid">`
        +  `<label class="thumb upload-tile" id="uploadTile">`
        +    `<span class="upload-placeholder">+ upload<br>your own</span>`
        +    `<img id="uploadThumbImg">`
@@ -451,6 +493,8 @@ async function loadPicker() {
            +  `<img src="${url}" loading="lazy">`
            +  `<input type="radio" name="image_url" value="${url}" `
            +    `data-prompt="${prompt.replace(/"/g, "&quot;")}">`
+           +  `<input type="checkbox" class="pick-del" data-ts="${b.ts}" `
+           +    `data-url="${url.replace(/"/g, "&quot;")}" title="Select for bulk remove">`
            +  `<button type="button" class="del" data-ts="${b.ts}" `
            +    `data-url="${url.replace(/"/g, "&quot;")}" title="Remove from picker">&times;</button>`
            +  `</label>`;
@@ -477,6 +521,8 @@ async function loadPicker() {
   wireImageRadios();
   wireUploadTile();
   wireDeleteButtons();
+  wireBulkSelect();
+  wireBulkDelete();
 
   if (loadError) {
     status("Couldn't load posted.json / niches.json (" + loadError + "). "
@@ -503,6 +549,8 @@ function addGeneratedThumb(url, prompt, selectIt, ts) {
   label.innerHTML = `<img src="${url}" loading="lazy">`
     + `<input type="radio" name="image_url" value="${url}" `
     + `data-prompt="${(prompt || "").replace(/"/g, "&quot;")}">`
+    + `<input type="checkbox" class="pick-del" data-ts="${ts}" `
+    + `data-url="${url.replace(/"/g, "&quot;")}" title="Select for bulk remove">`
     + `<button type="button" class="del" data-ts="${ts}" `
     + `data-url="${url.replace(/"/g, "&quot;")}" title="Remove from picker">&times;</button>`;
   $("uploadTile").insertAdjacentElement("afterend", label);
@@ -538,10 +586,65 @@ function wireDeleteButtons() {
         const ta = document.querySelector('textarea[name="motion_prompt"]');
         if (ta) ta.value = DEFAULT_PROMPT;
       }
+      updateBulkBar(); // in case this thumb's bulk-select checkbox was also checked
       status("Removed.", "ok");
     } catch (err) {
       label.classList.remove("removing");
       status("Couldn't remove: " + err.message, "err");
+    }
+  });
+}
+
+// Delegated "change" on the grid (not per-checkbox) so newly-added upload thumbs
+// are covered without re-wiring, same reasoning as wireDeleteButtons' click delegation.
+function wireBulkSelect() {
+  $("pickerGrid").addEventListener("change", (ev) => {
+    if (ev.target.classList.contains("pick-del")) updateBulkBar();
+  });
+}
+
+function selectedDeleteItems() {
+  return Array.from(document.querySelectorAll(".pick-del:checked")).map(cb => ({
+    ts: cb.dataset.ts, url: cb.dataset.url, label: cb.closest("label"),
+  }));
+}
+
+function updateBulkBar() {
+  const items = selectedDeleteItems();
+  const bar = $("bulkBar");
+  if (!bar) return;
+  bar.style.display = items.length ? "flex" : "none";
+  $("bulkCount").textContent = items.length;
+}
+
+function wireBulkDelete() {
+  $("bulkDeleteBtn").addEventListener("click", async () => {
+    const items = selectedDeleteItems();
+    if (!items.length) return;
+    if (!confirm(`Remove ${items.length} image(s) from the picker? (Doesn't delete `
+                 + `the files, just stops offering them here.)`)) return;
+    const token = pat.value.trim();
+    if (!token) { status("Paste + verify a GitHub PAT first.", "err"); return; }
+    const btn = $("bulkDeleteBtn");
+    btn.disabled = true;
+    items.forEach(it => it.label.classList.add("removing"));
+    try {
+      await deleteImages(items, token, (n, max) =>
+        status(`Removing ${items.length} images (retry ${n}/${max})...`, "pending"));
+      const clearedSelection = items.some(
+        it => it.label.querySelector('input[type=radio]')?.checked);
+      items.forEach(it => it.label.remove());
+      if (clearedSelection) {
+        const ta = document.querySelector('textarea[name="motion_prompt"]');
+        if (ta) ta.value = DEFAULT_PROMPT;
+      }
+      status(`Removed ${items.length} image(s) in one commit.`, "ok");
+      updateBulkBar();
+    } catch (err) {
+      items.forEach(it => it.label.classList.remove("removing"));
+      status("Couldn't remove: " + err.message, "err");
+    } finally {
+      btn.disabled = false;
     }
   });
 }
