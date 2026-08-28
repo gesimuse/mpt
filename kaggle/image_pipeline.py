@@ -66,9 +66,13 @@ def main() -> None:
         subprocess.run(
             [sys.executable, "-m", "pip", "install", "-q",
              "torch==2.7.0", "torchvision==0.22.0",
-             # cu121's index only carries torch up through 2.5.1 -- a live run
-             # confirmed 2.7.0 isn't published there. cu124 has it.
-             "--index-url", "https://download.pytorch.org/whl/cu124"],
+             # cu121 (only through 2.5.1) and cu124 (only through 2.6.0) have both
+             # been pruned of 2.7.0 -- confirmed live against the real index,
+             # despite PyTorch's own "previous versions" docs page still listing
+             # both as valid for 2.7.0 (a stale snapshot; older CUDA-version
+             # indices get pruned of old releases over time as newer ones become
+             # current). cu128 is the newest index and hasn't been pruned yet.
+             "--index-url", "https://download.pytorch.org/whl/cu128"],
             check=True)
 
         log("installing remaining deps (matches autopilot.yml's list, minus ollama -- "
