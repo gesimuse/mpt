@@ -9,7 +9,8 @@
       "aibeauty-20260828-125928",
       "aibeauty-20260828-141747",
       "aibeauty-20260828-145118",
-      "aibeauty-20260828-171418"
+      "aibeauty-20260828-171418",
+      "aibeauty-20260828-191648"
     ]
   },
   "uploads": [
@@ -256,6 +257,38 @@
         "She slowly tilts her head to the right, revealing a hint of her full lips, as she gazes back at the viewer."
       ],
       "ts": "2026-08-28T17:26:09"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260828-191648",
+      "title": "This is your sign to go outside.",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7679166456672339990",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "This is your sign to go outside.\n\nCreated with AI.\n\n#aiart #aigenerated #aiphotography #confident",
+      "image_urls": [
+        "https://gesimuse.github.io/mpt/media/1787945189-sd_0.jpg",
+        "https://gesimuse.github.io/mpt/media/1787945218-sd_1.jpg",
+        "https://gesimuse.github.io/mpt/media/1787945248-sd_2.jpg",
+        "https://gesimuse.github.io/mpt/media/1787945280-sd_3.jpg",
+        "https://gesimuse.github.io/mpt/media/1787945305-sd_4.jpg"
+      ],
+      "image_prompts": [
+        "beautiful adult latina woman in her late twenties, poolside at a luxury villa, golden hour, seductive, sexy, alluring, round breasts, round ass, beautiful, tight clingy fabric, curves accentuated, sultry pose, close-up shot, shallow depth of field, portrait of a stunning young Korean woman in K-pop idol style, flawless skin, glossy lips, subtle makeup with soft blush and eyeliner, long dyed hair with stylish waves, wearing a trendy stage outfit with glitter details and layered accessories, standing under bright studio lights with a colorful gradient background, confident expression, high-fashion pose, soft backlight, photorealistic, ultra detailed face and textures, cinematic lighting, 4k",
+        "beautiful adult latina woman in her late twenties, poolside at a luxury villa, golden hour, seductive, sexy, alluring, round breasts, round ass, beautiful, tight clingy fabric, curves accentuated, sultry pose, slight high angle, soft backlighting, portrait of a stunning young Korean woman in K-pop idol style, flawless skin, glossy lips, subtle makeup with soft blush and eyeliner, long dyed hair with stylish waves, wearing a trendy stage outfit with glitter details and layered accessories, standing under bright studio lights with a colorful gradient background, confident expression, high-fashion pose, soft backlight, photorealistic, ultra detailed face and textures, cinematic lighting, 4k",
+        "beautiful adult latina woman in her late twenties, poolside at a luxury villa, golden hour, seductive, sexy, alluring, round breasts, round ass, beautiful, tight clingy fabric, curves accentuated, sultry pose, wide shot, natural window light, portrait of a stunning young Korean woman in K-pop idol style, flawless skin, glossy lips, subtle makeup with soft blush and eyeliner, long dyed hair with stylish waves, wearing a trendy stage outfit with glitter details and layered accessories, standing under bright studio lights with a colorful gradient background, confident expression, high-fashion pose, soft backlight, photorealistic, ultra detailed face and textures, cinematic lighting, 4k",
+        "beautiful adult latina woman in her late twenties, poolside at a luxury villa, golden hour, seductive, sexy, alluring, round breasts, round ass, beautiful, tight clingy fabric, curves accentuated, sultry pose, three-quarter view, soft studio lighting, portrait of a stunning young Korean woman in K-pop idol style, flawless skin, glossy lips, subtle makeup with soft blush and eyeliner, long dyed hair with stylish waves, wearing a trendy stage outfit with glitter details and layered accessories, standing under bright studio lights with a colorful gradient background, confident expression, high-fashion pose, soft backlight, photorealistic, ultra detailed face and textures, cinematic lighting, 4k",
+        "beautiful adult latina woman in her late twenties, poolside at a luxury villa, golden hour, seductive, sexy, alluring, round breasts, round ass, beautiful, tight clingy fabric, curves accentuated, sultry pose, eye-level shot, diffused overcast light, portrait of a stunning young Korean woman in K-pop idol style, flawless skin, glossy lips, subtle makeup with soft blush and eyeliner, long dyed hair with stylish waves, wearing a trendy stage outfit with glitter details and layered accessories, standing under bright studio lights with a colorful gradient background, confident expression, high-fashion pose, soft backlight, photorealistic, ultra detailed face and textures, cinematic lighting, 4k"
+      ],
+      "motion_prompts": [
+        "She raises an eyebrow, a subtle, sultry smile spreading across her face.",
+        "She tilts her head to the right, as if looking inward, with hair falling gently around her face.",
+        "She tilts her head slightly to the right, her eyes focusing on something off-camera.",
+        "She subtly tilts her head to the right, as if listening to an unheard voice, while her hair gently swings.",
+        "She tilts her head slightly to the right, her gaze following the movement with subtle, languid intensity."
+      ],
+      "ts": "2026-08-28T19:29:44"
     }
   ],
   "model_stats": {
@@ -281,8 +314,8 @@
     },
     "1725032:1952208": {
       "name": "Beauty Maji Realism [Cyber Realistic + Beauty Maji Realism]",
-      "used": 10,
-      "passed": 10
+      "used": 20,
+      "passed": 20
     },
     "5273:650381": {
       "name": "WyvernMix (1.5 & XL)",
