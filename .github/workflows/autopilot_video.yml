@@ -34,7 +34,15 @@ on:
         type: string
 
 concurrency:
-  group: autopilot-video
+  # Same group as autopilot.yml, not a separate "autopilot-video" one -- both
+  # workflows write posted.json/CAPTIONS.md, and running under separate groups
+  # let them execute concurrently, which lost a full batch of Kaggle-generated
+  # images to a rebase-conflict-then-silent-push-failure on a live run (see the
+  # "Persist state" step in both workflows). Queuing image and video runs
+  # against each other instead of racing is a real fix for that; the retry
+  # loop in "Persist state" is the second layer, for any other concurrent
+  # writer (the picker's own Contents-API writes, a manual push).
+  group: autopilot
   cancel-in-progress: false
 
 jobs:
@@ -91,12 +99,30 @@ jobs:
           PAGES_BASE_URL: https://gesimuse.github.io/mpt
         run: python autopilot.py
 
+      # See autopilot.yml's own "Persist state" step for why this retries and
+      # fails loudly instead of a one-shot swallow -- this workflow and that one
+      # both write posted.json/CAPTIONS.md and used to run in separate
+      # concurrency groups, which lost a full batch of images to a silent
+      # rebase-conflict swallow on a live run.
       - name: Persist state (keepalive)
         if: always()
         run: |
           git config user.name "autopilot-bot"
           git config user.email "actions@github.com"
           git add posted.json CAPTIONS.md
-          git diff --cached --quiet || git commit -m "chore: autopilot-video run $(date -u +%F_%H:%M)"
-          git pull --rebase origin ${{ github.ref_name }} || true
-          git push || echo "push failed (non-fatal)"
+          if git diff --cached --quiet; then
+            echo "nothing to persist"
+            exit 0
+          fi
+          git commit -m "chore: autopilot-video run $(date -u +%F_%H:%M)"
+          for attempt in 1 2 3 4 5; do
+            if git pull --rebase origin ${{ github.ref_name }} && git push; then
+              echo "persisted on attempt $attempt"
+              exit 0
+            fi
+            echo "attempt $attempt failed, retrying..."
+            git rebase --abort 2>/dev/null || true
+            sleep $((attempt * 5))
+          done
+          echo "::error::failed to persist posted.json/CAPTIONS.md after 5 attempts -- state from this run was NOT saved to main"
+          exit 1

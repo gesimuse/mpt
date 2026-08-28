@@ -185,12 +185,39 @@ jobs:
       # Commit posted.json back to the repo. This both persists topic/upload
       # history between runs AND counts as repo activity, so GitHub never
       # auto-disables the schedule (60-day inactivity rule).
+      #
+      # Retries on push rejection instead of a one-shot `|| echo ... non-fatal` --
+      # a live run lost a full batch of Kaggle-generated images this way: this
+      # workflow and autopilot_video.yml both write posted.json/CAPTIONS.md, ran
+      # concurrently (separate concurrency groups back then -- now unified, see
+      # above), hit a real rebase conflict, and the old one-shot swallow silently
+      # dropped the losing run's images from posted.json entirely (the TikTok
+      # draft itself still went out fine -- that's a separate API call -- so the
+      # failure was invisible until someone checked the picker and the images
+      # just weren't there, recovered by hand from the run's own log afterward).
+      # Unifying the concurrency group should make this rare now, but retrying
+      # (any other concurrent writer -- the picker's own Contents-API writes, a
+      # manual push) and failing the JOB loudly if every attempt is exhausted
+      # means a future occurrence shows up as a red X instead of vanishing.
       - name: Persist state (keepalive)
         if: always()
         run: |
           git config user.name "autopilot-bot"
           git config user.email "actions@github.com"
           git add posted.json CAPTIONS.md
-          git diff --cached --quiet || git commit -m "chore: autopilot run $(date -u +%F_%H:%M)"
-          git pull --rebase origin ${{ github.ref_name }} || true
-          git push || echo "push failed (non-fatal)"
+          if git diff --cached --quiet; then
+            echo "nothing to persist"
+            exit 0
+          fi
+          git commit -m "chore: autopilot run $(date -u +%F_%H:%M)"
+          for attempt in 1 2 3 4 5; do
+            if git pull --rebase origin ${{ github.ref_name }} && git push; then
+              echo "persisted on attempt $attempt"
+              exit 0
+            fi
+            echo "attempt $attempt failed, retrying..."
+            git rebase --abort 2>/dev/null || true
+            sleep $((attempt * 5))
+          done
+          echo "::error::failed to persist posted.json/CAPTIONS.md after 5 attempts -- state from this run was NOT saved to main"
+          exit 1
