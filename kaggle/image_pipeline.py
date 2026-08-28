@@ -19,13 +19,18 @@ to matter here too, not just for the Wan2.2 video attempt (reverted -- see
 videogen.py's docstring): a live P100 kernel died on EVERY image with "CUDA
 error: no kernel image is available for execution on the device". Confirmed
 live and via Kaggle's own docker-python#1546 -- Kaggle's current base image
-ships a PyTorch build that dropped Pascal (sm_60, what the P100 is) entirely,
-so ANY GPU op fails there now, not just exotic quantized kernels. Unlike the
-Wan2.2 case though, this pipeline has no exotic dependency on a specific
-PyTorch/quantization build -- plain SD1.5/SDXL fp16 -- so explicitly
-reinstalling torch 2.7.0 (the last release with sm_60 support; dropped in
-2.8's cu128 builds) overriding Kaggle's own default is a real fix here, not
-a dead end the way it was for Wan2.2's torchao/AOT-compiled requirements.
+ships a PyTorch build that dropped Pascal (sm_60, what the P100 is) entirely.
+
+The drop is tied to the CUDA TOOLKIT version a wheel is compiled against, not
+to the torch release number -- confirmed via PyTorch's own dev-discuss
+mailing list ("Maxwell and Pascal architecture support removed in CUDA 12.8
+and 12.9 builds"). An earlier attempt here pinned torch==2.7.0 via the cu128
+index specifically because cu121/cu124 have both been pruned of a 2.7.0
+wheel -- but a live run showed that still hits the exact same CUDA error:
+cu128 itself is what dropped Pascal, regardless of which torch release
+number happens to be built against it. The actual fix is a torch version old
+enough that its matching index predates CUDA 12.8: torch==2.6.0 via cu124
+(compiled against CUDA 12.4, well before the sm_60 drop).
 
 Placeholders below are substituted by scripts/prepare_image_kernel.py at
 push time.
@@ -86,21 +91,21 @@ def main() -> None:
         # Kaggle's own preinstalled torch dropped Pascal (sm_60, the P100) support
         # entirely -- confirmed live: every image died with "CUDA error: no kernel
         # image is available for execution on the device" when relying on the
-        # default install. 2.7.0 is the last release that still ships sm_60 in its
-        # CUDA wheels (dropped in 2.8's cu128 builds) -- explicitly overriding
-        # Kaggle's default with it, matched with the paired torchvision release.
-        log("installing torch 2.7.0 (last release with Pascal/P100 support, "
-            "overriding Kaggle's own default)...")
+        # default install. An earlier attempt here pinned torch==2.7.0 via the
+        # cu128 index (the only one still carrying a 2.7.0 wheel -- cu121/cu124
+        # have both been pruned of it), which hit the EXACT same CUDA error live:
+        # the Pascal drop is tied to the CUDA TOOLKIT a wheel is built against
+        # (12.8+, confirmed via PyTorch's own dev-discuss mailing list), not to
+        # the torch release number -- cu128 lacks sm_60 no matter which torch
+        # version is pinned against it. cu124 (compiled against CUDA 12.4,
+        # predating the drop) still has it, at the cost of an older torch/
+        # torchvision pairing than we'd otherwise want.
+        log("installing torch 2.6.0 via cu124 (last CUDA-toolkit index before "
+            "12.8 dropped Pascal/P100 support, overriding Kaggle's own default)...")
         subprocess.run(
             [sys.executable, "-m", "pip", "install", "-q",
-             "torch==2.7.0", "torchvision==0.22.0",
-             # cu121 (only through 2.5.1) and cu124 (only through 2.6.0) have both
-             # been pruned of 2.7.0 -- confirmed live against the real index,
-             # despite PyTorch's own "previous versions" docs page still listing
-             # both as valid for 2.7.0 (a stale snapshot; older CUDA-version
-             # indices get pruned of old releases over time as newer ones become
-             # current). cu128 is the newest index and hasn't been pruned yet.
-             "--index-url", "https://download.pytorch.org/whl/cu128"],
+             "torch==2.6.0", "torchvision==0.21.0",
+             "--index-url", "https://download.pytorch.org/whl/cu124"],
             check=True)
 
         log("installing remaining deps (matches autopilot.yml's list, minus ollama -- "
@@ -116,17 +121,18 @@ def main() -> None:
              # -- even though this pipeline never uses quantization -- and that
              # chain does `from torch.nn.functional import ScalingType,
              # scaled_grouped_mm`, symbols that only exist in torch 2.8+. We're
-             # pinned to torch 2.7.0 specifically because that's the last
-             # release supporting the P100's sm_60 -- an unresolvable conflict
-             # with any transformers release new enough to require torch 2.8+
-             # internals. 4.54.1 (2025-07-29) predates torch 2.8's release
-             # (2025-08-06) entirely, so it cannot contain code assuming
-             # 2.8-only APIs -- no torchao version pin needed on top of this,
-             # letting pip resolve whatever (if anything) this older
-             # transformers actually declares as a real dependency.
+             # pinned to torch 2.6.0 specifically because cu124 is the newest
+             # CUDA-toolkit index that still supports the P100's sm_60 (see the
+             # torch install above) -- an unresolvable conflict with any
+             # transformers release new enough to require torch 2.8+ internals.
+             # 4.54.1 (2025-07-29) predates torch 2.8's release (2025-08-06)
+             # entirely, so it cannot contain code assuming 2.8-only APIs -- no
+             # torchao version pin needed on top of this, letting pip resolve
+             # whatever (if anything) this older transformers actually declares
+             # as a real dependency.
              "transformers==4.54.1",
              "accelerate", "safetensors", "peft", "compel",
-             # Re-pinned here too (already installed above via the cu128 index)
+             # Re-pinned here too (already installed above via the cu124 index)
              # so ultralytics/super-image see it already satisfied and don't
              # pull in a mismatched plain-PyPI build -- the real fix for THIS
              # incident turned out to be the transformers pin above (confirmed
@@ -134,7 +140,7 @@ def main() -> None:
              # the torch/torchvision ABI mismatch autopilot.yml's own comments
              # already document happening for the CPU path, which is a real
              # risk here too even though it wasn't the actual cause this time.
-             "torchvision==0.22.0",
+             "torchvision==0.21.0",
              "ultralytics", "super-image", "mediapipe==0.10.21", "controlnet_aux",
              "requests"],
             check=True)
@@ -147,9 +153,9 @@ def main() -> None:
         # installed, peft's own copy of that probe raises outright on anything below
         # 0.16.0 ("Found an incompatible version of torchao..."), and 0.16.0+ itself
         # transitively imports torch.nn.functional.ScalingType/scaled_grouped_mm,
-        # torch 2.8-only symbols that don't exist on torch 2.7.0 (pinned above for
+        # torch 2.8-only symbols that don't exist on torch 2.6.0 (pinned above for
         # Pascal/P100 support) -- both confirmed live, one right after "fixing" the
-        # other. No version of torchao satisfies both peft's floor and torch 2.7.0,
+        # other. No version of torchao satisfies both peft's floor and torch 2.6.0,
         # so removing it outright is the only version that works with both: plain,
         # unquantized LoRA fusing never needed it in the first place.
         log("removing Kaggle's preinstalled torchao -- transformers/peft both skip "
