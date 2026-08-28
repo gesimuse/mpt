@@ -15,8 +15,12 @@ nothing" in the state file.
 
 Needs env: KAGGLE_USERNAME, KAGGLE_API_TOKEN (motionforge's run_local.sh names it
 KAGGLE_API_TOKEN even though Kaggle's own env var is KAGGLE_KEY; we set both
-below), HF_TOKEN. Motionforge's scripts read IMAGE_URL/PROMPT/LENGTH_S/STEPS from
-env, which we set per call."""
+below), HF_TOKEN (or HF_TOKENS, comma-separated, if rotating across more than
+one HF account's free ZeroGPU quota -- see motionforge's prepare_kernel.py).
+Motionforge's scripts read IMAGE_URL/PROMPT/LENGTH_S/STEPS from env, which we
+set per call; HF_TOKEN(S) just needs to already be in this process's own
+environment since generate() forwards the whole thing (env = os.environ.copy())
+rather than naming every var explicitly."""
 import os, subprocess, sys, tempfile
 from pathlib import Path
 

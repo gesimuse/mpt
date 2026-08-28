@@ -89,6 +89,13 @@ jobs:
           KAGGLE_KEY: ${{ secrets.KAGGLE_API_TOKEN }}
           KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          # Optional, comma-separated HF_TOKENS secret (multiple accounts) takes
+          # priority over the single HF_TOKEN above in motionforge's
+          # prepare_kernel.py -- rotates to the next token if one hits its
+          # account's free ZeroGPU quota (5min/day each). Only add this secret
+          # if you actually have more than one HF account's token; leaving it
+          # unset falls back to the single HF_TOKEN unchanged.
+          HF_TOKENS: ${{ secrets.HF_TOKENS }}
           TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
           TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
           TIKTOK_REFRESH_TOKEN_AIBEAUTY: ${{ secrets.TIKTOK_REFRESH_TOKEN_AIBEAUTY }}
