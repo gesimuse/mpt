@@ -79,23 +79,32 @@ def main() -> None:
             "supervisor is disabled below, so no vision model needed here)...")
         subprocess.run(
             [sys.executable, "-m", "pip", "install", "-q",
-             "diffusers", "transformers", "accelerate", "safetensors", "peft", "compel",
-             # Kaggle's base image ships torchao 0.10.0 -- a live run crashed every
-             # single image with "Found an incompatible version of torchao ...
-             # only versions above 0.16.0 are supported" (compel/diffusers check
-             # this at import/load time even though this pipeline never uses
-             # torchao's quantization APIs directly).
-             "torchao>=0.16.0",
-             # Re-pinned here too (already installed above via the cu128 index) --
-             # a live run's diffusers import broke with a truncated one-line
-             # error ("Failed to import diffusers.pipelines.stable_diffusion...",
-             # sdgen.py's own per-image handler caps error text at 100 chars, so
-             # the real cause was never visible). Prime suspect: ultralytics or
-             # super-image silently pulling in a plain-PyPI torchvision build
-             # that doesn't match the cu128 one, the exact torch/torchvision ABI
-             # mismatch autopilot.yml's own comments already document for the
-             # CPU path. Re-stating the pin here should make pip either keep it
-             # or fail loudly on a real conflict, instead of silently swapping it.
+             "diffusers",
+             # Confirmed root cause via the diagnostic below (a live run's FULL
+             # traceback, not the 100-char-truncated one-liner from sdgen.py's
+             # own per-image handler): latest transformers unconditionally
+             # imports its torchao quantizer support just to load CLIPTextModel
+             # -- even though this pipeline never uses quantization -- and that
+             # chain does `from torch.nn.functional import ScalingType,
+             # scaled_grouped_mm`, symbols that only exist in torch 2.8+. We're
+             # pinned to torch 2.7.0 specifically because that's the last
+             # release supporting the P100's sm_60 -- an unresolvable conflict
+             # with any transformers release new enough to require torch 2.8+
+             # internals. 4.54.1 (2025-07-29) predates torch 2.8's release
+             # (2025-08-06) entirely, so it cannot contain code assuming
+             # 2.8-only APIs -- no torchao version pin needed on top of this,
+             # letting pip resolve whatever (if anything) this older
+             # transformers actually declares as a real dependency.
+             "transformers==4.54.1",
+             "accelerate", "safetensors", "peft", "compel",
+             # Re-pinned here too (already installed above via the cu128 index)
+             # so ultralytics/super-image see it already satisfied and don't
+             # pull in a mismatched plain-PyPI build -- the real fix for THIS
+             # incident turned out to be the transformers pin above (confirmed
+             # via the diagnostic's full traceback), but this guards against
+             # the torch/torchvision ABI mismatch autopilot.yml's own comments
+             # already document happening for the CPU path, which is a real
+             # risk here too even though it wasn't the actual cause this time.
              "torchvision==0.22.0",
              "ultralytics", "super-image", "mediapipe==0.10.21", "controlnet_aux",
              "requests"],
