@@ -9,3 +9,5 @@ out/
 # tiktok.py's local worktree of the gh-pages branch -- a checkout of a different
 # branch, never content that belongs in a main-branch commit.
 .gh-pages-worktree/
+# scripts/prepare_image_kernel.py's generated bundle -- rebuilt fresh every push.
+kernel_build_imagegen/

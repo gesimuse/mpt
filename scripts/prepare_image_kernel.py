@@ -17,7 +17,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 BUILD = ROOT / "kernel_build_imagegen"
-KERNEL_SLUG = "mpt-imagegen-worker"
+# Must match what Kaggle actually slugifies "MPT Image Gen Worker" (the title
+# below) into -- a live push confirmed Kaggle silently creates the kernel
+# under its OWN title-derived slug when it disagrees with kernel-metadata.json's
+# `id`, not the id we asked for ("mpt-imagegen-worker" got created as
+# "mpt-image-gen-worker" instead, 403ing every subsequent status/output call
+# that polled the slug we thought we'd used).
+KERNEL_SLUG = "mpt-image-gen-worker"
 
 
 def require(name: str) -> str:

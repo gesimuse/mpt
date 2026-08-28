@@ -59,6 +59,12 @@ def main() -> None:
         subprocess.run(
             [sys.executable, "-m", "pip", "install", "-q",
              "diffusers", "transformers", "accelerate", "safetensors", "peft", "compel",
+             # Kaggle's base image ships torchao 0.10.0 -- a live run crashed every
+             # single image with "Found an incompatible version of torchao ...
+             # only versions above 0.16.0 are supported" (compel/diffusers check
+             # this at import/load time even though this pipeline never uses
+             # torchao's quantization APIs directly).
+             "torchao>=0.16.0",
              "ultralytics", "super-image", "mediapipe==0.10.21", "controlnet_aux",
              "requests"],
             check=True)

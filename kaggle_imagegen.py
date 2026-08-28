@@ -26,7 +26,7 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-KERNEL_SLUG = "mpt-imagegen-worker"
+KERNEL_SLUG = "mpt-image-gen-worker"
 
 
 def log(msg): print(f"[kaggle_imagegen] {msg}", flush=True)
