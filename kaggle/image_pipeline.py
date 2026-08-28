@@ -125,20 +125,6 @@ def main() -> None:
              # letting pip resolve whatever (if anything) this older
              # transformers actually declares as a real dependency.
              "transformers==4.54.1",
-             # peft's own load_lora_weights()/fuse_lora() path is a SEPARATE torchao
-             # consumer from transformers' CLIPTextModel path above -- confirmed live,
-             # a real run got past model loading fine (transformers==4.54.1 pin above
-             # working as intended) and then failed every single image at
-             # pipe.load_lora_weights(): "Found an incompatible version of torchao.
-             # Found version 0.10.0, but only versions above 0.16.0 are supported".
-             # torchao 0.10.0 was never something we asked for -- pulled in
-             # transitively by something else in this list with no pin of its own.
-             # Unlike the transformers/torch-2.8-API conflict above, torchao itself
-             # declares no minimum torch version in its own package metadata (checked
-             # against PyPI directly) -- plain LoRA fusing on an unquantized SD1.5
-             # checkpoint has no reason to touch the torch-2.8-only ops that conflict
-             # actually came from, so pinning torchao up doesn't reopen that issue.
-             "torchao>=0.16.0",
              "accelerate", "safetensors", "peft", "compel",
              # Re-pinned here too (already installed above via the cu128 index)
              # so ultralytics/super-image see it already satisfied and don't
@@ -152,6 +138,25 @@ def main() -> None:
              "ultralytics", "super-image", "mediapipe==0.10.21", "controlnet_aux",
              "requests"],
             check=True)
+
+        # Kaggle's base image ships torchao preinstalled (0.10.0, confirmed live) --
+        # same shape of problem as the preinstalled TensorFlow USE_TF=0 works around
+        # above, just for a different library. transformers AND peft both probe
+        # is_torchao_available() before touching torchao at all, and that probe
+        # returns a clean False when torchao isn't importable -- but if it IS
+        # installed, peft's own copy of that probe raises outright on anything below
+        # 0.16.0 ("Found an incompatible version of torchao..."), and 0.16.0+ itself
+        # transitively imports torch.nn.functional.ScalingType/scaled_grouped_mm,
+        # torch 2.8-only symbols that don't exist on torch 2.7.0 (pinned above for
+        # Pascal/P100 support) -- both confirmed live, one right after "fixing" the
+        # other. No version of torchao satisfies both peft's floor and torch 2.7.0,
+        # so removing it outright is the only version that works with both: plain,
+        # unquantized LoRA fusing never needed it in the first place.
+        log("removing Kaggle's preinstalled torchao -- transformers/peft both skip "
+            "it cleanly when it's simply not there, avoiding a version nothing "
+            "satisfies (see comment above)...")
+        subprocess.run([sys.executable, "-m", "pip", "uninstall", "-y", "-q", "torchao"],
+                       check=True)
 
         # Diagnostic: sdgen.py's own per-image exception handler truncates
         # errors to 100 chars, which is exactly what hid the real cause of a

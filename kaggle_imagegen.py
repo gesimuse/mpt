@@ -149,10 +149,18 @@ def _generate_batch_on_kaggle(resolved, prompts, negatives, adopted, workdir):
                                     " -- no kernel log either, no diagnosis possible"))
     status = json.loads(status_file.read_text())
     if not status.get("ok"):
+        # The diagnostic import block in image_pipeline.py writes a full
+        # traceback into status.json itself (confirmed live to be far more useful
+        # than the kernel's own stdout/stderr log, which by the time we read it is
+        # buried under pip's dependency-conflict warnings and Kaggle's own
+        # trailing notebook-conversion noise, appended after the script exits).
+        parts = [f"kernel reported failure: {status.get('error')}"]
+        if status.get("traceback"):
+            parts.append(f"traceback:\n{status['traceback']}")
         tail = _kernel_log_tail(out_root)
-        raise RuntimeError(
-            f"kernel reported failure: {status.get('error')}"
-            + (f"\nkernel log tail:\n{tail}" if tail else ""))
+        if tail:
+            parts.append(f"kernel log tail:\n{tail}")
+        raise RuntimeError("\n".join(parts))
 
     images_dir = out_root / "images"
     names = status.get("images") or []
