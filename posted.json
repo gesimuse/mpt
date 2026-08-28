@@ -7,7 +7,8 @@
       "aibeauty-20260827-205610",
       "aibeauty-20260827-224321",
       "aibeauty-20260828-125928",
-      "aibeauty-20260828-141747"
+      "aibeauty-20260828-141747",
+      "aibeauty-20260828-145118"
     ]
   },
   "uploads": [
@@ -210,6 +211,38 @@
       "video_url": "https://gesimuse.github.io/mpt/media/1787929257-final.mp4",
       "ts": "2026-08-28T15:02:05",
       "motionforge_source_url": "https://gesimuse.github.io/mpt/media/1787872643-sd_3.jpg"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260828-145118",
+      "title": "Feeling myself, no apologies.",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7679098465443973122",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "Feeling myself, no apologies.\n\nCreated with AI.\n\n#aiart #aigenerated #aiphotography #confident",
+      "image_urls": [
+        "https://gesimuse.github.io/mpt/media/1787929287-sd_0.jpg",
+        "https://gesimuse.github.io/mpt/media/1787929316-sd_1.jpg",
+        "https://gesimuse.github.io/mpt/media/1787929345-sd_2.jpg",
+        "https://gesimuse.github.io/mpt/media/1787929372-sd_3.jpg",
+        "https://gesimuse.github.io/mpt/media/1787929395-sd_4.jpg"
+      ],
+      "image_prompts": [
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "motion_prompts": [
+        "She tilts her head slightly to one side, and her lips curve into a subtle, enigmatic smile.",
+        "She tilts her head, and her wet hair falls in front of her face, slowly falling away.",
+        "She tilts her head, exposing skin, as her eyes lock onto something slightly off-screen.",
+        "She slowly tilts her head to the right, her eyes narrowing in a subtle smile.",
+        "She tilts her head slightly, her eyes locking onto something in the distance, just as the light hits her cheek."
+      ],
+      "ts": "2026-08-28T14:51:18"
     }
   ],
   "model_stats": {
@@ -220,8 +253,8 @@
     },
     "89548:95334": {
       "name": "HydraMix",
-      "used": 30,
-      "passed": 30
+      "used": 40,
+      "passed": 40
     },
     "83490:88738": {
       "name": "Vendo Photorealistic 2",
