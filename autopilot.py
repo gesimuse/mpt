@@ -26,6 +26,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 import imageslides
+import kaggle_imagegen
 import motion_writer
 import tiktok
 import videogen
@@ -148,7 +149,22 @@ def run_niche(niche, state):
     used = state["topics"].setdefault(niche["id"], [])
     for _ in range(videos_this_run):
         stamp = time.strftime("%Y%m%d-%H%M%S")
-        images, vibe, image_prompts = imageslides.generate(niche, state=state)
+        # Kaggle's own GPU generates the same images much faster than the local
+        # GH Actions CPU runner -- tried first when configured, but NEVER the
+        # only path: any failure here (missing creds, push/poll error, kernel
+        # crash) falls straight back to the exact same local imageslides.generate()
+        # call this always used, unchanged. A speed win is not worth risking the
+        # pipeline that already works.
+        images = vibe = image_prompts = None
+        if kaggle_imagegen.available():
+            try:
+                images, vibe, image_prompts = kaggle_imagegen.generate(niche, state=state)
+                log(f"[{niche['id']}] generated on Kaggle's GPU ({len(images)} images)")
+            except Exception as e:
+                log(f"[{niche['id']}] Kaggle image gen failed "
+                    f"({type(e).__name__}: {str(e)[:200]}); falling back to local")
+        if images is None:
+            images, vibe, image_prompts = imageslides.generate(niche, state=state)
         caption = imageslides.image_caption(niche, vibe=vibe)
         log(f"[{niche['id']}] caption (pre-filled on the draft; also saved to "
             f"CAPTIONS.md as a fallback):\n{caption}")

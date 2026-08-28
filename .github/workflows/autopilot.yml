@@ -92,6 +92,11 @@ jobs:
       - name: Install deps
         run: |
           pip install requests
+          # kaggle_imagegen.py shells out to the kaggle CLI (never imports the
+          # kaggle Python package) to try generating on Kaggle's own GPU before
+          # falling back to this runner's CPU below. kaggle<2.0 keeps the
+          # KAGGLE_USERNAME/KAGGLE_KEY auth path -- 2.x switched to OAuth.
+          pip install "kaggle<2.0"
           # torchvision installed HERE, pinned to the same CPU wheel index as torch --
           # this workflow never installed torchvision at all before ultralytics/
           # super-image were added below, both of which depend on it. Left unpinned,
@@ -152,6 +157,11 @@ jobs:
           # either way, so image generation still runs without this key, just with
           # less prompt/model variety (falls back to the built-in prompt formula).
           CIVITAI_API_KEY: ${{ secrets.CIVITAI_API_KEY }}
+          # kaggle_imagegen.py tries Kaggle's own GPU first (much faster than this
+          # runner's CPU) and falls back to the unchanged local path below on ANY
+          # failure -- missing these secrets is one such failure, not a hard stop.
+          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
           TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
           TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
           TIKTOK_REFRESH_TOKEN_AIBEAUTY: ${{ secrets.TIKTOK_REFRESH_TOKEN_AIBEAUTY }}

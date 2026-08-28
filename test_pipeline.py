@@ -20,6 +20,7 @@ import civitai  # noqa: E402
 import clip_encode  # noqa: E402
 import hand_pose  # noqa: E402
 import imageslides  # noqa: E402
+import kaggle_imagegen  # noqa: E402
 import motion_writer  # noqa: E402
 import push_draft  # noqa: E402
 import refine  # noqa: E402
@@ -1847,6 +1848,58 @@ class RunNicheTest(unittest.TestCase):
             with mock.patch.object(autopilot, "OUT_DIR", Path(tmp)):
                 autopilot.run_niche(self.AIBEAUTY, {"topics": {}, "uploads": []})
 
+    def test_kaggle_used_when_available_and_local_generate_never_called(self):
+        """Kaggle's GPU generates the same images faster -- when it succeeds,
+        the local (GH Actions CPU) path must not run at all."""
+        fake_images = [Path(f"/tmp/i{i}.png") for i in range(5)]
+        with mock.patch.object(autopilot, "DRY_RUN", True), \
+             mock.patch.object(kaggle_imagegen, "available", lambda: True), \
+             mock.patch.object(kaggle_imagegen, "generate",
+                               lambda n, state=None: (fake_images, "kaggle vibe",
+                                                       [None] * len(fake_images))), \
+             mock.patch.object(imageslides, "generate",
+                               mock.Mock(side_effect=AssertionError("must not run"))), \
+             mock.patch.object(autopilot.shutil, "copy", lambda a, b: None), \
+             tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.object(autopilot, "OUT_DIR", Path(tmp)):
+                autopilot.run_niche(self.AIBEAUTY, {"topics": {}, "uploads": []})
+
+    def test_kaggle_failure_falls_back_to_local_generate_unchanged(self):
+        """The whole point of trying Kaggle first: it must never be able to break
+        a run that would otherwise have succeeded locally. Any failure there
+        (missing creds, push/poll error, kernel crash) falls straight back to
+        the exact same local imageslides.generate() call used before Kaggle
+        existed."""
+        fake_images = [Path(f"/tmp/i{i}.png") for i in range(5)]
+        with mock.patch.object(autopilot, "DRY_RUN", True), \
+             mock.patch.object(kaggle_imagegen, "available", lambda: True), \
+             mock.patch.object(kaggle_imagegen, "generate",
+                               mock.Mock(side_effect=RuntimeError("kernel did not "
+                                                                  "reach a terminal state"))), \
+             mock.patch.object(imageslides, "generate",
+                               lambda n, state=None: (fake_images, None,
+                                                       [None] * len(fake_images))), \
+             mock.patch.object(autopilot.shutil, "copy", lambda a, b: None), \
+             tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.object(autopilot, "OUT_DIR", Path(tmp)):
+                autopilot.run_niche(self.AIBEAUTY, {"topics": {}, "uploads": []})
+
+    def test_kaggle_not_attempted_when_unavailable(self):
+        """No Kaggle credentials configured -- must go straight to local
+        generation without ever calling kaggle_imagegen.generate()."""
+        fake_images = [Path(f"/tmp/i{i}.png") for i in range(5)]
+        with mock.patch.object(autopilot, "DRY_RUN", True), \
+             mock.patch.object(kaggle_imagegen, "available", lambda: False), \
+             mock.patch.object(kaggle_imagegen, "generate",
+                               mock.Mock(side_effect=AssertionError("must not run"))), \
+             mock.patch.object(imageslides, "generate",
+                               lambda n, state=None: (fake_images, None,
+                                                       [None] * len(fake_images))), \
+             mock.patch.object(autopilot.shutil, "copy", lambda a, b: None), \
+             tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.object(autopilot, "OUT_DIR", Path(tmp)):
+                autopilot.run_niche(self.AIBEAUTY, {"topics": {}, "uploads": []})
+
     def test_write_pending_captions_lists_only_tiktok_uploads(self):
         state = {"uploads": [
             {"tiktok": True, "tiktok_caption": "caption one", "ts": "t1", "niche": "aibeauty"},
@@ -2842,6 +2895,90 @@ class PickerHtmlTest(unittest.TestCase):
         # PAT is stored in localStorage (deliberate tradeoff for zero-setup UX --
         # scope it to actions:write on this repo only per the setup blurb).
         self.assertIn('localStorage.getItem("mpt_pat")', self.HTML)
+
+
+class KaggleImagegenTest(unittest.TestCase):
+    """kaggle_imagegen.generate() pushes a kernel, polls, downloads output --
+    same push/poll/output shape as motionforge's old Kaggle bridge (videogen.py,
+    before it was removed there since Kaggle did no compute for video). Here
+    Kaggle actually runs sdgen.py's generation for real, so it stays. Tests
+    mock subprocess entirely; no real Kaggle calls."""
+
+    def test_available_requires_username_and_a_token(self):
+        with mock.patch.dict(os.environ, {}, clear=True):
+            self.assertFalse(kaggle_imagegen.available())
+        with mock.patch.dict(os.environ, {"KAGGLE_USERNAME": "u"}, clear=True):
+            self.assertFalse(kaggle_imagegen.available(), "no token -- still unavailable")
+        with mock.patch.dict(os.environ, {"KAGGLE_USERNAME": "u", "KAGGLE_KEY": "k"},
+                             clear=True):
+            self.assertTrue(kaggle_imagegen.available())
+        with mock.patch.dict(os.environ, {"KAGGLE_USERNAME": "u", "KAGGLE_API_TOKEN": "t"},
+                             clear=True):
+            self.assertTrue(kaggle_imagegen.available(), "KAGGLE_API_TOKEN alone must work too")
+
+    def _fake_run_factory(self, status_payload, images_written=()):
+        """Fakes `kaggle kernels status` (always COMPLETE) and `kaggle kernels
+        output` (writes status.json + any listed image files into -p's dir)."""
+        def run(cmd, *a, **kw):
+            if cmd[:2] == ["kaggle", "kernels"] and cmd[2] == "status":
+                return mock.Mock(returncode=0,
+                                 stdout="x has status \"KernelWorkerStatus.COMPLETE\"",
+                                 stderr="")
+            if cmd[:3] == ["kaggle", "kernels", "output"]:
+                out_dir = Path(cmd[cmd.index("-p") + 1])
+                out_dir.mkdir(parents=True, exist_ok=True)
+                if status_payload is not None:
+                    (out_dir / "status.json").write_text(json.dumps(status_payload))
+                if images_written:
+                    (out_dir / "images").mkdir(exist_ok=True)
+                    for name in images_written:
+                        (out_dir / "images" / name).write_bytes(b"fake")
+                return mock.Mock(returncode=0, stdout="", stderr="")
+            return mock.Mock(returncode=0, stdout="", stderr="")
+        return run
+
+    def test_success_returns_images_vibe_and_prompts(self):
+        payload = {"ok": True, "images": ["sd_0.jpg", "sd_1.jpg"], "vibe": "a rainy afternoon",
+                  "image_prompts": ["prompt a", "prompt b"]}
+        env = {"KAGGLE_USERNAME": "u", "KAGGLE_KEY": "k"}
+        with mock.patch.dict(os.environ, env, clear=True), \
+             mock.patch.object(kaggle_imagegen.subprocess, "run",
+                              self._fake_run_factory(payload, images_written=payload["images"])):
+            images, vibe, prompts = kaggle_imagegen.generate({"id": "aibeauty"})
+        self.assertEqual(len(images), 2)
+        self.assertTrue(all(Path(p).exists() for p in images))
+        self.assertEqual(vibe, "a rainy afternoon")
+        self.assertEqual(prompts, ["prompt a", "prompt b"])
+
+    def test_missing_status_json_raises(self):
+        """The Wan2.2 experiment's exact failure signature (a hard kill below
+        Python's own exception handling, no status.json ever written) must be
+        a clean, catchable RuntimeError here -- not an unhandled crash -- so
+        autopilot.py's fallback-to-local can actually catch it."""
+        env = {"KAGGLE_USERNAME": "u", "KAGGLE_KEY": "k"}
+        with mock.patch.dict(os.environ, env, clear=True), \
+             mock.patch.object(kaggle_imagegen.subprocess, "run",
+                              self._fake_run_factory(None)):
+            with self.assertRaises(RuntimeError) as ctx:
+                kaggle_imagegen.generate({"id": "aibeauty"})
+        self.assertIn("status.json", str(ctx.exception))
+
+    def test_kernel_reported_failure_raises_with_its_error(self):
+        payload = {"ok": False, "error": "CUDA out of memory"}
+        env = {"KAGGLE_USERNAME": "u", "KAGGLE_KEY": "k"}
+        with mock.patch.dict(os.environ, env, clear=True), \
+             mock.patch.object(kaggle_imagegen.subprocess, "run",
+                              self._fake_run_factory(payload)):
+            with self.assertRaises(RuntimeError) as ctx:
+                kaggle_imagegen.generate({"id": "aibeauty"})
+        self.assertIn("CUDA out of memory", str(ctx.exception))
+
+    def test_missing_credentials_raises_before_any_subprocess_call(self):
+        with mock.patch.dict(os.environ, {}, clear=True), \
+             mock.patch.object(kaggle_imagegen.subprocess, "run",
+                              mock.Mock(side_effect=AssertionError("must not run"))):
+            with self.assertRaises(RuntimeError):
+                kaggle_imagegen.generate({"id": "aibeauty"})
 
 
 class VideoGenTest(unittest.TestCase):
