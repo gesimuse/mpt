@@ -786,7 +786,7 @@ function wireVideoRetryButtons() {
             "X-GitHub-Api-Version": "2022-11-28",
           },
           // No regeneration -- autopilot.py's VIDEO_RETRY_URL branch republishes
-          // this exact mp4 straight to TikTok, skipping Kaggle/motionforge.
+          // this exact mp4 straight to TikTok, skipping the HF Space call.
           body: JSON.stringify({ ref: "main", inputs: { retry_video_url: url } }),
         });
       if (r.status === 204) {

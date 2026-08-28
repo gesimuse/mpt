@@ -2845,84 +2845,113 @@ class PickerHtmlTest(unittest.TestCase):
 
 
 class VideoGenTest(unittest.TestCase):
-    """videogen.generate shells out to motionforge's own scripts (prepare_kernel.py,
-    `kaggle kernels push`, poll_kaggle.py). Tests assert the subprocess plumbing
-    (env passed, commands invoked, mp4 copied out) with everything mocked."""
+    """videogen.generate calls the linoyts/wan2-2-i2v-rCM HF Space directly via
+    gradio_client -- no Kaggle involved (a Kaggle bridge did this before; removed,
+    see videogen.py's docstring for why). Tests mock gradio_client.Client/
+    handle_file and subprocess (pip install + ffmpeg normalize)."""
 
-    def _setup_fake_motionforge(self, tmp):
-        """Build a fake motionforge tree under tmp with the scripts videogen expects."""
-        mf = Path(tmp) / "motionforge"
-        (mf / "scripts").mkdir(parents=True)
-        (mf / "kaggle_output").mkdir(parents=True)
-        (mf / "scripts" / "prepare_kernel.py").write_text("# fake")
-        (mf / "scripts" / "poll_kaggle.py").write_text("# fake")
-        (mf / "kaggle_output" / "final.mp4").write_bytes(b"fakemp4payload")
-        return mf
+    @staticmethod
+    def _fake_run(calls, ffmpeg_payload=b"normalizedmp4payload"):
+        def run(cmd, *a, **kw):
+            calls.append(cmd)
+            if cmd[0] == "ffmpeg":
+                # Real ffmpeg would transcode; simulate that by writing the
+                # dest path (the last arg) so the caller sees a real file.
+                Path(cmd[-1]).write_bytes(ffmpeg_payload)
+            return mock.Mock(returncode=0, stderr="")
+        return run
 
-    def test_shells_out_and_copies_mp4(self):
+    def test_calls_space_directly_and_normalizes_for_tiktok(self):
         with tempfile.TemporaryDirectory() as tmp:
-            mf = self._setup_fake_motionforge(tmp)
+            src_mp4 = Path(tmp) / "raw.mp4"
+            src_mp4.write_bytes(b"rawpayload")
             out_dir = Path(tmp) / "out"
             calls = []
 
-            def fake_run(cmd, cwd=None, env=None, check=None, capture_output=None,
-                        text=None):
-                calls.append({"cmd": cmd, "cwd": cwd, "env": env})
-                if cmd[0] == "ffmpeg":
-                    # Real ffmpeg would transcode; simulate that by writing the
-                    # dest path (the last arg) so the caller sees a real file.
-                    Path(cmd[-1]).write_bytes(b"normalizedmp4payload")
-                return mock.Mock(returncode=0, stderr="")
+            fake_client = mock.Mock()
+            fake_client.predict.return_value = (str(src_mp4), 42)
 
-            env = {"KAGGLE_USERNAME": "u", "KAGGLE_API_TOKEN": "t", "HF_TOKEN": "hf",
-                  "MOTIONFORGE_DIR": str(mf)}
-            with mock.patch.dict(os.environ, env, clear=True), \
-                 mock.patch.object(videogen.subprocess, "run", fake_run):
+            with mock.patch.dict(os.environ, {"HF_TOKEN": "hf_tok"}, clear=True), \
+                 mock.patch.object(videogen.subprocess, "run", self._fake_run(calls)), \
+                 mock.patch("gradio_client.Client", return_value=fake_client) as MockClient, \
+                 mock.patch("gradio_client.handle_file", side_effect=lambda x: x):
                 out = videogen.generate("https://x/img.jpg", "she smiles",
                                        length_s=5.0, steps=4, seed=42,
                                        out_dir=str(out_dir))
 
             self.assertTrue(Path(out).exists())
             self.assertEqual(Path(out).read_bytes(), b"normalizedmp4payload")
-            # Four subprocess calls: prepare_kernel, kaggle push, poll_kaggle, then
-            # the ffmpeg frame-rate normalize before handing the mp4 back.
-            self.assertEqual(len(calls), 4)
-            self.assertIn("prepare_kernel.py", calls[0]["cmd"][-1])
-            self.assertEqual(calls[1]["cmd"][:3], ["kaggle", "kernels", "push"])
-            self.assertIn("poll_kaggle.py", calls[2]["cmd"][-1])
-            self.assertEqual(calls[3]["cmd"][0], "ffmpeg")
-            self.assertIn("-r", calls[3]["cmd"])
-            # motionforge scripts read IMAGE_URL/PROMPT/LENGTH_S/STEPS from env.
-            passed = calls[0]["env"]
-            self.assertEqual(passed["IMAGE_URL"], "https://x/img.jpg")
-            self.assertEqual(passed["PROMPT"], "she smiles")
-            self.assertEqual(passed["LENGTH_S"], "5.0")
-            self.assertEqual(passed["STEPS"], "4")
-            self.assertEqual(passed["IMAGE_SEED"], "42")
-            # Kaggle CLI wants KAGGLE_KEY; motionforge's secret name is
-            # KAGGLE_API_TOKEN -- videogen aliases one to the other.
-            self.assertEqual(passed["KAGGLE_KEY"], "t")
+            MockClient.assert_called_once_with("linoyts/wan2-2-i2v-rCM", hf_token="hf_tok")
+            kw = fake_client.predict.call_args.kwargs
+            self.assertEqual(kw["prompt"], "she smiles")
+            self.assertEqual(kw["duration_seconds"], 5.0)
+            self.assertEqual(kw["steps"], 4)
+            self.assertEqual(kw["seed"], 42)
+            self.assertFalse(kw["randomize_seed"])
+            ffmpeg_calls = [c for c in calls if c[0] == "ffmpeg"]
+            self.assertEqual(len(ffmpeg_calls), 1)
+            self.assertIn("-r", ffmpeg_calls[0])
 
-    def test_missing_motionforge_dir_raises(self):
-        with mock.patch.dict(os.environ, {"MOTIONFORGE_DIR": "/nope/does/not/exist"},
-                             clear=True):
+    def test_rotates_to_next_token_on_zerogpu_quota_error(self):
+        """A free HF account's 5min/day ZeroGPU quota runs out mid-session --
+        HF_TOKENS lets the next account's token pick up where it left off."""
+        from gradio_client.exceptions import AppError
+        with tempfile.TemporaryDirectory() as tmp:
+            src_mp4 = Path(tmp) / "raw.mp4"
+            src_mp4.write_bytes(b"rawpayload")
+            out_dir = Path(tmp) / "out"
+            seen_tokens = []
+
+            def fake_client_factory(space_id, hf_token=None):
+                seen_tokens.append(hf_token)
+                client = mock.Mock()
+                if hf_token == "tok_a":
+                    client.predict.side_effect = AppError(
+                        message="exceeded your free ZeroGPU quota (60s requested vs 5s left)")
+                else:
+                    client.predict.return_value = (str(src_mp4), 1)
+                return client
+
+            with mock.patch.dict(os.environ, {"HF_TOKENS": "tok_a,tok_b"}, clear=True), \
+                 mock.patch.object(videogen.subprocess, "run", self._fake_run([])), \
+                 mock.patch("gradio_client.Client", side_effect=fake_client_factory), \
+                 mock.patch("gradio_client.handle_file", side_effect=lambda x: x):
+                out = videogen.generate("https://x/img.jpg", "hi", out_dir=str(out_dir))
+
+            self.assertTrue(Path(out).exists())
+            self.assertEqual(seen_tokens, ["tok_a", "tok_b"])
+
+    def test_non_quota_error_raises_immediately_without_trying_next_token(self):
+        """A real failure (bad prompt, Space down) would fail identically on every
+        token -- burning through the whole list would just waste everyone's quota
+        for no benefit."""
+        from gradio_client.exceptions import AppError
+        seen_tokens = []
+
+        def fake_client_factory(space_id, hf_token=None):
+            seen_tokens.append(hf_token)
+            client = mock.Mock()
+            client.predict.side_effect = AppError(message="some unrelated Space error")
+            return client
+
+        with mock.patch.dict(os.environ, {"HF_TOKENS": "tok_a,tok_b"}, clear=True), \
+             mock.patch.object(videogen.subprocess, "run", self._fake_run([])), \
+             mock.patch("gradio_client.Client", side_effect=fake_client_factory), \
+             mock.patch("gradio_client.handle_file", side_effect=lambda x: x):
+            with self.assertRaises(AppError):
+                videogen.generate("https://x/img.jpg", "hi")
+
+        self.assertEqual(seen_tokens, ["tok_a"], "must not try tok_b for a non-quota error")
+
+    def test_missing_video_in_space_response_raises(self):
+        with mock.patch.dict(os.environ, {"HF_TOKEN": "tok"}, clear=True), \
+             mock.patch.object(videogen.subprocess, "run", self._fake_run([])), \
+             mock.patch("gradio_client.Client") as MockClient, \
+             mock.patch("gradio_client.handle_file", side_effect=lambda x: x):
+            MockClient.return_value.predict.return_value = None
             with self.assertRaises(RuntimeError) as ctx:
                 videogen.generate("https://x/img.jpg", "hi")
-        self.assertIn("motionforge script missing", str(ctx.exception))
-
-    def test_final_mp4_missing_after_poll_raises(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            mf = self._setup_fake_motionforge(tmp)
-            # Kaggle "succeeded" but never wrote the file: real-world failure mode
-            # where poll_kaggle exits 0 on some transitional states without an mp4.
-            (mf / "kaggle_output" / "final.mp4").unlink()
-            with mock.patch.dict(os.environ, {"MOTIONFORGE_DIR": str(mf)},
-                                 clear=True), \
-                 mock.patch.object(videogen.subprocess, "run",
-                                  lambda *a, **kw: mock.Mock(returncode=0)):
-                with self.assertRaises(RuntimeError) as ctx:
-                    videogen.generate("https://x/img.jpg", "hi")
-        self.assertIn("final.mp4", str(ctx.exception))
+        self.assertIn("unexpected Space return", str(ctx.exception))
 
 
 if __name__ == "__main__":

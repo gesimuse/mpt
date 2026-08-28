@@ -1,9 +1,12 @@
 name: MPT Autopilot Video (aibeautyvideo)
 # No cron -- the video niche is intentionally manual. Run push_video.py locally,
 # pick an image, edit the motion prompt, press Confirm; that fires this
-# workflow_dispatch with the chosen inputs. Video generation happens on Kaggle
-# (via the vendored motionforge Kaggle bridge, calling HF ZeroGPU's Wan 2.2 I2V
-# rCM Space), the resulting mp4 is posted as a TikTok inbox draft by MPT.
+# workflow_dispatch with the chosen inputs. Video generation calls HF ZeroGPU's
+# Wan 2.2 I2V rCM Space directly (videogen.py) -- no Kaggle involved: Kaggle
+# never did any compute here, it was pure push/poll/download plumbing kept
+# "for continuity" with an earlier design, and its kernel API had no way to
+# request a specific accelerator, causing real, unfixable-from-here failures.
+# The resulting mp4 is posted as a TikTok inbox draft by MPT.
 on:
   workflow_dispatch:
     inputs:
@@ -26,7 +29,7 @@ on:
         default: "8"
         type: string
       retry_video_url:
-        description: "Already-generated mp4 URL to republish as-is, skipping Kaggle/motionforge entirely (the picker's Retry button on a failed video)"
+        description: "Already-generated mp4 URL to republish as-is, skipping the HF Space call entirely (the picker's Retry button on a failed video)"
         required: false
         type: string
 
@@ -37,9 +40,8 @@ concurrency:
 jobs:
   run:
     runs-on: ubuntu-latest
-    # Kaggle push + motionforge/scripts/poll_kaggle.py (default 110min timeout,
-    # 60s interval). Real Wan 2.2 I2V rCM run is ~1-2min gen + Kaggle cold start;
-    # 30min ceiling protects the runner if Kaggle stalls.
+    # Real Wan 2.2 I2V rCM run is ~1-2min of actual generation; 30min ceiling
+    # protects the runner if the HF Space queues or stalls.
     timeout-minutes: 30
     permissions:
       contents: write
@@ -52,16 +54,11 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Clone motionforge (Kaggle bridge scripts)
-        # Cloned at runtime rather than vendored -- their scripts stay under their
-        # own repo's history/license; we always get the maintained version.
-        run: git clone --depth 1 https://github.com/gesimuse/motionforge motionforge_ext
-
       - name: Install deps
-        # kaggle<2.0 keeps the KAGGLE_USERNAME/KAGGLE_KEY auth path (matches
-        # motionforge's run_local.sh); 2.x switched to OAuth. requests handles
-        # TikTok + git; no torch/mediapipe/ollama needed for the video path.
-        run: pip install "kaggle<2.0" requests
+        # gradio_client calls the HF Space directly (videogen.py). requests
+        # handles TikTok + git; no torch/mediapipe/ollama needed for the video
+        # path -- the actual model inference happens on HF's ZeroGPU, not here.
+        run: pip install gradio_client requests
 
       - name: Install ffmpeg
         # videogen.py shells out to ffmpeg to normalize frame rate before TikTok
@@ -73,7 +70,6 @@ jobs:
       - name: Run autopilot (video niche only)
         env:
           NICHES: aibeautyvideo
-          MOTIONFORGE_DIR: ${{ github.workspace }}/motionforge_ext
           # autopilot.py._run_video_niche reads these overrides -- push_video.py's
           # local UI is what put them here via workflow_dispatch inputs.
           VIDEO_IMAGE_URL: ${{ inputs.image_url }}
@@ -81,20 +77,13 @@ jobs:
           VIDEO_LENGTH_S: ${{ inputs.length_s }}
           VIDEO_STEPS: ${{ inputs.steps }}
           VIDEO_RETRY_URL: ${{ inputs.retry_video_url }}
-          # Kaggle CLI auth. motionforge's kernel does no compute; it just proxies
-          # to the HF Space. KAGGLE_KEY is what the CLI expects; motionforge's
-          # run_local.sh happens to name the secret KAGGLE_API_TOKEN, and
-          # videogen.py aliases one to the other so either name works.
-          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
-          KAGGLE_KEY: ${{ secrets.KAGGLE_API_TOKEN }}
-          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           # Optional, comma-separated HF_TOKENS secret (multiple accounts) takes
-          # priority over the single HF_TOKEN above in motionforge's
-          # prepare_kernel.py -- rotates to the next token if one hits its
-          # account's free ZeroGPU quota (5min/day each). Only add this secret
-          # if you actually have more than one HF account's token; leaving it
-          # unset falls back to the single HF_TOKEN unchanged.
+          # priority over the single HF_TOKEN above in videogen.py -- rotates to
+          # the next token if one hits its account's free ZeroGPU quota
+          # (5min/day each). Only add this secret if you actually have more
+          # than one HF account's token; leaving it unset falls back to the
+          # single HF_TOKEN unchanged.
           HF_TOKENS: ${{ secrets.HF_TOKENS }}
           TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
           TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}

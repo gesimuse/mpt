@@ -284,7 +284,7 @@ def _run_video_niche(niche, state):
         return
 
     # VIDEO_RETRY_URL (the picker's Retry button on an already-generated video that
-    # TikTok rejected) skips Kaggle/motionforge entirely -- no reason to pay another
+    # TikTok rejected) skips the HF Space call entirely -- no reason to pay another
     # multi-minute generation to re-attempt publishing the SAME mp4 that already
     # exists and is already hosted.
     retry_url = os.environ.get("VIDEO_RETRY_URL", "").strip()
