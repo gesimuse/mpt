@@ -20,6 +20,7 @@ import civitai  # noqa: E402
 import clip_encode  # noqa: E402
 import hand_pose  # noqa: E402
 import imageslides  # noqa: E402
+import motion_writer  # noqa: E402
 import push_draft  # noqa: E402
 import refine  # noqa: E402
 import sdgen  # noqa: E402
@@ -1977,6 +1978,55 @@ class CaptionWriterTest(unittest.TestCase):
             result = caption_writer._ask("prompt")
         self.assertIn("Retried fine", result)
         self.assertEqual(calls["n"], 2)
+
+
+class MotionWriterTest(unittest.TestCase):
+    """motion_writer.write() turns a still's own SD prompt into a motion
+    instruction for image-to-video -- must not just echo the SD prompt back, and
+    must raise (not return empty) on a bad/empty model response so callers'
+    fallback to a generic motion phrase actually fires. Hermetic: _ask mocked."""
+
+    def test_strips_quotes_and_a_leading_label(self):
+        with mock.patch.object(motion_writer, "_ask", lambda prompt, **kw:
+                               '"Instruction: she smiles and tilts her head."'):
+            motion = motion_writer.write("beautiful woman, red dress, rooftop bar")
+        self.assertEqual(motion, "she smiles and tilts her head.")
+
+    def test_empty_response_raises(self):
+        with mock.patch.object(motion_writer, "_ask", lambda prompt, **kw: '   "" '):
+            with self.assertRaises(RuntimeError):
+                motion_writer.write("a vibe")
+
+    def test_prompt_includes_the_still_images_own_prompt(self):
+        seen = {}
+        with mock.patch.object(motion_writer, "_ask", lambda prompt, **kw:
+                               seen.setdefault("prompt", prompt) or "she smiles"):
+            motion_writer.write("a specific still-image prompt")
+        self.assertIn("a specific still-image prompt", seen["prompt"])
+
+
+class AutopilotMotionPromptsTest(unittest.TestCase):
+    """_motion_prompts_for: the photo niche has no motionforge_prompt of its own
+    (that field lives on the video niche's config), so a failure here must fall
+    back to the module's own generic constant, not crash or return an SD prompt."""
+
+    def test_none_entries_pass_through_without_calling_motion_writer(self):
+        with mock.patch.object(autopilot.motion_writer, "write",
+                              mock.Mock(side_effect=AssertionError("must not be called"))):
+            out = autopilot._motion_prompts_for([None, None])
+        self.assertEqual(out, [None, None])
+
+    def test_success_uses_motion_writer_output(self):
+        with mock.patch.object(autopilot.motion_writer, "write",
+                              lambda p: f"motion for: {p}"):
+            out = autopilot._motion_prompts_for(["sd prompt a", "sd prompt b"])
+        self.assertEqual(out, ["motion for: sd prompt a", "motion for: sd prompt b"])
+
+    def test_failure_falls_back_to_generic_motion_prompt(self):
+        with mock.patch.object(autopilot.motion_writer, "write",
+                              mock.Mock(side_effect=RuntimeError("ollama down"))):
+            out = autopilot._motion_prompts_for(["sd prompt"])
+        self.assertEqual(out, [autopilot._FALLBACK_MOTION_PROMPT])
 
 
 class ReviewImageTest(unittest.TestCase):

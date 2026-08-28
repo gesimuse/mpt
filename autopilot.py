@@ -26,6 +26,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 import imageslides
+import motion_writer
 import tiktok
 import videogen
 
@@ -56,6 +57,31 @@ MAX_PENDING_DRAFTS = int(os.environ.get("MAX_PENDING_DRAFTS", "5"))
 
 
 def log(msg): print(f"[autopilot] {msg}", flush=True)
+
+
+_FALLBACK_MOTION_PROMPT = "she smiles, tilts head, hair moves in the wind"
+
+
+def _motion_prompts_for(image_prompts):
+    """One motion instruction per image_prompt, via motion_writer (LLM) -- falls
+    back to a generic motion phrase on any failure (Ollama unreachable, as it
+    always is in CI today) rather than handing the video niche the raw
+    SD-generation prompt, which describes the still, not a motion. Called from the
+    photo niche (aibeauty), which has no motionforge_prompt of its own -- that
+    field lives on the video niche's config in niches.json -- hence the constant
+    here instead of a per-niche lookup."""
+    out = []
+    for p in image_prompts:
+        if not p:
+            out.append(None)
+            continue
+        try:
+            out.append(motion_writer.write(p))
+        except Exception as e:
+            log(f"motion_writer failed, falling back to a generic motion prompt "
+                f"({type(e).__name__}: {str(e)[:100]})")
+            out.append(_FALLBACK_MOTION_PROMPT)
+    return out
 
 
 def load_state():
@@ -144,6 +170,7 @@ def run_niche(niche, state):
         # image for motionforge without re-generating. publish_photos_draft accepts
         # image_urls to skip its own hosting when we've done it here.
         image_urls = [tiktok.host_file(p) for p in images]
+        motion_prompts = _motion_prompts_for(image_prompts)
         publish_id = tiktok.publish_photos_draft(
             images, niche["id"], image_urls=image_urls, caption=caption)
         used.append(f"{niche['id']}-{stamp}")
@@ -167,10 +194,14 @@ def run_niche(niche, state):
             "tiktok_caption": caption,
             "image_urls": image_urls,
             # Per-image SD prompt (same order as image_urls) -- the actual framing/
-            # pose/lighting that generated each photo, so the video picker can
-            # suggest a motion prompt grounded in that specific image instead of
-            # one generic prompt shared by the whole batch.
+            # pose/lighting that generated each photo. Kept for reference/debugging;
+            # NOT what the video picker pre-fills (that's motion_prompts below) --
+            # this describes the still, not a motion.
             "image_prompts": image_prompts,
+            # Per-image motion instruction (motion_writer.write, an LLM rewrite of
+            # image_prompts[i] into an actual action for the person to do) -- what
+            # the video picker actually pre-fills its motion-prompt field with.
+            "motion_prompts": motion_prompts,
             "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
         })
         save_state(state)
