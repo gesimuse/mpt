@@ -403,6 +403,28 @@ async function waitUntilLive(url, timeoutMs, onTick) {
   return false;
 }
 
+// raw.githubusercontent.com lags behind a fresh push by up to a couple minutes --
+// it's not just edge caching (the ?t= cache-bust doesn't fully bypass it), the
+// content-resolution layer itself is eventually consistent. A write that succeeds
+// via the Contents API can still read back stale here for a bit -- confirmed live:
+// a bulk delete's commit landed immediately (checked via the git API) but the
+// picker's OWN raw.githubusercontent-backed fetch still showed the deleted photos
+// on refresh minutes later. Poll until the predicate is satisfied so callers can
+// tell the user "confirmed" instead of leaving them to guess whether it worked.
+async function waitUntilPostedJsonReflects(predicate, timeoutMs, onTick) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    try {
+      const posted = await fetch(POSTED_URL + "?t=" + Date.now(), { cache: "no-store" })
+        .then(r => r.json());
+      if (predicate(posted)) return true;
+    } catch (e) { /* keep polling */ }
+    if (onTick) onTick(Math.round((Date.now() - start) / 1000));
+    await new Promise(res => setTimeout(res, 4000));
+  }
+  return false;
+}
+
 if (pat.value && verifiedLogin) {
   pat.classList.add("verified");
   patStatus(`<span class="badge">Verified as ${verifiedLogin} &middot; saved in this browser</span>`, "ok");
@@ -433,9 +455,14 @@ function usedUrls(uploads) {
 }
 
 function recentVideos(uploads, limit) {
+  // Skip entries with nothing to show: no hosted mp4 to download/retry AND never
+  // actually sent -- these are dead stubs (pre-dating autopilot.py hosting the
+  // video URL, or a run that errored before generation even produced a file).
+  // There's nothing a viewer can do with one, so it's just clutter in the list.
   const out = [];
   for (let i = uploads.length - 1; i >= 0 && out.length < limit; i--) {
-    if (uploads[i].niche === "aibeautyvideo") out.push(uploads[i]);
+    const u = uploads[i];
+    if (u.niche === "aibeautyvideo" && (u.tiktok || u.video_url)) out.push(u);
   }
   return out;
 }
@@ -587,7 +614,16 @@ function wireDeleteButtons() {
         if (ta) ta.value = DEFAULT_PROMPT;
       }
       updateBulkBar(); // in case this thumb's bulk-select checkbox was also checked
-      status("Removed.", "ok");
+      status("Removed. Confirming it's gone from GitHub's raw feed too...", "pending");
+      const confirmed = await waitUntilPostedJsonReflects(
+        (posted) => !(posted.uploads || []).some(u => (u.image_urls || []).includes(url)),
+        90000,
+        (secs) => status(`Removed, waiting for GitHub to catch up... (${secs}s)`, "pending"));
+      status(confirmed
+        ? "Removed and confirmed -- safe to refresh."
+        : "Removed, but GitHub's raw feed still shows it after 90s. It IS gone "
+          + "(the commit landed) -- just don't trust a refresh yet, give it a bit longer.",
+        confirmed ? "ok" : "err");
     } catch (err) {
       label.classList.remove("removing");
       status("Couldn't remove: " + err.message, "err");
@@ -638,8 +674,20 @@ function wireBulkDelete() {
         const ta = document.querySelector('textarea[name="motion_prompt"]');
         if (ta) ta.value = DEFAULT_PROMPT;
       }
-      status(`Removed ${items.length} image(s) in one commit.`, "ok");
       updateBulkBar();
+      const urls = new Set(items.map(it => it.url));
+      status(`Removed ${items.length} image(s) in one commit. Confirming with `
+             + `GitHub's raw feed...`, "pending");
+      const confirmed = await waitUntilPostedJsonReflects(
+        (posted) => !(posted.uploads || []).some(
+          u => (u.image_urls || []).some(u2 => urls.has(u2))),
+        90000,
+        (secs) => status(`Removed ${items.length}, waiting for GitHub to catch up... (${secs}s)`, "pending"));
+      status(confirmed
+        ? `Removed ${items.length} image(s) and confirmed -- safe to refresh.`
+        : `Removed ${items.length} image(s) (commit landed) -- GitHub's raw feed `
+          + `still lagging after 90s, don't trust a refresh yet.`,
+        confirmed ? "ok" : "err");
     } catch (err) {
       items.forEach(it => it.label.classList.remove("removing"));
       status("Couldn't remove: " + err.message, "err");
