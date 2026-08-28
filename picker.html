@@ -113,6 +113,9 @@ code, small { font-size: 12px; color: #555; }
 .video-sub { font-size: 11px; color: #888; }
 .video-actions { display: flex; gap: 8px; align-items: center; }
 .video-actions a, .video-actions button { margin: 0; padding: 6px 12px; font-size: 12px; }
+#imagePromptRef { font-size: 12px; color: #666; background: #f7f7f7; border: 1px solid #e5e5e5;
+                   border-radius: 6px; padding: 8px 10px; max-height: 90px; overflow-y: auto;
+                   white-space: pre-wrap; }
 </style>
 </head>
 <body>
@@ -523,15 +526,20 @@ async function loadPicker() {
   for (const b of batches) {
     b.image_urls.forEach((url, i) => {
       const cls = used.has(url) ? "thumb used" : "thumb";
+      const imagePrompt = (b.image_prompts && b.image_prompts[i]) || "";
       // motion_prompts (an LLM-written action, e.g. "she smiles and tilts her
-      // head") is what pre-fills the textarea -- NOT image_prompts, which is the
-      // still's own SD generation prompt (outfit/setting/lighting) and would ask
-      // the video model to reproduce the photo rather than animate it.
-      const prompt = (b.motion_prompts && b.motion_prompts[i]) || "";
+      // head") is what pre-fills the textarea -- NOT image_prompts on its own,
+      // which is the still's own SD generation prompt (outfit/setting/lighting)
+      // and would ask the video model to reproduce the photo rather than animate
+      // it. Falls back to imagePrompt only when there's no motion prompt at all
+      // (Ollama unreachable, or this image predates the feature) -- still better
+      // than every image showing the exact same generic text.
+      const prompt = (b.motion_prompts && b.motion_prompts[i]) || imagePrompt;
       html += `<label class="${cls}">`
            +  `<img src="${url}" loading="lazy">`
            +  `<input type="radio" name="image_url" value="${url}" `
-           +    `data-prompt="${prompt.replace(/"/g, "&quot;")}">`
+           +    `data-prompt="${prompt.replace(/"/g, "&quot;")}" `
+           +    `data-image-prompt="${imagePrompt.replace(/"/g, "&quot;")}">`
            +  `<input type="checkbox" class="pick-del" data-ts="${b.ts}" `
            +    `data-url="${url.replace(/"/g, "&quot;")}" title="Select for bulk remove">`
            +  `<button type="button" class="del" data-ts="${b.ts}" `
@@ -545,7 +553,9 @@ async function loadPicker() {
          +  `use the upload tile above instead.</small></p>`;
   }
   html += `<input type="file" id="uploadFile" accept="image/*" style="display:none">`;
-  html += `<label>Motion prompt:</label>`
+  html += `<label>Image prompt (reference -- what generated this photo, not editable here):</label>`
+       +  `<div id="imagePromptRef">Pick an image above to see the prompt that generated it.</div>`
+       +  `<label>Motion prompt:</label>`
        +  `<textarea name="motion_prompt" required>${suggested.replace(/</g, "&lt;")}</textarea>`
        +  `<div class="row">`
        +  `<div><label>Length (s, max 5):</label>`
@@ -573,21 +583,29 @@ async function loadPicker() {
 
 // Selecting any image (generated or a previously-registered upload) seeds the
 // prompt textarea with THAT image's own prompt when we have one, so per-image
-// suggestions don't get stuck showing the first/generic one.
+// suggestions don't get stuck showing the first/generic one -- and shows the raw
+// image-generation prompt in the read-only reference box alongside it, since the
+// motion-prompt field alone doesn't tell you what the photo itself was asked for.
 function wireImageRadios() {
   document.querySelectorAll('input[name="image_url"]').forEach(r =>
     r.addEventListener("change", () => {
       const ta = document.querySelector('textarea[name="motion_prompt"]');
       if (ta) ta.value = r.dataset.prompt || DEFAULT_PROMPT;
+      const ref = $("imagePromptRef");
+      if (ref) {
+        ref.textContent = r.dataset.imagePrompt
+          || "(no recorded image prompt for this photo)";
+      }
     }));
 }
 
-function addGeneratedThumb(url, prompt, selectIt, ts) {
+function addGeneratedThumb(url, prompt, selectIt, ts, imagePrompt) {
   const label = document.createElement("label");
   label.className = "thumb";
   label.innerHTML = `<img src="${url}" loading="lazy">`
     + `<input type="radio" name="image_url" value="${url}" `
-    + `data-prompt="${(prompt || "").replace(/"/g, "&quot;")}">`
+    + `data-prompt="${(prompt || "").replace(/"/g, "&quot;")}" `
+    + `data-image-prompt="${(imagePrompt || "").replace(/"/g, "&quot;")}">`
     + `<input type="checkbox" class="pick-del" data-ts="${ts}" `
     + `data-url="${url.replace(/"/g, "&quot;")}" title="Select for bulk remove">`
     + `<button type="button" class="del" data-ts="${ts}" `
@@ -597,6 +615,11 @@ function addGeneratedThumb(url, prompt, selectIt, ts) {
   radio.addEventListener("change", () => {
     const ta = document.querySelector('textarea[name="motion_prompt"]');
     if (ta) ta.value = radio.dataset.prompt || DEFAULT_PROMPT;
+    const ref = $("imagePromptRef");
+    if (ref) {
+      ref.textContent = radio.dataset.imagePrompt
+        || "(no recorded image prompt for this photo)";
+    }
   });
   if (selectIt) radio.click(); // native click fires 'change', unlike setting .checked directly
 }
