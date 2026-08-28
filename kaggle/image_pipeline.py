@@ -125,6 +125,20 @@ def main() -> None:
              # letting pip resolve whatever (if anything) this older
              # transformers actually declares as a real dependency.
              "transformers==4.54.1",
+             # peft's own load_lora_weights()/fuse_lora() path is a SEPARATE torchao
+             # consumer from transformers' CLIPTextModel path above -- confirmed live,
+             # a real run got past model loading fine (transformers==4.54.1 pin above
+             # working as intended) and then failed every single image at
+             # pipe.load_lora_weights(): "Found an incompatible version of torchao.
+             # Found version 0.10.0, but only versions above 0.16.0 are supported".
+             # torchao 0.10.0 was never something we asked for -- pulled in
+             # transitively by something else in this list with no pin of its own.
+             # Unlike the transformers/torch-2.8-API conflict above, torchao itself
+             # declares no minimum torch version in its own package metadata (checked
+             # against PyPI directly) -- plain LoRA fusing on an unquantized SD1.5
+             # checkpoint has no reason to touch the torch-2.8-only ops that conflict
+             # actually came from, so pinning torchao up doesn't reopen that issue.
+             "torchao>=0.16.0",
              "accelerate", "safetensors", "peft", "compel",
              # Re-pinned here too (already installed above via the cu128 index)
              # so ultralytics/super-image see it already satisfied and don't
