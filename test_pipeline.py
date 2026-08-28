@@ -2898,11 +2898,17 @@ class PickerHtmlTest(unittest.TestCase):
 
 
 class KaggleImagegenTest(unittest.TestCase):
-    """kaggle_imagegen.generate() pushes a kernel, polls, downloads output --
-    same push/poll/output shape as motionforge's old Kaggle bridge (videogen.py,
-    before it was removed there since Kaggle did no compute for video). Here
-    Kaggle actually runs sdgen.py's generation for real, so it stays. Tests
-    mock subprocess entirely; no real Kaggle calls."""
+    """kaggle_imagegen.generate() decides a checkpoint+reference prompt locally
+    (civitai.com is blocked from Kaggle's own network -- confirmed live), resolves
+    the checkpoint's final R2 download link itself, pushes ONE kernel bearing that
+    link plus this round's prompts, polls, downloads the images, and runs
+    supervisor QA back here (never inside the kernel). Tests mock imageslides/
+    civitai/supervisor and subprocess entirely; no real Kaggle or CivitAI calls."""
+
+    FAKE_RESOLVED = {"url": "https://civitai.com/api/download/models/999",
+                     "filename": "ckpt.safetensors", "arch": "sd15",
+                     "name": "Test Checkpoint", "version_id": 999, "model_id": 111}
+    FAKE_REFERENCE = {"prompt": "a woman in a kitchen", "negative_prompt": ""}
 
     def test_available_requires_username_and_a_token(self):
         with mock.patch.dict(os.environ, {}, clear=True):
@@ -2937,18 +2943,33 @@ class KaggleImagegenTest(unittest.TestCase):
             return mock.Mock(returncode=0, stdout="", stderr="")
         return run
 
+    def _decide_patches(self, prompts=("p0", "p1")):
+        """The three imageslides calls generate() makes to decide what to generate,
+        stubbed so tests don't depend on a real CivitAI search."""
+        return (
+            mock.patch.object(imageslides, "decide_reference",
+                              return_value=(dict(self.FAKE_RESOLVED), dict(self.FAKE_REFERENCE))),
+            mock.patch.object(imageslides, "_build_prefix", return_value=("prefix", "a vibe")),
+            mock.patch.object(imageslides, "build_variations",
+                              return_value=(list(prompts), [""] * len(prompts))),
+        )
+
     def test_success_returns_images_vibe_and_prompts(self):
-        payload = {"ok": True, "images": ["sd_0.jpg", "sd_1.jpg"], "vibe": "a rainy afternoon",
-                  "image_prompts": ["prompt a", "prompt b"]}
+        payload = {"ok": True, "images": ["sd_0.jpg", "sd_1.jpg"]}
         env = {"KAGGLE_USERNAME": "u", "KAGGLE_KEY": "k"}
+        d1, d2, d3 = self._decide_patches()
         with mock.patch.dict(os.environ, env, clear=True), \
              mock.patch.object(kaggle_imagegen.subprocess, "run",
-                              self._fake_run_factory(payload, images_written=payload["images"])):
-            images, vibe, prompts = kaggle_imagegen.generate({"id": "aibeauty"})
+                              self._fake_run_factory(payload, images_written=payload["images"])), \
+             mock.patch.object(civitai, "resolve_final_url",
+                              return_value="https://r2.example.com/real.safetensors"), \
+             mock.patch.object(supervisor, "filter_images", side_effect=lambda paths: list(paths)), \
+             d1, d2, d3:
+            images, vibe, prompts = kaggle_imagegen.generate({"id": "aibeauty", "min_images": 2})
         self.assertEqual(len(images), 2)
         self.assertTrue(all(Path(p).exists() for p in images))
-        self.assertEqual(vibe, "a rainy afternoon")
-        self.assertEqual(prompts, ["prompt a", "prompt b"])
+        self.assertEqual(vibe, "a vibe")
+        self.assertEqual(prompts, ["p0", "p1"])
 
     def test_missing_status_json_raises(self):
         """The Wan2.2 experiment's exact failure signature (a hard kill below
@@ -2956,9 +2977,13 @@ class KaggleImagegenTest(unittest.TestCase):
         a clean, catchable RuntimeError here -- not an unhandled crash -- so
         autopilot.py's fallback-to-local can actually catch it."""
         env = {"KAGGLE_USERNAME": "u", "KAGGLE_KEY": "k"}
+        d1, d2, d3 = self._decide_patches()
         with mock.patch.dict(os.environ, env, clear=True), \
              mock.patch.object(kaggle_imagegen.subprocess, "run",
-                              self._fake_run_factory(None)):
+                              self._fake_run_factory(None)), \
+             mock.patch.object(civitai, "resolve_final_url",
+                              return_value="https://r2.example.com/real.safetensors"), \
+             d1, d2, d3:
             with self.assertRaises(RuntimeError) as ctx:
                 kaggle_imagegen.generate({"id": "aibeauty"})
         self.assertIn("status.json", str(ctx.exception))
@@ -2966,17 +2991,41 @@ class KaggleImagegenTest(unittest.TestCase):
     def test_kernel_reported_failure_raises_with_its_error(self):
         payload = {"ok": False, "error": "CUDA out of memory"}
         env = {"KAGGLE_USERNAME": "u", "KAGGLE_KEY": "k"}
+        d1, d2, d3 = self._decide_patches()
         with mock.patch.dict(os.environ, env, clear=True), \
              mock.patch.object(kaggle_imagegen.subprocess, "run",
-                              self._fake_run_factory(payload)):
+                              self._fake_run_factory(payload)), \
+             mock.patch.object(civitai, "resolve_final_url",
+                              return_value="https://r2.example.com/real.safetensors"), \
+             d1, d2, d3:
             with self.assertRaises(RuntimeError) as ctx:
                 kaggle_imagegen.generate({"id": "aibeauty"})
         self.assertIn("CUDA out of memory", str(ctx.exception))
 
+    def test_too_few_approved_raises(self):
+        """A shortfall here (bad checkpoint, harsh QA) must raise, not return a
+        short batch -- autopilot.py's caller falls back to a fresh full local
+        imageslides.generate() run instead, which has its own retry logic."""
+        payload = {"ok": True, "images": ["sd_0.jpg", "sd_1.jpg"]}
+        env = {"KAGGLE_USERNAME": "u", "KAGGLE_KEY": "k"}
+        d1, d2, d3 = self._decide_patches()
+        with mock.patch.dict(os.environ, env, clear=True), \
+             mock.patch.object(kaggle_imagegen.subprocess, "run",
+                              self._fake_run_factory(payload, images_written=payload["images"])), \
+             mock.patch.object(civitai, "resolve_final_url",
+                              return_value="https://r2.example.com/real.safetensors"), \
+             mock.patch.object(supervisor, "filter_images", return_value=[]), \
+             d1, d2, d3:
+            with self.assertRaises(RuntimeError) as ctx:
+                kaggle_imagegen.generate({"id": "aibeauty", "min_images": 2})
+        self.assertIn("only 0 of 2", str(ctx.exception))
+
     def test_missing_credentials_raises_before_any_subprocess_call(self):
         with mock.patch.dict(os.environ, {}, clear=True), \
              mock.patch.object(kaggle_imagegen.subprocess, "run",
-                              mock.Mock(side_effect=AssertionError("must not run"))):
+                              mock.Mock(side_effect=AssertionError("must not run"))), \
+             mock.patch.object(imageslides, "decide_reference",
+                              side_effect=AssertionError("must not run")):
             with self.assertRaises(RuntimeError):
                 kaggle_imagegen.generate({"id": "aibeauty"})
 

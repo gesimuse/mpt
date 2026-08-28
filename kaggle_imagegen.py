@@ -2,8 +2,27 @@
 imageslides.generate()'s default local (GH Actions CPU) path. Never the only
 path: autopilot.py's run_niche() tries this first when Kaggle credentials are
 configured and falls back to the unchanged local path on ANY failure here
-(missing credentials, push/poll error, kernel crash, timeout) -- a GPU speed
-win is not worth risking the pipeline that already works.
+(missing credentials, push/poll error, kernel crash, timeout, not enough
+images passing review) -- a GPU speed win is not worth risking the pipeline
+that already works.
+
+Split from a single "clone mpt, run imageslides.generate() on Kaggle" kernel
+(the original design here) because civitai.com's own domain 451s every
+request from Kaggle's network -- confirmed live, not an auth issue -- while
+the actual model files live on a separate Cloudflare R2 domain that IS
+reachable from Kaggle. So CivitAI stays entirely in this process (unblocked,
+running in GH Actions): decide_reference(), build the prompt batch, resolve
+the checkpoint's final R2 download link (civitai.resolve_final_url), and only
+hand Kaggle that already-resolved link plus the prompts -- the kernel never
+talks to civitai.com at all, it just downloads from R2 and runs sdgen.
+
+Deliberately ONE round, not imageslides.generate()'s full multi-round
+re-decide/retry loop: a Kaggle round is a full kernel push+poll+download (real
+wall-clock cost), and retrying here would duplicate logic the local path
+already owns. Any shortfall -- bad checkpoint, too few approved, Kaggle infra
+hiccup -- just raises, and autopilot.py's existing except falls back to a
+fresh, full local imageslides.generate() run (its own multi-round retry,
+supervisor-broken fallback, etc. all still apply there, unchanged).
 
 Push/poll/output follows the same pattern as motionforge's old Kaggle bridge
 (videogen.py, before it was removed there for the video niche -- see that
@@ -18,12 +37,17 @@ Needs env: KAGGLE_USERNAME, KAGGLE_API_TOKEN (or KAGGLE_KEY -- aliased same
 as videogen.py used to)."""
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
 import tempfile
 import time
 from pathlib import Path
+
+import civitai
+import imageslides
+import supervisor
 
 ROOT = Path(__file__).resolve().parent
 KERNEL_SLUG = "mpt-image-gen-worker"
@@ -68,20 +92,24 @@ def _poll(slug, env, timeout=1800, interval=15):
     raise RuntimeError(f"kernel did not reach a terminal state within {timeout}s")
 
 
-def generate(niche, state=None, out_dir=None):
-    """Push a Kaggle kernel that clones mpt and runs imageslides.generate()
-    for this niche on Kaggle's GPU, poll for completion, copy the images back.
-    Returns (image_paths, vibe, image_prompts) -- same 3-tuple contract as
-    imageslides.generate() itself. Raises on any failure; caller (autopilot.py)
-    treats that as "fall back to the local path", not a hard stop."""
-    if not available():
-        raise RuntimeError("Kaggle credentials not configured "
-                           "(KAGGLE_USERNAME + KAGGLE_API_TOKEN/KAGGLE_KEY)")
+def _generate_batch_on_kaggle(resolved, prompts, negatives, adopted, workdir):
+    """Push one kernel bearing an already-R2-resolved checkpoint link plus this
+    round's prompts, poll it, and copy the resulting images into `workdir`.
+    Returns a list of local Paths, named sd_<i>.jpg same as sdgen.generate_batch
+    itself -- so the caller's own prompt_by_path regex match works unchanged."""
     username = os.environ["KAGGLE_USERNAME"].strip()
     env = _kaggle_env()
-    env["NICHE_ID"] = niche["id"]
 
-    log(f"preparing kernel for niche {niche['id']!r}...")
+    r2_url = civitai.resolve_final_url(resolved["url"])
+    payload = {
+        "resolved": {**resolved, "url": r2_url},
+        "prompts": prompts,
+        "negatives": negatives,
+        "adopted": adopted,
+    }
+    env["IMAGEGEN_PAYLOAD_JSON"] = json.dumps(payload)
+
+    log("preparing kernel...")
     subprocess.run([sys.executable, str(ROOT / "scripts" / "prepare_image_kernel.py")],
                    cwd=str(ROOT), env=env, check=True)
     subprocess.run(["kaggle", "kernels", "push", "-p", str(ROOT / "kernel_build_imagegen")],
@@ -111,21 +139,72 @@ def generate(niche, state=None, out_dir=None):
 
     images_dir = out_root / "images"
     names = status.get("images") or []
-    image_paths = [images_dir / n for n in names]
-    missing = [str(p) for p in image_paths if not p.exists()]
-    if missing or not image_paths:
-        raise RuntimeError(f"kernel reported success but images missing: {missing or 'none listed'}")
+    workdir = Path(workdir)
+    workdir.mkdir(parents=True, exist_ok=True)
+    paths = []
+    for n in names:
+        src = images_dir / n
+        if not src.exists():
+            continue
+        dest = workdir / n
+        shutil.copy(src, dest)
+        paths.append(dest)
+    return paths
 
-    if out_dir:
-        out_dir = Path(out_dir)
-        out_dir.mkdir(parents=True, exist_ok=True)
-        moved = []
-        for p in image_paths:
-            dest = out_dir / p.name
-            shutil.copy(p, dest)
-            moved.append(dest)
-        image_paths = moved
 
-    log(f"{len(image_paths)} images from Kaggle")
-    image_prompts = status.get("image_prompts") or [None] * len(image_paths)
-    return [str(p) for p in image_paths], status.get("vibe"), image_prompts
+def generate(niche, count=None, workdir=None, state=None):
+    """One Kaggle round: decide a CivitAI checkpoint + reference prompt (same
+    logic imageslides.generate() uses), generate `count` camera variations on
+    Kaggle's GPU, keep what passes supervisor.py review. Returns (image_paths,
+    vibe, image_prompts) -- same 3-tuple contract as imageslides.generate().
+    Raises on any shortfall; caller (autopilot.py) treats that as "fall back
+    to the local path", not a hard stop."""
+    if not available():
+        raise RuntimeError("Kaggle credentials not configured "
+                           "(KAGGLE_USERNAME + KAGGLE_API_TOKEN/KAGGLE_KEY)")
+    workdir = Path(workdir) if workdir else Path(tempfile.mkdtemp(prefix="kaggle_imagegen_"))
+    workdir.mkdir(parents=True, exist_ok=True)
+
+    count = count or int(niche.get("images_per_video", 10))
+    min_images = int(niche.get("min_images", 3))
+    max_images = int(niche.get("max_images", niche.get("images_per_video", 5)))
+
+    resolved, reference = imageslides.decide_reference(niche, state=state)
+    civitai_spec = f"{resolved['model_id']}:{resolved['version_id']}"
+    prefix, vibe = imageslides._build_prefix(niche, reference)
+    base_negative = ", ".join(
+        x for x in (imageslides.NEGATIVE_HARD, reference["negative_prompt"],
+                    imageslides.NEGATIVE_QUALITY) if x)
+    log(f"{resolved['name']!r} | prefix: {prefix} | reference: {reference['prompt'][:120]}")
+
+    prompts, negatives = imageslides.build_variations(
+        prefix, reference["prompt"], base_negative, count, niche)
+    adopted = imageslides._adopted_settings(reference)
+    if adopted:
+        log(f"using the checkpoint creator's own posted settings where safe: {adopted}")
+
+    generated = _generate_batch_on_kaggle(resolved, prompts, negatives, adopted, workdir)
+
+    prompt_by_path = {}
+    for path in generated:
+        m = re.search(r"sd_(\d+)\.[^.]+$", str(path))
+        if m and int(m.group(1)) < len(prompts):
+            prompt_by_path[str(path)] = prompts[int(m.group(1))]
+
+    supervisor_on = os.environ.get("SUPERVISOR_ENABLED", "1").strip().lower() not in (
+        "0", "false", "no")
+    approved = list(supervisor.filter_images(generated)) if supervisor_on else generated
+    imageslides._record_model_result(state, civitai_spec, resolved["name"],
+                                     len(generated), len(approved))
+    log(f"{len(approved)}/{len(generated)} passed, {len(approved)}/{min_images} needed")
+    if len(approved) < min_images:
+        # Not the multi-round supervisor-broken fallback imageslides.generate() has --
+        # any shortfall here just raises, and the local fallback path (which DOES have
+        # that handling, and its own fresh multi-round retry) takes over instead of
+        # duplicating that logic on top of an already-spent Kaggle round.
+        raise RuntimeError(
+            f"only {len(approved)} of {len(generated)} images passed review "
+            f"(need at least {min_images}); not using this Kaggle round")
+
+    kept = approved[:max_images]
+    return kept, vibe, [prompt_by_path.get(str(p)) for p in kept]

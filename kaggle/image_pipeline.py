@@ -1,6 +1,18 @@
-"""mpt image generation -- Kaggle worker. Clones mpt itself, runs
-imageslides.generate() for one niche on Kaggle's own GPU (instead of the
-default GH Actions CPU runner), copies the resulting images back.
+"""mpt image generation -- Kaggle worker. Downloads one already-resolved
+CivitAI checkpoint (a direct Cloudflare R2 link, not civitai.com's own
+endpoint) and runs sdgen.generate_batch() for one round's prompts on Kaggle's
+own GPU (instead of the default GH Actions CPU runner), then writes the
+resulting images plus a status.json back for kaggle_imagegen.py to collect.
+
+Deliberately narrow: this kernel never talks to civitai.com (search, decide,
+resolve) at all -- confirmed live that civitai.com's own domain 451s requests
+from Kaggle's network, while the R2 storage layer underneath is independently
+reachable. kaggle_imagegen.py does all CivitAI decision-making in GH Actions
+(unblocked) and hands this kernel an already-resolved checkpoint dict whose
+"url" is the final R2 link, plus this round's prompts/negatives/adopted
+settings. civitai.resolve() is monkeypatched below to just return that dict --
+civitai.download() itself needs no changes, it already only ever GETs
+resolved["url"] directly.
 
 Kaggle's inability to request a specific accelerator via its API turned out
 to matter here too, not just for the Wan2.2 video attempt (reverted -- see
@@ -18,15 +30,14 @@ a dead end the way it was for Wan2.2's torchao/AOT-compiled requirements.
 Placeholders below are substituted by scripts/prepare_image_kernel.py at
 push time.
 """
+import base64
 import json
-import shutil
 import subprocess
 import sys
 import time
 from pathlib import Path
 
-NICHE_ID = "__NICHE_ID__"
-CIVITAI_API_KEY = "__CIVITAI_API_KEY__"
+PAYLOAD_B64 = "__PAYLOAD_B64__"
 MPT_REPO = "__MPT_REPO__"
 MPT_REF = "__MPT_REF__"
 
@@ -50,6 +61,10 @@ def write_status(stage: str, ok: bool, extra: dict | None = None) -> None:
 def main() -> None:
     write_status("start", True)
     try:
+        payload = json.loads(base64.b64decode(PAYLOAD_B64).decode())
+        resolved, prompts = payload["resolved"], payload["prompts"]
+        negatives, adopted = payload["negatives"], payload["adopted"]
+
         # Kaggle's base image ships TensorFlow preinstalled (general data-science
         # environment), and transformers unconditionally tries to import it just
         # to load CLIPImageProcessor -- we never use TF at all. A live run's full
@@ -89,7 +104,8 @@ def main() -> None:
             check=True)
 
         log("installing remaining deps (matches autopilot.yml's list, minus ollama -- "
-            "supervisor is disabled below, so no vision model needed here)...")
+            "supervisor QA runs back in GH Actions after images are copied back, "
+            "not here)...")
         subprocess.run(
             [sys.executable, "-m", "pip", "install", "-q",
              "diffusers",
@@ -139,37 +155,24 @@ def main() -> None:
                                            "traceback": traceback.format_exc()})
             sys.exit(1)
 
-        os.environ["SUPERVISOR_ENABLED"] = "0"
-        if CIVITAI_API_KEY:
-            os.environ["CIVITAI_API_KEY"] = CIVITAI_API_KEY
-
         sys.path.insert(0, str(MPT_DIR))
-        import imageslides
+        import civitai
+        import sdgen
 
-        niches = json.loads((MPT_DIR / "niches.json").read_text())
-        niche = next((n for n in niches["niches"] if n["id"] == NICHE_ID), None)
-        if niche is None:
-            sys.exit(f"niche {NICHE_ID!r} not found in niches.json")
+        # civitai.resolve() is the only function that ever talks to civitai.com;
+        # civitai.download() (called from sdgen's _load_civitai, unchanged) only
+        # ever GETs resolved["url"] directly, which is already the final R2 link
+        # kaggle_imagegen.py resolved before baking this payload in -- so this
+        # kernel makes zero requests to civitai.com's own domain.
+        civitai.resolve = lambda spec: resolved
 
-        log(f"generating for niche {NICHE_ID!r}...")
-        # image_prompts is a list, same order/length as images (imageslides.py's
-        # own contract) -- not a dict, no re-keying needed, just carry the list
-        # through alongside the copied-back filenames in that same order.
-        images, vibe, image_prompts = imageslides.generate(niche, state=None)
+        log(f"generating {len(prompts)} images with {resolved['name']!r}...")
+        images = sdgen.generate_batch(
+            prompts, OUT_IMAGES, negative_prompts=negatives,
+            civitai_model=f"{resolved['model_id']}:{resolved['version_id']}", **adopted)
 
-        OUT_IMAGES.mkdir(parents=True, exist_ok=True)
-        names = []
-        for img in images:
-            dest = OUT_IMAGES / Path(img).name
-            shutil.copy(img, dest)
-            names.append(dest.name)
-
-        write_status("done", True, {
-            "images": names,
-            "vibe": vibe,
-            "image_prompts": image_prompts,
-        })
-        log(f"wrote {len(names)} images")
+        write_status("done", True, {"images": [Path(p).name for p in images]})
+        log(f"wrote {len(images)} images")
     except Exception as e:
         write_status("failed", False, {"error": str(e)})
         raise

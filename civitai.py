@@ -359,6 +359,20 @@ def download(resolved, dest_dir=None, chunk_size=1 << 20):
     return dest
 
 
+def resolve_final_url(url, timeout=15):
+    """Follow url's redirect chain and return the final URL, without downloading the
+    file body. resolve()'s "url" is civitai.com's own download endpoint, which 307s to
+    a pre-signed Cloudflare R2 link -- confirmed live that civitai.com's own domain
+    451s requests from Kaggle's network while the R2 storage layer underneath is
+    independently reachable, so kaggle_imagegen.py resolves the final R2 link here (in
+    CI, unblocked) and hands Kaggle that link directly instead of civitai.com's own
+    endpoint."""
+    with requests.get(url, headers={"User-Agent": "mpt-autopilot/1.0"},
+                      stream=True, timeout=timeout, allow_redirects=True) as r:
+        r.raise_for_status()
+        return r.url
+
+
 def resolve_and_download(spec, dest_dir=None):
     resolved = resolve(spec)
     path = download(resolved, dest_dir)

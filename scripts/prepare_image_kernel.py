@@ -1,15 +1,21 @@
 """Prepare the Kaggle kernel bundle for mpt's own aibeauty image generation --
 a faster alternative to the local (GH Actions CPU) path in imageslides.py, run
 on Kaggle's own GPU. See kaggle/image_pipeline.py's docstring for why this is
-lower-risk than the Wan2.2-on-Kaggle attempt that got reverted.
+lower-risk than the Wan2.2-on-Kaggle attempt that got reverted, and
+kaggle_imagegen.py's docstring for why the kernel receives an already-resolved
+checkpoint link rather than a CivitAI spec to resolve itself.
 
 Inputs (env):
-  KAGGLE_USERNAME    required -- owner of the kernel
-  NICHE_ID           required -- e.g. "aibeauty"
-  CIVITAI_API_KEY    optional
-  MPT_REPO           default https://github.com/gesimuse/mpt.git
-  MPT_REF            default main
+  KAGGLE_USERNAME         required -- owner of the kernel
+  IMAGEGEN_PAYLOAD_JSON   required -- JSON: {"resolved": {...}, "prompts": [...],
+                          "negatives": [...], "adopted": {...}} (see
+                          kaggle_imagegen.py's _generate_batch_on_kaggle)
+  CIVITAI_API_KEY         optional -- unused by the kernel itself (it never calls
+                          civitai.com), kept only in case a future kernel step needs it
+  MPT_REPO                default https://github.com/gesimuse/mpt.git
+  MPT_REF                 default main
 """
+import base64
 import json
 import os
 import sys
@@ -35,15 +41,18 @@ def require(name: str) -> str:
 
 def main() -> None:
     username = require("KAGGLE_USERNAME")
-    niche_id = require("NICHE_ID")
-    civitai_key = os.environ.get("CIVITAI_API_KEY", "").strip()
+    payload_json = require("IMAGEGEN_PAYLOAD_JSON")
+    json.loads(payload_json)  # fail fast here, not inside the kernel, if malformed
     mpt_repo = os.environ.get("MPT_REPO", "https://github.com/gesimuse/mpt.git").strip()
     mpt_ref = os.environ.get("MPT_REF", "main").strip()
 
     src = (ROOT / "kaggle" / "image_pipeline.py").read_text()
+    # base64, not a direct string substitution: the payload is real JSON (prompts
+    # included) which can contain quotes/backslashes/newlines that would otherwise
+    # need careful escaping to stay valid once dropped into a Python source literal.
+    payload_b64 = base64.b64encode(payload_json.encode()).decode()
     subs = {
-        "__NICHE_ID__": niche_id,
-        "__CIVITAI_API_KEY__": civitai_key,
+        "__PAYLOAD_B64__": payload_b64,
         "__MPT_REPO__": mpt_repo,
         "__MPT_REF__": mpt_ref,
     }
@@ -68,8 +77,7 @@ def main() -> None:
         "kernel_sources": [],
     }, indent=2))
 
-    print(f"[prepare_image_kernel] Bundle ready at {BUILD} "
-          f"(kernel {username}/{KERNEL_SLUG}, niche={niche_id})")
+    print(f"[prepare_image_kernel] Bundle ready at {BUILD} (kernel {username}/{KERNEL_SLUG})")
 
 
 if __name__ == "__main__":
