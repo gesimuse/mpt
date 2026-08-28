@@ -1,19 +1,19 @@
 # TikTok captions to paste when finishing a draft
 
-## 2026-08-27T23:18:26 — aibeauty
+## 2026-08-28T13:48:29 — aibeauty
 
 ```
-Just here for the lighting.
+Feeling myself, no apologies.
 
 Created with AI.
 
 #aiart #aigenerated #aiphotography #confident
 ```
 
-## 2026-08-27T21:34:51 — aibeauty
+## 2026-08-27T23:18:26 — aibeauty
 
 ```
-Not sorry for the view.
+Just here for the lighting.
 
 Created with AI.
 

@@ -5,7 +5,8 @@
       "aibeauty-20260827-180820",
       "aibeauty-20260827-192941",
       "aibeauty-20260827-205610",
-      "aibeauty-20260827-224321"
+      "aibeauty-20260827-224321",
+      "aibeauty-20260828-125928"
     ]
   },
   "uploads": [
@@ -142,6 +143,38 @@
         "beautiful adult latina woman in her late twenties, seductive, sexy, alluring, round breasts, round ass, beautiful, walking toward camera, confident sultry stride, candid framing, natural daylight, portrait of a stylish young woman of mixed ethnicity, wearing modern street fashion, sleek black jacket, subtle makeup, hoop earrings, standing in a city street at night, colorful neon signs in the background, soft rim lighting, cinematic atmosphere, highly detailed face, shallow depth of field, photorealistic, 4k"
       ],
       "ts": "2026-08-27T23:18:26"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260828-125928",
+      "title": "Feeling myself, no apologies.",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7679078742882355222",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "Feeling myself, no apologies.\n\nCreated with AI.\n\n#aiart #aigenerated #aiphotography #confident",
+      "image_urls": [
+        "https://gesimuse.github.io/mpt/media/1787924698-sd_0.jpg",
+        "https://gesimuse.github.io/mpt/media/1787924724-sd_1.jpg",
+        "https://gesimuse.github.io/mpt/media/1787924747-sd_2.jpg",
+        "https://gesimuse.github.io/mpt/media/1787924803-sd_3.jpg",
+        "https://gesimuse.github.io/mpt/media/1787924829-sd_4.jpg"
+      ],
+      "image_prompts": [
+        "beautiful adult latina woman in her late twenties, in a red velvet lounge, moody dramatic lighting, seductive, sexy, alluring, round breasts, round ass, beautiful, arched back pose, confident sultry expression, close-up shot, shallow depth of field, (masterpiece, best quality), intricate details, realistic, photorealistic, a close up of a woman wearing earrings, inspired by Emma Andijewska, draped in crystals, silver color, long earrings, sandra chevier, huge earrings, 2019, blue-eyed, platinum jewellery, earring, flawless structure, silver earring",
+        "beautiful adult latina woman in her late twenties, in a red velvet lounge, moody dramatic lighting, seductive, sexy, alluring, round breasts, round ass, beautiful, arched back pose, confident sultry expression, wide shot, natural window light, (masterpiece, best quality), intricate details, realistic, photorealistic, a close up of a woman wearing earrings, inspired by Emma Andijewska, draped in crystals, silver color, long earrings, sandra chevier, huge earrings, 2019, blue-eyed, platinum jewellery, earring, flawless structure, silver earring",
+        "beautiful adult latina woman in her late twenties, in a red velvet lounge, moody dramatic lighting, seductive, sexy, alluring, round breasts, round ass, beautiful, arched back pose, confident sultry expression, full length shot, head to toe, natural stance, (masterpiece, best quality), intricate details, realistic, photorealistic, a close up of a woman wearing earrings, inspired by Emma Andijewska, draped in crystals, silver color, long earrings, sandra chevier, huge earrings, 2019, blue-eyed, platinum jewellery, earring, flawless structure, silver earring",
+        "beautiful adult latina woman in her late twenties, in a red velvet lounge, moody dramatic lighting, seductive, sexy, alluring, round breasts, round ass, beautiful, arched back pose, confident sultry expression, medium shot, gentle rim lighting, (masterpiece, best quality), intricate details, realistic, photorealistic, a close up of a woman wearing earrings, inspired by Emma Andijewska, draped in crystals, silver color, long earrings, sandra chevier, huge earrings, 2019, blue-eyed, platinum jewellery, earring, flawless structure, silver earring",
+        "beautiful adult latina woman in her late twenties, in a red velvet lounge, moody dramatic lighting, seductive, sexy, alluring, round breasts, round ass, beautiful, arched back pose, confident sultry expression, three-quarter view, soft studio lighting, (masterpiece, best quality), intricate details, realistic, photorealistic, a close up of a woman wearing earrings, inspired by Emma Andijewska, draped in crystals, silver color, long earrings, sandra chevier, huge earrings, 2019, blue-eyed, platinum jewellery, earring, flawless structure, silver earring"
+      ],
+      "motion_prompts": [
+        "The woman's lips curve into a sly, enigmatic smile as she slowly blinks her blue eyes.",
+        "She tilts her head slightly to the right, and her lips curve into a subtle, enigmatic smile.",
+        "The woman subtly flashes a bright, confident smile, accompanied by a gentle tilt of her head.",
+        "She tilts her head to the right, her lips curling into a subtle, sultry smile.",
+        "She slowly smiles, her lips curling upwards, as the lights subtly dance around her."
+      ],
+      "ts": "2026-08-28T13:48:29"
     }
   ],
   "model_stats": {
@@ -157,8 +190,8 @@
     },
     "83490:88738": {
       "name": "Vendo Photorealistic 2",
-      "used": 10,
-      "passed": 10
+      "used": 20,
+      "passed": 20
     },
     "108517:352289": {
       "name": "Realia Photorealistic",
@@ -169,6 +202,11 @@
       "name": "Beauty Maji Realism [Cyber Realistic + Beauty Maji Realism]",
       "used": 10,
       "passed": 10
+    },
+    "5273:650381": {
+      "name": "WyvernMix (1.5 & XL)",
+      "used": 0,
+      "passed": 0
     }
   }
 }
