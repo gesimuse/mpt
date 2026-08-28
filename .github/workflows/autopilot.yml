@@ -128,7 +128,16 @@ jobs:
 
       - name: Run autopilot
         env:
-          NICHES: ${{ github.event.inputs.niches }}
+          # Defaults to aibeauty only -- this workflow never clones motionforge (only
+          # autopilot_video.yml does), so aibeautyvideo always fails here with
+          # "motionforge checkout not found" if NICHES resolves to all niches, which
+          # it did on every schedule trigger (schedule events have no
+          # github.event.inputs, so this was always blank there) and on any
+          # workflow_dispatch that left the niches input empty. Wasted 3 retries
+          # (~90s) and reported the whole job as a failure every single scheduled
+          # run, even though the actual aibeauty post succeeded. An explicit
+          # workflow_dispatch niches input still overrides this.
+          NICHES: ${{ github.event.inputs.niches || 'aibeauty' }}
           # Empty string falls back to '5' (|| is falsy-coalescing in GH Actions
           # expressions) -- autopilot.py's own int(os.environ.get(..., "5")) would
           # crash on a literal empty string otherwise.
