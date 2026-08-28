@@ -50,6 +50,19 @@ def write_status(stage: str, ok: bool, extra: dict | None = None) -> None:
 def main() -> None:
     write_status("start", True)
     try:
+        # Kaggle's base image ships TensorFlow preinstalled (general data-science
+        # environment), and transformers unconditionally tries to import it just
+        # to load CLIPImageProcessor -- we never use TF at all. A live run's full
+        # traceback (only visible thanks to the diagnostic below) showed pinning
+        # transformers==4.54.1 (to fix a DIFFERENT torch-2.8-only-API conflict)
+        # pulled in a protobuf version incompatible with Kaggle's own preinstalled
+        # tensorflow, breaking that unwanted import outright. USE_TF=0 is
+        # transformers' own documented flag for exactly this: skip every
+        # TensorFlow-dependent code path regardless of whether TF is installed,
+        # instead of fighting a protobuf version neither of us actually needs.
+        import os
+        os.environ["USE_TF"] = "0"
+
         log(f"cloning {MPT_REPO}@{MPT_REF}...")
         subprocess.run(
             ["git", "clone", "--depth", "1", "--branch", MPT_REF, MPT_REPO, str(MPT_DIR)],
@@ -126,7 +139,6 @@ def main() -> None:
                                            "traceback": traceback.format_exc()})
             sys.exit(1)
 
-        import os
         os.environ["SUPERVISOR_ENABLED"] = "0"
         if CIVITAI_API_KEY:
             os.environ["CIVITAI_API_KEY"] = CIVITAI_API_KEY
