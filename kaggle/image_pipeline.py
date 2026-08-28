@@ -2,12 +2,18 @@
 imageslides.generate() for one niche on Kaggle's own GPU (instead of the
 default GH Actions CPU runner), copies the resulting images back.
 
-Unlike the Wan2.2 video-generation attempt on Kaggle (reverted -- see
-videogen.py's docstring), this has none of the exotic-quantized-kernel /
-accelerator-selection landmines: sdgen.py's standard SD1.5/SDXL fp16
-inference has run fine on P100-class GPUs for years, so Kaggle's inability
-to request a specific accelerator via its API doesn't block this the way it
-did there.
+Kaggle's inability to request a specific accelerator via its API turned out
+to matter here too, not just for the Wan2.2 video attempt (reverted -- see
+videogen.py's docstring): a live P100 kernel died on EVERY image with "CUDA
+error: no kernel image is available for execution on the device". Confirmed
+live and via Kaggle's own docker-python#1546 -- Kaggle's current base image
+ships a PyTorch build that dropped Pascal (sm_60, what the P100 is) entirely,
+so ANY GPU op fails there now, not just exotic quantized kernels. Unlike the
+Wan2.2 case though, this pipeline has no exotic dependency on a specific
+PyTorch/quantization build -- plain SD1.5/SDXL fp16 -- so explicitly
+reinstalling torch 2.7.0 (the last release with sm_60 support; dropped in
+2.8's cu128 builds) overriding Kaggle's own default is a real fix here, not
+a dead end the way it was for Wan2.2's torchao/AOT-compiled requirements.
 
 Placeholders below are substituted by scripts/prepare_image_kernel.py at
 push time.
@@ -49,12 +55,21 @@ def main() -> None:
             ["git", "clone", "--depth", "1", "--branch", MPT_REF, MPT_REPO, str(MPT_DIR)],
             check=True)
 
-        # torch is NOT reinstalled -- Kaggle's own preinstalled build is already
-        # matched to its GPU driver. A real run tried reinstalling torch for a
-        # different (Wan2.2) Kaggle experiment and that alone broke GPU support
-        # entirely on a P100 (current PyTorch dropped Pascal/sm_60 support).
-        # Standard fp16 SD1.5/SDXL inference has no such requirement.
-        log("installing deps (matches autopilot.yml's list, minus torch/ollama -- "
+        # Kaggle's own preinstalled torch dropped Pascal (sm_60, the P100) support
+        # entirely -- confirmed live: every image died with "CUDA error: no kernel
+        # image is available for execution on the device" when relying on the
+        # default install. 2.7.0 is the last release that still ships sm_60 in its
+        # CUDA wheels (dropped in 2.8's cu128 builds) -- explicitly overriding
+        # Kaggle's default with it, matched with the paired torchvision release.
+        log("installing torch 2.7.0 (last release with Pascal/P100 support, "
+            "overriding Kaggle's own default)...")
+        subprocess.run(
+            [sys.executable, "-m", "pip", "install", "-q",
+             "torch==2.7.0", "torchvision==0.22.0",
+             "--index-url", "https://download.pytorch.org/whl/cu121"],
+            check=True)
+
+        log("installing remaining deps (matches autopilot.yml's list, minus ollama -- "
             "supervisor is disabled below, so no vision model needed here)...")
         subprocess.run(
             [sys.executable, "-m", "pip", "install", "-q",
