@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-29T16:08:14 — aibeautyvideo
+
+```
+Some days just look like this.
+
+Created with AI.
+
+#aiart #aivideo #wan22 #confident
+```
+
 ## 2026-08-29T15:42:14 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Some days just look like this.
 Created with AI.
 
 #aiart #aivideo #wan22 #confident
-```
-
-## 2026-08-26T14:31:46 — aibeauty
-
-```
-Just here for the lighting.
-
-Created with AI.
-
-#aiart #aigenerated #aiphotography #confident
 ```
