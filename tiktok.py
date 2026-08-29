@@ -228,10 +228,17 @@ def publish_video_draft(video_path, niche_id, video_url=None, caption=None, titl
     niche_id -- the video niche (aibeautyvideo) points this at "aibeauty" to reuse
     the same channel's token instead of needing a second OAuth setup.
 
-    PULL_FROM_URL for video was confirmed via TikTok's Content Posting API reference
-    (developers.tiktok.com/doc/content-posting-api-reference-upload-video) -- inbox
-    videos accept the same source shape as inbox photos. Same verified domain used
-    for photos works for video too; no separate portal verification step needed."""
+    Goes to /v2/post/publish/content/init/ with post_mode=MEDIA_UPLOAD, media_type=
+    VIDEO -- the SAME endpoint publish_photos_draft uses, and for the same reason: it
+    accepts post_info, so the caption and hashtags are pre-filled on the draft. This
+    used to POST to /v2/post/publish/inbox/video/init/ with a post_info field attached,
+    which is why every video draft landed in the inbox with no caption and no hashtags
+    at all: that endpoint's request body accepts ONLY source_info (confirmed against
+    TikTok's own Content Posting API reference), so post_info was silently dropped on
+    the floor -- no error, just a bare draft.
+
+    The old endpoint is still used as a fallback if content/init rejects the request,
+    since a captionless draft still beats losing a generated video."""
     token_niche = token_niche or niche_id
     ck = os.environ.get("TIKTOK_CLIENT_KEY")
     cs = os.environ.get("TIKTOK_CLIENT_SECRET")
@@ -240,23 +247,47 @@ def publish_video_draft(video_path, niche_id, video_url=None, caption=None, titl
         return None
     url = video_url or host_file(video_path)
 
-    body = {"source_info": {"source": "PULL_FROM_URL", "video_url": url}}
+    post_info = None
     if caption:
         post_title = title or caption.splitlines()[0]
-        body["post_info"] = {"title": post_title[:90], "description": caption[:4000]}
+        post_info = {"title": post_title[:90], "description": caption[:4000]}
 
     access = _access_token(ck, cs, refresh)
-    r = requests.post(
-        "https://open.tiktokapis.com/v2/post/publish/inbox/video/init/",
-        headers={"Authorization": f"Bearer {access}", "Content-Type": "application/json; charset=UTF-8"},
-        json=body,
-        timeout=60,
-    )
+    headers = {"Authorization": f"Bearer {access}",
+               "Content-Type": "application/json; charset=UTF-8"}
+
+    body = {
+        "source_info": {"source": "PULL_FROM_URL", "video_url": url},
+        "post_mode": "MEDIA_UPLOAD",
+        "media_type": "VIDEO",
+    }
+    if post_info:
+        body["post_info"] = post_info
+    r = requests.post("https://open.tiktokapis.com/v2/post/publish/content/init/",
+                      headers=headers, json=body, timeout=60)
     if not r.ok:
-        raise RuntimeError(f"TikTok video draft init failed: {r.status_code} {r.text[:300]}")
+        # Fall back rather than raise: this endpoint accepting media_type=VIDEO is the
+        # documented shape, but a draft that reaches the inbox without a caption is
+        # still far better than a generated mp4 that goes nowhere. Logged loudly so a
+        # persistent fallback shows up in CI instead of quietly becoming the norm.
+        log(f"::warning::content/init rejected the video ({r.status_code} "
+            f"{r.text[:200]}); falling back to inbox/video/init, which cannot "
+            f"carry a caption")
+        r = requests.post(
+            "https://open.tiktokapis.com/v2/post/publish/inbox/video/init/",
+            headers=headers,
+            json={"source_info": {"source": "PULL_FROM_URL", "video_url": url}},
+            timeout=60)
+        if not r.ok:
+            raise RuntimeError(
+                f"TikTok video draft init failed: {r.status_code} {r.text[:300]}")
+        d = r.json()["data"]
+        log(f"queued video to inbox as draft (no caption), publish_id={d['publish_id']}")
+        return d["publish_id"]
+
     d = r.json()["data"]
     log(f"queued video to inbox as draft, publish_id={d['publish_id']}"
-        + (" (with caption)" if caption else ""))
+        + (" (with caption)" if post_info else ""))
     return d["publish_id"]
 
 

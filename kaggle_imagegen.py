@@ -28,10 +28,11 @@ Push/poll/output follows the same pattern as motionforge's old Kaggle bridge
 (videogen.py, before it was removed there for the video niche -- see that
 module's docstring). The difference here: Kaggle actually does real compute
 for this one. Standard SD1.5/SDXL fp16 inference (what sdgen.py already runs)
-has none of the exotic-quantized-kernel / accelerator-selection problems that
-made the Wan2.2 video attempt a dead end -- it's run fine on P100-class GPUs
-for years, so Kaggle's inability to request a specific accelerator via its
-API doesn't block this the way it did there.
+has none of the exotic-quantized-kernel problems that made the earlier Wan2.2
+video attempt a dead end. Accelerator choice was the other claimed blocker and
+it turned out not to be one: `kaggle kernels push --accelerator NvidiaTeslaT4`
+works on the CLI this pins (1.8.4), which is what removes the P100/Pascal
+torch-pinning mess the kernel used to carry unconditionally.
 
 Needs env: KAGGLE_USERNAME, KAGGLE_API_TOKEN (or KAGGLE_KEY -- aliased same
 as videogen.py used to)."""
@@ -51,6 +52,9 @@ import supervisor
 
 ROOT = Path(__file__).resolve().parent
 KERNEL_SLUG = "mpt-image-gen-worker"
+# Overridable so a Kaggle-side outage of one accelerator type doesn't need a
+# code change: any id from `kaggle kernels push --help` works.
+ACCELERATOR = os.environ.get("KAGGLE_ACCELERATOR", "NvidiaTeslaT4")
 
 
 def log(msg): print(f"[kaggle_imagegen] {msg}", flush=True)
@@ -126,7 +130,21 @@ def _generate_batch_on_kaggle(resolved, prompts, negatives, adopted, workdir):
     log("preparing kernel...")
     subprocess.run([sys.executable, str(ROOT / "scripts" / "prepare_image_kernel.py")],
                    cwd=str(ROOT), env=env, check=True)
-    subprocess.run(["kaggle", "kernels", "push", "-p", str(ROOT / "kernel_build_imagegen")],
+    # --accelerator picks the GPU. Kaggle's default is the P100, whose Pascal (sm_60)
+    # architecture Kaggle's own preinstalled torch no longer has kernels for -- the
+    # cause of "CUDA error: no kernel image is available for execution on the device"
+    # on every image of a live run, and of the whole torch==2.6.0/cu124 pin dance in
+    # kaggle/image_pipeline.py. The T4 is sm_75 and needs none of it.
+    #
+    # This file (and videogen.py) used to assert as fact that Kaggle's API "has no way
+    # to request a specific accelerator". That is not true of the CLI this workflow
+    # actually pins (kaggle<2.0 resolves to 1.8.4, whose `kernels push` has taken
+    # --accelerator for a while). Note T4 x2 is UI-only -- this asks for the single T4,
+    # which is the part that matters here. If Kaggle can't honour it and falls back to
+    # a P100 anyway, the kernel detects sm_60 at runtime and installs the cu124 torch
+    # itself, so this is an optimisation, not a load-bearing assumption.
+    subprocess.run(["kaggle", "kernels", "push", "-p", str(ROOT / "kernel_build_imagegen"),
+                    "--accelerator", ACCELERATOR],
                    cwd=str(ROOT), env=env, check=True)
 
     log("polling Kaggle...")
@@ -196,7 +214,7 @@ def generate(niche, count=None, workdir=None, state=None):
 
     resolved, reference = imageslides.decide_reference(niche, state=state)
     civitai_spec = f"{resolved['model_id']}:{resolved['version_id']}"
-    prefix, vibe = imageslides._build_prefix(niche, reference)
+    prefix, vibe = imageslides._build_prefix(niche, reference, state=state)
     base_negative = ", ".join(
         x for x in (imageslides.NEGATIVE_HARD, reference["negative_prompt"],
                     imageslides.NEGATIVE_QUALITY) if x)
@@ -221,6 +239,7 @@ def generate(niche, count=None, workdir=None, state=None):
     approved = list(supervisor.filter_images(generated)) if supervisor_on else generated
     imageslides._record_model_result(state, civitai_spec, resolved["name"],
                                      len(generated), len(approved))
+    imageslides._record_theme_result(state, vibe, len(generated), len(approved))
     log(f"{len(approved)}/{len(generated)} passed, {len(approved)}/{min_images} needed")
     if len(approved) < min_images:
         # Not the multi-round supervisor-broken fallback imageslides.generate() has --

@@ -32,9 +32,14 @@ docstring for what's assumed and what to check on the first real run.
 ## Running
 
 ### GitHub Actions -- recommended, free, true autopilot
-Push this repo, add every key from `.env.example` as a repo **Secret**, done. Runs
-07:00/19:00 UTC daily. Trigger manually from the Actions tab, optionally scoped to
+Push this repo, add every key from `.env.example` as a repo **Secret**, done. The photo
+run fires 5x/day (05/07/09/11/13 UTC) and is capped at 5 drafts per **calendar day** --
+a midnight reset, not a rolling 24h window, so yesterday's late runs never occupy this
+morning's budget. Trigger manually from the Actions tab, optionally scoped to
 `aibeauty` via the `niches` input. Public repo = unlimited free minutes.
+
+The video run (`autopilot_video.yml`) has no cron on purpose: open the picker on GitHub
+Pages, choose a still, edit the motion prompt, Confirm.
 
 ### Local GPU -- generate, look at it yourself, then push
 `sdgen.py` auto-detects a local CUDA GPU (falls back to CPU otherwise) -- generation
@@ -45,6 +50,38 @@ DRY_RUN=1 python3 autopilot.py          # generate + QA, write to ./out, queue n
 # look at ./out/aibeauty-<stamp>/*.png yourself
 python3 push_draft.py out/aibeauty-<stamp>   # host + queue that batch as an inbox draft
 ```
+
+## Captions and hashtags
+Written per post by an LLM from the theme that batch actually used -- not the fixed
+string in `niches.json` (that is only the last-resort fallback). `llm.py` tries HF's
+router first (`HF_TOKEN`, rotating `HF_TOKENS` when an account runs out of free
+Inference Providers credit), then a local Ollama. The HF token has to be a
+**fine-grained** one with *"Make calls to Inference Providers"*; a plain read token 401s
+and the run falls back to Ollama.
+
+`niches.json`'s `trend_hashtags` is a short list you refresh by hand from TikTok's
+Creative Center; it is offered to the caption model as a hint, not pasted verbatim.
+There is no automated trending feed: Creative Center's endpoint answers every
+unauthenticated request with `{"code":40101,"msg":"no permission"}`, and CivitAI's
+`period` filter returns nothing at all alongside a search query. Both were checked live
+-- see `trends.py`'s docstring before re-attempting either.
+
+## Video generation
+`videogen.py` walks a ladder of HF ZeroGPU Spaces (Wan 2.2 I2V rCM -> Wan 2.1 fast ->
+LTX-Video distilled). Within each, `HF_TOKENS` rotates across HF **accounts** on a
+quota error -- ZeroGPU gives roughly 5 GPU-minutes per account per day. Once every
+Space x token pair is spent, `kaggle_videogen.py` runs LTX-Video distilled on a real
+Kaggle T4 (`--accelerator NvidiaTeslaT4`): far slower per clip, but backed by ~30 GPU-
+hours a week instead of 5 minutes a day.
+
+## What the pipeline learns
+Two loops write back into `posted.json` and bias future runs:
+- **QA pass rate**, per checkpoint (`model_stats`) and per theme (`theme_stats`) -- how
+  often a batch's images came out well-formed.
+- **Your own verdict**, from the picker's *Posted / Skipped* buttons (`owner_verdict`).
+  QA only knows an image was well-formed; only you know it was worth posting. Real
+  TikTok analytics would need the `video.list` scope, which requires an app audit this
+  unaudited app cannot get -- this is the closest available signal.
 
 ## Tuning
 - `niches.json`: `civitai_query` steers which checkpoint gets picked; `outfits` /

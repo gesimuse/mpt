@@ -8,7 +8,8 @@ instead of shipping, and that DRY_RUN never queues a draft.
 
 Run: python3 test_pipeline.py
 """
-import json, os, subprocess, sys, tempfile, unittest
+import datetime as dt
+import json, os, subprocess, sys, tempfile, time, unittest
 from pathlib import Path
 from unittest import mock
 
@@ -21,7 +22,10 @@ import clip_encode  # noqa: E402
 import hand_pose  # noqa: E402
 import imageslides  # noqa: E402
 import kaggle_imagegen  # noqa: E402
+import kaggle_videogen  # noqa: E402
+import llm  # noqa: E402
 import motion_writer  # noqa: E402
+import trends  # noqa: E402
 import push_draft  # noqa: E402
 import refine  # noqa: E402
 import sdgen  # noqa: E402
@@ -153,7 +157,7 @@ class ImageSlideshowTest(unittest.TestCase):
 
     def test_caption_uses_the_llm_writer_when_a_vibe_is_given(self):
         with mock.patch.object(imageslides.caption_writer, "write",
-                               lambda vibe: (f"About {vibe}.", "#freshtag #vibecheck")):
+                               lambda vibe, **kw: (f"About {vibe}.", "#freshtag #vibecheck")):
             caption = imageslides.image_caption(self.AIBEAUTY, vibe="a rainy afternoon")
         self.assertIn("About a rainy afternoon.", caption)
         self.assertIn("#freshtag #vibecheck", caption)
@@ -1783,6 +1787,17 @@ class RunNicheTest(unittest.TestCase):
     AIBEAUTY = {"id": "aibeauty", "hashtags": "#aiart",
                "ai_disclosure": "Created with AI.", "captions": ["Soft light."]}
 
+    def setUp(self):
+        # run_niche() calls write_pending_captions(), which writes ROOT/CAPTIONS.md --
+        # the real, tracked one in the repo root unless ROOT is redirected. Caught by
+        # running the suite and finding CAPTIONS.md rewritten with this class's own
+        # "Soft light." fixture. Point ROOT at a temp dir for every test here.
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        patcher = mock.patch.object(autopilot, "ROOT", Path(tmp.name))
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def test_skipped_without_tiktok_credentials(self):
         with mock.patch.object(tiktok, "enabled", lambda niche_id: False):
             # must not raise, and must not touch imageslides at all
@@ -1911,24 +1926,35 @@ class RunNicheTest(unittest.TestCase):
                 text = (Path(tmp) / "CAPTIONS.md").read_text()
         self.assertIn("caption one", text)
 
-    def _upload(self, niche_id="aibeauty", hours_ago=1, tiktok_ok=True):
-        ts = (autopilot.datetime.now() - autopilot.timedelta(hours=hours_ago))
-        return {"niche": niche_id, "tiktok": tiktok_ok, "ts": ts.strftime("%Y-%m-%dT%H:%M:%S")}
+    def _upload(self, niche_id="aibeauty", days_ago=0, hour=12, tiktok_ok=True):
+        """An upload stamped `days_ago` calendar days back at a fixed hour. Days, not
+        hours: the cap is a calendar-day count now (see autopilot.MAX_PENDING_DRAFTS),
+        so an "hours_ago=1" fixture would land on yesterday's date whenever the suite
+        happens to run just after midnight."""
+        day = autopilot.datetime.now().replace(
+            hour=hour, minute=0, second=0, microsecond=0) - dt.timedelta(days=days_ago)
+        return {"niche": niche_id, "tiktok": tiktok_ok, "ts": day.strftime("%Y-%m-%dT%H:%M:%S")}
 
-    def test_pending_count_only_counts_this_niche_within_24h(self):
+    def test_pending_count_only_counts_this_niche_today(self):
         state = {"uploads": [
-            self._upload("aibeauty", hours_ago=1),
-            self._upload("aibeauty", hours_ago=23),
-            self._upload("aibeauty", hours_ago=25),      # outside the window
-            self._upload("other-niche", hours_ago=1),     # different niche
-            self._upload("aibeauty", hours_ago=1, tiktok_ok=False),  # never posted
+            self._upload("aibeauty", days_ago=0, hour=1),
+            self._upload("aibeauty", days_ago=0, hour=23),
+            self._upload("aibeauty", days_ago=1, hour=23),   # yesterday, not counted
+            self._upload("other-niche", days_ago=0),          # different niche
+            self._upload("aibeauty", days_ago=0, tiktok_ok=False),  # never posted
         ]}
-        self.assertEqual(autopilot._pending_drafts_last_24h(state, "aibeauty"), 2)
+        self.assertEqual(autopilot._drafts_today(state, "aibeauty"), 2)
+
+    def test_yesterdays_late_drafts_do_not_eat_todays_budget(self):
+        """The whole point of the calendar-day switch: 5 drafts pushed late yesterday
+        used to still block this morning's run under a rolling 24h window."""
+        state = {"uploads": [self._upload(days_ago=1, hour=23) for _ in range(5)]}
+        self.assertEqual(autopilot._drafts_today(state, "aibeauty"), 0)
 
     def test_run_skipped_entirely_once_at_the_cap(self):
-        """TikTok's own API caps at 5 pending drafts per rolling 24h -- there is no
-        endpoint to ask it how many are still untouched, so posted.json's own recent
-        history is the proxy. At the cap, skip without touching imageslides at all."""
+        """TikTok's own API caps at 5 pending drafts -- there is no endpoint to ask it
+        how many are still untouched, so posted.json's own same-day history is the
+        proxy. At the cap, skip without touching imageslides at all."""
         state = {"uploads": [self._upload() for _ in range(5)]}
         with mock.patch.object(autopilot, "DRY_RUN", False), \
              mock.patch.object(tiktok, "enabled", lambda niche_id: True), \
@@ -1937,7 +1963,7 @@ class RunNicheTest(unittest.TestCase):
             autopilot.run_niche(self.AIBEAUTY, state)
 
     def test_partial_cap_room_clamps_videos_per_run(self):
-        """3 already pushed in the last 24h, cap is 5 -> only 2 more get generated
+        """3 already pushed today, cap is 5 -> only 2 more get generated
         this run, not the full videos_per_run, so a mid-run push can't overshoot the
         cap and hit spam_risk_too_many_pending_share."""
         state = {"topics": {}, "uploads": [self._upload() for _ in range(3)]}
@@ -1981,14 +2007,90 @@ class SupervisorRubricTest(unittest.TestCase):
         self.assertIn("ethnicity_excluded", supervisor.RUBRIC)
 
 
+class ThemeFeedbackTest(unittest.TestCase):
+    """state["theme_stats"] extends the learn-from-outcomes loop that already exists
+    for checkpoints (_model_weights) to the OTHER half of what decides how a batch
+    looks: the theme (outfit/location/mood/vibe). Same thresholds, same shape."""
+
+    THEMES = [{"vibe": "good", "outfit": "o", "location": "l", "mood": "m"},
+             {"vibe": "bad", "outfit": "o", "location": "l", "mood": "m"}]
+    REFERENCE = {"prompt": "a woman", "negative_prompt": ""}
+
+    def test_untested_themes_stay_neutral(self):
+        state = {"theme_stats": {"good": {"used": 2, "passed": 2}}}
+        # 2 samples is below MIN_SAMPLES_TO_TRUST -- not enough to move the odds.
+        self.assertEqual(imageslides._theme_weights(state), {})
+
+    def test_a_proven_theme_outweighs_a_failing_one(self):
+        state = {"theme_stats": {"good": {"used": 10, "passed": 10},
+                                "bad": {"used": 10, "passed": 0}}}
+        w = imageslides._theme_weights(state)
+        self.assertEqual(w["good"], imageslides.MAX_WEIGHT_MULTIPLIER)
+        self.assertEqual(w["bad"], imageslides.MIN_WEIGHT_MULTIPLIER)
+        self.assertGreater(w["good"], 1.0)
+        self.assertLess(w["bad"], 1.0, "a known-bad theme must drop BELOW an "
+                                       "untested one, not merely tie with it")
+
+    def test_recording_accumulates_per_vibe(self):
+        state = {}
+        imageslides._record_theme_result(state, "good", 10, 7)
+        imageslides._record_theme_result(state, "good", 10, 3)
+        self.assertEqual(state["theme_stats"]["good"], {"used": 20, "passed": 10})
+
+    def test_recording_is_a_no_op_without_state_or_vibe(self):
+        imageslides._record_theme_result(None, "good", 1, 1)  # must not raise
+        state = {}
+        imageslides._record_theme_result(state, None, 1, 1)
+        self.assertEqual(state, {})
+
+    def test_build_prefix_biases_toward_the_proven_theme(self):
+        niche = {"themes": self.THEMES}
+        state = {"theme_stats": {"good": {"used": 20, "passed": 20},
+                                "bad": {"used": 20, "passed": 0}}}
+        picks = [imageslides._build_prefix(niche, self.REFERENCE, state=state)[1]
+                for _ in range(200)]
+        self.assertGreater(picks.count("good"), picks.count("bad") * 3)
+
+    def test_owner_verdicts_need_a_few_samples_before_they_count(self):
+        state = {"uploads": [{"vibe": "good", "owner_verdict": "posted"},
+                            {"vibe": "good", "owner_verdict": "posted"}]}
+        self.assertEqual(imageslides._owner_theme_rates(state), {})
+
+    def test_owner_verdicts_suppress_a_theme_qa_thinks_is_fine(self):
+        """The case QA structurally cannot see: every image well-formed, and the
+        owner refuses to post any of them."""
+        state = {
+            "theme_stats": {"pretty": {"used": 30, "passed": 30}},
+            "uploads": [{"vibe": "pretty", "owner_verdict": "skipped"} for _ in range(4)],
+        }
+        w = imageslides._theme_weights(state)
+        self.assertLess(w["pretty"], imageslides.MAX_WEIGHT_MULTIPLIER)
+
+    def test_owner_verdicts_apply_even_with_no_qa_history(self):
+        state = {"uploads": [{"vibe": "loved", "owner_verdict": "posted"}
+                            for _ in range(5)]}
+        self.assertGreater(imageslides._theme_weights(state)["loved"], 1.0)
+
+    def test_entries_without_a_vibe_are_ignored(self):
+        """Manual picker uploads and pre-feature batches carry no vibe -- a verdict
+        on those has nothing to attribute to."""
+        state = {"uploads": [{"owner_verdict": "posted"} for _ in range(5)]}
+        self.assertEqual(imageslides._owner_theme_rates(state), {})
+
+    def test_build_prefix_without_state_is_a_plain_uniform_pick(self):
+        niche = {"themes": self.THEMES}
+        picks = {imageslides._build_prefix(niche, self.REFERENCE)[1] for _ in range(60)}
+        self.assertEqual(picks, {"good", "bad"})
+
+
 class CaptionWriterTest(unittest.TestCase):
     """caption_writer.write() replaces the old fixed-pool caption/hashtags -- a
     single "hashtags" string used on literally every post, forever, and a small
     static "captions" pool that cycled back to the same 14 lines regardless of how
-    different the actual images were. Hermetic: _ask is mocked, no real NIM call."""
+    different the actual images were. Hermetic: llm.ask is mocked, no real call."""
 
     def test_parses_a_well_formed_response(self):
-        with mock.patch.object(caption_writer, "_ask", lambda prompt, **kw:
+        with mock.patch.object(caption_writer.llm, "ask", lambda prompt, **kw:
                                "CAPTION: Golden hour, no filter needed.\n"
                                "HASHTAGS: #aiart #beachday #goldenhour #confident"):
             caption, tags = caption_writer.write("a sunny beach day")
@@ -1996,63 +2098,217 @@ class CaptionWriterTest(unittest.TestCase):
         self.assertEqual(tags, "#aiart #beachday #goldenhour #confident")
 
     def test_strips_surrounding_quotes_from_the_caption(self):
-        with mock.patch.object(caption_writer, "_ask", lambda prompt, **kw:
+        with mock.patch.object(caption_writer.llm, "ask", lambda prompt, **kw:
                                'CAPTION: "Quoted line."\nHASHTAGS: #aiart #vibe'):
             caption, tags = caption_writer.write("a vibe")
         self.assertEqual(caption, "Quoted line.")
 
     def test_ignores_hashtag_like_words_missing_the_hash(self):
-        with mock.patch.object(caption_writer, "_ask", lambda prompt, **kw:
+        with mock.patch.object(caption_writer.llm, "ask", lambda prompt, **kw:
                                "CAPTION: A line.\nHASHTAGS: #aiart notahashtag #confident"):
             caption, tags = caption_writer.write("a vibe")
         self.assertEqual(tags, "#aiart #confident")
 
+    def test_hashtags_wrapped_over_several_lines_are_all_kept(self):
+        """Seen live: a model wrapped its hashtags onto a second line and the
+        single-line regex kept only the first, shipping a post with ONE hashtag."""
+        with mock.patch.object(caption_writer.llm, "ask", lambda prompt, **kw:
+                               "CAPTION: A line.\nHASHTAGS: #aiart #beach\n#sunset"):
+            _, tags = caption_writer.write("a vibe")
+        self.assertEqual(tags, "#aiart #beach #sunset")
+
+    def test_an_unlabelled_reply_is_still_usable(self):
+        """A real 8B model ignores the CAPTION:/HASHTAGS: format often enough that
+        raising here would drop the post back to the fixed hashtag string this whole
+        module exists to replace."""
+        with mock.patch.object(caption_writer.llm, "ask", lambda prompt, **kw:
+                               "Living my best island life\n\n"
+                               "#aiart #luxuryvibes #islandescape"):
+            caption, tags = caption_writer.write("a vibe")
+        self.assertEqual(caption, "Living my best island life")
+        self.assertEqual(tags, "#aiart #luxuryvibes #islandescape")
+
+    def test_too_many_hashtags_are_capped(self):
+        with mock.patch.object(caption_writer.llm, "ask", lambda prompt, **kw:
+                               "CAPTION: A line.\nHASHTAGS: " +
+                               " ".join(f"#t{i}" for i in range(20))):
+            _, tags = caption_writer.write("a vibe")
+        self.assertEqual(len(tags.split()), caption_writer.MAX_TAGS)
+
+    def test_duplicate_hashtags_are_removed_keeping_order(self):
+        with mock.patch.object(caption_writer.llm, "ask", lambda prompt, **kw:
+                               "CAPTION: A line.\nHASHTAGS: #aiart #beach #aiart #sun"):
+            _, tags = caption_writer.write("a vibe")
+        self.assertEqual(tags, "#aiart #beach #sun")
+
     def test_unparseable_response_raises(self):
         """Must raise, not silently return something empty -- image_caption()'s
         fallback to the static pool depends on this actually failing loudly."""
-        with mock.patch.object(caption_writer, "_ask", lambda prompt, **kw: "not the expected format at all"):
+        with mock.patch.object(caption_writer.llm, "ask", lambda prompt, **kw: "not the expected format at all"):
             with self.assertRaises(RuntimeError):
                 caption_writer.write("a vibe")
 
-    def test_transient_failures_are_retried(self):
-        calls = {"n": 0}
+    def test_trend_hint_is_included_when_the_niche_has_one(self):
+        seen = {}
+
+        def capture(prompt, **kw):
+            seen["prompt"] = prompt
+            return "CAPTION: A line.\nHASHTAGS: #aiart #vibe"
+
+        with mock.patch.object(caption_writer.llm, "ask", capture):
+            caption_writer.write("a vibe", niche={"trend_hashtags": ["springclean"]})
+        self.assertIn("#springclean", seen["prompt"])
+        self.assertIn("at most 2", seen["prompt"])
+
+    def test_no_trend_hint_leaves_the_rubric_clean(self):
+        seen = {}
+
+        def capture(prompt, **kw):
+            seen["prompt"] = prompt
+            return "CAPTION: A line.\nHASHTAGS: #aiart #vibe"
+
+        with mock.patch.object(caption_writer.llm, "ask", capture):
+            caption_writer.write("a vibe", niche={})
+        self.assertNotIn("Currently trending", seen["prompt"])
+
+
+class LLMBackendTest(unittest.TestCase):
+    """llm.ask()'s backend ladder. The bug this module exists to fix: caption_writer
+    and motion_writer each POSTed to Ollama with a 30s timeout, which llama3.2:3b on a
+    2-vCPU GH runner cannot meet -- so of 11 recorded uploads in posted.json exactly
+    ONE ever carried an LLM-written caption, and the video workflow (no Ollama at all)
+    could never have one. Hermetic: requests.post is stubbed."""
+
+    def setUp(self):
+        for var in ("HF_TOKEN", "HF_TOKENS", "OLLAMA_URL"):
+            patcher = mock.patch.dict(os.environ, {}, clear=False)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+            os.environ.pop(var, None)
+
+    @staticmethod
+    def _ok(content):
+        return mock.Mock(status_code=200, ok=True, text="",
+                         json=lambda: {"choices": [{"message": {"content": content}}]})
+
+    def test_hf_is_tried_before_ollama(self):
+        seen = []
 
         def fake_post(url, headers=None, json=None, timeout=None):
-            calls["n"] += 1
-            if calls["n"] < 2:
-                return mock.Mock(status_code=503, text="busy")
-            return mock.Mock(status_code=200, ok=True,
-                             raise_for_status=lambda: None,
-                             json=lambda: {"choices": [{"message": {"content":
-                                 "CAPTION: Retried fine.\nHASHTAGS: #aiart #vibe"}}]})
+            seen.append(url)
+            return self._ok("from hf")
 
-        with mock.patch.object(caption_writer.requests, "post", fake_post), \
-             mock.patch.object(caption_writer.time, "sleep", lambda s: None):
-            result = caption_writer._ask("prompt")
-        self.assertIn("Retried fine", result)
-        self.assertEqual(calls["n"], 2)
+        os.environ["HF_TOKEN"] = "tok"
+        with mock.patch.object(llm.requests, "post", fake_post):
+            self.assertEqual(llm.ask("p"), "from hf")
+        self.assertEqual(len(seen), 1)
+        self.assertIn("router.huggingface.co", seen[0])
+
+    def test_rotates_to_the_next_hf_token_when_one_is_out_of_credit(self):
+        """Inference Providers' free credits are per ACCOUNT, so 402/429/401 on one
+        token is exactly the case where the next token can help."""
+        seen = []
+
+        def fake_post(url, headers=None, json=None, timeout=None):
+            seen.append(headers["Authorization"])
+            if headers["Authorization"] == "Bearer a":
+                return mock.Mock(status_code=402, ok=False, text="out of credits")
+            return self._ok("from the second account")
+
+        os.environ["HF_TOKENS"] = "a,b"
+        with mock.patch.object(llm.requests, "post", fake_post):
+            self.assertEqual(llm.ask("p"), "from the second account")
+        self.assertEqual(seen, ["Bearer a", "Bearer b"])
+
+    def test_falls_through_to_ollama_when_hf_has_no_token(self):
+        seen = []
+
+        def fake_post(url, headers=None, json=None, timeout=None):
+            seen.append(url)
+            return self._ok("from ollama")
+
+        with mock.patch.object(llm.requests, "post", fake_post):
+            self.assertEqual(llm.ask("p"), "from ollama")
+        self.assertEqual(len(seen), 1)
+        self.assertIn("11434", seen[0])
+
+    def test_ollama_gets_a_timeout_long_enough_for_a_cpu_runner(self):
+        """The literal root cause of the static-hashtag bug: 30s is not enough for
+        llama3.2:3b on 2 vCPUs, so every attempt timed out and the caller silently
+        fell back to niches.json's fixed hashtag string."""
+        seen = {}
+
+        def fake_post(url, headers=None, json=None, timeout=None):
+            seen["timeout"] = timeout
+            return self._ok("ok")
+
+        with mock.patch.object(llm.requests, "post", fake_post):
+            llm.ask("p")
+        self.assertGreaterEqual(seen["timeout"], 120)
+
+    def test_raises_with_every_backends_reason_when_all_fail(self):
+        with mock.patch.object(llm.requests, "post",
+                               mock.Mock(side_effect=llm.requests.ConnectionError("down"))), \
+             mock.patch.object(llm.time, "sleep", lambda s: None):
+            os.environ["HF_TOKEN"] = "tok"
+            with self.assertRaises(llm.LLMError) as ctx:
+                llm.ask("p")
+        self.assertIn("hf", str(ctx.exception))
+        self.assertIn("ollama", str(ctx.exception))
+
+
+class TrendsTest(unittest.TestCase):
+    """trends.tiktok_hashtags must NEVER raise and must never fire a request that is
+    known to fail: Creative Center answers every unauthenticated call with HTTP 200 and
+    {"code":40101,"msg":"no permission"} (checked live), so it is only attempted when
+    TIKTOK_CC_COOKIE is set."""
+
+    def test_no_request_without_a_cookie(self):
+        with mock.patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("TIKTOK_CC_COOKIE", None)
+            with mock.patch.object(trends.requests, "get",
+                                   mock.Mock(side_effect=AssertionError("must not call"))):
+                self.assertEqual(trends.tiktok_hashtags(state={}, niche={}), [])
+
+    def test_manual_list_is_used_and_normalized(self):
+        got = trends.tiktok_hashtags(state={}, niche={"trend_hashtags": ["fyp", "#aigirl"]})
+        self.assertEqual(got, ["#fyp", "#aigirl"])
+
+    def test_a_200_with_a_permission_error_body_is_treated_as_failure(self):
+        """Status alone proves nothing here -- the auth failure is in the body."""
+        with mock.patch.dict(os.environ, {"TIKTOK_CC_COOKIE": "sid=x"}, clear=False), \
+             mock.patch.object(trends.requests, "get", lambda *a, **kw: mock.Mock(
+                 status_code=200, raise_for_status=lambda: None,
+                 json=lambda: {"code": 40101, "msg": "no permission"})):
+            self.assertEqual(trends.tiktok_hashtags(state={}, niche={}), [])
+
+    def test_a_fresh_cache_is_reused_instead_of_refetching(self):
+        state = {"trends": {"hashtags": ["#cached"], "fetched_at": time.time()}}
+        with mock.patch.object(trends.requests, "get",
+                               mock.Mock(side_effect=AssertionError("must not call"))):
+            self.assertEqual(trends.tiktok_hashtags(state=state, niche={}), ["#cached"])
 
 
 class MotionWriterTest(unittest.TestCase):
     """motion_writer.write() turns a still's own SD prompt into a motion
     instruction for image-to-video -- must not just echo the SD prompt back, and
     must raise (not return empty) on a bad/empty model response so callers'
-    fallback to a generic motion phrase actually fires. Hermetic: _ask mocked."""
+    fallback to a generic motion phrase actually fires. Hermetic: llm.ask mocked."""
 
     def test_strips_quotes_and_a_leading_label(self):
-        with mock.patch.object(motion_writer, "_ask", lambda prompt, **kw:
+        with mock.patch.object(motion_writer.llm, "ask", lambda prompt, **kw:
                                '"Instruction: she smiles and tilts her head."'):
             motion = motion_writer.write("beautiful woman, red dress, rooftop bar")
         self.assertEqual(motion, "she smiles and tilts her head.")
 
     def test_empty_response_raises(self):
-        with mock.patch.object(motion_writer, "_ask", lambda prompt, **kw: '   "" '):
+        with mock.patch.object(motion_writer.llm, "ask", lambda prompt, **kw: '   "" '):
             with self.assertRaises(RuntimeError):
                 motion_writer.write("a vibe")
 
     def test_prompt_includes_the_still_images_own_prompt(self):
         seen = {}
-        with mock.patch.object(motion_writer, "_ask", lambda prompt, **kw:
+        with mock.patch.object(motion_writer.llm, "ask", lambda prompt, **kw:
                                seen.setdefault("prompt", prompt) or "she smiles"):
             motion_writer.write("a specific still-image prompt")
         self.assertIn("a specific still-image prompt", seen["prompt"])
@@ -2635,7 +2891,13 @@ class SupervisorBrokenDetectionTest(unittest.TestCase):
 
 
 class TikTokPublishVideoDraftTest(unittest.TestCase):
-    """publish_video_draft: PULL_FROM_URL to /v2/post/publish/inbox/video/init/.
+    """publish_video_draft: PULL_FROM_URL to /v2/post/publish/content/init/ with
+    post_mode=MEDIA_UPLOAD + media_type=VIDEO -- the same endpoint the photo carousel
+    uses, and the ONLY video path that accepts post_info. It used to POST to
+    /v2/post/publish/inbox/video/init/ with post_info attached, which is exactly why
+    every video draft arrived in the inbox with no caption and no hashtags: that
+    endpoint's body accepts only source_info, so post_info was silently discarded.
+
     token_niche defaults to niche_id but the video niche points it at the source
     (aibeauty) so the video draft lands in the same channel as the photos."""
 
@@ -2665,11 +2927,60 @@ class TikTokPublishVideoDraftTest(unittest.TestCase):
                 caption="Some days just look like this.")
 
         self.assertEqual(pid, "pv_1")
-        self.assertIn("/v2/post/publish/inbox/video/init/", captured["url"])
+        self.assertIn("/v2/post/publish/content/init/", captured["url"])
+        self.assertEqual(captured["json"]["post_mode"], "MEDIA_UPLOAD")
+        self.assertEqual(captured["json"]["media_type"], "VIDEO")
         self.assertEqual(captured["json"]["source_info"]["source"], "PULL_FROM_URL")
         self.assertEqual(captured["json"]["source_info"]["video_url"],
                         "https://pages/media/vid.mp4")
-        self.assertIn("post_info", captured["json"])
+        self.assertEqual(captured["json"]["post_info"]["description"],
+                        "Some days just look like this.")
+
+    def test_falls_back_to_the_inbox_endpoint_when_content_init_rejects(self):
+        """A captionless draft still beats losing a generated mp4 entirely -- but the
+        fallback must be a real second call, not a swallowed error."""
+        urls = []
+
+        def post(url, headers=None, json=None, timeout=None, **kw):
+            urls.append(url)
+            if url.endswith("/oauth/token/"):
+                return mock.Mock(status_code=200, ok=True,
+                                 raise_for_status=lambda: None,
+                                 json=lambda: {"access_token": "acc"})
+            if "content/init" in url:
+                return mock.Mock(status_code=400, ok=False,
+                                 text="media_type VIDEO not accepted")
+            return mock.Mock(status_code=200, ok=True,
+                             raise_for_status=lambda: None,
+                             json=lambda: {"data": {"publish_id": "pv_fallback"}})
+
+        env = {"TIKTOK_CLIENT_KEY": "ck", "TIKTOK_CLIENT_SECRET": "cs",
+              "TIKTOK_REFRESH_TOKEN_AIBEAUTY": "rt"}
+        with mock.patch.dict(os.environ, env, clear=True), \
+             mock.patch.object(tiktok.requests, "post", post):
+            pid = tiktok.publish_video_draft(
+                None, "aibeautyvideo", video_url="https://pages/media/vid.mp4",
+                token_niche="aibeauty", caption="A caption.")
+        self.assertEqual(pid, "pv_fallback")
+        self.assertTrue(any("content/init" in u for u in urls))
+        self.assertTrue(any("inbox/video/init" in u for u in urls))
+
+    def test_both_endpoints_failing_raises_rather_than_returning_none(self):
+        def post(url, headers=None, json=None, timeout=None, **kw):
+            if url.endswith("/oauth/token/"):
+                return mock.Mock(status_code=200, ok=True,
+                                 raise_for_status=lambda: None,
+                                 json=lambda: {"access_token": "acc"})
+            return mock.Mock(status_code=400, ok=False, text="nope")
+
+        env = {"TIKTOK_CLIENT_KEY": "ck", "TIKTOK_CLIENT_SECRET": "cs",
+              "TIKTOK_REFRESH_TOKEN_AIBEAUTY": "rt"}
+        with mock.patch.dict(os.environ, env, clear=True), \
+             mock.patch.object(tiktok.requests, "post", post):
+            with self.assertRaises(RuntimeError):
+                tiktok.publish_video_draft(
+                    None, "aibeautyvideo", video_url="https://pages/media/vid.mp4",
+                    token_niche="aibeauty", caption="A caption.")
 
     def test_missing_credentials_returns_none(self):
         with mock.patch.dict(os.environ, {}, clear=True):
@@ -2896,6 +3207,18 @@ class PickerHtmlTest(unittest.TestCase):
         # scope it to actions:write on this repo only per the setup blurb).
         self.assertIn('localStorage.getItem("mpt_pat")', self.HTML)
 
+    def test_verdict_field_matches_what_python_reads_back(self):
+        """The picker writes owner_verdict/vibe; imageslides._owner_theme_rates reads
+        them. Two files, one contract, no schema to enforce it -- so pin the names."""
+        self.assertIn("owner_verdict", self.HTML)
+        self.assertIn('data-verdict="posted"', self.HTML)
+        self.assertIn('data-verdict="skipped"', self.HTML)
+        src = (Path(__file__).parent / "imageslides.py").read_text()
+        self.assertIn('u.get("owner_verdict")', src)
+        self.assertIn('u.get("vibe")', src)
+        self.assertIn('"vibe": vibe,',
+                     (Path(__file__).parent / "autopilot.py").read_text())
+
 
 class KaggleImagegenTest(unittest.TestCase):
     """kaggle_imagegen.generate() decides a checkpoint+reference prompt locally
@@ -3020,6 +3343,34 @@ class KaggleImagegenTest(unittest.TestCase):
                 kaggle_imagegen.generate({"id": "aibeauty", "min_images": 2})
         self.assertIn("only 0 of 2", str(ctx.exception))
 
+    def test_kernel_is_pushed_with_an_explicit_t4_accelerator(self):
+        """Kaggle's default is the P100, whose sm_60 Kaggle's own preinstalled torch
+        has no kernels for -- the cause of "CUDA error: no kernel image is available
+        for execution on the device" on every image of a live run. Asking for a T4
+        (sm_75) is what makes the whole cu124 torch-pin path unnecessary."""
+        payload = {"ok": True, "images": ["sd_0.jpg", "sd_1.jpg"]}
+        env = {"KAGGLE_USERNAME": "u", "KAGGLE_KEY": "k"}
+        pushes = []
+        base = self._fake_run_factory(payload, images_written=payload["images"])
+
+        def run(cmd, *a, **kw):
+            if cmd[:3] == ["kaggle", "kernels", "push"]:
+                pushes.append(cmd)
+            return base(cmd, *a, **kw)
+
+        d1, d2, d3 = self._decide_patches()
+        with mock.patch.dict(os.environ, env, clear=True), \
+             mock.patch.object(kaggle_imagegen.subprocess, "run", run), \
+             mock.patch.object(civitai, "resolve_final_url",
+                              return_value="https://r2.example.com/real.safetensors"), \
+             mock.patch.object(supervisor, "filter_images", side_effect=lambda p: list(p)), \
+             d1, d2, d3:
+            kaggle_imagegen.generate({"id": "aibeauty", "min_images": 2})
+        self.assertEqual(len(pushes), 1)
+        self.assertIn("--accelerator", pushes[0])
+        self.assertEqual(pushes[0][pushes[0].index("--accelerator") + 1],
+                        "NvidiaTeslaT4")
+
     def test_missing_credentials_raises_before_any_subprocess_call(self):
         with mock.patch.dict(os.environ, {}, clear=True), \
              mock.patch.object(kaggle_imagegen.subprocess, "run",
@@ -3030,11 +3381,117 @@ class KaggleImagegenTest(unittest.TestCase):
                 kaggle_imagegen.generate({"id": "aibeauty"})
 
 
+class VideoFallbackTest(unittest.TestCase):
+    """autopilot._generate_video: ZeroGPU first, Kaggle's own T4 second. ZeroGPU's
+    free quota is ~5 GPU-minutes per HF ACCOUNT per DAY, so "the ladder is spent" is
+    an ordinary Tuesday, not an exception -- but Kaggle must never mask the real
+    ZeroGPU error when Kaggle isn't configured at all."""
+
+    def test_kaggle_is_not_touched_when_zerogpu_succeeds(self):
+        with mock.patch.object(autopilot.videogen, "generate",
+                              lambda *a, **kw: "/tmp/zero.mp4"), \
+             mock.patch.object(autopilot.kaggle_videogen, "generate",
+                              mock.Mock(side_effect=AssertionError("must not run"))):
+            self.assertEqual(
+                autopilot._generate_video("https://x/i.jpg", "smile", 5.0, 4),
+                "/tmp/zero.mp4")
+
+    def test_falls_back_to_kaggle_when_every_space_and_token_is_spent(self):
+        with mock.patch.object(autopilot.videogen, "generate",
+                              mock.Mock(side_effect=RuntimeError("every video Space failed"))), \
+             mock.patch.object(autopilot.kaggle_videogen, "available", lambda: True), \
+             mock.patch.object(autopilot.kaggle_videogen, "generate",
+                              lambda *a, **kw: "/tmp/kaggle.mp4"):
+            self.assertEqual(
+                autopilot._generate_video("https://x/i.jpg", "smile", 5.0, 4),
+                "/tmp/kaggle.mp4")
+
+    def test_reraises_the_zerogpu_error_when_kaggle_is_not_configured(self):
+        """Not configuring Kaggle is a supported setup. The run must report why
+        ZeroGPU failed, not a misleading "Kaggle credentials not configured"."""
+        with mock.patch.object(autopilot.videogen, "generate",
+                              mock.Mock(side_effect=RuntimeError("Space is down"))), \
+             mock.patch.object(autopilot.kaggle_videogen, "available", lambda: False), \
+             mock.patch.object(autopilot.kaggle_videogen, "generate",
+                              mock.Mock(side_effect=AssertionError("must not run"))):
+            with self.assertRaises(RuntimeError) as ctx:
+                autopilot._generate_video("https://x/i.jpg", "smile", 5.0, 4)
+        self.assertIn("Space is down", str(ctx.exception))
+
+
+class KaggleVideogenTest(unittest.TestCase):
+    """kaggle_videogen mirrors kaggle_imagegen's push/poll/output contract."""
+
+    def _fake_run(self, status_payload, video_written=True):
+        def run(cmd, *a, **kw):
+            if cmd[:3] == ["kaggle", "kernels", "push"]:
+                self.pushes.append(cmd)
+            elif cmd[:3] == ["kaggle", "kernels", "status"]:
+                return mock.Mock(returncode=0, stdout="KernelWorkerStatus.COMPLETE",
+                                 stderr="")
+            elif cmd[:3] == ["kaggle", "kernels", "output"]:
+                out = Path(cmd[cmd.index("-p") + 1])
+                out.mkdir(parents=True, exist_ok=True)
+                if status_payload is not None:
+                    (out / "status.json").write_text(json.dumps(status_payload))
+                if video_written:
+                    (out / "video.mp4").write_bytes(b"rawmp4")
+            return mock.Mock(returncode=0, stdout="", stderr="")
+        return run
+
+    def setUp(self):
+        self.pushes = []
+
+    def test_pushes_with_a_t4_and_normalizes_the_result(self):
+        env = {"KAGGLE_USERNAME": "u", "KAGGLE_KEY": "k"}
+        with tempfile.TemporaryDirectory() as tmp, \
+             mock.patch.dict(os.environ, env, clear=True), \
+             mock.patch.object(kaggle_videogen.subprocess, "run",
+                              self._fake_run({"ok": True, "video": "video.mp4"})), \
+             mock.patch.object(kaggle_videogen.videogen, "normalize_for_tiktok",
+                              lambda src, dest: Path(dest).write_bytes(b"normalized")):
+            out = kaggle_videogen.generate("https://x/i.jpg", "smile",
+                                          out_dir=str(Path(tmp) / "out"))
+            self.assertEqual(Path(out).read_bytes(), b"normalized")
+        self.assertEqual(len(self.pushes), 1)
+        self.assertIn("--accelerator", self.pushes[0])
+        self.assertEqual(self.pushes[0][self.pushes[0].index("--accelerator") + 1],
+                        "NvidiaTeslaT4")
+
+    def test_kernel_failure_surfaces_its_traceback(self):
+        env = {"KAGGLE_USERNAME": "u", "KAGGLE_KEY": "k"}
+        payload = {"ok": False, "error": "P100 (sm_60)", "traceback": "Traceback..."}
+        with mock.patch.dict(os.environ, env, clear=True), \
+             mock.patch.object(kaggle_videogen.subprocess, "run",
+                              self._fake_run(payload, video_written=False)):
+            with self.assertRaises(RuntimeError) as ctx:
+                kaggle_videogen.generate("https://x/i.jpg", "smile")
+        self.assertIn("P100 (sm_60)", str(ctx.exception))
+        self.assertIn("Traceback...", str(ctx.exception))
+
+    def test_missing_status_json_raises(self):
+        env = {"KAGGLE_USERNAME": "u", "KAGGLE_KEY": "k"}
+        with mock.patch.dict(os.environ, env, clear=True), \
+             mock.patch.object(kaggle_videogen.subprocess, "run",
+                              self._fake_run(None, video_written=False)):
+            with self.assertRaises(RuntimeError) as ctx:
+                kaggle_videogen.generate("https://x/i.jpg", "smile")
+        self.assertIn("status.json", str(ctx.exception))
+
+    def test_missing_credentials_raises_before_any_subprocess_call(self):
+        with mock.patch.dict(os.environ, {}, clear=True), \
+             mock.patch.object(kaggle_videogen.subprocess, "run",
+                              mock.Mock(side_effect=AssertionError("must not run"))):
+            with self.assertRaises(RuntimeError):
+                kaggle_videogen.generate("https://x/i.jpg", "smile")
+
+
 class VideoGenTest(unittest.TestCase):
-    """videogen.generate calls the linoyts/wan2-2-i2v-rCM HF Space directly via
-    gradio_client -- no Kaggle involved (a Kaggle bridge did this before; removed,
-    see videogen.py's docstring for why). Tests mock gradio_client.Client/
-    handle_file and subprocess (pip install + ffmpeg normalize)."""
+    """videogen.generate walks an ordered ladder of HF Spaces, rotating HF_TOKENS
+    within each on a ZeroGPU quota error. Two axes: a quota error is per ACCOUNT so
+    the next token can help; anything else fails the same way on every token, so it
+    advances the SPACE instead. Tests mock gradio_client.Client/handle_file and
+    subprocess (pip install + ffmpeg normalize)."""
 
     @staticmethod
     def _fake_run(calls, ffmpeg_payload=b"normalizedmp4payload"):
@@ -3103,7 +3560,9 @@ class VideoGenTest(unittest.TestCase):
                 client = mock.Mock()
                 if token == "tok_a":
                     client.predict.side_effect = AppError(
-                        message="exceeded your free ZeroGPU quota (60s requested vs 5s left)")
+                        message="The upstream Gradio app has raised an exception: "
+                                "You have exceeded your GPU quota (60s requested "
+                                "vs. 5s left)")
                 else:
                     client.predict.return_value = (str(src_mp4), 1)
                 return client
@@ -3119,15 +3578,26 @@ class VideoGenTest(unittest.TestCase):
             self.assertTrue(Path(out).exists())
             self.assertEqual(seen_tokens, ["tok_a", "tok_b"])
 
-    def test_non_quota_error_raises_immediately_without_trying_next_token(self):
-        """A real failure (bad prompt, Space down) would fail identically on every
-        token -- burning through the whole list would just waste everyone's quota
-        for no benefit."""
+    def test_recognises_hf_s_actual_quota_wording(self):
+        """The regression that made HF_TOKENS useless: the old check looked for
+        "zerogpu quota" / "exceeded your free", and HF's real message says neither."""
+        real = Exception("The upstream Gradio app has raised an exception: You have "
+                         "exceeded your GPU quota (60s requested vs. 42s left)")
+        self.assertTrue(videogen._is_quota_error(real))
+        signed_out = Exception("You have exceeded your GPU quota (112s left vs. 120s "
+                               "requested). Sign-up on Hugging Face to get more quotas")
+        self.assertTrue(videogen._is_quota_error(signed_out))
+        self.assertFalse(videogen._is_quota_error(Exception("Space is restarting")))
+
+    def test_non_quota_error_advances_the_space_not_the_token(self):
+        """A real failure (bad prompt, Space down) fails identically on every token,
+        so burning the token list would just waste every account's quota. A DIFFERENT
+        Space, though, is worth trying -- that's the whole point of the ladder."""
         from gradio_client.exceptions import AppError
-        seen_tokens = []
+        seen = []
 
         def fake_client_factory(space_id, token=None):
-            seen_tokens.append(token)
+            seen.append((space_id, token))
             client = mock.Mock()
             client.predict.side_effect = AppError(message="some unrelated Space error")
             return client
@@ -3138,12 +3608,43 @@ class VideoGenTest(unittest.TestCase):
                               self._fake_urlretrieve()), \
              mock.patch("gradio_client.Client", side_effect=fake_client_factory), \
              mock.patch("gradio_client.handle_file", side_effect=lambda x: x):
-            with self.assertRaises(AppError):
+            with self.assertRaises(RuntimeError):
                 videogen.generate("https://x/img.jpg", "hi")
 
-        self.assertEqual(seen_tokens, ["tok_a"], "must not try tok_b for a non-quota error")
+        self.assertEqual([t for _, t in seen], ["tok_a"] * len(videogen.SPACES),
+                        "must not rotate tokens for a non-quota error")
+        self.assertEqual([sid for sid, _ in seen],
+                        [sid for sid, _, _ in videogen.SPACES],
+                        "must try every Space on the ladder")
 
-    def test_missing_video_in_space_response_raises(self):
+    def test_falls_back_to_the_next_space_and_succeeds_there(self):
+        from gradio_client.exceptions import AppError
+        with tempfile.TemporaryDirectory() as tmp:
+            src_mp4 = Path(tmp) / "raw.mp4"
+            src_mp4.write_bytes(b"rawpayload")
+            first = videogen.SPACES[0][0]
+
+            def fake_client_factory(space_id, token=None):
+                client = mock.Mock()
+                if space_id == first:
+                    client.predict.side_effect = AppError(message="Space is down")
+                else:
+                    client.predict.return_value = (str(src_mp4), 1)
+                return client
+
+            with mock.patch.dict(os.environ, {"HF_TOKEN": "tok"}, clear=True), \
+                 mock.patch.object(videogen.subprocess, "run", self._fake_run([])), \
+                 mock.patch.object(videogen.urllib.request, "urlretrieve",
+                                  self._fake_urlretrieve()), \
+                 mock.patch("gradio_client.Client", side_effect=fake_client_factory), \
+                 mock.patch("gradio_client.handle_file", side_effect=lambda x: x):
+                out = videogen.generate("https://x/img.jpg", "hi",
+                                       out_dir=str(Path(tmp) / "out"))
+            self.assertTrue(Path(out).exists())
+
+    def test_missing_video_in_space_response_is_a_space_failure(self):
+        """A 200 carrying no video is a Space failure, not a success -- the ladder
+        moves on, and the final error still names what came back."""
         with mock.patch.dict(os.environ, {"HF_TOKEN": "tok"}, clear=True), \
              mock.patch.object(videogen.subprocess, "run", self._fake_run([])), \
              mock.patch.object(videogen.urllib.request, "urlretrieve",
@@ -3154,6 +3655,20 @@ class VideoGenTest(unittest.TestCase):
             with self.assertRaises(RuntimeError) as ctx:
                 videogen.generate("https://x/img.jpg", "hi")
         self.assertIn("unexpected Space return", str(ctx.exception))
+
+    def test_video_spaces_env_overrides_the_ladder(self):
+        with mock.patch.dict(os.environ,
+                            {"VIDEO_SPACES": "Lightricks/ltx-video-distilled"},
+                            clear=True):
+            self.assertEqual([sid for sid, _, _ in videogen._spaces()],
+                            ["Lightricks/ltx-video-distilled"])
+
+    def test_an_unknown_space_id_is_skipped_not_called_blind(self):
+        """Every Space has a different predict() signature; there is no generic one
+        to guess with, so an id with no adapter must be dropped, not called."""
+        with mock.patch.dict(os.environ, {"VIDEO_SPACES": "someone/unknown-space"},
+                            clear=True):
+            self.assertEqual(videogen._spaces(), [])
 
 
 if __name__ == "__main__":

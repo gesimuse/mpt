@@ -1,11 +1,15 @@
 name: MPT Autopilot Video (aibeautyvideo)
-# No cron -- the video niche is intentionally manual. Run push_video.py locally,
-# pick an image, edit the motion prompt, press Confirm; that fires this
-# workflow_dispatch with the chosen inputs. Video generation calls HF ZeroGPU's
-# Wan 2.2 I2V rCM Space directly (videogen.py) -- no Kaggle involved: Kaggle
-# never did any compute here, it was pure push/poll/download plumbing kept
-# "for continuity" with an earlier design, and its kernel API had no way to
-# request a specific accelerator, causing real, unfixable-from-here failures.
+# No cron -- the video niche is intentionally manual. Open picker.html on GitHub
+# Pages, pick an image, edit the motion prompt, press Confirm; that fires this
+# workflow_dispatch with the chosen inputs. Video generation walks a ladder of HF
+# ZeroGPU Spaces (videogen.py: Wan 2.2 I2V rCM, then Wan 2.1 fast, then LTX-Video
+# distilled), rotating HF_TOKENS across accounts on a quota error.
+#
+# Kaggle is the fallback UNDER all of that (kaggle_videogen.py) -- a real self-hosted
+# T4 run, not the pure push/poll proxy it used to be here. The old objection, that
+# Kaggle's API can't request a specific accelerator, turned out to be wrong: the
+# pinned CLI takes `--accelerator NvidiaTeslaT4`. ZeroGPU stays first because it is
+# much faster; Kaggle exists because ZeroGPU is ~5 GPU-minutes per account per day.
 # The resulting mp4 is posted as a TikTok inbox draft by MPT.
 on:
   workflow_dispatch:
@@ -48,9 +52,12 @@ concurrency:
 jobs:
   run:
     runs-on: ubuntu-latest
-    # Real Wan 2.2 I2V rCM run is ~1-2min of actual generation; 30min ceiling
-    # protects the runner if the HF Space queues or stalls.
-    timeout-minutes: 30
+    # A ZeroGPU run is ~1-2min of actual generation, and the Space ladder can try
+    # three of them. The Kaggle fallback underneath is far slower -- a cold kernel
+    # downloads ~10GB of LTX weights before it generates a frame -- so the old 30min
+    # ceiling would kill it mid-download. 75min covers the full ladder plus one
+    # Kaggle attempt; it is a stall guard, not an expected duration.
+    timeout-minutes: 75
     permissions:
       contents: write
     steps:
@@ -64,9 +71,32 @@ jobs:
 
       - name: Install deps
         # gradio_client calls the HF Space directly (videogen.py). requests
-        # handles TikTok + git; no torch/mediapipe/ollama needed for the video
-        # path -- the actual model inference happens on HF's ZeroGPU, not here.
-        run: pip install gradio_client requests
+        # handles TikTok + git; no torch/mediapipe needed for the video path --
+        # the actual model inference happens on HF's ZeroGPU, not here. (Ollama
+        # IS installed below, but only as llm.py's fallback text backend for the
+        # caption, not for any image/video model.)
+        run: |
+          pip install gradio_client requests
+          # kaggle_videogen.py shells out to the kaggle CLI (never imports the kaggle
+          # Python package), same as kaggle_imagegen.py in autopilot.yml. kaggle<2.0
+          # keeps the KAGGLE_USERNAME/KAGGLE_KEY auth path -- 2.x switched to OAuth.
+          # Resolves to 1.8.4, whose `kernels push` accepts --accelerator.
+          pip install "kaggle<2.0"
+
+      - name: Install Ollama and pull the caption model
+        # Fallback backend for llm.py (caption_writer/motion_writer) only -- HF's
+        # router is tried first and normally answers, so this is the safety net for
+        # when it doesn't. Without it this workflow had NO text model at all, which is
+        # why every video draft shipped niches.json's fixed hashtag string. Fresh
+        # install + pull every run; GH runners have no persistent cache.
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          nohup ollama serve > /tmp/ollama.log 2>&1 &
+          for i in {1..30}; do
+            curl -sf http://localhost:11434/api/tags > /dev/null && break
+            sleep 1
+          done
+          ollama pull llama3.2:3b
 
       - name: Install ffmpeg
         # videogen.py shells out to ffmpeg to normalize frame rate before TikTok
@@ -85,17 +115,28 @@ jobs:
           VIDEO_LENGTH_S: ${{ inputs.length_s }}
           VIDEO_STEPS: ${{ inputs.steps }}
           VIDEO_RETRY_URL: ${{ inputs.retry_video_url }}
+          # Two jobs here: attributes the ZeroGPU video call to your account
+          # (videogen.py) and authenticates llm.py's HF-router captions. The
+          # router needs a fine-grained token with "Make calls to Inference
+          # Providers"; a ZeroGPU-only read token 401s there and llm.py falls
+          # through to the Ollama install above.
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           # Optional, comma-separated HF_TOKENS secret (multiple accounts) takes
           # priority over the single HF_TOKEN above in videogen.py -- rotates to
           # the next token if one hits its account's free ZeroGPU quota
-          # (5min/day each). Only add this secret if you actually have more
-          # than one HF account's token; leaving it unset falls back to the
-          # single HF_TOKEN unchanged.
+          # (5min/day each), and llm.py rotates over the same list for router
+          # credits. Only add this secret if you actually have more than one HF
+          # account's token; leaving it unset falls back to the single HF_TOKEN.
           HF_TOKENS: ${{ secrets.HF_TOKENS }}
           TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
           TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
           TIKTOK_REFRESH_TOKEN_AIBEAUTY: ${{ secrets.TIKTOK_REFRESH_TOKEN_AIBEAUTY }}
+          # Fallback video generation on Kaggle's own T4, tried only once every HF
+          # Space x token combination is spent. Missing secrets are a normal setup,
+          # not a failure: autopilot._generate_video re-raises the ZeroGPU error
+          # instead of masking it with a Kaggle credentials complaint.
+          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
           PAGES_BASE_URL: https://gesimuse.github.io/mpt
         run: python autopilot.py
 

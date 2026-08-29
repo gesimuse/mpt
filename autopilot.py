@@ -22,11 +22,12 @@ Optional:
               push_draft.py on whichever batch turned out well.
 """
 import json, os, shutil, sys, time
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 
 import imageslides
 import kaggle_imagegen
+import kaggle_videogen
 import motion_writer
 import tiktok
 import videogen
@@ -50,10 +51,18 @@ OUT_DIR = ROOT / "out"
 RUN_ATTEMPTS = int(os.environ.get("RUN_ATTEMPTS", "3"))
 # TikTok's Content Posting API caps at 5 pending (unposted) drafts within any rolling
 # 24h period -- exceeding it fails new pushes with spam_risk_too_many_pending_share
-# (confirmed against TikTok's own docs). There is no API to ask TikTok how many
-# drafts are still sitting untouched in the inbox right now, so this counts our own
-# successful pushes to this niche in the last 24h from posted.json instead -- the
-# same rolling window TikTok itself uses, just tracked on our side.
+# (confirmed against TikTok's own docs). There is no API to ask TikTok how many drafts
+# are still sitting untouched in the inbox right now, so this counts our own successful
+# pushes to this niche from posted.json instead.
+#
+# Deliberately a CALENDAR DAY, not the rolling 24h window TikTok itself uses: with the
+# five crons at 05-13 UTC, a rolling window let yesterday's late runs still occupy this
+# morning's budget, so the first run(s) of a day got skipped for drafts the account
+# owner had usually already dealt with. Commit 06709de ("reset aibeauty pending-drafts
+# count for today") was a manual workaround for exactly that. A midnight reset is
+# slightly more permissive than TikTok's real limit at the boundary -- the guard against
+# actually tripping spam_risk_too_many_pending_share is that all five crons sit inside a
+# single UTC day, so at most MAX_PENDING_DRAFTS get pushed per day regardless.
 MAX_PENDING_DRAFTS = int(os.environ.get("MAX_PENDING_DRAFTS", "5"))
 
 
@@ -104,11 +113,15 @@ def write_pending_captions(state, keep=10):
     (ROOT / "CAPTIONS.md").write_text("\n".join(lines))
 
 
-def _pending_drafts_last_24h(state, niche_id):
-    """How many drafts we've pushed for this niche in the last 24h, per posted.json --
-    our proxy for TikTok's own 5-per-24h pending cap, since there's no API to ask
-    TikTok directly how many are still sitting untouched in the inbox."""
-    cutoff = datetime.now() - timedelta(hours=24)
+def _drafts_today(state, niche_id, today=None):
+    """How many drafts we've pushed for this niche so far TODAY, per posted.json -- our
+    proxy for TikTok's own 5-pending cap (see MAX_PENDING_DRAFTS for why this is a
+    calendar day rather than TikTok's own rolling 24h window).
+
+    `ts` is written by time.strftime, i.e. in the runner's local time, which is UTC on
+    GitHub Actions -- comparing it against datetime.now().date() is self-consistent
+    because both sides come from the same clock."""
+    today = today or datetime.now().date()
     count = 0
     for u in state.get("uploads", []):
         if u.get("niche") != niche_id or not u.get("tiktok"):
@@ -117,7 +130,7 @@ def _pending_drafts_last_24h(state, niche_id):
             ts = datetime.strptime(u["ts"], "%Y-%m-%dT%H:%M:%S")
         except (KeyError, ValueError):
             continue
-        if ts >= cutoff:
+        if ts.date() == today:
             count += 1
     return count
 
@@ -131,10 +144,10 @@ def run_niche(niche, state):
         return
     videos_this_run = niche.get("videos_per_run", 1)
     if not DRY_RUN:
-        pending = _pending_drafts_last_24h(state, niche["id"])
+        pending = _drafts_today(state, niche["id"])
         if pending >= MAX_PENDING_DRAFTS:
-            log(f"[{niche['id']}] skipped: {pending} drafts already pushed in the last "
-                f"24h (cap {MAX_PENDING_DRAFTS}); clear or post them in the TikTok app "
+            log(f"[{niche['id']}] skipped: {pending} drafts already pushed today "
+                f"(cap {MAX_PENDING_DRAFTS}); clear or post them in the TikTok app "
                 "before more get queued")
             return
         # Also clamp a partial run: pushing all videos_per_run when some of the cap is
@@ -142,7 +155,7 @@ def run_niche(niche, state):
         # stopping cleanly at the boundary.
         remaining = MAX_PENDING_DRAFTS - pending
         if videos_this_run > remaining:
-            log(f"[{niche['id']}] {pending} drafts already pushed in the last 24h; "
+            log(f"[{niche['id']}] {pending} drafts already pushed today; "
                 f"generating {remaining} instead of {videos_this_run} to stay under "
                 f"the cap of {MAX_PENDING_DRAFTS}")
             videos_this_run = remaining
@@ -165,7 +178,7 @@ def run_niche(niche, state):
                     f"({type(e).__name__}: {str(e)[:200]}); falling back to local")
         if images is None:
             images, vibe, image_prompts = imageslides.generate(niche, state=state)
-        caption = imageslides.image_caption(niche, vibe=vibe)
+        caption = imageslides.image_caption(niche, vibe=vibe, state=state)
         log(f"[{niche['id']}] caption (pre-filled on the draft; also saved to "
             f"CAPTIONS.md as a fallback):\n{caption}")
 
@@ -212,6 +225,11 @@ def run_niche(niche, state):
             # NOT what the video picker pre-fills (that's motion_prompts below) --
             # this describes the still, not a motion.
             "image_prompts": image_prompts,
+            # The theme this batch was built from (imageslides.DEFAULT_THEMES). Two
+            # jobs: it's the key picker.html's posted/skipped verdict gets attributed
+            # to (imageslides._owner_theme_rates), and it makes a batch's own look
+            # legible in posted.json without reverse-engineering it from a prompt.
+            "vibe": vibe,
             # Per-image motion instruction (motion_writer.write, an LLM rewrite of
             # image_prompts[i] into an actual action for the person to do) -- what
             # the video picker actually pre-fills its motion-prompt field with.
@@ -279,6 +297,30 @@ def _publish_video(niche, state, token_niche, video_url, caption, topic, extra_f
     write_pending_captions(state)
 
 
+def _generate_video(image_url, prompt, length_s, steps):
+    """HF ZeroGPU first, Kaggle's own T4 second.
+
+    videogen.generate() already walks several Spaces x several HF tokens internally,
+    so reaching here means the whole ZeroGPU ladder is spent -- which on a free
+    account is a matter of ~5 GPU-minutes per account per DAY, not a rare event.
+    kaggle_videogen runs a smaller model on a real T4 with ~30 GPU-hours a week
+    behind it: much slower per clip (most of it weight download), but it is what
+    turns "no video today" into "a video, eventually".
+
+    Kaggle is skipped silently when its credentials aren't configured -- that is a
+    normal, supported setup, not a failure -- and the ZeroGPU error is re-raised so
+    the run reports the real reason rather than a Kaggle one."""
+    try:
+        return videogen.generate(image_url, prompt, length_s=length_s, steps=steps)
+    except Exception as e:
+        if not kaggle_videogen.available():
+            raise
+        log(f"ZeroGPU path exhausted ({type(e).__name__}: {str(e)[:200]}); "
+            "falling back to Kaggle's own GPU")
+        return kaggle_videogen.generate(image_url, prompt, length_s=length_s,
+                                        steps=steps)
+
+
 def _run_video_niche(niche, state):
     """Reuse an image the photo niche already generated + QA'd, animate it with
     videogen.py (HF ZeroGPU / Wan 2.2 I2V rCM), publish the mp4 as a TikTok inbox
@@ -289,10 +331,11 @@ def _run_video_niche(niche, state):
     to source_niche) so the video draft lands in the same channel as the photos --
     no second OAuth setup needed.
 
-    No pending-drafts cap check here: TikTok's per-24h cap applies to the ACCOUNT, so
-    the photo cron and this video cron collectively must stay under 5, but we can't
-    poll TikTok for that number. Kept simple: the video cron runs less often than
-    the photo cron and the account owner watches the inbox."""
+    No pending-drafts cap check here: TikTok's cap applies to the ACCOUNT, so the photo
+    cron and video pushes collectively must stay under 5, but we can't poll TikTok for
+    that number. Kept simple: this niche has no cron at all -- every video run is fired
+    by hand from picker.html, so the account owner is already looking at the inbox when
+    one goes out."""
     token_niche = niche.get("tiktok_token_niche") or (
         niche.get("source_niche") or niche["id"].removesuffix("video"))
     if not DRY_RUN and not tiktok.enabled(token_niche):
@@ -307,7 +350,7 @@ def _run_video_niche(niche, state):
     if retry_url:
         prompt = (os.environ.get("VIDEO_PROMPT", "").strip()
                   or niche.get("motionforge_prompt", "").strip())
-        caption = imageslides.image_caption(niche, vibe=prompt or None)
+        caption = imageslides.image_caption(niche, vibe=prompt or None, state=state)
         log(f"[{niche['id']}] retrying publish of {retry_url} (no regeneration)")
         if DRY_RUN:
             log(f"[{niche['id']}] DRY_RUN: would retry-publish {retry_url}")
@@ -333,8 +376,8 @@ def _run_video_niche(niche, state):
               or niche.get("motionforge_prompt", "").strip())
     length_s = os.environ.get("VIDEO_LENGTH_S", "").strip() or niche.get("motionforge_length_s", "5.0")
     steps = os.environ.get("VIDEO_STEPS", "").strip() or niche.get("motionforge_steps", "4")
-    video_path = videogen.generate(image_url, prompt, length_s=length_s, steps=steps)
-    caption = imageslides.image_caption(niche, vibe=prompt or None)
+    video_path = _generate_video(image_url, prompt, length_s, steps)
+    caption = imageslides.image_caption(niche, vibe=prompt or None, state=state)
     log(f"[{niche['id']}] caption (pre-filled on the draft):\n{caption}")
 
     if DRY_RUN:

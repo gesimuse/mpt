@@ -10,6 +10,7 @@
       "min_images": 3,
       "videos_per_run": 1,
       "hashtags": "#aiart #aigenerated #aiphotography #confident",
+      "trend_hashtags": [],
       "ai_disclosure": "Created with AI.",
       "captions": [
         "Confidence looks good on me.",
@@ -48,6 +49,7 @@
       "tiktok_token_niche": "aibeauty",
       "videos_per_run": 1,
       "hashtags": "#aiart #aivideo #wan22 #confident",
+      "trend_hashtags": [],
       "ai_disclosure": "Created with AI.",
       "motionforge_prompt": "she smiles, tilts head, hair moves in the wind",
       "motionforge_length_s": "5.0",

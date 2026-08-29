@@ -5,8 +5,13 @@ on:
     # daytime hours (07/09/11/13/15 GMT+2 -- 05/07/09/11/13 UTC) rather than bursting
     # all 5 at once or posting overnight. Matches TikTok's own documented cap of 5
     # pending (unposted) drafts per rolling 24h (spam_risk_too_many_pending_share past
-    # that); autopilot.py's own pending-drafts check (_pending_drafts_last_24h) skips
-    # or clamps a run if manual pushes have already eaten into that cap.
+    # that); autopilot.py's own check (_drafts_today) skips or clamps a run if manual
+    # pushes have already eaten into that cap.
+    #
+    # That check counts a CALENDAR day, not a rolling 24h window -- see
+    # autopilot.MAX_PENDING_DRAFTS. All five crons land inside one UTC day, so the
+    # per-day total is still capped at 5; what changes is that yesterday's late runs
+    # no longer occupy this morning's budget.
     - cron: "0 5 * * *"
     - cron: "0 7 * * *"
     - cron: "0 9 * * *"
@@ -147,10 +152,18 @@ jobs:
           # expressions) -- autopilot.py's own int(os.environ.get(..., "5")) would
           # crash on a literal empty string otherwise.
           MAX_PENDING_DRAFTS: ${{ github.event.inputs.max_pending_drafts || '5' }}
-          # Optional: raises the Hugging Face Hub rate limit for the LCM-LoRA download
-          # sdgen.py pulls every run (GH Actions runners have no persistent cache).
-          # huggingface_hub reads this from the env automatically, no code change needed.
+          # Two jobs: raises the Hugging Face Hub rate limit for the LCM-LoRA download
+          # sdgen.py pulls every run (GH Actions runners have no persistent cache --
+          # huggingface_hub reads this from the env automatically), and authenticates
+          # llm.py's calls to HF's router, which is now caption_writer/motion_writer's
+          # FIRST backend ahead of the Ollama install above. That needs a fine-grained
+          # token with "Make calls to Inference Providers" -- a plain read token 401s
+          # there and llm.py falls through to Ollama.
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          # Optional, comma-separated (one token per HF account). llm.py rotates to the
+          # next one when an account is out of free Inference Providers credit, the
+          # same way videogen.py rotates on a ZeroGPU quota error.
+          HF_TOKENS: ${{ secrets.HF_TOKENS }}
           # Read-only: sent on GET requests to CivitAI's search/gallery endpoints only,
           # never near their separate paid generation API. Without it /api/v1/models
           # and /api/v1/images return 451; model-version lookups and downloads work

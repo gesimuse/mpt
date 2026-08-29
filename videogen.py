@@ -1,26 +1,102 @@
-"""Wan 2.2 I2V rCM via the linoyts/wan2-2-i2v-rCM HF ZeroGPU Space, called directly.
+"""Image-to-video on Hugging Face ZeroGPU Spaces, called directly.
 
-Used to shell out to a Kaggle kernel that just proxied to this same Space --
-Kaggle never did any compute itself, it was pure push/poll/download plumbing
-kept "for continuity with the existing pipeline" (motionforge's own words).
-That plumbing turned out to be a real liability with no offsetting benefit:
-Kaggle's kernel API has no way to request a specific accelerator, kernel
-push/poll adds real latency, and it needed its own account, secrets, and a
-sibling repo checkout. Calling gradio_client directly here removes all of
-that for the exact same result -- motionforge's own README already said as
-much: "You could rip Kaggle out and call the Space directly from GH Actions
-in ~30 lines; the kernel is a thin proxy."
+Used to shell out to a Kaggle kernel that just proxied to the same Space -- Kaggle
+never did any compute itself, it was pure push/poll/download plumbing kept "for
+continuity with the existing pipeline" (motionforge's own words). Calling gradio_client
+directly removes all of that for the same result. (Kaggle IS back in the picture for
+video, but as a real self-hosted GPU fallback in kaggle_videogen.py, not as a proxy --
+and Kaggle's API can in fact request a specific accelerator, `kaggle kernels push
+--accelerator NvidiaTeslaT4`, contrary to what this docstring used to claim.)
 
-Needs env: HF_TOKEN, or HF_TOKENS (comma-separated) to rotate across more
-than one HF account's free ZeroGPU quota (5min/day per account -- tokens
-from the SAME account share one pool, rotating those does nothing)."""
+Two independent axes of failure, and this module walks both:
+
+  * TOKENS. ZeroGPU's free quota is ~5 min/day per HF ACCOUNT. HF_TOKENS
+    (comma-separated) rotates to the next account when one is spent. Tokens from the
+    SAME account share one pool, so rotating those does nothing.
+  * SPACES. Any single Space can be down, restarting, rate-limited, or have changed its
+    signature. SPACES below is an ordered ladder; a Space-side failure moves to the next
+    one rather than failing the run.
+
+Quota detection is by MESSAGE, not exception class: HF's real text is
+"You have exceeded your GPU quota (60s requested vs. 42s left)". The previous check
+looked for "zerogpu quota" / "exceeded your free", neither of which appears in that
+string -- so the first token's quota error was re-raised immediately and every extra
+token in HF_TOKENS was never tried. That is the bug behind "it uses one token then
+stops".
+
+Needs env: HF_TOKEN, or HF_TOKENS (comma-separated) for more than one account.
+Optional: VIDEO_SPACES, a comma-separated list of space ids to override the ladder.
+"""
 import os, subprocess, tempfile, urllib.request
 from pathlib import Path
 
 
 def log(msg): print(f"[videogen] {msg}", flush=True)
 
-SPACE_ID = "linoyts/wan2-2-i2v-rCM"
+
+# Portrait, and a multiple of 32 -- both Wan and LTX round to 32, and TikTok wants
+# vertical. Only the Spaces that expose explicit height/width use these.
+_H, _W = 832, 480
+
+
+def _wan22_rcm_args(image_path, prompt, negative_prompt, length_s, steps, seed):
+    from gradio_client import handle_file
+    return dict(
+        input_image=handle_file(str(image_path)), prompt=prompt, steps=steps,
+        negative_prompt=negative_prompt or "", duration_seconds=length_s,
+        guidance_scale=1.0, guidance_scale_2=1.0,
+        seed=seed if seed is not None else 0, randomize_seed=seed is None)
+
+
+def _wan21_fast_args(image_path, prompt, negative_prompt, length_s, steps, seed):
+    from gradio_client import handle_file
+    return dict(
+        input_image=handle_file(str(image_path)), prompt=prompt, height=_H, width=_W,
+        negative_prompt=negative_prompt or "", duration_seconds=length_s,
+        guidance_scale=1.0, steps=steps,
+        seed=seed if seed is not None else 0, randomize_seed=seed is None)
+
+
+def _ltx_distilled_args(image_path, prompt, negative_prompt, length_s, steps, seed):
+    from gradio_client import handle_file
+    # LTX's own endpoint takes no step count -- it's a distilled model with a fixed
+    # schedule, so `steps` is deliberately dropped here rather than mapped onto
+    # ui_guidance_scale or anything else it doesn't mean.
+    return dict(
+        prompt=prompt, negative_prompt=negative_prompt or "",
+        input_image_filepath=handle_file(str(image_path)), input_video_filepath="",
+        height_ui=768, width_ui=512, mode="image-to-video", duration_ui=length_s,
+        ui_frames_to_use=9, seed_ui=seed if seed is not None else 0,
+        randomize_seed=seed is None, ui_guidance_scale=1.0, improve_texture_flag=True)
+
+
+# Ordered ladder. Signatures below were read off each Space's own view_api(), not
+# guessed -- three separate live incidents (commits 3228192, 2ceda0a, ed788ec) came
+# from assuming an argument name or type here.
+SPACES = [
+    ("linoyts/wan2-2-i2v-rCM", "/generate_video", _wan22_rcm_args),
+    ("multimodalart/wan2-1-fast", "/generate_video", _wan21_fast_args),
+    ("Lightricks/ltx-video-distilled", "/image_to_video", _ltx_distilled_args),
+]
+
+
+def _spaces():
+    """The ladder, or just the space ids named in VIDEO_SPACES (in that order). An id
+    with no adapter here is skipped loudly rather than called with the wrong argument
+    names -- there is no generic I2V signature to fall back on."""
+    raw = os.environ.get("VIDEO_SPACES", "").strip()
+    if not raw:
+        return SPACES
+    wanted = [s.strip() for s in raw.split(",") if s.strip()]
+    by_id = {sid: entry for entry in SPACES for sid in (entry[0],)}
+    out = []
+    for sid in wanted:
+        if sid in by_id:
+            out.append(by_id[sid])
+        else:
+            log(f"VIDEO_SPACES names {sid!r}, which has no argument adapter here; "
+                "skipping it")
+    return out
 
 
 def _fetch_image(image_url, tmp_dir):
@@ -48,41 +124,50 @@ def _tokens():
 
 
 def _is_quota_error(e: Exception) -> bool:
-    """True for HF's "exceeded your free ZeroGPU quota" AppError specifically --
-    the one failure mode where trying the next token can actually help. Any
-    other error (bad prompt, Space down, network blip) would fail identically
-    on every token, so it's raised immediately instead of burning the rest of
-    the list."""
+    """True for HF's ZeroGPU quota-exceeded error -- the one failure mode where trying
+    the NEXT TOKEN can help (quota is per account). Any other error would fail the same
+    way on every token, so it advances the SPACE instead.
+
+    Matched on the message, deliberately: HF's real wording is "You have exceeded your
+    GPU quota (60s requested vs. 42s left)", sometimes wrapped as "The upstream Gradio
+    app has raised an exception: ...". The old check looked for "zerogpu quota" and
+    "exceeded your free", neither of which occurs in that string, so rotation never
+    fired even once."""
     msg = str(e).lower()
-    return "zerogpu quota" in msg or "exceeded your free" in msg
+    if "gpu quota" in msg:
+        return True
+    return "exceeded" in msg and "quota" in msg
 
 
-def _call_space(image_path, prompt, negative_prompt, length_s, steps, seed, token):
-    from gradio_client import Client, handle_file
-    client = Client(SPACE_ID, token=token or None)
-    log(f"calling Space (seconds={length_s}, steps={steps}, seed={seed}, "
-        f"token={'set' if token else 'anonymous'})")
-    return client.predict(
-        input_image=handle_file(str(image_path)),
-        prompt=prompt,
-        steps=steps,
-        negative_prompt=negative_prompt or "",
-        duration_seconds=length_s,
-        guidance_scale=1.0,
-        guidance_scale_2=1.0,
-        seed=seed if seed is not None else 0,
-        randomize_seed=seed is None,
-        api_name="/generate_video",
-    )
+def _call_space(space_id, api_name, arg_fn, image_path, prompt, negative_prompt,
+                length_s, steps, seed, token):
+    from gradio_client import Client
+    client = Client(space_id, token=token or None)
+    log(f"calling {space_id}{api_name} (seconds={length_s}, steps={steps}, "
+        f"seed={seed}, token={'set' if token else 'anonymous'})")
+    kwargs = arg_fn(image_path, prompt, negative_prompt, length_s, steps, seed)
+    return client.predict(api_name=api_name, **kwargs)
+
+
+def _video_path_from(result):
+    """Every Space here returns (video, seed) in some shape -- a path string, a dict
+    with a "video"/"path" key, or a tuple of either."""
+    if isinstance(result, (list, tuple)) and result:
+        first = result[0]
+        return first if isinstance(first, str) else (first or {}).get("video")
+    if isinstance(result, str):
+        return result
+    if isinstance(result, dict):
+        return result.get("video") or result.get("path")
+    return None
 
 
 def generate(image_url, prompt, length_s=5.0, steps=4, seed=None,
              negative_prompt=None, out_dir=None):
-    """Call the HF Space directly, rotating across HF_TOKENS on a ZeroGPU
-    quota-exceeded error, and return the local mp4 path (re-encoded for
-    TikTok). Raises if every token is exhausted or the Space itself fails --
-    caller treats it as a skipped run."""
-    from gradio_client.exceptions import AppError
+    """Walk the Space ladder, rotating tokens within each Space on a ZeroGPU quota
+    error, and return the local mp4 path (re-encoded for TikTok). Raises only once
+    every Space x token combination is exhausted -- the caller treats that as a
+    skipped run (autopilot.py then tries kaggle_videogen, if configured)."""
     # autopilot.py's _run_video_niche passes these through straight from env
     # vars (VIDEO_STEPS/VIDEO_LENGTH_S), so they arrive as strings -- the
     # Space's steps/duration_seconds are both Slider (float) components, and
@@ -96,36 +181,46 @@ def generate(image_url, prompt, length_s=5.0, steps=4, seed=None,
     work_dir = tempfile.mkdtemp(prefix="videogen_in_")
     image_path = _fetch_image(image_url, work_dir)
 
-    tokens = _tokens()
-    result, last_err, succeeded = None, None, False
-    for i, token in enumerate(tokens):
-        try:
-            result = _call_space(image_path, prompt, negative_prompt, length_s,
-                                 steps, seed, token)
-            succeeded = True
+    spaces, tokens = _spaces(), _tokens()
+    if not spaces:
+        raise RuntimeError("no usable video Space configured (check VIDEO_SPACES)")
+    video_path, last_err = None, None
+    for s_i, (space_id, api_name, arg_fn) in enumerate(spaces):
+        for t_i, token in enumerate(tokens):
+            try:
+                result = _call_space(space_id, api_name, arg_fn, image_path, prompt,
+                                     negative_prompt, length_s, steps, seed, token)
+                video_path = _video_path_from(result)
+                if not video_path:
+                    # A 200 that carries no video is a Space failure like any other --
+                    # raised here so it lands in the same handler and the ladder can
+                    # move on, instead of being mistaken for a successful call.
+                    raise RuntimeError(f"unexpected Space return: {result!r}")
+                break
+            except Exception as e:
+                last_err = e
+                video_path = None
+                if _is_quota_error(e):
+                    if t_i < len(tokens) - 1:
+                        log(f"token {t_i + 1}/{len(tokens)} is out of ZeroGPU quota, "
+                            f"trying the next account ({str(e)[:150]})")
+                        continue
+                    log(f"every one of the {len(tokens)} token(s) is out of ZeroGPU "
+                        f"quota on {space_id}")
+                    break
+                # Not a quota problem: the same call fails identically on every token,
+                # so move to the next Space rather than burning the token list.
+                log(f"{space_id} failed ({type(e).__name__}: {str(e)[:150]})")
+                break
+        if video_path:
             break
-        except AppError as e:
-            last_err = e
-            if i < len(tokens) - 1 and _is_quota_error(e):
-                log(f"token {i + 1}/{len(tokens)} hit its ZeroGPU quota, "
-                    f"trying the next one ({str(e)[:150]})")
-                continue
-            raise
-    if not succeeded:
-        raise last_err
-
-    # Space returns (video_path, seed).
-    if isinstance(result, (list, tuple)) and result:
-        first = result[0]
-        video_path = first if isinstance(first, str) else first.get("video")
-    elif isinstance(result, str):
-        video_path = result
-    elif isinstance(result, dict):
-        video_path = result.get("video") or result.get("path")
-    else:
-        video_path = None
+        if s_i < len(spaces) - 1:
+            log(f"falling back to {spaces[s_i + 1][0]}")
     if not video_path:
-        raise RuntimeError(f"unexpected Space return: {result!r}")
+        raise RuntimeError(
+            f"every video Space failed ({len(spaces)} space(s) x {len(tokens)} "
+            f"token(s)); last error: {type(last_err).__name__}: {str(last_err)[:250]}"
+        ) from last_err
 
     out_dir = Path(out_dir) if out_dir else Path(tempfile.mkdtemp(prefix="videogen_"))
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -140,8 +235,15 @@ def generate(image_url, prompt, length_s=5.0, steps=4, seed=None,
 # check_publish_status later showed FAILED. Wan 2.2 I2V rCM's raw output frame rate
 # isn't in TikTok's accepted range; the Space's own output was never meant to be
 # TikTok-ready as-is, it's a generic video export. Re-encode to a safe, common
-# frame rate here rather than pushing the raw output straight through.
+# frame rate here rather than pushing the raw output straight through. Applies to
+# every Space on the ladder, not just the first -- none of them target TikTok.
 _TIKTOK_FPS = 30
+
+
+def normalize_for_tiktok(src, dest):
+    """Public alias -- kaggle_videogen.py's self-hosted path needs the exact same
+    re-encode, and duplicating the ffmpeg invocation is how the two would drift."""
+    return _normalize_for_tiktok(Path(src), Path(dest))
 
 
 def _normalize_for_tiktok(src, dest):

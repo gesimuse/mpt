@@ -7,14 +7,14 @@ phrases) that cycles back to the same lines regardless of how different the imag
 actually are. The images vary (checkpoint, outfit, pose, camera angle); the post TEXT
 never did.
 
-Runs against a local Ollama instance's OpenAI-compatible endpoint -- same host as
-supervisor.py's vision QA, just a text model here."""
-import os, re, time
+The LLM call itself goes through llm.ask() -- HF's router first, a local Ollama
+instance second (see llm.py for why: the old Ollama-only path with a 30s timeout was
+what made this module fail on almost every real run, so the "fresh hashtags per post"
+promise above was true in the code and false in posted.json)."""
+import re
 
-import requests
-
-OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434/v1/chat/completions")
-TEXT_MODEL = os.environ.get("CAPTION_MODEL", "llama3.2:3b")
+import llm
+import trends
 
 RUBRIC = """Write a short TikTok caption for an AI-generated photo carousel. The
 photos show: {vibe}
@@ -29,6 +29,7 @@ the caption.
 Then on a new line, 4-6 relevant lowercase hashtags, space-separated, each starting
 with #: a couple of broad-reach ones (aiart-adjacent) and a couple specific to the
 actual vibe above, not the same generic set every time.
+{trending}
 
 Respond in exactly this format, nothing else, no markdown:
 CAPTION: <the caption line>
@@ -38,53 +39,66 @@ HASHTAGS: <hashtag1 hashtag2 hashtag3 hashtag4>"""
 def log(msg): print(f"[caption_writer] {msg}", flush=True)
 
 
-def _ask(prompt, attempts=3):
-    last = None
-    for i in range(attempts):
-        try:
-            r = requests.post(
-                OLLAMA_URL,
-                json={
-                    "model": TEXT_MODEL,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "max_tokens": 200,
-                    "temperature": 0.9,
-                },
-                timeout=30,
-            )
-            if r.status_code in (408, 429) or r.status_code >= 500:
-                raise RuntimeError(f"{r.status_code} {r.text[:150]}")
-            r.raise_for_status()
-            return r.json()["choices"][0]["message"]["content"]
-        except (requests.Timeout, requests.ConnectionError, RuntimeError) as e:
-            last = e
-            if i < attempts - 1:
-                time.sleep(2 * (i + 1))
-    raise last
-
-
 _CAPTION_RE = re.compile(r"CAPTION:\s*(.+)", re.I)
-_HASHTAGS_RE = re.compile(r"HASHTAGS:\s*(.+)", re.I)
+_HASHTAGS_RE = re.compile(r"HASHTAGS:\s*(.*)", re.I | re.S)
+_TAG_RE = re.compile(r"#\w+")
+# The rubric asks for 4-6; a model that ignores that and emits fifteen would make
+# every post read as tag spam, so cap it here rather than trusting the instruction.
+MAX_TAGS = 6
 
 
 def _parse(text):
-    cap_match = _CAPTION_RE.search(text)
+    """(caption, hashtags) out of the model's reply.
+
+    Tolerant on purpose. The labelled format the rubric asks for is the happy path,
+    but a live run against a real 8B model produced a bare caption line followed by a
+    row of hashtags with no labels at all -- which the strict version of this raised
+    on, sending the post straight back to the fixed hashtag string this module exists
+    to replace. Hashtags are also collected from EVERYTHING after the label, not just
+    its first line: a model that wraps them onto a second line used to lose all but
+    the first (seen live -- one post came out with a single hashtag)."""
     tag_match = _HASHTAGS_RE.search(text)
-    if not cap_match or not tag_match:
-        raise RuntimeError(f"unparseable response: {text[:150]}")
-    caption = cap_match.group(1).strip().strip('"')
-    tags = " ".join(t for t in tag_match.group(1).split() if t.startswith("#"))
+    cap_match = _CAPTION_RE.search(text)
+    if cap_match and tag_match:
+        caption = cap_match.group(1).strip().strip('"')
+        tags = _TAG_RE.findall(tag_match.group(1))
+    else:
+        # Unlabelled: the caption is the first line that isn't just hashtags, and the
+        # hashtags are every #tag anywhere in the reply.
+        lines = [ln.strip() for ln in text.strip().splitlines() if ln.strip()]
+        caption = next((ln.strip('"') for ln in lines
+                        if not ln.lstrip().startswith("#")), "")
+        # Don't let a hashtag that sits inside the caption line count twice.
+        tags = _TAG_RE.findall(text.replace(caption, "", 1))
     if not caption or not tags:
-        raise RuntimeError(f"empty caption or hashtags in: {text[:150]}")
-    return caption, tags
+        raise RuntimeError(f"unparseable response: {text[:150]}")
+    # dict.fromkeys: de-duplicate while keeping the model's own ordering, since the
+    # rubric asks for broad-reach tags first and specific ones after.
+    tags = list(dict.fromkeys(tags))[:MAX_TAGS]
+    return caption, " ".join(tags)
 
 
-def write(vibe):
+def _trending_clause(niche=None, state=None):
+    """A line naming what is actually trending on TikTok right now, or "" when we
+    can't find out. Deliberately advisory, not prescriptive: the ask was for hashtags
+    that stop being identical every post, and pasting today's top-10 verbatim onto
+    every post would just swap one fixed set for another."""
+    tags = trends.tiktok_hashtags(state=state, niche=niche)
+    if not tags:
+        return ""
+    return ("Currently trending on TikTok: " + " ".join(tags) + ". Use at most 2 of "
+            "these, and only if they genuinely fit the vibe above -- write the rest "
+            "yourself.")
+
+
+def write(vibe, niche=None, state=None):
     """One (caption_line, hashtags) pair for this vibe. Raises on failure --
     callers fall back to the static niches.json pool rather than this module
     retrying forever; a caption-writing hiccup must never block an otherwise-good
     batch of images from getting posted."""
-    raw = _ask(RUBRIC.format(vibe=vibe))
+    raw = llm.ask(RUBRIC.format(vibe=vibe,
+                                trending=_trending_clause(niche=niche, state=state)),
+                  max_tokens=200, temperature=0.9)
     caption, tags = _parse(raw)
     log(f"wrote caption for vibe={vibe!r}: {caption!r} {tags!r}")
     return caption, tags

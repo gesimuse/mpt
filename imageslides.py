@@ -277,6 +277,73 @@ def _record_model_result(state, spec, name, generated, approved):
     entry["passed"] += approved
 
 
+def _theme_weights(state):
+    """{vibe: float} from state["theme_stats"], the same shape and the same
+    thresholds _model_weights() applies to checkpoints -- a theme whose batches keep
+    getting rejected (a pose/setting this checkpoint family renders badly, an outfit
+    the vision QA keeps failing) should get picked less often, and one that keeps
+    passing more often. Untested themes stay at the neutral 1.0 so the list keeps
+    exploring instead of collapsing onto whichever theme happened to go first."""
+    stats = (state or {}).get("theme_stats") or {}
+    weights = {}
+    for vibe, s in stats.items():
+        used = s.get("used", 0)
+        if used < MIN_SAMPLES_TO_TRUST:
+            continue
+        pass_rate = s.get("passed", 0) / used
+        weights[vibe] = (MIN_WEIGHT_MULTIPLIER
+                         + pass_rate * (MAX_WEIGHT_MULTIPLIER - MIN_WEIGHT_MULTIPLIER))
+    # The owner's own verdicts multiply on top, and can apply to a theme with no QA
+    # history yet (it starts from the neutral 1.0 in that case) -- a theme the owner
+    # keeps refusing to post should get picked less often even if every image in it
+    # passed QA cleanly, which is exactly the case QA alone can't see.
+    for vibe, posted_rate in _owner_theme_rates(state).items():
+        factor = OWNER_MIN_FACTOR + posted_rate * (OWNER_MAX_FACTOR - OWNER_MIN_FACTOR)
+        combined = weights.get(vibe, 1.0) * factor
+        weights[vibe] = min(MAX_WEIGHT_MULTIPLIER,
+                            max(MIN_WEIGHT_MULTIPLIER, combined))
+    return weights
+
+
+# How far the account owner's own posted/skipped verdicts may move a theme's odds,
+# multiplied on top of the QA-derived weight. Narrower than the QA range on purpose:
+# vision QA sees every image in a batch, while a verdict is one judgement about one
+# draft, so it accumulates evidence far more slowly.
+OWNER_MIN_SAMPLES = 3
+OWNER_MIN_FACTOR = 0.5
+OWNER_MAX_FACTOR = 1.5
+
+
+def _owner_theme_rates(state):
+    """{vibe: posted_rate} from the account owner's own verdicts in
+    state["uploads"] -- picker.html writes owner_verdict ("posted"/"skipped") onto an
+    upload entry, and autopilot records that entry's `vibe`.
+
+    This is the only real engagement signal available without TikTok's video.list
+    scope (which needs an app audit this unaudited app can't get). QA pass rate says
+    an image was well-formed; a verdict says a human actually wanted to post it, which
+    is a different and more interesting question."""
+    counts = {}
+    for u in (state or {}).get("uploads", []):
+        verdict, vibe = u.get("owner_verdict"), u.get("vibe")
+        if not vibe or verdict not in ("posted", "skipped"):
+            continue
+        seen, posted = counts.get(vibe, (0, 0))
+        counts[vibe] = (seen + 1, posted + (verdict == "posted"))
+    return {vibe: posted / seen for vibe, (seen, posted) in counts.items()
+            if seen >= OWNER_MIN_SAMPLES}
+
+
+def _record_theme_result(state, vibe, generated, approved):
+    """Sibling of _record_model_result, keyed by the theme's own vibe string."""
+    if state is None or not vibe:
+        return
+    stats = state.setdefault("theme_stats", {})
+    entry = stats.setdefault(vibe, {"used": 0, "passed": 0})
+    entry["used"] += generated
+    entry["passed"] += approved
+
+
 def decide_reference(niche, state=None):
     """Search CivitAI for a checkpoint with a real, on-subject showcase prompt, and
     commit to it for this whole run: one model, one reference photo, every slide in
@@ -358,17 +425,22 @@ def _static_caption(niche):
     return f"{random.choice(lines)}\n\n{disclosure}\n\n{tags}".strip()
 
 
-def image_caption(niche, vibe=None):
+def image_caption(niche, vibe=None, state=None):
     """A fresh caption + hashtags per post, written by caption_writer.write() from
     this batch's actual theme (vibe) -- falls back to the old static pool
     (_static_caption) when no vibe is available (a niche overriding "themes" with
     something that has no vibe field, unlikely) or the LLM call fails for any
     reason. A caption-writing hiccup must never block an otherwise-good batch of
-    images from getting posted, so this never raises."""
+    images from getting posted, so this never raises.
+
+    state is passed through so caption_writer can cache the day's trend lookup on it
+    (trends.py) instead of refetching per run; niche carries that niche's own manual
+    trend_hashtags list. Both optional -- without them the rubric just carries no
+    trend hint."""
     disclosure = niche.get("ai_disclosure", "AI-generated imagery")
     if vibe:
         try:
-            caption, tags = caption_writer.write(vibe)
+            caption, tags = caption_writer.write(vibe, niche=niche, state=state)
             return f"{caption}\n\n{disclosure}\n\n{tags}".strip()
         except Exception as e:
             log(f"caption_writer failed, falling back to the static pool "
@@ -376,10 +448,15 @@ def image_caption(niche, vibe=None):
     return _static_caption(niche)
 
 
-def _build_prefix(niche, reference):
+def _build_prefix(niche, reference, state=None):
     """Returns (prefix, vibe) -- vibe is the theme's short human description, threaded
     through to caption_writer.write() so the post's caption/hashtags are actually
-    about this batch's moment, not picked from a fixed pool disconnected from it."""
+    about this batch's moment, not picked from a fixed pool disconnected from it.
+
+    state, when given, biases WHICH theme gets picked by that theme's own past QA
+    pass rate (_theme_weights) -- the same learn-from-outcomes loop decide_reference
+    already runs for checkpoints, extended to the other half of what determines how a
+    batch looks. Without state it is a plain uniform pick, exactly as before."""
     # An explicit outfit/location is only injected when the reference prompt does not
     # already name one -- appending "wearing jeans and a coat" onto a prompt that
     # already says "wearing a black dress" (or "poolside cabana" onto "in a bustling
@@ -388,7 +465,13 @@ def _build_prefix(niche, reference):
     # pose/expression cue does not conflict with whatever the reference prompt already
     # says. SEXY_CUE is the guaranteed baseline ("every image must be sexy" is a hard
     # requirement, not a random pick); mood adds per-image variety on top of it.
-    theme = random.choice(niche.get("themes") or DEFAULT_THEMES)
+    themes = niche.get("themes") or DEFAULT_THEMES
+    # Weighted by past QA outcome per theme (state["theme_stats"]), the same way
+    # decide_reference already weights checkpoints. Falls back to a plain uniform
+    # pick when there is no state or nothing has enough samples yet -- identical
+    # behaviour to the random.choice this replaces.
+    weights = [_theme_weights(state).get(t.get("vibe"), 1.0) for t in themes]
+    theme = random.choices(themes, weights=weights, k=1)[0]
     clothing = "" if _CLOTHING_RE.search(reference["prompt"]) else f"{theme['outfit']}, "
     setting = "" if _LOCATION_RE.search(reference["prompt"]) else f"{theme['location']}, "
     prefix = f"{SAFETY_PREFIX}, {clothing}{setting}{SEXY_CUE}, {theme['mood']}"
@@ -511,7 +594,7 @@ def generate(niche, count=None, workdir=None, max_rounds=2, state=None):
 
     for round_num in range(1, max_rounds + 1):
         civitai_spec = f"{resolved['model_id']}:{resolved['version_id']}"
-        prefix, vibe = _build_prefix(niche, reference)
+        prefix, vibe = _build_prefix(niche, reference, state=state)
         base_negative = ", ".join(
             x for x in (NEGATIVE_HARD, reference["negative_prompt"], NEGATIVE_QUALITY) if x)
         log(f"round {round_num}: {resolved['name']!r} | prefix: {prefix} | "
@@ -559,6 +642,7 @@ def generate(niche, count=None, workdir=None, max_rounds=2, state=None):
         approved.extend(newly_approved)
         _record_model_result(state, civitai_spec, resolved['name'],
                              len(generated), len(newly_approved))
+        _record_theme_result(state, vibe, len(generated), len(newly_approved))
         log(f"round {round_num}/{max_rounds}: {len(newly_approved)}/{len(generated)} passed, "
             f"{len(approved)}/{min_images} needed")
         if len(approved) >= min_images:

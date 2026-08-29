@@ -37,6 +37,15 @@ p { color: #444; line-height: 1.5; }
 .thumb:has(.pick-del:checked) { outline: 2px solid #c0392b; outline-offset: 2px; }
 label { display: block; margin: 10px 0 4px; font-size: 13px; color: #555;
         font-weight: 500; }
+.verdict-row { display: flex; align-items: center; gap: 10px; padding: 8px 0;
+               border-bottom: 1px solid #eee; }
+.verdict-row img { width: 40px; height: 60px; object-fit: cover; border-radius: 4px;
+                   background: #eee; flex: none; }
+.verdict-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.verdict-vibe { font-size: 13px; font-weight: 500; }
+.verdict-sub { font-size: 11px; color: #888; }
+.verdict-actions { display: flex; gap: 6px; flex: none; }
+.verdict-actions button.on { background: #0a84ff; color: #fff; border-color: #0a84ff; }
 input[type=text], input[type=password], textarea {
   width: 100%; font: 14px system-ui; padding: 10px; border: 1px solid #ccc;
   border-radius: 6px; box-sizing: border-box; background: #fff; }
@@ -150,6 +159,14 @@ Verify; it stays in your browser's localStorage on this device only.</small></p>
 <div id="status"></div>
 <div id="picker"></div>
 
+<h2>Rate recent drafts</h2>
+<p><small>Did you actually post this carousel, or skip it? This is the only real
+feedback the pipeline can get -- TikTok's own analytics need an app audit we don't
+have -- and it feeds straight back into which themes (poolside, rainy afternoon,
+balcony at night...) get generated more often. Vision QA only knows an image came
+out well-formed; only you know whether it was worth posting.</small></p>
+<div id="verdictList"></div>
+
 <h2>Generated videos</h2>
 <p><small>Every video motionforge has produced, whether or not TikTok accepted
 it -- the mp4 is hosted the moment it's generated, so a failed post never
@@ -162,6 +179,9 @@ const OWNER = "gesimuse";
 const REPO = "mpt";
 const WORKFLOW = "autopilot_video.yml";
 const BATCH_LIMIT = 4;
+// More than BATCH_LIMIT: rating is cheap and a verdict only becomes useful
+// once a theme has a few of them (imageslides.OWNER_MIN_SAMPLES).
+const VERDICT_LIMIT = 12;
 const POSTED_URL = `https://raw.githubusercontent.com/${OWNER}/${REPO}/main/posted.json`;
 const NICHES_URL = `https://raw.githubusercontent.com/${OWNER}/${REPO}/main/niches.json`;
 
@@ -484,6 +504,7 @@ async function loadPicker() {
   let used = new Set();
   let suggested = "";
   let videos = [];
+  let uploads = [];
   let loadError = null;
   try {
     // Cache-bust so we don't sit on raw.githubusercontent's ~5min CDN.
@@ -492,7 +513,7 @@ async function loadPicker() {
       fetch(POSTED_URL + bust).then(r => r.json()),
       fetch(NICHES_URL + bust).then(r => r.json()),
     ]);
-    const uploads = posted.uploads || [];
+    uploads = posted.uploads || [];
     batches = recentBatches(uploads, BATCH_LIMIT);
     used = usedUrls(uploads);
     videos = recentVideos(uploads, 10);
@@ -503,6 +524,8 @@ async function loadPicker() {
   }
 
   renderVideoList(videos);
+  renderVerdictList(uploads);
+  wireVerdictButtons();
 
   DEFAULT_PROMPT = suggested;
 
@@ -738,6 +761,87 @@ function videoStatus(v) {
     return { cls: "err", label: `Failed${v.tiktok_fail_reason ? ": " + v.tiktok_fail_reason : ""}` };
   }
   return { cls: "pending", label: "Not sent (no TikTok token configured)" };
+}
+
+// The account owner's own posted/skipped verdict per photo batch. Written onto the
+// upload entry as owner_verdict; imageslides._owner_theme_rates reads it back and
+// biases which THEME future batches use. Deliberately per batch, not per image: a
+// batch is one TikTok draft, and "did you post it" is a question about the draft.
+function ratableBatches(uploads, limit) {
+  const out = [];
+  for (let i = uploads.length - 1; i >= 0 && out.length < limit; i--) {
+    const u = uploads[i];
+    // A batch with no vibe recorded predates this feature (or is a manual upload):
+    // a verdict on it has nothing to attribute to, so don't ask for one.
+    if (u.niche === "aibeauty" && u.tiktok && u.vibe && (u.image_urls || []).length) {
+      out.push(u);
+    }
+  }
+  return out;
+}
+
+function renderVerdictList(uploads) {
+  const batches = ratableBatches(uploads, VERDICT_LIMIT);
+  if (!batches.length) {
+    $("verdictList").innerHTML = `<p><small>Nothing to rate yet &mdash; the next `
+      + `generated batch will show up here.</small></p>`;
+    return;
+  }
+  let html = "";
+  for (const b of batches) {
+    const v = b.owner_verdict || "";
+    html += `<div class="verdict-row">`
+         +  `<img src="${b.image_urls[0]}" loading="lazy">`
+         +  `<div class="verdict-meta">`
+         +    `<span class="verdict-vibe">${b.vibe.replace(/</g, "&lt;")}</span>`
+         +    `<span class="verdict-sub">${b.ts || ""} &middot; `
+         +      `${b.image_urls.length} photo(s)</span>`
+         +  `</div>`
+         +  `<div class="verdict-actions">`
+         +    `<button type="button" class="btn-secondary set-verdict`
+         +      `${v === "posted" ? " on" : ""}" data-ts="${b.ts}" `
+         +      `data-verdict="posted">Posted</button>`
+         +    `<button type="button" class="btn-secondary set-verdict`
+         +      `${v === "skipped" ? " on" : ""}" data-ts="${b.ts}" `
+         +      `data-verdict="skipped">Skipped</button>`
+         +  `</div>`
+         +  `</div>`;
+  }
+  $("verdictList").innerHTML = html;
+}
+
+// Sets (or clears, by pressing the same button again) one batch's verdict.
+async function setVerdict(ts, verdict, token, onRetry) {
+  return mutatePostedJson(token, (state) => {
+    const entry = state.uploads.find(u => u.ts === ts);
+    if (!entry) return false;
+    if (entry.owner_verdict === verdict) delete entry.owner_verdict;
+    else entry.owner_verdict = verdict;
+  }, `picker: mark batch ${verdict}`, onRetry);
+}
+
+function wireVerdictButtons() {
+  $("verdictList").addEventListener("click", async (ev) => {
+    const btn = ev.target.closest(".set-verdict");
+    if (!btn) return;
+    const token = pat.value.trim();
+    if (!token) { status("Paste + verify a GitHub PAT first.", "err"); return; }
+    const buttons = $("verdictList").querySelectorAll(".set-verdict");
+    buttons.forEach(b => b.disabled = true);
+    try {
+      const state = await setVerdict(btn.dataset.ts, btn.dataset.verdict, token,
+        (n, max) => status(`posted.json moved, retrying (${n}/${max})...`));
+      if (state) {
+        renderVerdictList(state.uploads || []);
+        status(`Marked ${btn.dataset.verdict}.`, "ok");
+      }
+    } catch (e) {
+      status(`Could not save that: ${e.message}`, "err");
+    } finally {
+      $("verdictList").querySelectorAll(".set-verdict")
+        .forEach(b => b.disabled = false);
+    }
+  });
 }
 
 function renderVideoList(videos) {
