@@ -131,13 +131,25 @@ def _fetch_image(image_url, tmp_dir):
 
 
 def _tokens():
+    """Every distinct token we have, HF_TOKENS and HF_TOKEN combined.
+
+    This used to return HF_TOKENS *instead of* HF_TOKEN, so a setup with a token in
+    each -- three accounts' worth -- only ever tried two of them, and the third
+    account's untouched daily quota sat there while the run failed. Caught on a real
+    run whose log said "token 1/2" against a .env holding three distinct tokens.
+
+    Order matters: HF_TOKENS first, since that's the list someone curates for exactly
+    this, with HF_TOKEN appended as one more account rather than a replacement. De-
+    duplicated because the same token appearing in both is the obvious way to write
+    it, and retrying an already-spent quota is a wasted round trip."""
     raw = os.environ.get("HF_TOKENS", "").strip()
-    if raw:
-        toks = [t.strip() for t in raw.split(",") if t.strip()]
-        if toks:
-            return toks
+    toks = [t.strip() for t in raw.split(",") if t.strip()]
     single = os.environ.get("HF_TOKEN", "").strip()
-    return [single] if single else [""]  # "" = anonymous call
+    if single:
+        toks.append(single)
+    # dict.fromkeys de-duplicates while preserving order.
+    toks = list(dict.fromkeys(toks))
+    return toks or [""]  # "" = anonymous call
 
 
 def _is_quota_error(e: Exception) -> bool:

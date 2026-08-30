@@ -3698,6 +3698,39 @@ class VideoGenTest(unittest.TestCase):
             self.assertTrue(Path(out).exists())
             self.assertEqual(seen_tokens, ["tok_a", "tok_b"])
 
+    def test_every_configured_token_is_used_not_just_hf_tokens(self):
+        """A real .env held a token in HF_TOKEN and two more in HF_TOKENS -- three
+        accounts. The run's own log said "token 1/2": HF_TOKENS REPLACED HF_TOKEN
+        rather than adding to it, so a whole account's untouched daily quota sat
+        there while the video failed for lack of quota."""
+        with mock.patch.dict(os.environ, {"HF_TOKENS": "a,b", "HF_TOKEN": "c"},
+                            clear=True):
+            self.assertEqual(videogen._tokens(), ["a", "b", "c"])
+            self.assertEqual(llm.hf_tokens(), ["a", "b", "c"])
+
+    def test_a_token_listed_twice_is_only_tried_once(self):
+        """Putting the same token in both is the obvious way to write it, and
+        retrying an already-spent account's quota is a wasted round trip."""
+        with mock.patch.dict(os.environ, {"HF_TOKENS": "a,b", "HF_TOKEN": "b"},
+                            clear=True):
+            self.assertEqual(videogen._tokens(), ["a", "b"])
+
+    def test_either_variable_alone_still_works(self):
+        with mock.patch.dict(os.environ, {"HF_TOKENS": "a,b"}, clear=True):
+            self.assertEqual(videogen._tokens(), ["a", "b"])
+        with mock.patch.dict(os.environ, {"HF_TOKEN": "c"}, clear=True):
+            self.assertEqual(videogen._tokens(), ["c"])
+        with mock.patch.dict(os.environ, {}, clear=True):
+            self.assertEqual(videogen._tokens(), [""])  # anonymous
+
+    def test_recognises_the_free_zerogpu_wording_too(self):
+        """The exact string a real run produced. The pre-existing check DID match
+        this variant -- it matched "zerogpu quota" -- so rotation was working here;
+        what it missed was the plain "GPU quota" wording. Both are pinned now."""
+        free = ("You have exceeded your free ZeroGPU quota (135s requested vs. "
+                "111s left). Try again in 2:51:17.")
+        self.assertTrue(videogen._is_quota_error(Exception(free)))
+
     def test_recognises_hf_s_actual_quota_wording(self):
         """The regression that made HF_TOKENS useless: the old check looked for
         "zerogpu quota" / "exceeded your free", and HF's real message says neither."""

@@ -52,16 +52,18 @@ def log(msg): print(f"[llm] {msg}", flush=True)
 
 
 def hf_tokens():
-    """HF_TOKENS (comma-separated, one per account) if set, else the single HF_TOKEN,
-    else nothing. Same parsing as videogen._tokens, minus its anonymous fallback --
-    the router has no anonymous tier, an unauthenticated call is just a 401."""
+    """Every distinct token we have, HF_TOKENS and HF_TOKEN combined, in that order.
+
+    Same parsing as videogen._tokens (including the bug they shared: returning
+    HF_TOKENS *instead of* HF_TOKEN meant a third account's credit was never
+    touched), minus the anonymous fallback -- the router has no anonymous tier, an
+    unauthenticated call is just a 401."""
     raw = os.environ.get("HF_TOKENS", "").strip()
-    if raw:
-        toks = [t.strip() for t in raw.split(",") if t.strip()]
-        if toks:
-            return toks
+    toks = [t.strip() for t in raw.split(",") if t.strip()]
     single = os.environ.get("HF_TOKEN", "").strip()
-    return [single] if single else []
+    if single:
+        toks.append(single)
+    return list(dict.fromkeys(toks))
 
 
 # Status codes where trying the NEXT HF token can actually help: this account is out of
