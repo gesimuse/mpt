@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-30T17:49:51 — aibeauty
+
+```
+Feeling the veil of anonymity slip away
+
+Created with AI.
+
+#aiart #artificialserendipity #isolated #luxuryhotels #softcorebliss #hotelnights
+```
+
 ## 2026-08-30T15:57:02 — aibeautyvideo
 
 ```
@@ -68,14 +78,4 @@ Feeling myself, no apologies.
 Created with AI.
 
 #aiart #aivideo #wan22 #confident
-```
-
-## 2026-08-28T19:29:44 — aibeauty
-
-```
-This is your sign to go outside.
-
-Created with AI.
-
-#aiart #aigenerated #aiphotography #confident
 ```
