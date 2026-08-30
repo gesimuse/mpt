@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-30T14:59:30 — aibeauty
+
+```
+Life's too short for anything less than a perfect night in
+
+Created with AI.
+
+#aiart #digitalfantasy #luxurytravel #nightin #digitaldreams #digitalart
+```
+
 ## 2026-08-30T13:03:36 — aibeautyvideo
 
 ```
@@ -40,16 +50,6 @@ Created with AI.
 #aiart #aivideo #wan22 #confident
 ```
 
-## 2026-08-28T21:36:18 — aibeauty
-
-```
-Built different, styled better.
-
-Created with AI.
-
-#aiart #aigenerated #aiphotography #confident
-```
-
 ## 2026-08-28T20:57:25 — aibeauty
 
 ```
@@ -78,24 +78,4 @@ This is your sign to go outside.
 Created with AI.
 
 #aiart #aigenerated #aiphotography #confident
-```
-
-## 2026-08-28T17:26:09 — aibeauty
-
-```
-Not everyone gets this angle.
-
-Created with AI.
-
-#aiart #aigenerated #aiphotography #confident
-```
-
-## 2026-08-28T15:20:02 — aibeautyvideo
-
-```
-Feeling myself, no apologies.
-
-Created with AI.
-
-#aiart #aivideo #wan22 #confident
 ```
