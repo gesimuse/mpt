@@ -1,13 +1,13 @@
 # TikTok captions to paste when finishing a draft
 
-## 2026-08-30T14:59:30 — aibeauty
+## 2026-08-30T15:57:02 — aibeautyvideo
 
 ```
-Life's too short for anything less than a perfect night in
+her eyes linger on the path behind her
 
 Created with AI.
 
-#aiart #digitalfantasy #luxurytravel #nightin #digitaldreams #digitalart
+#gifart #portraitmode #btsmodel #slowmotionbeauty #hairflipperpeare #longexposurelove
 ```
 
 ## 2026-08-30T13:03:36 — aibeautyvideo

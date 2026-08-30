@@ -422,6 +422,20 @@
         null
       ],
       "ts": "2026-08-30T13:25:01"
+    },
+    {
+      "niche": "aibeautyvideo",
+      "topic": "video 20260830-155432",
+      "title": "her eyes linger on the path behind her",
+      "tiktok": true,
+      "tiktok_via": "inbox_video",
+      "tiktok_post_id": "v_inbox_url~v2.7679853947359643670",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_fail_reason": null,
+      "tiktok_caption": "her eyes linger on the path behind her\n\nCreated with AI.\n\n#gifart #portraitmode #btsmodel #slowmotionbeauty #hairflipperpeare #longexposurelove",
+      "video_url": "https://gesimuse.github.io/mpt/media/1788105361-final.mp4",
+      "ts": "2026-08-30T15:57:02",
+      "motionforge_source_url": "https://gesimuse.github.io/mpt/media/upload-1788096204804.jpg"
     }
   ],
   "model_stats": {
