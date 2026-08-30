@@ -9,11 +9,26 @@ faster end to end (~2 min vs ~10-20 here, most of it model download) and produce
 better model's output -- and this is what runs when every Space x token combination
 is spent.
 
-Model is LTX-Video 0.9.x distilled, NOT Wan 2.2 TI2V-5B, deliberately:
-  * The T4 has no bf16. Wan's reference dtype is bf16; forcing it to fp16 is a real
-    NaN risk, and 5B needs aggressive offload on top.
-  * LTX distilled is ~2B, fp16-native, and fits one T4 comfortably.
-Wan remains the quality path on ZeroGPU, where the hardware suits it.
+STATUS: THIS PATH DOES NOT WORK YET. Its first real end-to-end run was killed by the
+host OOM killer ("Killed" at 32% of weight loading, materializing the T5 text
+encoder). Do not present it as a working fallback until a run produces an mp4.
+
+The cause is a sizing error in this file's original design, recorded here so the next
+attempt doesn't repeat it. The comment below used to claim LTX distilled is "~2B,
+fp16-native, and fits one T4 comfortably". Measured against the actual repos:
+
+  Lightricks/LTX-Video-0.9.7-distilled   47.9 GB   (13B, not 2B)
+  Lightricks/LTX-Video-0.9.5             25.6 GB   (2B transformer)
+
+Both ship the same ~20 GB fp32 T5-XXL text encoder, and that -- not the transformer --
+is what the kill happened inside. A Kaggle T4 session's host RAM cannot materialize it
+as shipped. Any fix has to address the text encoder specifically: a repo with fp16
+text-encoder weights, loading the encoder separately at reduced precision, or a model
+that needs no T5 at all (Stable Video Diffusion conditions on the image alone -- but
+it takes no text prompt, so it would ignore motion_writer's output entirely, which is
+a real product tradeoff, not just an engineering one).
+
+Wan 2.2 stays the quality path on ZeroGPU, where the hardware suits it.
 
 A probe kernel pushed with --accelerator NvidiaTeslaT4 confirmed live what this gets:
 TWO Tesla T4s, 15360 MiB each, sm_75, on Kaggle's stock torch 2.10.0+cu128, with fp16
@@ -34,6 +49,7 @@ Placeholders below are substituted by scripts/prepare_video_kernel.py at push ti
 """
 import base64
 import json
+import os
 import subprocess
 import sys
 import time
@@ -45,7 +61,8 @@ WORK = Path("/kaggle/working")
 OUT_VIDEO = WORK / "video.mp4"
 STATUS = WORK / "status.json"
 
-MODEL_ID = "Lightricks/LTX-Video-0.9.7-distilled"
+# NOT YET WORKING -- see the OOM note in the module docstring before changing this.
+MODEL_ID = os.environ.get("LTX_MODEL_ID", "Lightricks/LTX-Video-0.9.7-distilled")
 # LTX works in latent tiles of 32 px and 8 frames; anything else gets rounded by the
 # pipeline anyway, so round here where it's visible. Portrait, for TikTok.
 HEIGHT, WIDTH = 768, 512
@@ -64,7 +81,13 @@ def write_status(stage: str, ok: bool, extra: dict | None = None) -> None:
 
 
 def main() -> None:
-    write_status("start", True)
+    # ok=False until the run actually finishes. It used to be True here, which meant
+    # a kernel killed outright -- the OOM killer, below Python's own exception
+    # handling, so neither the except below nor a traceback ever runs -- left behind
+    # a status.json saying {"stage": "start", "ok": true}. The caller read that as
+    # success and then failed confusingly on the missing output instead of reporting
+    # the kill. Seen live: LTX's text encoder got "Killed" at 32% of weight loading.
+    write_status("start", False)
     try:
         payload = json.loads(base64.b64decode(PAYLOAD_B64).decode())
         image_url = payload["image_url"]

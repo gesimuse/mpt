@@ -3567,7 +3567,8 @@ class KaggleVideogenTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp, \
              mock.patch.dict(os.environ, env, clear=True), \
              mock.patch.object(kaggle_videogen.subprocess, "run",
-                              self._fake_run({"ok": True, "video": "video.mp4"})), \
+                              self._fake_run({"ok": True, "stage": "done",
+                                              "video": "video.mp4"})), \
              mock.patch.object(kaggle_videogen.videogen, "normalize_for_tiktok",
                               lambda src, dest: Path(dest).write_bytes(b"normalized")):
             out = kaggle_videogen.generate("https://x/i.jpg", "smile",
@@ -3588,6 +3589,21 @@ class KaggleVideogenTest(unittest.TestCase):
                 kaggle_videogen.generate("https://x/i.jpg", "smile")
         self.assertIn("P100 (sm_60)", str(ctx.exception))
         self.assertIn("Traceback...", str(ctx.exception))
+
+    def test_a_kernel_killed_mid_run_is_reported_as_killed(self):
+        """The OOM killer lands below Python's own error handling, so the kernel's
+        except block never runs and status.json keeps whatever the last write said.
+        It used to say {"stage": "start", "ok": true} -- so a killed run was read as
+        a success with a mysteriously missing file. Seen live: LTX's text encoder got
+        "Killed" at 32% of weight loading."""
+        env = {"KAGGLE_USERNAME": "u", "KAGGLE_KEY": "k"}
+        with mock.patch.dict(os.environ, env, clear=True), \
+             mock.patch.object(kaggle_videogen.subprocess, "run",
+                              self._fake_run({"ok": True, "stage": "start"},
+                                             video_written=False)):
+            with self.assertRaises(RuntimeError) as ctx:
+                kaggle_videogen.generate("https://x/i.jpg", "smile")
+        self.assertIn("never finished", str(ctx.exception))
 
     def test_missing_status_json_raises(self):
         env = {"KAGGLE_USERNAME": "u", "KAGGLE_KEY": "k"}

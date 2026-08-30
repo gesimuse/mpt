@@ -64,7 +64,13 @@ def write_status(stage: str, ok: bool, extra: dict | None = None) -> None:
 
 
 def main() -> None:
-    write_status("start", True)
+    # ok=False until the run actually finishes. It used to be True here, which meant
+    # a kernel killed outright -- the OOM killer, below Python's own exception
+    # handling, so neither the except below nor a traceback ever runs -- left behind
+    # a status.json saying {"stage": "start", "ok": true}. The caller read that as
+    # success and then failed confusingly on the missing output instead of reporting
+    # the kill. Seen live: LTX's text encoder got "Killed" at 32% of weight loading.
+    write_status("start", False)
     try:
         payload = json.loads(base64.b64decode(PAYLOAD_B64).decode())
         resolved, prompts = payload["resolved"], payload["prompts"]

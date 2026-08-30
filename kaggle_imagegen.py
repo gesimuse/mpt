@@ -155,7 +155,9 @@ def _generate_batch_on_kaggle(resolved, prompts, negatives, adopted, workdir):
 
     log("polling Kaggle...")
     slug = f"{username}/{KERNEL_SLUG}"
-    _poll(slug, env)
+    # See kaggle_videogen for why the verdict is used rather than discarded.
+    if _poll(slug, env) == "error":
+        log("Kaggle marked this kernel ERROR; fetching its log for the reason")
 
     out_root = Path(tempfile.mkdtemp(prefix="kaggle_imagegen_out_"))
     subprocess.run(["kaggle", "kernels", "output", slug, "-p", str(out_root)],

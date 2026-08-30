@@ -1,6 +1,14 @@
 """Image-to-video on Kaggle's own T4, as the fallback under videogen.py's ZeroGPU
 ladder.
 
+STATUS: NOT WORKING YET. The first real end-to-end run was killed by the host OOM
+killer while loading the model's T5 text encoder -- see kaggle/video_pipeline.py's
+docstring for the measurement and what a fix has to address. The push, accelerator
+request, poll, output-download and status plumbing in this file all worked on that
+run; the kernel itself is what failed. autopilot._generate_video only reaches here
+once every ZeroGPU Space x token pair is spent, so a broken fallback degrades to the
+same "no video" it replaced, but do not count on it until a run produces an mp4.
+
 The ceiling this lifts: HF ZeroGPU gives ~5 minutes of GPU per HF account per DAY.
 HF_TOKENS multiplies that by however many accounts exist, and videogen.py now walks
 three Spaces, but the total is still small and fixed. Kaggle gives ~30 GPU-hours a
@@ -108,7 +116,15 @@ def generate(image_url, prompt, length_s=5.0, steps=8, negative_prompt=None,
 
     log("polling Kaggle (a cold run downloads ~10GB of weights first)...")
     slug = f"{username}/{KERNEL_SLUG}"
-    _poll(slug, env)
+    # The verdict is USED, not discarded. It used to be thrown away, so a kernel
+    # Kaggle had marked ERROR carried on into the output-download path and failed
+    # later with a misleading message -- caught on this path's first real run,
+    # which reported "kernel reported success but video.mp4 is not in its output"
+    # for a kernel that had plainly errored. Still falls through on error rather
+    # than raising here: status.json and the kernel log are downloaded below and
+    # carry the actual reason, which is the whole point of fetching them.
+    if _poll(slug, env) == "error":
+        log("Kaggle marked this kernel ERROR; fetching its log for the reason")
 
     out_root = Path(tempfile.mkdtemp(prefix="kaggle_videogen_out_"))
     subprocess.run(["kaggle", "kernels", "output", slug, "-p", str(out_root)],
@@ -131,6 +147,15 @@ def generate(image_url, prompt, length_s=5.0, steps=8, negative_prompt=None,
             parts.append(f"kernel log tail:\n{tail}")
         raise RuntimeError("\n".join(parts))
 
+    if status.get("stage") != "done":
+        # ok=True but never reached "done" means an older kernel build wrote the
+        # optimistic start marker this file no longer emits. Say so plainly rather
+        # than blaming the missing file.
+        raise RuntimeError(
+            f"kernel never finished (last stage: {status.get('stage')!r}); it was "
+            f"killed below Python's own error handling"
+            + (f" -- kernel log tail:\n{_kernel_log_tail(out_root)}"
+               if _kernel_log_tail(out_root) else ""))
     raw = out_root / (status.get("video") or "video.mp4")
     if not raw.exists():
         raise RuntimeError(f"kernel reported success but {raw.name} is not in its output")
