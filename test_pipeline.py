@@ -2308,10 +2308,58 @@ class MotionWriterTest(unittest.TestCase):
 
     def test_prompt_includes_the_still_images_own_prompt(self):
         seen = {}
-        with mock.patch.object(motion_writer.llm, "ask", lambda prompt, **kw:
-                               seen.setdefault("prompt", prompt) or "she smiles"):
+
+        def capture(prompt, **kw):
+            seen["prompt"] = prompt
+            return "she smiles"
+
+        with mock.patch.object(motion_writer.llm, "ask", capture):
             motion_writer.write("a specific still-image prompt")
         self.assertIn("a specific still-image prompt", seen["prompt"])
+
+    def test_rubric_states_the_tiktok_policy_line(self):
+        """The video model never sees imageslides.NEGATIVE_HARD, so the rubric has to
+        carry the limits itself -- and the rubric now asks for seductive movement,
+        which is exactly when they start to matter."""
+        seen = {}
+
+        def capture(prompt, **kw):
+            seen["prompt"] = prompt
+            return "she arches her back"
+
+        with mock.patch.object(motion_writer.llm, "ask", capture):
+            motion_writer.write("a still")
+        for phrase in ("fully clothed", "no undressing", "nothing explicit"):
+            self.assertIn(phrase, seen["prompt"])
+
+    def test_only_a_subset_of_the_movement_menu_is_shown(self):
+        """Showing all of MOVEMENTS made the model return the SAME line for four
+        different photos in a row (live). A short, resampled menu reads as examples
+        rather than a list to pick from."""
+        menu = motion_writer._movement_menu()
+        self.assertEqual(len(menu.splitlines()), motion_writer.MENU_SIZE)
+        self.assertLess(motion_writer.MENU_SIZE, len(motion_writer.MOVEMENTS))
+
+    def test_the_menu_actually_varies_between_calls(self):
+        menus = {motion_writer._movement_menu() for _ in range(20)}
+        self.assertGreater(len(menus), 1)
+
+    def test_a_verbatim_menu_echo_is_retried_once(self):
+        """An echo means the photo's own pose and setting were ignored -- which is
+        the whole reason this runs per image instead of once per batch."""
+        replies = iter([motion_writer.MOVEMENTS[0], "she arches her back slowly"])
+        with mock.patch.object(motion_writer.llm, "ask",
+                               lambda prompt, **kw: next(replies)):
+            self.assertEqual(motion_writer.write("a still"),
+                            "she arches her back slowly")
+
+    def test_a_persistent_echo_is_still_returned_not_raised(self):
+        """A copied example is lazy, not broken -- the menu is resampled per image,
+        so echoes still differ between images. Never worth losing a prompt over."""
+        with mock.patch.object(motion_writer.llm, "ask",
+                               lambda prompt, **kw: motion_writer.MOVEMENTS[0]):
+            self.assertEqual(motion_writer.write("a still"),
+                            motion_writer.MOVEMENTS[0])
 
 
 class AutopilotMotionPromptsTest(unittest.TestCase):

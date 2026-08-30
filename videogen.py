@@ -38,6 +38,23 @@ def log(msg): print(f"[videogen] {msg}", flush=True)
 # vertical. Only the Spaces that expose explicit height/width use these.
 _H, _W = 832, 480
 
+# Applied to every generation on every Space unless a caller passes its own.
+#
+# Two jobs. The first mirrors imageslides.NEGATIVE_HARD: the video model never sees
+# that, and motion_writer's rubric now deliberately asks for seductive movement, so
+# the one thing standing between "suggestive" and a post TikTok removes is this
+# string. A prompt about arching backs and hands on hips is exactly the input that
+# makes an I2V model drift toward undressing on its own, without ever being asked to.
+#
+# The second is ordinary I2V quality: these models are far more prone to warping a
+# face or melting a hand across frames than a still generator is, because nothing
+# enforces temporal consistency on the parts of the frame that move most.
+VIDEO_NEGATIVE = (
+    "nude, topless, undressing, removing clothing, exposed nipples, exposed genitals, "
+    "explicit sexual content, child, teen, minor, "
+    "distorted face, warped face, deformed hands, extra fingers, extra limbs, "
+    "morphing anatomy, flickering, jittery motion, blurry, watermark, text, logo")
+
 
 def _wan22_rcm_args(image_path, prompt, negative_prompt, length_s, steps, seed):
     from gradio_client import handle_file
@@ -176,6 +193,7 @@ def generate(image_url, prompt, length_s=5.0, steps=4, seed=None,
     # never hit this because its template substitution did int("__STEPS__")/
     # float("__LENGTH_S__") before ever reaching predict().
     length_s, steps = float(length_s), int(steps)
+    negative_prompt = VIDEO_NEGATIVE if negative_prompt is None else negative_prompt
     subprocess.run(["pip", "install", "-q", "gradio_client"], check=True)
 
     work_dir = tempfile.mkdtemp(prefix="videogen_in_")

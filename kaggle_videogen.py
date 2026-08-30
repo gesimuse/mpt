@@ -93,7 +93,9 @@ def generate(image_url, prompt, length_s=5.0, steps=8, negative_prompt=None,
     env["VIDEOGEN_PAYLOAD_JSON"] = json.dumps({
         "image_url": image_url, "prompt": prompt,
         "length_s": float(length_s), "steps": int(steps),
-        "negative_prompt": negative_prompt,
+        # Same string the ZeroGPU path uses -- the kernel has its own fallback, but
+        # sending it explicitly keeps the two paths from drifting apart.
+        "negative_prompt": negative_prompt or videogen.VIDEO_NEGATIVE,
     })
 
     log("preparing kernel...")

@@ -64,8 +64,12 @@ def main() -> None:
         payload = json.loads(base64.b64decode(PAYLOAD_B64).decode())
         image_url = payload["image_url"]
         prompt = payload["prompt"]
+        # kaggle_videogen normally sends videogen.VIDEO_NEGATIVE explicitly; this
+        # fallback only matters if a payload ever arrives without one. Kept short
+        # rather than duplicating that whole string here, where it would drift.
         negative_prompt = payload.get("negative_prompt") or (
-            "worst quality, inconsistent motion, blurry, jittery, distorted")
+            "nude, topless, undressing, worst quality, inconsistent motion, "
+            "blurry, jittery, distorted face, deformed hands")
         length_s = float(payload.get("length_s") or 5.0)
 
         # Same reason the image kernel sets it: Kaggle's base image ships TensorFlow,
