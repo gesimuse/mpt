@@ -13,7 +13,8 @@
       "aibeauty-20260828-191648",
       "aibeauty-20260828-204504",
       "aibeauty-20260828-212123",
-      "aibeauty-20260829-152912"
+      "aibeauty-20260829-152912",
+      "aibeauty-20260830-102337"
     ]
   },
   "uploads": [
@@ -385,6 +386,38 @@
       "video_url": "https://gesimuse.github.io/mpt/media/1788023649-final.mp4",
       "ts": "2026-08-29T17:15:21",
       "motionforge_source_url": "https://gesimuse.github.io/mpt/media/1788018063-sd_4.jpg"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260830-102337",
+      "title": "Some days just look like this.",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7679770886542837782",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "Some days just look like this.\n\nCreated with AI.\n\n#aiart #aigenerated #aiphotography #confident",
+      "image_urls": [
+        "https://gesimuse.github.io/mpt/media/1788085932-sd_0.jpg",
+        "https://gesimuse.github.io/mpt/media/1788085959-sd_1.jpg",
+        "https://gesimuse.github.io/mpt/media/1788085982-sd_2.jpg",
+        "https://gesimuse.github.io/mpt/media/1788086011-sd_3.jpg",
+        "https://gesimuse.github.io/mpt/media/1788086040-sd_4.jpg"
+      ],
+      "image_prompts": [
+        "beautiful adult latina woman in her late twenties, backstage in a dressing room, mirror lights, seductive, sexy, alluring, round breasts, round ass, beautiful, hands running through hair, sultry confident gaze, slight high angle, soft backlighting, a portrait of beautiful Maxi dress, espadrilles, woven belt, straw hat, statement ring",
+        "beautiful adult latina woman in her late twenties, backstage in a dressing room, mirror lights, seductive, sexy, alluring, round breasts, round ass, beautiful, hands running through hair, sultry confident gaze, full length shot, head to toe, natural stance, a portrait of beautiful Maxi dress, espadrilles, woven belt, straw hat, statement ring",
+        "beautiful adult latina woman in her late twenties, backstage in a dressing room, mirror lights, seductive, sexy, alluring, round breasts, round ass, beautiful, hands running through hair, sultry confident gaze, slightly low angle, golden hour light, a portrait of beautiful Maxi dress, espadrilles, woven belt, straw hat, statement ring",
+        "beautiful adult latina woman in her late twenties, backstage in a dressing room, mirror lights, seductive, sexy, alluring, round breasts, round ass, beautiful, hands running through hair, sultry confident gaze, over-the-shoulder framing, warm ambient light, a portrait of beautiful Maxi dress, espadrilles, woven belt, straw hat, statement ring",
+        "beautiful adult latina woman in her late twenties, backstage in a dressing room, mirror lights, seductive, sexy, alluring, round breasts, round ass, beautiful, hands running through hair, sultry confident gaze, eye-level shot, diffused overcast light, a portrait of beautiful Maxi dress, espadrilles, woven belt, straw hat, statement ring"
+      ],
+      "motion_prompts": [
+        "She tilts her head slightly to the right, hair movement, eyes locking onto an invisible point.",
+        "She tilts her head to the left, and her hair falls across her shoulder as she smiles.",
+        "She raises her eyebrows, and her hair subtly shimmers in the golden hour light.",
+        "She tilts her head, focusing the light on her ring as a small, enigmatic smile spreads across her face.",
+        "She tilts her head and smiles, her eyes narrowing slightly as her gaze lingers on her reflection."
+      ],
+      "ts": "2026-08-30T10:35:09"
     }
   ],
   "model_stats": {
@@ -425,6 +458,11 @@
     },
     "105036:128367": {
       "name": "MIX realistic",
+      "used": 10,
+      "passed": 10
+    },
+    "251478:283756": {
+      "name": "fashion-street-photography_and_film-v1",
       "used": 10,
       "passed": 10
     }
