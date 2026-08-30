@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-30T12:51:27 — aibeauty
+
+```
+lazy Sundays are my love language
+
+Created with AI.
+
+#AIgeneratedart #ArtificialBliss #MorningMood #LazyAfternoons #CozyVibes
+```
+
 ## 2026-08-30T10:35:09 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Not everyone gets this angle.
 Created with AI.
 
 #aiart #aigenerated #aiphotography #confident
-```
-
-## 2026-08-28T15:20:02 — aibeautyvideo
-
-```
-Feeling myself, no apologies.
-
-Created with AI.
-
-#aiart #aivideo #wan22 #confident
 ```
