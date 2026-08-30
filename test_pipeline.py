@@ -2396,6 +2396,26 @@ class MotionWriterTest(unittest.TestCase):
         menus = {motion_writer._movement_menu() for _ in range(20)}
         self.assertGreater(len(menus), 1)
 
+    def test_a_near_copy_echo_is_caught_not_just_a_verbatim_one(self):
+        """The gap the exact-match version had: an example with one clause bolted on
+        sailed straight through. Real live output, scored 0.73 against MOVEMENTS."""
+        near = ("Slow pivot from profile to facing the camera, weight rolling through "
+                "her hips. Water droplets on her sheer top shimmer as she turns.")
+        self.assertTrue(motion_writer._is_menu_echo(near))
+
+    def test_genuine_compositions_are_not_flagged_as_echoes(self):
+        """The other half of the threshold: real live outputs that scored 0.36-0.49
+        against their nearest example must survive, or every prompt burns a retry."""
+        for real in [
+            "She takes a slow, steady step forward, her hips swaying to the side as "
+            "her gaze meets the camera, a gentle whisper of wind rustling her hair.",
+            "She rises up onto her elbows, slowly swaying her hips, her eyes locked "
+            "on the candle's flame, as water ripples outwards from her submerged form.",
+            "She rolls her shoulders back, chest lifting, waist drawing in, as her "
+            "mesh top glistens with rain.",
+        ]:
+            self.assertFalse(motion_writer._is_menu_echo(real), real[:60])
+
     def test_a_verbatim_menu_echo_is_retried_once(self):
         """An echo means the photo's own pose and setting were ignored -- which is
         the whole reason this runs per image instead of once per batch."""

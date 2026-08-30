@@ -32,6 +32,7 @@ Goes through llm.ask() -- HF's router first, a local Ollama instance second. Sam
 backend ladder caption_writer.py uses, and for the same reason: the Ollama-only path
 this used to have timed out on essentially every CI run, so motion prompts were almost
 always None and the picker fell back to showing each photo's raw SD prompt."""
+import difflib
 import random
 import re
 
@@ -174,16 +175,33 @@ def _clean(raw):
     return motion.strip().strip('"').strip()
 
 
+# How close to an example line counts as copying it rather than writing something.
+# Not an exact match: a live spread produced "Slow pivot from profile to facing the
+# camera, weight rolling through her hips. Water droplets on her sheer top shimmer as
+# she turns." -- the example verbatim with one clause bolted on, which scores 0.73 and
+# sailed straight through the exact-match check this replaces. Genuine compositions in
+# that same spread scored 0.36-0.49 against their nearest example, so 0.65 separates
+# the two populations with room on both sides.
+ECHO_RATIO = 0.65
+
+
 def _is_menu_echo(motion):
-    """True when the model handed back one of the example movements near-verbatim
-    instead of adapting it to this photo. Seen live: for a backstage/mirror still it
-    returned "head tipping back, throat exposed, eyes closing for a beat", which is
-    MOVEMENTS[11] word for word. Not harmful on its own -- the menu is resampled per
-    image, so echoes still differ between images -- but it means the photo's own pose
-    and setting were ignored, which is the entire reason this runs per image rather
-    than once per batch."""
-    norm = re.sub(r"[^a-z ]", "", motion.lower()).strip()
-    return any(re.sub(r"[^a-z ]", "", m.lower()).strip() == norm for m in MOVEMENTS)
+    """True when the model handed back one of the example movements rather than
+    writing for this photo.
+
+    Seen live at both extremes: a word-for-word copy of MOVEMENTS[11] for a
+    backstage/mirror still, and the near-copy in ECHO_RATIO's comment above. Neither
+    is harmful on its own -- the menu is resampled per image, so even echoes differ
+    between images -- but it means the photo's own pose, framing and setting were
+    ignored, which is the entire reason this runs per image instead of once per
+    batch."""
+    norm = re.sub(r"[^a-z ]", " ", motion.lower())
+    norm = " ".join(norm.split())
+    for m in MOVEMENTS:
+        other = " ".join(re.sub(r"[^a-z ]", " ", m.lower()).split())
+        if difflib.SequenceMatcher(None, norm, other).ratio() >= ECHO_RATIO:
+            return True
+    return False
 
 
 # Matches niches.json's motionforge_length_s and autopilot_video.yml's own length_s
