@@ -387,6 +387,23 @@
       "video_url": "https://gesimuse.github.io/mpt/media/1788094958-final.mp4",
       "ts": "2026-08-30T13:03:36",
       "motionforge_source_url": "https://gesimuse.github.io/mpt/media/1788086040-sd_4.jpg"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "manual upload 1788096231389",
+      "title": "sd_0.jpg",
+      "tiktok": true,
+      "tiktok_via": "picker_manual_upload",
+      "image_urls": [
+        "https://gesimuse.github.io/mpt/media/upload-1788096204804.jpg"
+      ],
+      "image_prompts": [
+        null
+      ],
+      "motion_prompts": [
+        null
+      ],
+      "ts": "2026-08-30T13:23:51"
     }
   ],
   "model_stats": {
