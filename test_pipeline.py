@@ -2340,6 +2340,58 @@ class MotionWriterTest(unittest.TestCase):
         self.assertEqual(len(menu.splitlines()), motion_writer.MENU_SIZE)
         self.assertLess(motion_writer.MENU_SIZE, len(motion_writer.MOVEMENTS))
 
+    def test_every_menu_guarantees_whole_body_reveals(self):
+        """Sampling REVEALS and ACCENTS from one pooled list produced ZERO turns
+        across six live photos -- the model's own preference is hands and faces. The
+        reveal vocabulary has to be given slots, not offered them."""
+        for _ in range(25):
+            lines = motion_writer._movement_menu().splitlines()
+            got = sum(1 for ln in lines
+                     if ln.strip("- ").strip() in motion_writer.REVEALS)
+            self.assertEqual(got, motion_writer.MENU_REVEALS)
+
+    def test_rubric_makes_a_turn_mandatory_for_wide_framings(self):
+        """A preference wasn't enough (1/8 live); as a rule tied to the framing the
+        prompt already names, it held on 3/4 of wide shots."""
+        seen = {}
+
+        def capture(prompt, **kw):
+            seen["prompt"] = prompt
+            return "she turns away and looks back"
+
+        with mock.patch.object(motion_writer.llm, "ask", capture):
+            motion_writer.write("a still, wide shot")
+        self.assertIn("MUST change her", seen["prompt"])
+        self.assertIn("Close-up", seen["prompt"])
+
+    def test_rubric_forbids_numbers(self):
+        """A live run produced "pivots 180 degrees" and "hip slide of 0.5 seconds" --
+        both are noise to an I2V model, and the second contradicts the length budget."""
+        seen = {}
+
+        def capture(prompt, **kw):
+            seen["prompt"] = prompt
+            return "she turns away and looks back"
+
+        with mock.patch.object(motion_writer.llm, "ask", capture):
+            motion_writer.write("a still")
+        self.assertIn("no numbers of any kind", seen["prompt"])
+
+    def test_a_trailing_self_commentary_aside_is_stripped(self):
+        """Seen live: "(slow, deliberate, seductive motion)" tacked on the end. It
+        describes nothing that moves, and goes straight into the I2V prompt."""
+        with mock.patch.object(motion_writer.llm, "ask", lambda prompt, **kw:
+                               "She turns away and looks back. "
+                               "(slow, deliberate, seductive motion)"):
+            self.assertEqual(motion_writer.write("a still"),
+                            "She turns away and looks back.")
+
+    def test_a_mid_sentence_parenthetical_survives(self):
+        with mock.patch.object(motion_writer.llm, "ask", lambda prompt, **kw:
+                               "She turns (hips leading) and looks back."):
+            self.assertEqual(motion_writer.write("a still"),
+                            "She turns (hips leading) and looks back.")
+
     def test_the_menu_actually_varies_between_calls(self):
         menus = {motion_writer._movement_menu() for _ in range(20)}
         self.assertGreater(len(menus), 1)
