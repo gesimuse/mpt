@@ -11,14 +11,19 @@ is spent.
 
 Model is LTX-Video 0.9.x distilled, NOT Wan 2.2 TI2V-5B, deliberately:
   * The T4 has no bf16. Wan's reference dtype is bf16; forcing it to fp16 is a real
-    NaN risk, and 5B on 16GB needs aggressive offload on top.
-  * LTX distilled is ~2B, fp16-native, and fits a T4 comfortably.
+    NaN risk, and 5B needs aggressive offload on top.
+  * LTX distilled is ~2B, fp16-native, and fits one T4 comfortably.
 Wan remains the quality path on ZeroGPU, where the hardware suits it.
 
-The kernel is pushed with --accelerator NvidiaTeslaT4 (sm_75). If Kaggle hands us a
-P100 anyway, sm_60 is detected below and the run is abandoned with a clear reason
-rather than dying inside CUDA -- the cu124-torch workaround the image kernel carries
-is not worth replicating for a fallback path.
+A probe kernel pushed with --accelerator NvidiaTeslaT4 confirmed live what this gets:
+TWO Tesla T4s, 15360 MiB each, sm_75, on Kaggle's stock torch 2.10.0+cu128, with fp16
+matmuls executing cleanly. Only one card is used here -- diffusers does not shard a
+pipeline across GPUs without real work, and LTX does not need it. The second card is
+headroom for a bigger model later, not something this file exploits.
+
+If Kaggle ever hands us a P100 instead, sm_60 is detected below and the run is
+abandoned with a clear reason rather than dying inside CUDA -- the cu124-torch
+workaround the image kernel carries is not worth replicating for a fallback path.
 
 The source image arrives as a gh-pages URL. That is reachable from Kaggle; civitai.com
 is NOT (confirmed -- it 451s every request from Kaggle's network), which is why the

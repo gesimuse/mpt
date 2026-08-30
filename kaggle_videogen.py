@@ -28,8 +28,9 @@ import videogen
 ROOT = Path(__file__).resolve().parent
 KERNEL_SLUG = "mpt-video-gen-worker"
 # Same reasoning as kaggle_imagegen.ACCELERATOR: Kaggle's default P100 is sm_60, which
-# its own preinstalled torch has no kernels for. T4 x2 is UI-only; this is the single
-# T4, which is what matters.
+# its own preinstalled torch has no kernels for. A real probe kernel confirmed this
+# flag gets TWO T4s (15360 MiB each, sm_75), not one, and that fp16 works on them --
+# see that module for the full result.
 ACCELERATOR = os.environ.get("KAGGLE_ACCELERATOR", "NvidiaTeslaT4")
 # A cold run downloads ~10GB of LTX weights before it generates anything, so the
 # ceiling is much higher than the image kernel's.

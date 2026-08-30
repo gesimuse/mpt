@@ -137,12 +137,18 @@ def _generate_batch_on_kaggle(resolved, prompts, negatives, adopted, workdir):
     # kaggle/image_pipeline.py. The T4 is sm_75 and needs none of it.
     #
     # This file (and videogen.py) used to assert as fact that Kaggle's API "has no way
-    # to request a specific accelerator". That is not true of the CLI this workflow
-    # actually pins (kaggle<2.0 resolves to 1.8.4, whose `kernels push` has taken
-    # --accelerator for a while). Note T4 x2 is UI-only -- this asks for the single T4,
-    # which is the part that matters here. If Kaggle can't honour it and falls back to
-    # a P100 anyway, the kernel detects sm_60 at runtime and installs the cu124 torch
-    # itself, so this is an optimisation, not a load-bearing assumption.
+    # to request a specific accelerator". Not true of the CLI this workflow pins
+    # (kaggle<2.0 resolves to 1.8.4, whose `kernels push` takes --accelerator).
+    #
+    # VERIFIED on a real probe kernel pushed with exactly this flag, rather than
+    # assumed: Kaggle honoured it and handed back TWO Tesla T4s (device_count 2,
+    # 15360 MiB each, sm_75) running Kaggle's own stock torch 2.10.0+cu128 -- the
+    # very build that has no Pascal kernels -- with fp32 and fp16 matmuls both
+    # executing cleanly. So the T4 request works, and "T4 x2 is UI-only" (which an
+    # earlier version of this comment stated) is wrong: the CLI gets both cards.
+    #
+    # Still not load-bearing. If Kaggle ever can't honour it and falls back to a
+    # P100, the kernel detects sm_60 at runtime and installs the cu124 torch itself.
     subprocess.run(["kaggle", "kernels", "push", "-p", str(ROOT / "kernel_build_imagegen"),
                     "--accelerator", ACCELERATOR],
                    cwd=str(ROOT), env=env, check=True)
