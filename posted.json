@@ -341,26 +341,6 @@
       "ts": "2026-08-28T21:36:18"
     },
     {
-      "niche": "aibeauty",
-      "topic": "image slideshow 20260829-152912",
-      "title": "Some days just look like this.",
-      "tiktok": true,
-      "tiktok_via": "inbox",
-      "tiktok_post_id": "p_inbox_url~v2.7679479118630602774",
-      "tiktok_status": "SEND_TO_USER_INBOX",
-      "tiktok_caption": "Some days just look like this.\n\nCreated with AI.\n\n#aiart #aigenerated #aiphotography #confident",
-      "image_urls": [
-        "https://gesimuse.github.io/mpt/media/1788018063-sd_4.jpg"
-      ],
-      "image_prompts": [
-        "beautiful adult latina woman in her late twenties, wearing a satin slip dress with thin straps, in a hotel room, city lights through the window, seductive, sexy, alluring, round breasts, round ass, beautiful, lying back, relaxed sultry pose, soft lighting, medium shot, gentle rim lighting, a 30yo, 30 years old eskimo woman\nhighly detailed mid shot portrait photo, sharp focus on eyes, cinematic lighting"
-      ],
-      "motion_prompts": [
-        "She tilts her head slightly to one side, her eyes locked on something out of frame."
-      ],
-      "ts": "2026-08-29T15:42:14"
-    },
-    {
       "niche": "aibeautyvideo",
       "topic": "video 20260829-160509",
       "title": "Some days just look like this.",
@@ -419,38 +399,6 @@
         "She tilts her head and smiles, her eyes narrowing slightly as her gaze lingers on her reflection."
       ],
       "ts": "2026-08-30T10:35:09"
-    },
-    {
-      "niche": "aibeauty",
-      "topic": "image slideshow 20260830-123921",
-      "title": "lazy Sundays are my love language",
-      "tiktok": true,
-      "tiktok_via": "inbox",
-      "tiktok_post_id": "p_inbox_url~v2.7679805918314563606",
-      "tiktok_status": "SEND_TO_USER_INBOX",
-      "tiktok_caption": "lazy Sundays are my love language\n\nCreated with AI.\n\n#AIgeneratedart #ArtificialBliss #MorningMood #LazyAfternoons #CozyVibes",
-      "image_urls": [
-        "https://gesimuse.github.io/mpt/media/1788094112-sd_0.jpg",
-        "https://gesimuse.github.io/mpt/media/1788094141-sd_1.jpg",
-        "https://gesimuse.github.io/mpt/media/1788094171-sd_2.jpg",
-        "https://gesimuse.github.io/mpt/media/1788094199-sd_3.jpg",
-        "https://gesimuse.github.io/mpt/media/1788094229-sd_4.jpg"
-      ],
-      "image_prompts": [
-        "beautiful adult latina woman in her late twenties, in a dimly lit bedroom, silk sheets, seductive, sexy, alluring, round breasts, round ass, beautiful, relaxed sultry pose, soft lighting, full body shot, standing pose, wide framing, (MASTERPIECE:1. 2), (REALISTIC:1. 4), (POST PROCESSING:1. 3), (SHARP FOCUS:1. 3), 8K, mid body shot (85mm photo) , A Woman, Portrait, outdoor, Empire Waist dress, bokeh, wavy hair , (highly detailed body, highly detailed face, highly detailed eye, best quality:1. 2)",
-        "beautiful adult latina woman in her late twenties, in a dimly lit bedroom, silk sheets, seductive, sexy, alluring, round breasts, round ass, beautiful, relaxed sultry pose, soft lighting, profile view, moody side lighting, (MASTERPIECE:1. 2), (REALISTIC:1. 4), (POST PROCESSING:1. 3), (SHARP FOCUS:1. 3), 8K, mid body shot (85mm photo) , A Woman, Portrait, outdoor, Empire Waist dress, bokeh, wavy hair , (highly detailed body, highly detailed face, highly detailed eye, best quality:1. 2)",
-        "beautiful adult latina woman in her late twenties, in a dimly lit bedroom, silk sheets, seductive, sexy, alluring, round breasts, round ass, beautiful, relaxed sultry pose, soft lighting, close-up shot, shallow depth of field, (MASTERPIECE:1. 2), (REALISTIC:1. 4), (POST PROCESSING:1. 3), (SHARP FOCUS:1. 3), 8K, mid body shot (85mm photo) , A Woman, Portrait, outdoor, Empire Waist dress, bokeh, wavy hair , (highly detailed body, highly detailed face, highly detailed eye, best quality:1. 2)",
-        "beautiful adult latina woman in her late twenties, in a dimly lit bedroom, silk sheets, seductive, sexy, alluring, round breasts, round ass, beautiful, relaxed sultry pose, soft lighting, slight high angle, soft backlighting, (MASTERPIECE:1. 2), (REALISTIC:1. 4), (POST PROCESSING:1. 3), (SHARP FOCUS:1. 3), 8K, mid body shot (85mm photo) , A Woman, Portrait, outdoor, Empire Waist dress, bokeh, wavy hair , (highly detailed body, highly detailed face, highly detailed eye, best quality:1. 2)",
-        "beautiful adult latina woman in her late twenties, in a dimly lit bedroom, silk sheets, seductive, sexy, alluring, round breasts, round ass, beautiful, relaxed sultry pose, soft lighting, full body portrait, standing, wide angle, (MASTERPIECE:1. 2), (REALISTIC:1. 4), (POST PROCESSING:1. 3), (SHARP FOCUS:1. 3), 8K, mid body shot (85mm photo) , A Woman, Portrait, outdoor, Empire Waist dress, bokeh, wavy hair , (highly detailed body, highly detailed face, highly detailed eye, best quality:1. 2)"
-      ],
-      "motion_prompts": [
-        "She tilts her head slightly to the left, and her wavy hair moves in response.",
-        "She subtly tilts her head to the left, her eyes never leaving the camera, as she smiles faintly.",
-        "She tilts her head slightly to one side, causing her wavy hair to gently fall across her forehead.",
-        "The woman tilts her head slightly to the right, revealing a subtle, enigmatic smile.",
-        "She tilts her head slightly to the right as she reveals a subtle, seductive smile."
-      ],
-      "ts": "2026-08-30T12:51:27"
     }
   ],
   "model_stats": {
