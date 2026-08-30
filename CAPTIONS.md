@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-30T18:40:02 — aibeautyvideo
+
+```
+Left you hanging now you're seeing
+
+Created with AI.
+
+#aiart #digitaldreaming #seductionmode #modelmotion #renderreplay #digitalfashion
+```
+
 ## 2026-08-30T17:49:51 — aibeauty
 
 ```
@@ -68,14 +78,4 @@ Not everyone gets this angle.
 Created with AI.
 
 #aiart #aigenerated #aiphotography #confident
-```
-
-## 2026-08-28T19:47:39 — aibeautyvideo
-
-```
-Feeling myself, no apologies.
-
-Created with AI.
-
-#aiart #aivideo #wan22 #confident
 ```
