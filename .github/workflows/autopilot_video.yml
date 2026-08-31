@@ -140,19 +140,38 @@ jobs:
         run: |
           git config user.name "autopilot-bot"
           git config user.email "actions@github.com"
-          git add posted.json CAPTIONS.md
-          if git diff --cached --quiet; then
+          if git diff --quiet -- posted.json CAPTIONS.md; then
             echo "nothing to persist"
             exit 0
           fi
-          git commit -m "chore: autopilot-video run $(date -u +%F_%H:%M)"
+          # Keep THIS run's state outside the repo, so a reset can't take it with it.
+          cp posted.json "$RUNNER_TEMP/ours.json"
           for attempt in 1 2 3 4 5; do
-            if git pull --rebase origin ${{ github.ref_name }} && git push; then
+            git fetch origin ${{ github.ref_name }}
+            # Rebuild on top of the remote rather than rebasing onto it. posted.json's
+            # uploads array is appended to by BOTH workflows and by picker.html's
+            # Contents-API writes, and two appends in the same place are a textual
+            # conflict git cannot resolve -- the old loop ran `git pull --rebase`, hit
+            # CONFLICT (content) in posted.json, aborted, and retried the identical
+            # rebase four more times for four identical conflicts. Run 33318817540
+            # generated images, pushed a real TikTok draft, then lost its own state
+            # that way; 5c3bef4 is an earlier occurrence recovered by hand from CI
+            # logs. scripts/merge_state.py merges by VALUE, so there is nothing left
+            # to conflict.
+            git reset --hard origin/${{ github.ref_name }}
+            python3 scripts/merge_state.py "$RUNNER_TEMP/ours.json" posted.json posted.json
+            python3 -c "import autopilot, json; autopilot.write_pending_captions(json.load(open('posted.json')))"
+            git add posted.json CAPTIONS.md
+            if git diff --cached --quiet; then
+              echo "remote already has everything from this run"
+              exit 0
+            fi
+            git commit -m "chore: autopilot-video run $(date -u +%F_%H:%M)"
+            if git push; then
               echo "persisted on attempt $attempt"
               exit 0
             fi
-            echo "attempt $attempt failed, retrying..."
-            git rebase --abort 2>/dev/null || true
+            echo "push rejected (remote moved again), retrying..."
             sleep $((attempt * 5))
           done
           echo "::error::failed to persist posted.json/CAPTIONS.md after 5 attempts -- state from this run was NOT saved to main"

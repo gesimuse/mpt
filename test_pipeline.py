@@ -22,6 +22,8 @@ import clip_encode  # noqa: E402
 import hand_pose  # noqa: E402
 import imageslides  # noqa: E402
 import kaggle_imagegen  # noqa: E402
+sys.path.insert(0, str(Path(__file__).parent / "scripts"))
+import merge_state  # noqa: E402
 import llm  # noqa: E402
 import motion_writer  # noqa: E402
 import trends  # noqa: E402
@@ -3351,6 +3353,77 @@ class CivitaiDownloadAuthTest(unittest.TestCase):
              mock.patch.object(civitai.requests, "get", fake_get):
             civitai.resolve_final_url(self.API)
         self.assertEqual(captured["headers"].get("Authorization"), "Bearer k")
+
+
+class MergeStateTest(unittest.TestCase):
+    """scripts/merge_state.py replaces `git pull --rebase` for posted.json.
+
+    Live failure it fixes (run 33318817540): the image workflow and a picker write
+    both appended to the uploads array, git reported CONFLICT (content), and the
+    persist loop aborted and re-ran the SAME rebase five times for five identical
+    conflicts. That run generated images and pushed a real TikTok draft, then lost
+    its own state; 5c3bef4 recovered an earlier occurrence by hand from CI logs."""
+
+    def _u(self, ts, niche="aibeauty", pid=None, **kw):
+        return {"ts": ts, "niche": niche, "tiktok_post_id": pid, "tiktok": True, **kw}
+
+    def test_both_sides_survive_a_concurrent_append(self):
+        ours = {"uploads": [self._u("2026-08-30T15:00:00", pid="a"),
+                           self._u("2026-08-30T15:51:00", pid="mine")]}
+        theirs = {"uploads": [self._u("2026-08-30T15:00:00", pid="a"),
+                             self._u("2026-08-30T15:40:00", pid="theirs")]}
+        merged, added = merge_state.merge(ours, theirs)
+        pids = [u["tiktok_post_id"] for u in merged["uploads"]]
+        self.assertEqual(pids, ["a", "theirs", "mine"], "chronological, nothing lost")
+        self.assertEqual(added, 1)
+
+    def test_the_shared_entry_is_not_duplicated(self):
+        shared = self._u("2026-08-30T15:00:00", pid="a")
+        merged, added = merge_state.merge({"uploads": [shared]}, {"uploads": [shared]})
+        self.assertEqual(len(merged["uploads"]), 1)
+        self.assertEqual(added, 0)
+
+    def test_entries_without_a_publish_id_still_dedupe(self):
+        """DRY_RUN entries, picker manual uploads and failed inits all have no
+        tiktok_post_id, so ts+niche has to carry the key on its own."""
+        e = {"ts": "2026-08-30T15:00:00", "niche": "aibeauty", "image_urls": ["x"]}
+        merged, added = merge_state.merge({"uploads": [e]}, {"uploads": [e]})
+        self.assertEqual(len(merged["uploads"]), 1)
+
+    def test_counters_take_the_larger_side_rather_than_summing(self):
+        """Both sides share a common history; summing would double-count everything
+        before the fork and corrupt the pass-rate denominator."""
+        ours = {"model_stats": {"1:2": {"used": 30, "passed": 20}}}
+        theirs = {"model_stats": {"1:2": {"used": 40, "passed": 25}}}
+        merged, _ = merge_state.merge(ours, theirs)
+        self.assertEqual(merged["model_stats"]["1:2"], {"used": 40, "passed": 25})
+
+    def test_a_counter_only_we_have_is_kept(self):
+        merged, _ = merge_state.merge(
+            {"theme_stats": {"poolside": {"used": 5, "passed": 4}}}, {})
+        self.assertEqual(merged["theme_stats"]["poolside"]["used"], 5)
+
+    def test_topics_are_unioned_without_duplicates(self):
+        merged, _ = merge_state.merge({"topics": {"aibeauty": ["a", "b"]}},
+                                     {"topics": {"aibeauty": ["a", "c"]}})
+        self.assertEqual(merged["topics"]["aibeauty"], ["a", "c", "b"])
+
+    def test_the_fresher_trend_cache_wins(self):
+        merged, _ = merge_state.merge(
+            {"trends": {"hashtags": ["#new"], "fetched_at": 200}},
+            {"trends": {"hashtags": ["#old"], "fetched_at": 100}})
+        self.assertEqual(merged["trends"]["hashtags"], ["#new"])
+
+    def test_unknown_fields_are_preserved_not_dropped(self):
+        """A field added later must not be silently deleted by an older merge."""
+        merged, _ = merge_state.merge({"some_future_field": 1}, {"uploads": []})
+        self.assertEqual(merged["some_future_field"], 1)
+
+    def test_merging_against_an_empty_remote_keeps_everything(self):
+        ours = {"uploads": [self._u("2026-08-30T15:00:00", pid="a")]}
+        merged, added = merge_state.merge(ours, {})
+        self.assertEqual(len(merged["uploads"]), 1)
+        self.assertEqual(added, 1)
 
 
 class PickerHtmlTest(unittest.TestCase):
