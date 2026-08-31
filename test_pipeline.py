@@ -196,7 +196,7 @@ class ImageSlideshowTest(unittest.TestCase):
         niche = {"id": "aibeauty",
                 "themes": [{"vibe": "a specific test vibe", "outfit": "wearing a coat",
                            "location": "in a room", "mood": "a calm pose"}]}
-        prefix, vibe = imageslides._build_prefix(niche, reference)
+        prefix, vibe, look = imageslides._build_prefix(niche, reference)
         self.assertEqual(vibe, "a specific test vibe")
         self.assertIn("wearing a coat", prefix)
         self.assertIn("in a room", prefix)
@@ -215,7 +215,7 @@ class ImageSlideshowTest(unittest.TestCase):
              mock.patch.object(imageslides.supervisor, "filter_images",
                                lambda paths: paths[:4]), \
              tempfile.TemporaryDirectory() as tmp:
-            approved, vibe, _prompts = imageslides.generate(self.AIBEAUTY, workdir=tmp)
+            approved, vibe, look, _prompts = imageslides.generate(self.AIBEAUTY, workdir=tmp)
         self.assertEqual(len(approved), 4)
 
     def test_short_round_triggers_a_second_round_of_fresh_variations(self):
@@ -231,7 +231,7 @@ class ImageSlideshowTest(unittest.TestCase):
              mock.patch.object(imageslides.supervisor, "filter_images",
                                lambda paths: filter_results.pop(0)), \
              tempfile.TemporaryDirectory() as tmp:
-            approved, vibe, _prompts = imageslides.generate(self.AIBEAUTY, workdir=tmp)
+            approved, vibe, look, _prompts = imageslides.generate(self.AIBEAUTY, workdir=tmp)
         self.assertEqual(len(approved), 4)
         self.assertEqual(filter_results, [], "both rounds must have run")
 
@@ -261,7 +261,7 @@ class ImageSlideshowTest(unittest.TestCase):
              mock.patch.object(imageslides.sdgen, "generate_batch", fake_generate_batch), \
              mock.patch.object(imageslides.supervisor, "filter_images", lambda paths: paths), \
              tempfile.TemporaryDirectory() as tmp:
-            approved, vibe, _prompts = imageslides.generate(self.AIBEAUTY, workdir=tmp)
+            approved, vibe, look, _prompts = imageslides.generate(self.AIBEAUTY, workdir=tmp)
         self.assertGreater(len(approved), 0)
         self.assertEqual(decisions, [], "both decide_reference calls must have happened")
 
@@ -298,7 +298,7 @@ class ImageSlideshowTest(unittest.TestCase):
              mock.patch.object(imageslides.supervisor, "filter_images",
                                lambda paths: broken_result), \
              tempfile.TemporaryDirectory() as tmp:
-            approved, vibe, _prompts = imageslides.generate(
+            approved, vibe, look, _prompts = imageslides.generate(
                 {**self.AIBEAUTY, "min_images": 3, "max_images": 5}, workdir=tmp)
         # The generated images must come back so downstream can push them --
         # never mind that supervisor didn't approve any, because supervisor
@@ -331,7 +331,7 @@ class ImageSlideshowTest(unittest.TestCase):
              mock.patch.object(imageslides.sdgen, "generate_batch",
                                lambda *a, **k: fake_paths), \
              tempfile.TemporaryDirectory() as tmp:
-            approved, vibe, _prompts = imageslides.generate(self.AIBEAUTY, workdir=tmp)
+            approved, vibe, look, _prompts = imageslides.generate(self.AIBEAUTY, workdir=tmp)
         self.assertEqual(approved, fake_paths)
 
     def test_sexy_cue_is_always_present(self):
@@ -1811,7 +1811,7 @@ class RunNicheTest(unittest.TestCase):
         state = {"topics": {}, "uploads": []}
         with mock.patch.object(autopilot, "DRY_RUN", False), \
              mock.patch.object(tiktok, "enabled", lambda niche_id: True), \
-             mock.patch.object(imageslides, "generate", lambda n, state=None: (fake_images, None, [None] * len(fake_images))), \
+             mock.patch.object(imageslides, "generate", lambda n, state=None: (fake_images, None, None, [None] * len(fake_images))), \
              mock.patch.object(tiktok, "host_file", lambda p: f"https://pages/media/{Path(p).name}"), \
              mock.patch.object(tiktok, "publish_photos_draft",
                                lambda imgs, niche_id, image_urls=None, caption=None, title=None: "publish1"), \
@@ -1838,7 +1838,7 @@ class RunNicheTest(unittest.TestCase):
         state = {"topics": {}, "uploads": []}
         with mock.patch.object(autopilot, "DRY_RUN", False), \
              mock.patch.object(tiktok, "enabled", lambda niche_id: True), \
-             mock.patch.object(imageslides, "generate", lambda n, state=None: (fake_images, None, [None] * len(fake_images))), \
+             mock.patch.object(imageslides, "generate", lambda n, state=None: (fake_images, None, None, [None] * len(fake_images))), \
              mock.patch.object(tiktok, "host_file", lambda p: f"https://pages/media/{Path(p).name}"), \
              mock.patch.object(tiktok, "publish_photos_draft",
                                lambda imgs, niche_id, image_urls=None, caption=None, title=None: "publish1"), \
@@ -1856,7 +1856,7 @@ class RunNicheTest(unittest.TestCase):
     def test_dry_run_writes_files_and_never_queues_a_draft(self):
         fake_images = [Path(f"/tmp/i{i}.png") for i in range(5)]
         with mock.patch.object(autopilot, "DRY_RUN", True), \
-             mock.patch.object(imageslides, "generate", lambda n, state=None: (fake_images, None, [None] * len(fake_images))), \
+             mock.patch.object(imageslides, "generate", lambda n, state=None: (fake_images, None, None, [None] * len(fake_images))), \
              mock.patch.object(tiktok, "publish_photos_draft",
                                mock.Mock(side_effect=AssertionError("must not push"))), \
              mock.patch.object(autopilot.shutil, "copy", lambda a, b: None), \
@@ -1871,7 +1871,7 @@ class RunNicheTest(unittest.TestCase):
         with mock.patch.object(autopilot, "DRY_RUN", True), \
              mock.patch.object(kaggle_imagegen, "available", lambda: True), \
              mock.patch.object(kaggle_imagegen, "generate",
-                               lambda n, state=None: (fake_images, "kaggle vibe",
+                               lambda n, state=None: (fake_images, "kaggle vibe", "latina-dark",
                                                        [None] * len(fake_images))), \
              mock.patch.object(imageslides, "generate",
                                mock.Mock(side_effect=AssertionError("must not run"))), \
@@ -1893,7 +1893,7 @@ class RunNicheTest(unittest.TestCase):
                                mock.Mock(side_effect=RuntimeError("kernel did not "
                                                                   "reach a terminal state"))), \
              mock.patch.object(imageslides, "generate",
-                               lambda n, state=None: (fake_images, None,
+                               lambda n, state=None: (fake_images, None, None,
                                                        [None] * len(fake_images))), \
              mock.patch.object(autopilot.shutil, "copy", lambda a, b: None), \
              tempfile.TemporaryDirectory() as tmp:
@@ -1909,7 +1909,7 @@ class RunNicheTest(unittest.TestCase):
              mock.patch.object(kaggle_imagegen, "generate",
                                mock.Mock(side_effect=AssertionError("must not run"))), \
              mock.patch.object(imageslides, "generate",
-                               lambda n, state=None: (fake_images, None,
+                               lambda n, state=None: (fake_images, None, None,
                                                        [None] * len(fake_images))), \
              mock.patch.object(autopilot.shutil, "copy", lambda a, b: None), \
              tempfile.TemporaryDirectory() as tmp:
@@ -1972,7 +1972,7 @@ class RunNicheTest(unittest.TestCase):
 
         def fake_generate(n, state=None):
             calls.append(1)
-            return [Path(f"/tmp/i{len(calls)}.png")], None, [None]
+            return [Path(f"/tmp/i{len(calls)}.png")], None, None, [None]
 
         with mock.patch.object(autopilot, "DRY_RUN", False), \
              mock.patch.object(tiktok, "enabled", lambda niche_id: True), \
@@ -3355,6 +3355,83 @@ class CivitaiDownloadAuthTest(unittest.TestCase):
         self.assertEqual(captured["headers"].get("Authorization"), "Bearer k")
 
 
+class SubjectVarietyTest(unittest.TestCase):
+    """Every prompt this account ever generated opened with the identical eight words
+    -- "beautiful adult latina woman in her late twenties" was baked into
+    SAFETY_PREFIX, so across every checkpoint, theme and camera angle the SUBJECT
+    never changed. Measured over posted.json: 11/11 batches. The owner deleted a
+    draft as "very similar with previous generations"."""
+
+    REFERENCE = {"prompt": "a woman", "negative_prompt": ""}
+
+    def test_safety_prefix_is_still_on_every_prompt(self):
+        """"adult woman" is an age/subject guardrail supervisor.py also gates on --
+        rotation must never be able to drop it."""
+        for _ in range(40):
+            prefix, _, _ = imageslides._build_prefix({}, self.REFERENCE)
+            self.assertTrue(prefix.startswith(imageslides.SAFETY_PREFIX), prefix[:60])
+        self.assertIn("adult", imageslides.SAFETY_PREFIX)
+        self.assertIn("woman", imageslides.SAFETY_PREFIX)
+
+    def test_the_subject_actually_varies(self):
+        looks = {imageslides._build_prefix({}, self.REFERENCE)[2] for _ in range(60)}
+        self.assertGreater(len(looks), 5, "subject must not be effectively fixed")
+
+    def test_no_subject_is_east_asian(self):
+        """A standing operator preference (supervisor.ethnicity_excluded enforces it).
+        "latina" was originally glued into SAFETY_PREFIX as a positive steer away from
+        it; rotating within a pool entirely outside that appearance keeps the steer."""
+        banned = ("chinese", "east asian", "asian", "japanese", "korean")
+        for sub in imageslides.SUBJECTS:
+            low = sub["desc"].lower()
+            for word in banned:
+                self.assertNotIn(word, low, sub["look"])
+
+    def test_recent_subjects_are_skipped(self):
+        """Only the last NO_REPEAT_WINDOW uploads count -- anything older is fair game
+        again, which is what stops a long pool from starving itself."""
+        window = imageslides.NO_REPEAT_WINDOW
+        used = [s["look"] for s in imageslides.SUBJECTS[:10]]
+        state = {"uploads": [{"look": l} for l in used]}
+        blocked, allowed_again = set(used[-window:]), set(used[:-window])
+        for _ in range(40):
+            _, _, look = imageslides._build_prefix({}, self.REFERENCE, state=state)
+            self.assertNotIn(look, blocked)
+        self.assertTrue(allowed_again, "fixture should leave some older looks free")
+
+    def test_recent_themes_are_skipped(self):
+        recent = [t["vibe"] for t in imageslides.DEFAULT_THEMES[:6]]
+        state = {"uploads": [{"vibe": v} for v in recent]}
+        for _ in range(30):
+            _, vibe, _ = imageslides._build_prefix({}, self.REFERENCE, state=state)
+            self.assertNotIn(vibe, recent)
+
+    def test_a_good_pass_rate_cannot_force_a_repeat(self):
+        """Weighting alone pushes TOWARD repetition -- a theme that keeps passing QA
+        keeps winning. The no-repeat window has to override the weight."""
+        top = imageslides.DEFAULT_THEMES[0]["vibe"]
+        state = {"uploads": [{"vibe": top}],
+                "theme_stats": {top: {"used": 100, "passed": 100}}}
+        for _ in range(30):
+            _, vibe, _ = imageslides._build_prefix({}, self.REFERENCE, state=state)
+            self.assertNotEqual(vibe, top)
+
+    def test_a_tiny_theme_list_still_generates(self):
+        """A niche with fewer themes than the window must not deadlock -- running out
+        of unused options is not a reason to fail a batch."""
+        niche = {"themes": [{"vibe": "only", "outfit": "o", "location": "l", "mood": "m"}]}
+        state = {"uploads": [{"vibe": "only"}] * 6}
+        _, vibe, _ = imageslides._build_prefix(niche, self.REFERENCE, state=state)
+        self.assertEqual(vibe, "only")
+
+    def test_themes_span_more_than_one_register(self):
+        """The original 14 were all bedroom/pool/hotel/bathtub/rooftop -- one idea,
+        which is why batches read as interchangeable even when the theme changed."""
+        locations = " ".join(t["location"] for t in imageslides.DEFAULT_THEMES).lower()
+        for outdoor in ("gym", "snow", "desert", "forest", "tennis", "vine"):
+            self.assertIn(outdoor, locations)
+
+
 class MergeStateTest(unittest.TestCase):
     """scripts/merge_state.py replaces `git pull --rebase` for posted.json.
 
@@ -3512,7 +3589,8 @@ class KaggleImagegenTest(unittest.TestCase):
         return (
             mock.patch.object(imageslides, "decide_reference",
                               return_value=(dict(self.FAKE_RESOLVED), dict(self.FAKE_REFERENCE))),
-            mock.patch.object(imageslides, "_build_prefix", return_value=("prefix", "a vibe")),
+            mock.patch.object(imageslides, "_build_prefix",
+                              return_value=("prefix", "a vibe", "latina-dark")),
             mock.patch.object(imageslides, "build_variations",
                               return_value=(list(prompts), [""] * len(prompts))),
         )
@@ -3528,7 +3606,8 @@ class KaggleImagegenTest(unittest.TestCase):
                               return_value="https://r2.example.com/real.safetensors"), \
              mock.patch.object(supervisor, "filter_images", side_effect=lambda paths: list(paths)), \
              d1, d2, d3:
-            images, vibe, prompts = kaggle_imagegen.generate({"id": "aibeauty", "min_images": 2})
+            images, vibe, look, prompts = kaggle_imagegen.generate(
+                {"id": "aibeauty", "min_images": 2})
         self.assertEqual(len(images), 2)
         self.assertTrue(all(Path(p).exists() for p in images))
         self.assertEqual(vibe, "a vibe")

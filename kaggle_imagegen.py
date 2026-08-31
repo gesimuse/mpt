@@ -211,7 +211,7 @@ def generate(niche, count=None, workdir=None, state=None):
     """One Kaggle round: decide a CivitAI checkpoint + reference prompt (same
     logic imageslides.generate() uses), generate `count` camera variations on
     Kaggle's GPU, keep what passes supervisor.py review. Returns (image_paths,
-    vibe, image_prompts) -- same 3-tuple contract as imageslides.generate().
+    vibe, look, image_prompts) -- same 4-tuple contract as imageslides.generate().
     Raises on any shortfall; caller (autopilot.py) treats that as "fall back
     to the local path", not a hard stop."""
     if not available():
@@ -226,7 +226,7 @@ def generate(niche, count=None, workdir=None, state=None):
 
     resolved, reference = imageslides.decide_reference(niche, state=state)
     civitai_spec = f"{resolved['model_id']}:{resolved['version_id']}"
-    prefix, vibe = imageslides._build_prefix(niche, reference, state=state)
+    prefix, vibe, look = imageslides._build_prefix(niche, reference, state=state)
     base_negative = ", ".join(
         x for x in (imageslides.NEGATIVE_HARD, reference["negative_prompt"],
                     imageslides.NEGATIVE_QUALITY) if x)
@@ -263,4 +263,4 @@ def generate(niche, count=None, workdir=None, state=None):
             f"(need at least {min_images}); not using this Kaggle round")
 
     kept = approved[:max_images]
-    return kept, vibe, [prompt_by_path.get(str(p)) for p in kept]
+    return kept, vibe, look, [prompt_by_path.get(str(p)) for p in kept]

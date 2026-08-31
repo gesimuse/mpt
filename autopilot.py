@@ -167,16 +167,17 @@ def run_niche(niche, state):
         # crash) falls straight back to the exact same local imageslides.generate()
         # call this always used, unchanged. A speed win is not worth risking the
         # pipeline that already works.
-        images = vibe = image_prompts = None
+        images = vibe = look = image_prompts = None
         if kaggle_imagegen.available():
             try:
-                images, vibe, image_prompts = kaggle_imagegen.generate(niche, state=state)
+                images, vibe, look, image_prompts = kaggle_imagegen.generate(
+                    niche, state=state)
                 log(f"[{niche['id']}] generated on Kaggle's GPU ({len(images)} images)")
             except Exception as e:
                 log(f"[{niche['id']}] Kaggle image gen failed "
                     f"({type(e).__name__}: {str(e)[:200]}); falling back to local")
         if images is None:
-            images, vibe, image_prompts = imageslides.generate(niche, state=state)
+            images, vibe, look, image_prompts = imageslides.generate(niche, state=state)
         caption = imageslides.image_caption(niche, vibe=vibe, state=state)
         log(f"[{niche['id']}] caption (pre-filled on the draft; also saved to "
             f"CAPTIONS.md as a fallback):\n{caption}")
@@ -229,6 +230,10 @@ def run_niche(niche, state):
             # to (imageslides._owner_theme_rates), and it makes a batch's own look
             # legible in posted.json without reverse-engineering it from a prompt.
             "vibe": vibe,
+            # Which SUBJECTS entry this batch's woman came from. Recorded for the same
+            # reason as vibe: imageslides._recently_used reads both back so the next
+            # few batches don't repeat either.
+            "look": look,
             # Per-image motion instruction (motion_writer.write, an LLM rewrite of
             # image_prompts[i] into an actual action for the person to do) -- what
             # the video picker actually pre-fills its motion-prompt field with.

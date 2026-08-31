@@ -114,6 +114,59 @@ DEFAULT_THEMES = [
      "outfit": "wearing a wet white t-shirt clinging to her figure, poolside",
      "location": "poolside at a luxury villa, golden hour",
      "mood": "tight clingy fabric, curves accentuated, sultry pose"},
+    # --- Everything above is one register: bedroom, pool, hotel, bathtub, rooftop.
+    # Fourteen entries, one idea. The batches read as interchangeable even when the
+    # theme technically changed, which is what "very similar with previous
+    # generations" meant. The entries below are deliberately different WORLDS --
+    # daylight, weather, activity, texture -- not more rooms with mood lighting.
+    {"vibe": "after a workout",
+     "outfit": "wearing a cropped sports bra and high-waisted leggings",
+     "location": "in a sunlit gym, chalk dust in the air",
+     "mood": "flushed skin, catching her breath, confident stance"},
+    {"vibe": "a cold morning in the mountains",
+     "outfit": "wearing an oversized knit sweater slipping off one shoulder",
+     "location": "on a wooden cabin porch, snow and pines behind her",
+     "mood": "cold-flushed cheeks, breath visible, soft smile"},
+    {"vibe": "desert heat",
+     "outfit": "wearing a linen crop top and denim cutoffs, dust on her boots",
+     "location": "on a desert highway at midday, red rock behind her",
+     "mood": "squinting into the sun, hip cocked, wind in her hair"},
+    {"vibe": "caught in the rain",
+     "outfit": "wearing a soaked summer dress clinging to her",
+     "location": "on a neon-lit city street at night, rain falling hard",
+     "mood": "wet hair, water running down her skin, laughing"},
+    {"vibe": "a ride out of town",
+     "outfit": "wearing a leather jacket over a bralette, ripped jeans",
+     "location": "leaning against a motorcycle on an empty coast road",
+     "mood": "hair windblown, direct confident stare"},
+    {"vibe": "autumn in the woods",
+     "outfit": "wearing a fitted turtleneck and a short plaid skirt",
+     "location": "on a forest path, golden autumn leaves falling",
+     "mood": "soft daylight, hands in sleeves, playful glance"},
+    {"vibe": "harvest at the vineyard",
+     "outfit": "wearing a linen sundress with thin straps",
+     "location": "between rows of vines at golden hour, hills behind",
+     "mood": "sun on her shoulders, relaxed easy smile"},
+    {"vibe": "arcade at midnight",
+     "outfit": "wearing a cropped band tee and a mini skirt",
+     "location": "in a neon arcade, machines glowing pink and blue",
+     "mood": "lit by screen glow, mischievous grin"},
+    {"vibe": "on the water at dawn",
+     "outfit": "wearing a bikini top and open linen shirt",
+     "location": "on a sailboat deck at sunrise, open sea",
+     "mood": "salt spray, hair loose, squinting into the light"},
+    {"vibe": "courtside",
+     "outfit": "wearing a pleated tennis skirt and a fitted polo",
+     "location": "on a clay tennis court in bright afternoon sun",
+     "mood": "mid-motion, athletic, competitive smirk"},
+    {"vibe": "a night at the ski lodge",
+     "outfit": "wearing a thermal top unzipped at the throat, ski pants",
+     "location": "by a fireplace in a ski lodge, snow through the window",
+     "mood": "firelight on her face, warm and unhurried"},
+    {"vibe": "the last table in the bar",
+     "outfit": "wearing a silk blouse half-tucked into tailored trousers",
+     "location": "in a dim jazz bar, brass and low amber light",
+     "mood": "chin on hand, unhurried, watching the room"},
 ]
 # "studio" deliberately excluded: it's ubiquitous photography jargon ("studio light",
 # "studio backdrop"), not a narrative setting -- including it meant almost every real
@@ -137,10 +190,63 @@ _LOCATION_RE = re.compile(
 # checkpoint, is a much stronger lever for SD/SDXL sampling than suppressing it in
 # the negative prompt. supervisor.py's gate stays in place either way -- this only
 # reduces how often it has to fire, not what it enforces.
-SAFETY_PREFIX = "beautiful adult latina woman in her late twenties"
-# Every image must read as sexy, not just "sometimes, when the random mood pick lands
-# right" -- this is the guaranteed baseline, always present; DEFAULT_MOOD on top of it
-# is what varies the specific pose/expression between images in the same batch.
+# The invariant half of the subject, present on EVERY image without exception. "adult
+# woman" is a content-safety guardrail, not styling -- supervisor.py's
+# age_appears_adult gate is the check, this is the steer, and neither is optional.
+SAFETY_PREFIX = "beautiful adult woman"
+
+# The varying half. Every prompt this pipeline had ever produced began with the same
+# eight words -- "beautiful adult latina woman in her late twenties" was baked into
+# SAFETY_PREFIX itself, so across every checkpoint, theme and camera angle the SUBJECT
+# never changed once. Measured over posted.json: 11/11 batches, identical opening.
+# Themes and checkpoints were doing all the varying, and it was not enough; the account
+# owner deleted a draft as "very similar with previous generations".
+#
+# Each entry is a coherent look rather than independently rolled attributes, same
+# reasoning as DEFAULT_THEMES: hair, colouring and age band picked separately produce
+# combinations that read as a random recombination instead of a person.
+#
+# The pool deliberately excludes Chinese/East Asian appearance. That is a standing
+# operator preference for this account (see supervisor.py's ethnicity_excluded gate,
+# which enforces it regardless) -- "latina" was originally glued into SAFETY_PREFIX as
+# a positive steer away from it, because a negative-prompt term alone measured too weak
+# against a checkpoint whose own training skews that way. Rotating within a pool that
+# is entirely outside the excluded appearance keeps that steer just as strong on every
+# image while restoring the variety the fixed string cost.
+SUBJECTS = [
+    {"look": "latina-dark", "desc": "latina woman in her late twenties, long dark wavy hair"},
+    {"look": "latina-bronze", "desc": "latina woman in her mid twenties, sun-kissed skin, "
+                                       "dark hair in a high ponytail"},
+    {"look": "brazilian", "desc": "brazilian woman in her late twenties, long honey-brown "
+                                   "hair, athletic figure"},
+    {"look": "colombian", "desc": "colombian woman in her mid twenties, dark curls, "
+                                   "warm brown eyes"},
+    {"look": "spanish", "desc": "spanish woman in her early thirties, dark hair in loose "
+                                 "waves, olive skin"},
+    {"look": "italian", "desc": "italian woman in her late twenties, dark brown hair, "
+                                 "striking features"},
+    {"look": "greek", "desc": "greek woman in her late twenties, thick dark hair, "
+                               "sun-tanned skin"},
+    {"look": "middle-eastern", "desc": "middle eastern woman in her late twenties, long "
+                                        "black hair, dark eyes"},
+    {"look": "persian", "desc": "persian woman in her early thirties, long dark hair, "
+                                 "elegant features"},
+    {"look": "turkish", "desc": "turkish woman in her late twenties, dark hair, "
+                                 "hazel eyes"},
+    {"look": "european-blonde", "desc": "european woman in her late twenties, long blonde "
+                                         "hair, fair skin"},
+    {"look": "european-redhead", "desc": "european woman in her mid twenties, auburn red "
+                                          "hair, freckles, fair skin"},
+    {"look": "scandinavian", "desc": "scandinavian woman in her late twenties, light "
+                                      "blonde hair, blue eyes"},
+    {"look": "french", "desc": "french woman in her early thirties, chestnut brown hair, "
+                                "effortless styling"},
+    {"look": "russian", "desc": "russian woman in her mid twenties, ash blonde hair, "
+                                 "sharp cheekbones"},
+    {"look": "brunette-tall", "desc": "tall brunette woman in her early thirties, long "
+                                       "straight dark hair"},
+]
+
 SEXY_CUE = "seductive, sexy, alluring, round breasts, round ass, beautiful"
 NEGATIVE_HARD = ("child, teen, minor, young girl, schoolgirl, nude, topless, "
                  "exposed nipples, exposed genitals, explicit sexual content")
@@ -448,15 +554,61 @@ def image_caption(niche, vibe=None, state=None):
     return _static_caption(niche)
 
 
-def _build_prefix(niche, reference, state=None):
-    """Returns (prefix, vibe) -- vibe is the theme's short human description, threaded
-    through to caption_writer.write() so the post's caption/hashtags are actually
-    about this batch's moment, not picked from a fixed pool disconnected from it.
+# How many recent batches a theme or a subject has to sit out before it can be picked
+# again. With 26 themes and 16 subjects, 6 is short enough that nothing is starved and
+# long enough that two consecutive drafts cannot look like each other -- which is the
+# actual complaint ("very similar with previous generations"), and something weighting
+# alone cannot prevent: a theme with a good pass rate is MORE likely to repeat.
+NO_REPEAT_WINDOW = 6
 
-    state, when given, biases WHICH theme gets picked by that theme's own past QA
-    pass rate (_theme_weights) -- the same learn-from-outcomes loop decide_reference
-    already runs for checkpoints, extended to the other half of what determines how a
-    batch looks. Without state it is a plain uniform pick, exactly as before."""
+
+def _recently_used(state, field, window=NO_REPEAT_WINDOW):
+    """The values of `field` on the last `window` recorded uploads. autopilot records
+    vibe and look on each upload entry precisely so this can read them back."""
+    seen = []
+    for u in reversed((state or {}).get("uploads") or []):
+        v = u.get(field)
+        if v:
+            seen.append(v)
+        if len(seen) >= window:
+            break
+    return set(seen)
+
+
+def _pick_avoiding_repeats(options, key, recent, weights=None):
+    """Weighted pick from options, skipping anything used in the last few batches.
+
+    Falls back to the full list when the filter would leave nothing -- a niche with
+    fewer themes than NO_REPEAT_WINDOW must still be able to generate, and running
+    out of options is not a reason to fail a batch."""
+    pool = [o for o in options if o.get(key) not in recent] or list(options)
+    w = [(weights or {}).get(o.get(key), 1.0) for o in pool]
+    return random.choices(pool, weights=w, k=1)[0]
+
+
+def _build_subject(state=None):
+    """(subject_phrase, look) -- SAFETY_PREFIX plus one rotating look from SUBJECTS.
+
+    SAFETY_PREFIX ("beautiful adult woman") is always first and never substituted:
+    it is the age/subject guardrail supervisor.py also gates on. Everything after it
+    varies, which is what stops every prompt in the account's history opening with the
+    identical eight words."""
+    subject = _pick_avoiding_repeats(SUBJECTS, "look", _recently_used(state, "look"))
+    return f"{SAFETY_PREFIX}, {subject['desc']}", subject["look"]
+
+
+def _build_prefix(niche, reference, state=None):
+    """Returns (prefix, vibe, look) -- vibe is the theme's short human description,
+    threaded through to caption_writer.write() so the post's caption/hashtags are
+    actually about this batch's moment; look is which SUBJECTS entry the subject came
+    from, recorded so the next batch can avoid repeating it.
+
+    state, when given, does two things: biases WHICH theme gets picked by that theme's
+    own past QA pass rate (_theme_weights) -- the same learn-from-outcomes loop
+    decide_reference runs for checkpoints -- and excludes the themes and subjects used
+    in the last few batches outright. The weighting alone is not enough for variety;
+    it actively pushes TOWARD repetition, since a theme that keeps passing QA keeps
+    winning. Without state, both fall back to a plain uniform pick."""
     # An explicit outfit/location is only injected when the reference prompt does not
     # already name one -- appending "wearing jeans and a coat" onto a prompt that
     # already says "wearing a black dress" (or "poolside cabana" onto "in a bustling
@@ -466,16 +618,13 @@ def _build_prefix(niche, reference, state=None):
     # says. SEXY_CUE is the guaranteed baseline ("every image must be sexy" is a hard
     # requirement, not a random pick); mood adds per-image variety on top of it.
     themes = niche.get("themes") or DEFAULT_THEMES
-    # Weighted by past QA outcome per theme (state["theme_stats"]), the same way
-    # decide_reference already weights checkpoints. Falls back to a plain uniform
-    # pick when there is no state or nothing has enough samples yet -- identical
-    # behaviour to the random.choice this replaces.
-    weights = [_theme_weights(state).get(t.get("vibe"), 1.0) for t in themes]
-    theme = random.choices(themes, weights=weights, k=1)[0]
+    theme = _pick_avoiding_repeats(themes, "vibe", _recently_used(state, "vibe"),
+                                   _theme_weights(state))
+    subject, look = _build_subject(state)
     clothing = "" if _CLOTHING_RE.search(reference["prompt"]) else f"{theme['outfit']}, "
     setting = "" if _LOCATION_RE.search(reference["prompt"]) else f"{theme['location']}, "
-    prefix = f"{SAFETY_PREFIX}, {clothing}{setting}{SEXY_CUE}, {theme['mood']}"
-    return prefix, theme["vibe"]
+    prefix = f"{subject}, {clothing}{setting}{SEXY_CUE}, {theme['mood']}"
+    return prefix, theme["vibe"], look
 
 
 # Bounds for adopting the checkpoint creator's own posted generation settings. Their
@@ -547,9 +696,10 @@ def generate(niche, count=None, workdir=None, max_rounds=2, state=None):
     never ship. Not an infinite retry: max_rounds caps the worst case at
     max_rounds * count generations, each ~130s on a GH Actions runner.
 
-    Returns (image_paths, vibe, image_prompts) -- vibe is the theme's short
-    description (see DEFAULT_THEMES), threaded through so the caller can write a
-    caption that's actually about this batch's moment, not a generic one.
+    Returns (image_paths, vibe, look, image_prompts) -- vibe is the theme's short
+    description (see DEFAULT_THEMES) and look is which SUBJECTS entry the subject came
+    from, both threaded through so the caller can write a caption about this batch's
+    moment AND record what was used, so the next batch avoids repeating either.
     image_prompts is the actual per-image SD prompt behind each returned path
     (same order), so a picker UI can show a motion-forge suggestion grounded in
     what that specific photo's framing/pose/lighting actually is, instead of one
@@ -584,8 +734,9 @@ def generate(niche, count=None, workdir=None, max_rounds=2, state=None):
     # generations instead of failing the whole run.
     supervisor_broken_batches = 0
     broken_generations = []
-    vibe = None  # the last round's theme vibe -- returned alongside the images so the
-    # caller can write a caption that's actually about this batch's moment.
+    vibe = look = None  # the last round's theme vibe and subject look -- returned
+    # alongside the images so the caller can write a caption about this batch's moment
+    # and record what was used, so the NEXT batch can avoid repeating it.
     # No static-formula fallback: every batch's model and prompt must come from a real
     # CivitAI search, not a hand-written scene/style list. If CivitAI can't be reached
     # at all, decide_reference() raises and the run fails loudly here, rather than
@@ -594,7 +745,7 @@ def generate(niche, count=None, workdir=None, max_rounds=2, state=None):
 
     for round_num in range(1, max_rounds + 1):
         civitai_spec = f"{resolved['model_id']}:{resolved['version_id']}"
-        prefix, vibe = _build_prefix(niche, reference, state=state)
+        prefix, vibe, look = _build_prefix(niche, reference, state=state)
         base_negative = ", ".join(
             x for x in (NEGATIVE_HARD, reference["negative_prompt"], NEGATIVE_QUALITY) if x)
         log(f"round {round_num}: {resolved['name']!r} | prefix: {prefix} | "
@@ -665,10 +816,10 @@ def generate(niche, count=None, workdir=None, max_rounds=2, state=None):
                 f"{len(broken_generations)} raw generations without QA "
                 f"(account owner still reviews the draft in TikTok before posting)")
             kept = broken_generations[:max_images]
-            return kept, vibe, [prompt_by_path.get(str(p)) for p in kept]
+            return kept, vibe, look, [prompt_by_path.get(str(p)) for p in kept]
         raise RuntimeError(
             f"only {len(approved)} of {generated_count} images passed review across "
             f"{max_rounds} round(s) (need at least {min_images}); not posting")
     log(f"{len(approved)}/{generated_count} images approved")
     kept = approved[:max_images]
-    return kept, vibe, [prompt_by_path.get(str(p)) for p in kept]
+    return kept, vibe, look, [prompt_by_path.get(str(p)) for p in kept]
