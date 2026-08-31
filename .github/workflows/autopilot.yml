@@ -142,6 +142,16 @@ jobs:
           # imports unconditionally -- `import controlnet_aux` itself crashes with
           # "module 'mediapipe' has no attribute 'solutions'" before hand_pose.py
           # ever runs. 0.10.21 is the last release before that removal.
+          #
+          # Deliberately still pinned here while kaggle/image_pipeline.py has moved to
+          # mediapipe>=0.10.30: that file HAD to move, because 0.10.21 requires
+          # numpy<2 and Kaggle's own preinstalled torch is compiled against numpy 2
+          # (a live run died on "numpy.dtype size changed ... Expected 96 ... got
+          # 88"). This runner installs its own torch from the CPU index, which does
+          # tolerate numpy 1.x -- every local-generation run to date proves it. The
+          # divergence is intentional, not drift; do not "align" them without a run
+          # to show this path survives the change, since it is the fallback the whole
+          # pipeline leans on when Kaggle fails.
           pip install "mediapipe==0.10.21" controlnet_aux
 
       - name: Run autopilot

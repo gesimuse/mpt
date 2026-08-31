@@ -166,7 +166,26 @@ def main() -> None:
              # already document happening for the CPU path, which is a real
              # risk here too even though it wasn't the actual cause this time.
              *(["torchvision==0.21.0"] if needs_pascal_torch else []),
-             "ultralytics", "super-image", "mediapipe==0.10.21", "controlnet_aux",
+             "ultralytics", "super-image",
+             # mediapipe>=0.10.30, NOT ==0.10.21. 0.10.21 requires numpy<2, and
+             # installing it downgraded numpy underneath Kaggle's own preinstalled
+             # torch 2.10.0+cu128, which is compiled against numpy 2. A live run died
+             # on exactly that: "ValueError: numpy.dtype size changed, may indicate
+             # binary incompatibility. Expected 96 from C header, got 88 from
+             # PyObject", surfacing as "diffusers import failed" via the diagnostic
+             # below. The old unconditional torch==2.6.0 install had been hiding it --
+             # that build wants numpy 1.x, so the downgrade was consistent. Making the
+             # torch pin conditional (correct, for the T4) exposed it.
+             #
+             # 0.10.21 was pinned because mediapipe 1.0 removed the legacy
+             # mp.solutions API that controlnet_aux imports unconditionally. That
+             # reason is stale: hand_pose._op_util stubs mp.solutions itself when it
+             # is missing. 0.10.30+ drops the numpy cap while staying on 0.10.x, so
+             # this changes one variable, not two.
+             "mediapipe>=0.10.30,<1", "controlnet_aux",
+             # Explicit, so a future transitive dependency cannot quietly pull numpy
+             # back under 2 and reintroduce the same ABI break on this path.
+             *(["numpy>=2"] if not needs_pascal_torch else []),
              "requests"],
             check=True)
 
