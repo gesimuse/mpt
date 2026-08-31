@@ -69,10 +69,12 @@ unauthenticated request with `{"code":40101,"msg":"no permission"}`, and CivitAI
 ## Video generation
 `videogen.py` walks a ladder of HF ZeroGPU Spaces (Wan 2.2 I2V rCM -> Wan 2.1 fast ->
 LTX-Video distilled). Within each, `HF_TOKENS` rotates across HF **accounts** on a
-quota error -- ZeroGPU gives roughly 5 GPU-minutes per account per day. Once every
-Space x token pair is spent, `kaggle_videogen.py` runs LTX-Video distilled on a real
-Kaggle T4 (`--accelerator NvidiaTeslaT4`): far slower per clip, but backed by ~30 GPU-
-hours a week instead of 5 minutes a day.
+quota error -- ZeroGPU gives roughly 5 GPU-minutes per account per day, so more
+accounts is the only real way to raise the ceiling.
+
+Running a model on our own Kaggle T4 instead was built, worked end to end, and was
+removed: nothing that fits a 15 GB card produced output worth posting next to Wan 2.2.
+When quota is gone the run fails and waits rather than shipping something worse.
 
 ## What the pipeline learns
 Two loops write back into `posted.json` and bias future runs:

@@ -5,11 +5,10 @@ name: MPT Autopilot Video (aibeautyvideo)
 # ZeroGPU Spaces (videogen.py: Wan 2.2 I2V rCM, then Wan 2.1 fast, then LTX-Video
 # distilled), rotating HF_TOKENS across accounts on a quota error.
 #
-# Kaggle is the fallback UNDER all of that (kaggle_videogen.py) -- a real self-hosted
-# T4 run, not the pure push/poll proxy it used to be here. The old objection, that
-# Kaggle's API can't request a specific accelerator, turned out to be wrong: the
-# pinned CLI takes `--accelerator NvidiaTeslaT4`. ZeroGPU stays first because it is
-# much faster; Kaggle exists because ZeroGPU is ~5 GPU-minutes per account per day.
+# There is no fallback under that. A self-hosted Kaggle T4 path (LTX-Video 0.9.5) was
+# built and did work end to end, but its output quality was rejected -- nothing that
+# fits a 15 GB T4 came close to Wan 2.2. When every Space and token is spent, the run
+# fails and waits for quota rather than shipping something worse.
 # The resulting mp4 is posted as a TikTok inbox draft by MPT.
 on:
   workflow_dispatch:
@@ -57,12 +56,10 @@ concurrency:
 jobs:
   run:
     runs-on: ubuntu-latest
-    # A ZeroGPU run is ~1-2min of actual generation, and the Space ladder can try
-    # three of them. The Kaggle fallback underneath is far slower -- a cold kernel
-    # downloads ~10GB of LTX weights before it generates a frame -- so the old 30min
-    # ceiling would kill it mid-download. 75min covers the full ladder plus one
-    # Kaggle attempt; it is a stall guard, not an expected duration.
-    timeout-minutes: 75
+    # A ZeroGPU run is ~1-2min of actual generation and the Space ladder can try three
+    # of them, each against every token. 30min is a stall guard for a Space that
+    # queues or hangs, not an expected duration.
+    timeout-minutes: 30
     permissions:
       contents: write
     steps:
@@ -80,13 +77,7 @@ jobs:
         # the actual model inference happens on HF's ZeroGPU, not here. (Ollama
         # IS installed below, but only as llm.py's fallback text backend for the
         # caption, not for any image/video model.)
-        run: |
-          pip install gradio_client requests
-          # kaggle_videogen.py shells out to the kaggle CLI (never imports the kaggle
-          # Python package), same as kaggle_imagegen.py in autopilot.yml. kaggle<2.0
-          # keeps the KAGGLE_USERNAME/KAGGLE_KEY auth path -- 2.x switched to OAuth.
-          # Resolves to 1.8.4, whose `kernels push` accepts --accelerator.
-          pip install "kaggle<2.0"
+        run: pip install gradio_client requests
 
       - name: Install Ollama and pull the caption model
         # Fallback backend for llm.py (caption_writer/motion_writer) only -- HF's
@@ -136,12 +127,6 @@ jobs:
           TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
           TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
           TIKTOK_REFRESH_TOKEN_AIBEAUTY: ${{ secrets.TIKTOK_REFRESH_TOKEN_AIBEAUTY }}
-          # Fallback video generation on Kaggle's own T4, tried only once every HF
-          # Space x token combination is spent. Missing secrets are a normal setup,
-          # not a failure: autopilot._generate_video re-raises the ZeroGPU error
-          # instead of masking it with a Kaggle credentials complaint.
-          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
-          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
           PAGES_BASE_URL: https://gesimuse.github.io/mpt
         run: python autopilot.py
 

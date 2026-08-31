@@ -3,10 +3,14 @@
 Used to shell out to a Kaggle kernel that just proxied to the same Space -- Kaggle
 never did any compute itself, it was pure push/poll/download plumbing kept "for
 continuity with the existing pipeline" (motionforge's own words). Calling gradio_client
-directly removes all of that for the same result. (Kaggle IS back in the picture for
-video, but as a real self-hosted GPU fallback in kaggle_videogen.py, not as a proxy --
-and Kaggle's API can in fact request a specific accelerator, `kaggle kernels push
---accelerator NvidiaTeslaT4`, contrary to what this docstring used to claim.)
+directly removes all of that for the same result.
+
+Kaggle was later tried again for video, this time doing real compute (LTX-Video 0.9.5
+on a T4) as a fallback for when ZeroGPU quota runs out. It worked end to end -- the
+output quality did not, and the account owner rejected it outright. Removed. If anyone
+revisits this: the engineering is not the hard part (a working kernel took two
+attempts; the sizing notes are in git history around a1041a4), the model is. Nothing
+that fits a 15 GB T4 came close to Wan 2.2 here.
 
 Two independent axes of failure, and this module walks both:
 
@@ -196,7 +200,7 @@ def generate(image_url, prompt, length_s=5.0, steps=4, seed=None,
     """Walk the Space ladder, rotating tokens within each Space on a ZeroGPU quota
     error, and return the local mp4 path (re-encoded for TikTok). Raises only once
     every Space x token combination is exhausted -- the caller treats that as a
-    skipped run (autopilot.py then tries kaggle_videogen, if configured)."""
+    skipped run."""
     # autopilot.py's _run_video_niche passes these through straight from env
     # vars (VIDEO_STEPS/VIDEO_LENGTH_S), so they arrive as strings -- the
     # Space's steps/duration_seconds are both Slider (float) components, and
@@ -268,12 +272,6 @@ def generate(image_url, prompt, length_s=5.0, steps=4, seed=None,
 # frame rate here rather than pushing the raw output straight through. Applies to
 # every Space on the ladder, not just the first -- none of them target TikTok.
 _TIKTOK_FPS = 30
-
-
-def normalize_for_tiktok(src, dest):
-    """Public alias -- kaggle_videogen.py's self-hosted path needs the exact same
-    re-encode, and duplicating the ffmpeg invocation is how the two would drift."""
-    return _normalize_for_tiktok(Path(src), Path(dest))
 
 
 def _normalize_for_tiktok(src, dest):

@@ -27,7 +27,6 @@ from pathlib import Path
 
 import imageslides
 import kaggle_imagegen
-import kaggle_videogen
 import motion_writer
 import tiktok
 import videogen
@@ -297,30 +296,6 @@ def _publish_video(niche, state, token_niche, video_url, caption, topic, extra_f
     write_pending_captions(state)
 
 
-def _generate_video(image_url, prompt, length_s, steps):
-    """HF ZeroGPU first, Kaggle's own T4 second.
-
-    videogen.generate() already walks several Spaces x several HF tokens internally,
-    so reaching here means the whole ZeroGPU ladder is spent -- which on a free
-    account is a matter of ~5 GPU-minutes per account per DAY, not a rare event.
-    kaggle_videogen runs a smaller model on a real T4 with ~30 GPU-hours a week
-    behind it: much slower per clip (most of it weight download), but it is what
-    turns "no video today" into "a video, eventually".
-
-    Kaggle is skipped silently when its credentials aren't configured -- that is a
-    normal, supported setup, not a failure -- and the ZeroGPU error is re-raised so
-    the run reports the real reason rather than a Kaggle one."""
-    try:
-        return videogen.generate(image_url, prompt, length_s=length_s, steps=steps)
-    except Exception as e:
-        if not kaggle_videogen.available():
-            raise
-        log(f"ZeroGPU path exhausted ({type(e).__name__}: {str(e)[:200]}); "
-            "falling back to Kaggle's own GPU")
-        return kaggle_videogen.generate(image_url, prompt, length_s=length_s,
-                                        steps=steps)
-
-
 def _run_video_niche(niche, state):
     """Reuse an image the photo niche already generated + QA'd, animate it with
     videogen.py (HF ZeroGPU / Wan 2.2 I2V rCM), publish the mp4 as a TikTok inbox
@@ -376,7 +351,7 @@ def _run_video_niche(niche, state):
               or niche.get("motionforge_prompt", "").strip())
     length_s = os.environ.get("VIDEO_LENGTH_S", "").strip() or niche.get("motionforge_length_s", "5.0")
     steps = os.environ.get("VIDEO_STEPS", "").strip() or niche.get("motionforge_steps", "4")
-    video_path = _generate_video(image_url, prompt, length_s, steps)
+    video_path = videogen.generate(image_url, prompt, length_s=length_s, steps=steps)
     caption = imageslides.image_caption(niche, vibe=prompt or None, state=state)
     log(f"[{niche['id']}] caption (pre-filled on the draft):\n{caption}")
 

@@ -11,5 +11,3 @@ out/
 .gh-pages-worktree/
 # scripts/prepare_image_kernel.py's generated bundle -- rebuilt fresh every push.
 kernel_build_imagegen/
-# scripts/prepare_video_kernel.py's generated bundle -- same deal.
-kernel_build_videogen/

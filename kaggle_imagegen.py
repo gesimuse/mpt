@@ -155,7 +155,11 @@ def _generate_batch_on_kaggle(resolved, prompts, negatives, adopted, workdir):
 
     log("polling Kaggle...")
     slug = f"{username}/{KERNEL_SLUG}"
-    # See kaggle_videogen for why the verdict is used rather than discarded.
+    # The verdict is USED, not discarded. It used to be thrown away, so a kernel
+    # Kaggle had already marked ERROR carried on into the output-download path and
+    # failed later with a misleading message about missing output. Still falls
+    # through rather than raising: status.json and the kernel log are fetched below
+    # and carry the actual reason, which is the point of fetching them.
     if _poll(slug, env) == "error":
         log("Kaggle marked this kernel ERROR; fetching its log for the reason")
 

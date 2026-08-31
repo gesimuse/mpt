@@ -22,7 +22,6 @@ import clip_encode  # noqa: E402
 import hand_pose  # noqa: E402
 import imageslides  # noqa: E402
 import kaggle_imagegen  # noqa: E402
-import kaggle_videogen  # noqa: E402
 import llm  # noqa: E402
 import motion_writer  # noqa: E402
 import trends  # noqa: E402
@@ -3499,127 +3498,6 @@ class KaggleImagegenTest(unittest.TestCase):
                               side_effect=AssertionError("must not run")):
             with self.assertRaises(RuntimeError):
                 kaggle_imagegen.generate({"id": "aibeauty"})
-
-
-class VideoFallbackTest(unittest.TestCase):
-    """autopilot._generate_video: ZeroGPU first, Kaggle's own T4 second. ZeroGPU's
-    free quota is ~5 GPU-minutes per HF ACCOUNT per DAY, so "the ladder is spent" is
-    an ordinary Tuesday, not an exception -- but Kaggle must never mask the real
-    ZeroGPU error when Kaggle isn't configured at all."""
-
-    def test_kaggle_is_not_touched_when_zerogpu_succeeds(self):
-        with mock.patch.object(autopilot.videogen, "generate",
-                              lambda *a, **kw: "/tmp/zero.mp4"), \
-             mock.patch.object(autopilot.kaggle_videogen, "generate",
-                              mock.Mock(side_effect=AssertionError("must not run"))):
-            self.assertEqual(
-                autopilot._generate_video("https://x/i.jpg", "smile", 5.0, 4),
-                "/tmp/zero.mp4")
-
-    def test_falls_back_to_kaggle_when_every_space_and_token_is_spent(self):
-        with mock.patch.object(autopilot.videogen, "generate",
-                              mock.Mock(side_effect=RuntimeError("every video Space failed"))), \
-             mock.patch.object(autopilot.kaggle_videogen, "available", lambda: True), \
-             mock.patch.object(autopilot.kaggle_videogen, "generate",
-                              lambda *a, **kw: "/tmp/kaggle.mp4"):
-            self.assertEqual(
-                autopilot._generate_video("https://x/i.jpg", "smile", 5.0, 4),
-                "/tmp/kaggle.mp4")
-
-    def test_reraises_the_zerogpu_error_when_kaggle_is_not_configured(self):
-        """Not configuring Kaggle is a supported setup. The run must report why
-        ZeroGPU failed, not a misleading "Kaggle credentials not configured"."""
-        with mock.patch.object(autopilot.videogen, "generate",
-                              mock.Mock(side_effect=RuntimeError("Space is down"))), \
-             mock.patch.object(autopilot.kaggle_videogen, "available", lambda: False), \
-             mock.patch.object(autopilot.kaggle_videogen, "generate",
-                              mock.Mock(side_effect=AssertionError("must not run"))):
-            with self.assertRaises(RuntimeError) as ctx:
-                autopilot._generate_video("https://x/i.jpg", "smile", 5.0, 4)
-        self.assertIn("Space is down", str(ctx.exception))
-
-
-class KaggleVideogenTest(unittest.TestCase):
-    """kaggle_videogen mirrors kaggle_imagegen's push/poll/output contract."""
-
-    def _fake_run(self, status_payload, video_written=True):
-        def run(cmd, *a, **kw):
-            if cmd[:3] == ["kaggle", "kernels", "push"]:
-                self.pushes.append(cmd)
-            elif cmd[:3] == ["kaggle", "kernels", "status"]:
-                return mock.Mock(returncode=0, stdout="KernelWorkerStatus.COMPLETE",
-                                 stderr="")
-            elif cmd[:3] == ["kaggle", "kernels", "output"]:
-                out = Path(cmd[cmd.index("-p") + 1])
-                out.mkdir(parents=True, exist_ok=True)
-                if status_payload is not None:
-                    (out / "status.json").write_text(json.dumps(status_payload))
-                if video_written:
-                    (out / "video.mp4").write_bytes(b"rawmp4")
-            return mock.Mock(returncode=0, stdout="", stderr="")
-        return run
-
-    def setUp(self):
-        self.pushes = []
-
-    def test_pushes_with_a_t4_and_normalizes_the_result(self):
-        env = {"KAGGLE_USERNAME": "u", "KAGGLE_KEY": "k"}
-        with tempfile.TemporaryDirectory() as tmp, \
-             mock.patch.dict(os.environ, env, clear=True), \
-             mock.patch.object(kaggle_videogen.subprocess, "run",
-                              self._fake_run({"ok": True, "stage": "done",
-                                              "video": "video.mp4"})), \
-             mock.patch.object(kaggle_videogen.videogen, "normalize_for_tiktok",
-                              lambda src, dest: Path(dest).write_bytes(b"normalized")):
-            out = kaggle_videogen.generate("https://x/i.jpg", "smile",
-                                          out_dir=str(Path(tmp) / "out"))
-            self.assertEqual(Path(out).read_bytes(), b"normalized")
-        self.assertEqual(len(self.pushes), 1)
-        self.assertIn("--accelerator", self.pushes[0])
-        self.assertEqual(self.pushes[0][self.pushes[0].index("--accelerator") + 1],
-                        "NvidiaTeslaT4")
-
-    def test_kernel_failure_surfaces_its_traceback(self):
-        env = {"KAGGLE_USERNAME": "u", "KAGGLE_KEY": "k"}
-        payload = {"ok": False, "error": "P100 (sm_60)", "traceback": "Traceback..."}
-        with mock.patch.dict(os.environ, env, clear=True), \
-             mock.patch.object(kaggle_videogen.subprocess, "run",
-                              self._fake_run(payload, video_written=False)):
-            with self.assertRaises(RuntimeError) as ctx:
-                kaggle_videogen.generate("https://x/i.jpg", "smile")
-        self.assertIn("P100 (sm_60)", str(ctx.exception))
-        self.assertIn("Traceback...", str(ctx.exception))
-
-    def test_a_kernel_killed_mid_run_is_reported_as_killed(self):
-        """The OOM killer lands below Python's own error handling, so the kernel's
-        except block never runs and status.json keeps whatever the last write said.
-        It used to say {"stage": "start", "ok": true} -- so a killed run was read as
-        a success with a mysteriously missing file. Seen live: LTX's text encoder got
-        "Killed" at 32% of weight loading."""
-        env = {"KAGGLE_USERNAME": "u", "KAGGLE_KEY": "k"}
-        with mock.patch.dict(os.environ, env, clear=True), \
-             mock.patch.object(kaggle_videogen.subprocess, "run",
-                              self._fake_run({"ok": True, "stage": "start"},
-                                             video_written=False)):
-            with self.assertRaises(RuntimeError) as ctx:
-                kaggle_videogen.generate("https://x/i.jpg", "smile")
-        self.assertIn("never finished", str(ctx.exception))
-
-    def test_missing_status_json_raises(self):
-        env = {"KAGGLE_USERNAME": "u", "KAGGLE_KEY": "k"}
-        with mock.patch.dict(os.environ, env, clear=True), \
-             mock.patch.object(kaggle_videogen.subprocess, "run",
-                              self._fake_run(None, video_written=False)):
-            with self.assertRaises(RuntimeError) as ctx:
-                kaggle_videogen.generate("https://x/i.jpg", "smile")
-        self.assertIn("status.json", str(ctx.exception))
-
-    def test_missing_credentials_raises_before_any_subprocess_call(self):
-        with mock.patch.dict(os.environ, {}, clear=True), \
-             mock.patch.object(kaggle_videogen.subprocess, "run",
-                              mock.Mock(side_effect=AssertionError("must not run"))):
-            with self.assertRaises(RuntimeError):
-                kaggle_videogen.generate("https://x/i.jpg", "smile")
 
 
 class VideoGenTest(unittest.TestCase):
