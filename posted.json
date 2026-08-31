@@ -20,7 +20,8 @@
       "aibeauty-20260830-170641",
       "aibeauty-20260831-112913",
       "aibeauty-20260831-130433",
-      "aibeauty-20260831-134409"
+      "aibeauty-20260831-134409",
+      "aibeauty-20260831-193252"
     ]
   },
   "uploads": [
@@ -571,6 +572,40 @@
       "video_url": "https://gesimuse.github.io/mpt/media/1788199807-final.mp4",
       "ts": "2026-08-31T18:11:15",
       "motionforge_source_url": "https://gesimuse.github.io/mpt/media/1788112101-sd_2.jpg"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260831-193252",
+      "title": "city magic at my fingertips",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7680291877106796566",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "city magic at my fingertips\n\nCreated with AI.\n\n#artificialdreams #neuraesthetic #citylifevibes #eveningmoods",
+      "image_urls": [
+        "https://gesimuse.github.io/mpt/media/1788207231-sd_0.jpg",
+        "https://gesimuse.github.io/mpt/media/1788207260-sd_1.jpg",
+        "https://gesimuse.github.io/mpt/media/1788207292-sd_2.jpg",
+        "https://gesimuse.github.io/mpt/media/1788207318-sd_3.jpg",
+        "https://gesimuse.github.io/mpt/media/1788207352-sd_4.jpg"
+      ],
+      "image_prompts": [
+        "beautiful adult woman, sri lankan woman in her late twenties, wavy black hair, deep brown skin, wearing a strapless satin mini dress, on a balcony at night, city skyline behind her, seductive, sexy, alluring, round breasts, round ass, beautiful, leaning forward, playful confident energy, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, wide shot, natural window light, a 30yo, 30 years old lithuanian woman\nhighly detailed mid shot portrait photo, sharp focus on eyes, cinematic lighting",
+        "beautiful adult woman, sri lankan woman in her late twenties, wavy black hair, deep brown skin, wearing a strapless satin mini dress, on a balcony at night, city skyline behind her, seductive, sexy, alluring, round breasts, round ass, beautiful, leaning forward, playful confident energy, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, close-up shot, shallow depth of field, a 30yo, 30 years old lithuanian woman\nhighly detailed mid shot portrait photo, sharp focus on eyes, cinematic lighting",
+        "beautiful adult woman, sri lankan woman in her late twenties, wavy black hair, deep brown skin, wearing a strapless satin mini dress, on a balcony at night, city skyline behind her, seductive, sexy, alluring, round breasts, round ass, beautiful, leaning forward, playful confident energy, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, eye-level shot, diffused overcast light, a 30yo, 30 years old lithuanian woman\nhighly detailed mid shot portrait photo, sharp focus on eyes, cinematic lighting",
+        "beautiful adult woman, sri lankan woman in her late twenties, wavy black hair, deep brown skin, wearing a strapless satin mini dress, on a balcony at night, city skyline behind her, seductive, sexy, alluring, round breasts, round ass, beautiful, leaning forward, playful confident energy, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, profile view, moody side lighting, a 30yo, 30 years old lithuanian woman\nhighly detailed mid shot portrait photo, sharp focus on eyes, cinematic lighting",
+        "beautiful adult woman, sri lankan woman in her late twenties, wavy black hair, deep brown skin, wearing a strapless satin mini dress, on a balcony at night, city skyline behind her, seductive, sexy, alluring, round breasts, round ass, beautiful, leaning forward, playful confident energy, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, three-quarter view, soft studio lighting, a 30yo, 30 years old lithuanian woman\nhighly detailed mid shot portrait photo, sharp focus on eyes, cinematic lighting"
+      ],
+      "vibe": "city lights from the balcony",
+      "look": "sri-lankan",
+      "motion_prompts": [
+        "She leans forward slightly more, then pauses, her hands rising to grip the balcony railing as she looks out at the city skyline.",
+        "Hands glide down her sides, a slow sweep from ribs to hips, her upper body bracing into a relaxed, sensual curve.",
+        "She turns slightly to the side, eyes drifting back towards the lens, left hand brushing along the curve of her hip.",
+        "She slowly shifts her weight, rolling her hips from profile to facing the camera, her hands still on her hips. Her hair falls lazily behind her.",
+        "She starts to walk away, hips swaying, before glancing back over her shoulder, her dark hair gently swaying with the movement."
+      ],
+      "ts": "2026-08-31T20:16:34"
     }
   ],
   "model_stats": {
@@ -581,8 +616,8 @@
     },
     "89548:95334": {
       "name": "HydraMix",
-      "used": 50,
-      "passed": 50
+      "used": 60,
+      "passed": 60
     },
     "83490:88738": {
       "name": "Vendo Photorealistic 2",
@@ -644,6 +679,10 @@
       "passed": 10
     },
     "courtside": {
+      "used": 10,
+      "passed": 10
+    },
+    "city lights from the balcony": {
       "used": 10,
       "passed": 10
     }
