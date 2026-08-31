@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-31T14:34:19 — aibeauty
+
+```
+my happy place
+
+Created with AI.
+
+#aiart #generativeart #courtsidevibes #scoreboardstyle #artificialintelligenceart #chicincolor
+```
+
 ## 2026-08-31T13:40:09 — aibeauty
 
 ```
@@ -68,14 +78,4 @@ Some days just look like this.
 Created with AI.
 
 #aiart #aigenerated #aiphotography #confident
-```
-
-## 2026-08-29T17:15:21 — aibeautyvideo
-
-```
-Some days just look like this.
-
-Created with AI.
-
-#aiart #aivideo #wan22 #confident
 ```

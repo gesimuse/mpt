@@ -19,7 +19,8 @@
       "aibeauty-20260830-141949",
       "aibeauty-20260830-170641",
       "aibeauty-20260831-112913",
-      "aibeauty-20260831-130433"
+      "aibeauty-20260831-130433",
+      "aibeauty-20260831-134409"
     ]
   },
   "uploads": [
@@ -540,6 +541,40 @@
         "She slowly turns her head, arching her back, and catches the camera's gaze as her weight shifts through her hips."
       ],
       "ts": "2026-08-31T13:40:09"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260831-134409",
+      "title": "my happy place",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7680203991417948182",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "my happy place\n\nCreated with AI.\n\n#aiart #generativeart #courtsidevibes #scoreboardstyle #artificialintelligenceart #chicincolor",
+      "image_urls": [
+        "https://gesimuse.github.io/mpt/media/1788186638-sd_0.jpg",
+        "https://gesimuse.github.io/mpt/media/1788186668-sd_1.jpg",
+        "https://gesimuse.github.io/mpt/media/1788186709-sd_2.jpg",
+        "https://gesimuse.github.io/mpt/media/1788186789-sd_3.jpg",
+        "https://gesimuse.github.io/mpt/media/1788186822-sd_4.jpg"
+      ],
+      "image_prompts": [
+        "beautiful adult woman, black american woman in her early thirties, sleek straight hair, hourglass figure, wearing a pleated tennis skirt and a fitted polo, seductive, sexy, alluring, round breasts, round ass, beautiful, mid-motion, athletic, competitive smirk, over-the-shoulder framing, warm ambient light, city street, neon, fog, volumetric, closeup portrait photo of young woman in dark clothes",
+        "beautiful adult woman, black american woman in her early thirties, sleek straight hair, hourglass figure, wearing a pleated tennis skirt and a fitted polo, seductive, sexy, alluring, round breasts, round ass, beautiful, mid-motion, athletic, competitive smirk, full body shot, standing pose, wide framing, city street, neon, fog, volumetric, closeup portrait photo of young woman in dark clothes",
+        "beautiful adult woman, black american woman in her early thirties, sleek straight hair, hourglass figure, wearing a pleated tennis skirt and a fitted polo, seductive, sexy, alluring, round breasts, round ass, beautiful, mid-motion, athletic, competitive smirk, close-up shot, shallow depth of field, city street, neon, fog, volumetric, closeup portrait photo of young woman in dark clothes",
+        "beautiful adult woman, black american woman in her early thirties, sleek straight hair, hourglass figure, wearing a pleated tennis skirt and a fitted polo, seductive, sexy, alluring, round breasts, round ass, beautiful, mid-motion, athletic, competitive smirk, full body portrait, standing, wide angle, city street, neon, fog, volumetric, closeup portrait photo of young woman in dark clothes",
+        "beautiful adult woman, black american woman in her early thirties, sleek straight hair, hourglass figure, wearing a pleated tennis skirt and a fitted polo, seductive, sexy, alluring, round breasts, round ass, beautiful, mid-motion, athletic, competitive smirk, slightly low angle, golden hour light, city street, neon, fog, volumetric, closeup portrait photo of young woman in dark clothes"
+      ],
+      "vibe": "courtside",
+      "look": "black-american",
+      "motion_prompts": [
+        "She slowly arches her back, hips shifting weight onto one leg as her hands sweep across the pleats of her skirt, the fabric catching the warm ambient light.",
+        "She leans forward slightly, letting the fog from the street roll slowly across her skin, before rolling slowly back up to her starting position.",
+        "She slowly pivots on one foot, hip joints shifting, as her hands run up her thighs and settle on her hips, her gaze holding the camera.",
+        "She pivots slowly on one heel, her hips shifting, and her body lengthening as she straightens, one hand tracing down her side.",
+        "She slowly arches, then lowers her back, revealing the curve of her rear, the fitted polo standing still against her, and her hair stays."
+      ],
+      "ts": "2026-08-31T14:34:19"
     }
   ],
   "model_stats": {
@@ -592,6 +627,11 @@
       "name": "Fashion Dress",
       "used": 0,
       "passed": 0
+    },
+    "4201:501240": {
+      "name": "Realistic Vision V6.0 B1",
+      "used": 10,
+      "passed": 10
     }
   },
   "theme_stats": {
@@ -604,6 +644,10 @@
       "passed": 0
     },
     "steam and soft light": {
+      "used": 10,
+      "passed": 10
+    },
+    "courtside": {
       "used": 10,
       "passed": 10
     }
