@@ -17,7 +17,8 @@
       "aibeauty-20260830-102337",
       "aibeauty-20260830-123921",
       "aibeauty-20260830-141949",
-      "aibeauty-20260830-170641"
+      "aibeauty-20260830-170641",
+      "aibeauty-20260831-112913"
     ]
   },
   "uploads": [
@@ -472,6 +473,39 @@
       "video_url": "https://gesimuse.github.io/mpt/media/1788115140-final.mp4",
       "ts": "2026-08-30T18:40:02",
       "motionforge_source_url": "https://gesimuse.github.io/mpt/media/upload-1788096271934.jpg"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260831-112913",
+      "title": "romance by design",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7680165273814534166",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "romance by design\n\nCreated with AI.\n\n#aiart #neuraesthetic #softdreams #artificialwool #dreamysoft #moodyvapour",
+      "image_urls": [
+        "https://gesimuse.github.io/mpt/media/1788177680-sd_0.jpg",
+        "https://gesimuse.github.io/mpt/media/1788177710-sd_1.jpg",
+        "https://gesimuse.github.io/mpt/media/1788177746-sd_2.jpg",
+        "https://gesimuse.github.io/mpt/media/1788177769-sd_3.jpg",
+        "https://gesimuse.github.io/mpt/media/1788177802-sd_4.jpg"
+      ],
+      "image_prompts": [
+        "beautiful adult latina woman in her late twenties, in a steamy shower, glass fogged with steam, seductive, sexy, alluring, round breasts, round ass, beautiful, wet skin, dripping water, glistening body, full body portrait, standing, wide angle, (MASTERPIECE:1. 2), (REALISTIC:1. 4), (POST PROCESSING:1. 3), (SHARP FOCUS:1. 3), 8K, mid body shot (85mm photo) , A Woman, Portrait, outdoor, Empire Waist dress, bokeh, wavy hair , (highly detailed body, highly detailed face, highly detailed eye, best quality:1. 2)",
+        "beautiful adult latina woman in her late twenties, in a steamy shower, glass fogged with steam, seductive, sexy, alluring, round breasts, round ass, beautiful, wet skin, dripping water, glistening body, medium shot, gentle rim lighting, (MASTERPIECE:1. 2), (REALISTIC:1. 4), (POST PROCESSING:1. 3), (SHARP FOCUS:1. 3), 8K, mid body shot (85mm photo) , A Woman, Portrait, outdoor, Empire Waist dress, bokeh, wavy hair , (highly detailed body, highly detailed face, highly detailed eye, best quality:1. 2)",
+        "beautiful adult latina woman in her late twenties, in a steamy shower, glass fogged with steam, seductive, sexy, alluring, round breasts, round ass, beautiful, wet skin, dripping water, glistening body, close-up shot, shallow depth of field, (MASTERPIECE:1. 2), (REALISTIC:1. 4), (POST PROCESSING:1. 3), (SHARP FOCUS:1. 3), 8K, mid body shot (85mm photo) , A Woman, Portrait, outdoor, Empire Waist dress, bokeh, wavy hair , (highly detailed body, highly detailed face, highly detailed eye, best quality:1. 2)",
+        "beautiful adult latina woman in her late twenties, in a steamy shower, glass fogged with steam, seductive, sexy, alluring, round breasts, round ass, beautiful, wet skin, dripping water, glistening body, candid framing, natural daylight, (MASTERPIECE:1. 2), (REALISTIC:1. 4), (POST PROCESSING:1. 3), (SHARP FOCUS:1. 3), 8K, mid body shot (85mm photo) , A Woman, Portrait, outdoor, Empire Waist dress, bokeh, wavy hair , (highly detailed body, highly detailed face, highly detailed eye, best quality:1. 2)",
+        "beautiful adult latina woman in her late twenties, in a steamy shower, glass fogged with steam, seductive, sexy, alluring, round breasts, round ass, beautiful, wet skin, dripping water, glistening body, slightly low angle, golden hour light, (MASTERPIECE:1. 2), (REALISTIC:1. 4), (POST PROCESSING:1. 3), (SHARP FOCUS:1. 3), 8K, mid body shot (85mm photo) , A Woman, Portrait, outdoor, Empire Waist dress, bokeh, wavy hair , (highly detailed body, highly detailed face, highly detailed eye, best quality:1. 2)"
+      ],
+      "vibe": "steam and soft light",
+      "motion_prompts": [
+        "She slowly pivots to her right, letting the camera read her silhouette, as her hair cascades down her back, glistening with water.",
+        "She turns to face the camera, her hips swaying slightly as her shoulders roll back, lifting her chest, and drawing in her waist.",
+        "Slowly, she shifts her weight onto one leg, arching her back as her hips move under her, giving a subtle view of her Empire Waist dress. Her hair gently sways with the movement, a single strand escaping to frame her face.",
+        "She pivots slightly, turns her hips, and looks back over her shoulder, her eyes meeting the lens with a hint of mischief.",
+        "She leans forward, hands falling to her sides, and the wavy hair continues to flow down her back."
+      ],
+      "ts": "2026-08-31T12:04:05"
     }
   ],
   "model_stats": {
@@ -512,8 +546,8 @@
     },
     "105036:128367": {
       "name": "MIX realistic",
-      "used": 20,
-      "passed": 20
+      "used": 30,
+      "passed": 30
     },
     "251478:283756": {
       "name": "fashion-street-photography_and_film-v1",
@@ -534,6 +568,10 @@
     "a rooftop bar at night": {
       "used": 0,
       "passed": 0
+    },
+    "steam and soft light": {
+      "used": 10,
+      "passed": 10
     }
   }
 }
