@@ -64,6 +64,17 @@ NEGATIVE_HARD = ("child, teen, minor, young girl, schoolgirl, loli, nude, toples
 NEGATIVE_QUALITY = ("cartoon, illustration, painting, anime, 3d render, deformed, "
                     "extra fingers, extra limbs, mutated hands, bad anatomy, blurry, "
                     "watermark, text, logo")
+# Suppressing the specific way LCM output fails to look real, which is different from
+# the generic "not a cartoon" list above. At 6 steps the model has no room to resolve
+# skin into texture, so it settles on a smooth, evenly-lit, retouched-looking surface
+# -- plastic, waxy, doll-like. None of those words appeared in any negative prompt
+# this pipeline used, so nothing was pushing against the failure mode it actually has.
+# Paired with imageslides.REALISM_CUE, which asks for the same thing from the positive
+# side; a negative alone is the weaker of the two levers.
+NEGATIVE_REALISM = ("plastic skin, waxy skin, airbrushed, smooth featureless skin, "
+                    "poreless, doll, mannequin, uncanny, cgi, video game render, "
+                    "overprocessed, oversaturated, overexposed, blown highlights, "
+                    "heavy retouching, beauty filter")
 
 _pipes = {}
 _pipe_arch = {}  # cache_key -> "sd15"/"sdxl", needed to pick compel's SD1.5 vs SDXL API
@@ -203,7 +214,8 @@ def generate_image(prompt, dest, model_key=None, negative_prompt="", seed=None,
     import torch
     device, _ = _device()
     generator = torch.Generator(device=device).manual_seed(seed) if seed is not None else None
-    neg = ", ".join(p for p in (NEGATIVE_HARD, NEGATIVE_QUALITY, negative_prompt) if p)
+    neg = ", ".join(p for p in (NEGATIVE_HARD, NEGATIVE_QUALITY, NEGATIVE_REALISM,
+                                negative_prompt) if p)
     encode_kwargs = _encode(pipe, _pipe_arch[cache_key], prompt, neg)
     t0 = time.time()
     image = pipe(

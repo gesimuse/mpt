@@ -3459,6 +3459,64 @@ class SubjectVarietyTest(unittest.TestCase):
             self.assertIn(outdoor, locations)
 
 
+class RealismCueTest(unittest.TestCase):
+    """Two levers against LCM's characteristic look. At 6 steps the model has no room
+    to resolve skin into texture and settles on a smooth, retouched surface -- and no
+    negative prompt this pipeline used contained a single word for that failure mode,
+    nor did anything positively ask for pores or grain."""
+
+    PLAIN = {"prompt": "a woman standing in a room", "negative_prompt": ""}
+
+    def test_realism_cue_is_added_when_the_reference_lacks_it(self):
+        prefix, _, _ = imageslides._build_prefix({}, self.PLAIN)
+        self.assertIn("visible skin pores", prefix)
+        self.assertIn("film grain", prefix)
+
+    def test_it_is_skipped_when_the_reference_already_asks_for_it(self):
+        """CivitAI showcase prompts routinely open with "RAW photo, (skin pores:1.2),
+        85mm" -- restating that spends scarce prompt budget on a duplicate."""
+        for existing in ("RAW photo of a woman", "photorealistic portrait",
+                        "woman, (skin pores:1.2)", "shot on 85mm", "dslr photo"):
+            prefix, _, _ = imageslides._build_prefix(
+                {}, {"prompt": existing, "negative_prompt": ""})
+            self.assertNotIn("visible skin pores", prefix, existing)
+
+    def test_the_cue_never_dictates_lighting(self):
+        """Every theme names its own light (candlelit, neon, golden hour, firelight);
+        a generic "soft natural light" here would contradict most of them."""
+        for word in ("soft light", "natural light", "studio light", "golden hour"):
+            self.assertNotIn(word, imageslides.REALISM_CUE.lower())
+
+    def test_realism_negatives_reach_every_generation_path(self):
+        """sdgen.generate_image builds the negative for local AND Kaggle runs, so
+        adding them there covers both rather than only the caller that remembers."""
+        for term in ("plastic skin", "waxy skin", "airbrushed", "doll"):
+            self.assertIn(term, sdgen.NEGATIVE_REALISM)
+
+    def test_negatives_are_actually_joined_into_the_call(self):
+        captured = {}
+
+        def fake_encode(pipe, arch, prompt, negative):
+            captured["negative"] = negative
+            return {"prompt": prompt, "negative_prompt": negative}
+
+        class FakeImg:
+            def save(self, *a, **k): pass
+            def convert(self, *a, **k): return self
+        fake_pipe = mock.Mock(return_value=mock.Mock(images=[FakeImg()]))
+
+        with mock.patch.object(sdgen, "_load", lambda k: fake_pipe), \
+             mock.patch.object(sdgen, "_encode", fake_encode), \
+             mock.patch.dict(sdgen._pipe_arch, {"dreamshaper": "sd15"}, clear=False), \
+             mock.patch.object(sdgen, "CIVITAI_MODEL", None), \
+             mock.patch.object(sdgen, "DEFAULT_MODEL", "dreamshaper"):
+            try:
+                sdgen.generate_image("a woman", "/tmp/x.jpg")
+            except Exception:
+                pass  # only the negative string matters here
+        self.assertIn("plastic skin", captured.get("negative", ""))
+
+
 class MergeStateTest(unittest.TestCase):
     """scripts/merge_state.py replaces `git pull --rebase` for posted.json.
 

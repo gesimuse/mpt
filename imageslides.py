@@ -177,6 +177,23 @@ _LOCATION_RE = re.compile(
     r"park|library|cafe|bedroom|shower|pool|yacht|hotel|rooftop|bathtub|beach|"
     r"lounge|balcony|backstage)\b", re.I)
 
+# The positive half of the realism push (sdgen.NEGATIVE_REALISM is the negative half).
+# Asks for the texture LCM tends to smooth away: pores, fine detail, grain, a real
+# lens. Deliberately says nothing about LIGHTING -- every theme names its own
+# (candlelit, neon, golden hour, firelight), and a generic "soft natural light" here
+# would contradict most of them, the same conflict _LOCATION_RE/_CLOTHING_RE exist to
+# avoid for setting and outfit.
+REALISM_CUE = ("photorealistic photograph, natural skin texture, visible skin pores, "
+               "fine facial detail, shot on 85mm lens, subtle film grain")
+# Harvested CivitAI showcase prompts frequently already open with "RAW photo",
+# "(skin pores:1.2)", "8K" and similar -- those creators are optimising for the same
+# thing. Appending our own copy on top of one of those spends scarce prompt budget
+# restating what is already there, so it is injected only when the reference does not
+# already ask for it. Same conditional shape as clothing and location above.
+_REALISM_RE = re.compile(
+    r"\b(?:raw photo|photorealistic|photo-realistic|skin pores|skin texture|"
+    r"film grain|analog film|85mm|50mm|35mm|dslr|hyperrealistic)\b", re.I)
+
 # Hard line: no exposed nipples/genitals, no real nudity, no minors. Everything else
 # (swimwear, lingerie, loungewear) is within policy and is not filtered here.
 #
@@ -693,7 +710,8 @@ def _build_prefix(niche, reference, state=None):
     subject, look = _build_subject(state)
     clothing = "" if _CLOTHING_RE.search(reference["prompt"]) else f"{theme['outfit']}, "
     setting = "" if _LOCATION_RE.search(reference["prompt"]) else f"{theme['location']}, "
-    prefix = f"{subject}, {clothing}{setting}{SEXY_CUE}, {theme['mood']}"
+    realism = "" if _REALISM_RE.search(reference["prompt"]) else f", {REALISM_CUE}"
+    prefix = f"{subject}, {clothing}{setting}{SEXY_CUE}, {theme['mood']}{realism}"
     return prefix, theme["vibe"], look
 
 
