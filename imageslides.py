@@ -214,38 +214,108 @@ SAFETY_PREFIX = "beautiful adult woman"
 # is entirely outside the excluded appearance keeps that steer just as strong on every
 # image while restoring the variety the fixed string cost.
 SUBJECTS = [
-    {"look": "latina-dark", "desc": "latina woman in her late twenties, long dark wavy hair"},
-    {"look": "latina-bronze", "desc": "latina woman in her mid twenties, sun-kissed skin, "
-                                       "dark hair in a high ponytail"},
-    {"look": "brazilian", "desc": "brazilian woman in her late twenties, long honey-brown "
-                                   "hair, athletic figure"},
-    {"look": "colombian", "desc": "colombian woman in her mid twenties, dark curls, "
-                                   "warm brown eyes"},
-    {"look": "spanish", "desc": "spanish woman in her early thirties, dark hair in loose "
-                                 "waves, olive skin"},
-    {"look": "italian", "desc": "italian woman in her late twenties, dark brown hair, "
-                                 "striking features"},
-    {"look": "greek", "desc": "greek woman in her late twenties, thick dark hair, "
-                               "sun-tanned skin"},
-    {"look": "middle-eastern", "desc": "middle eastern woman in her late twenties, long "
-                                        "black hair, dark eyes"},
-    {"look": "persian", "desc": "persian woman in her early thirties, long dark hair, "
-                                 "elegant features"},
-    {"look": "turkish", "desc": "turkish woman in her late twenties, dark hair, "
-                                 "hazel eyes"},
-    {"look": "european-blonde", "desc": "european woman in her late twenties, long blonde "
-                                         "hair, fair skin"},
-    {"look": "european-redhead", "desc": "european woman in her mid twenties, auburn red "
-                                          "hair, freckles, fair skin"},
-    {"look": "scandinavian", "desc": "scandinavian woman in her late twenties, light "
-                                      "blonde hair, blue eyes"},
-    {"look": "french", "desc": "french woman in her early thirties, chestnut brown hair, "
-                                "effortless styling"},
-    {"look": "russian", "desc": "russian woman in her mid twenties, ash blonde hair, "
-                                 "sharp cheekbones"},
-    {"look": "brunette-tall", "desc": "tall brunette woman in her early thirties, long "
-                                       "straight dark hair"},
+    # Grouped by region purely for readability -- selection is uniform across the
+    # whole list (minus the no-repeat window), so no group is favoured.
+    #
+    # Every entry names an explicit adult age band. That is redundant with
+    # SAFETY_PREFIX's "adult woman" on purpose: age is the one attribute where a
+    # second, per-entry statement of it is worth the repetition, and supervisor.py's
+    # age_appears_adult gate is the check behind both.
+    #
+    # No entry describes Chinese or East Asian appearance -- a standing operator
+    # preference that supervisor.ethnicity_excluded enforces regardless. Keeping the
+    # whole pool outside it means the positive steer "latina" used to provide from
+    # inside SAFETY_PREFIX is still present on every single image.
+
+    # --- Latin America ---
+    {"look": "mexican", "desc": "mexican woman in her late twenties, long dark wavy hair, warm brown eyes"},
+    {"look": "colombian", "desc": "colombian woman in her mid twenties, dark curls, warm brown eyes"},
+    {"look": "brazilian", "desc": "brazilian woman in her late twenties, long honey-brown hair, athletic figure"},
+    {"look": "argentinian", "desc": "argentinian woman in her early thirties, chestnut hair, fair olive skin"},
+    {"look": "venezuelan", "desc": "venezuelan woman in her mid twenties, glossy black hair, striking features"},
+    {"look": "cuban", "desc": "cuban woman in her late twenties, dark curls pinned up, golden brown skin"},
+    {"look": "dominican", "desc": "dominican woman in her mid twenties, voluminous curly hair, radiant skin"},
+    {"look": "puerto-rican", "desc": "puerto rican woman in her late twenties, caramel highlights, hourglass figure"},
+    {"look": "peruvian", "desc": "peruvian woman in her early thirties, long straight black hair, bronze skin"},
+    {"look": "chilean", "desc": "chilean woman in her late twenties, dark brown hair in a loose braid"},
+    {"look": "latina-bronze", "desc": "latina woman in her mid twenties, sun-kissed skin, dark hair in a high ponytail"},
+    {"look": "afro-latina", "desc": "afro-latina woman in her late twenties, natural curls, deep brown skin"},
+
+    # --- Southern Europe ---
+    {"look": "spanish", "desc": "spanish woman in her early thirties, dark hair in loose waves, olive skin"},
+    {"look": "italian", "desc": "italian woman in her late twenties, dark brown hair, striking features"},
+    {"look": "sicilian", "desc": "sicilian woman in her early thirties, thick black hair, dark eyes"},
+    {"look": "greek", "desc": "greek woman in her late twenties, thick dark hair, sun-tanned skin"},
+    {"look": "portuguese", "desc": "portuguese woman in her mid twenties, dark hair, freckled olive skin"},
+
+    # --- Eastern Europe ---
+    {"look": "russian", "desc": "russian woman in her mid twenties, ash blonde hair, sharp cheekbones"},
+    {"look": "ukrainian", "desc": "ukrainian woman in her late twenties, long light brown hair, grey eyes"},
+    {"look": "polish", "desc": "polish woman in her mid twenties, blonde hair, pale skin, blue eyes"},
+    {"look": "czech", "desc": "czech woman in her late twenties, dark blonde hair, delicate features"},
+    {"look": "romanian", "desc": "romanian woman in her early thirties, long dark hair, green eyes"},
+    {"look": "serbian", "desc": "serbian woman in her late twenties, tall, dark hair, strong features"},
+    {"look": "hungarian", "desc": "hungarian woman in her mid twenties, honey blonde hair, hazel eyes"},
+    {"look": "bulgarian", "desc": "bulgarian woman in her late twenties, dark brown hair, olive skin"},
+    {"look": "georgian", "desc": "georgian woman in her early thirties, jet black hair, pale skin"},
+
+    # --- Northern and Western Europe ---
+    {"look": "scandinavian", "desc": "scandinavian woman in her late twenties, light blonde hair, blue eyes"},
+    {"look": "swedish", "desc": "swedish woman in her mid twenties, straight platinum blonde hair, tall"},
+    {"look": "norwegian", "desc": "norwegian woman in her late twenties, dark blonde hair, athletic build"},
+    {"look": "danish", "desc": "danish woman in her early thirties, sandy blonde hair, understated styling"},
+    {"look": "irish", "desc": "irish woman in her mid twenties, auburn hair, freckles, pale skin"},
+    {"look": "scottish", "desc": "scottish woman in her late twenties, copper red hair, fair skin"},
+    {"look": "dutch", "desc": "dutch woman in her late twenties, tall, blonde hair, wide smile"},
+    {"look": "german", "desc": "german woman in her early thirties, dark blonde hair, athletic figure"},
+    {"look": "french", "desc": "french woman in her early thirties, chestnut brown hair, effortless styling"},
+    {"look": "parisian-brunette", "desc": "french woman in her mid twenties, tousled dark brown hair, natural makeup"},
+    {"look": "british", "desc": "british woman in her late twenties, dark brown hair, porcelain skin"},
+    {"look": "welsh", "desc": "welsh woman in her mid twenties, dark curly hair, grey-green eyes"},
+
+    # --- Middle East, Caucasus, North Africa ---
+    {"look": "lebanese", "desc": "lebanese woman in her late twenties, long dark hair, striking green eyes"},
+    {"look": "persian", "desc": "persian woman in her early thirties, long dark hair, elegant features"},
+    {"look": "turkish", "desc": "turkish woman in her late twenties, dark hair, hazel eyes"},
+    {"look": "israeli", "desc": "israeli woman in her mid twenties, dark wavy hair, sun-tanned skin"},
+    {"look": "armenian", "desc": "armenian woman in her early thirties, thick black hair, dark eyes"},
+    {"look": "moroccan", "desc": "moroccan woman in her late twenties, dark hair, warm amber skin"},
+    {"look": "egyptian", "desc": "egyptian woman in her mid twenties, long black hair, deep brown eyes"},
+    {"look": "tunisian", "desc": "tunisian woman in her late twenties, dark curls, olive skin"},
+
+    # --- Africa and the diaspora ---
+    {"look": "nigerian", "desc": "nigerian woman in her late twenties, natural afro, deep brown skin"},
+    {"look": "ethiopian", "desc": "ethiopian woman in her mid twenties, long dark curls, fine features"},
+    {"look": "kenyan", "desc": "kenyan woman in her early thirties, short cropped hair, tall and slender"},
+    {"look": "somali", "desc": "somali woman in her late twenties, long braided hair, elegant bearing"},
+    {"look": "ghanaian", "desc": "ghanaian woman in her mid twenties, braided updo, radiant dark skin"},
+    {"look": "south-african", "desc": "south african woman in her late twenties, sun-lightened brown hair"},
+    {"look": "caribbean", "desc": "caribbean woman in her late twenties, long box braids, warm brown skin"},
+    {"look": "black-american", "desc": "black american woman in her early thirties, sleek straight hair, hourglass figure"},
+
+    # --- South Asia ---
+    {"look": "indian", "desc": "indian woman in her late twenties, long glossy black hair, dark eyes"},
+    {"look": "punjabi", "desc": "punjabi woman in her mid twenties, thick dark hair, warm golden skin"},
+    {"look": "pakistani", "desc": "pakistani woman in her early thirties, long dark hair, light hazel eyes"},
+    {"look": "sri-lankan", "desc": "sri lankan woman in her late twenties, wavy black hair, deep brown skin"},
+
+    # --- Oceania and mixed heritage ---
+    {"look": "australian", "desc": "australian woman in her mid twenties, sun-bleached blonde hair, tanned"},
+    {"look": "new-zealander", "desc": "new zealander woman in her late twenties, wavy brown hair, freckles"},
+    {"look": "mixed-heritage", "desc": "mixed heritage woman in her late twenties, loose curls, amber skin"},
+
+    # --- Styling-led, region unspecified: the same variation axis from a different
+    # angle, so the pool is not purely a list of nationalities. ---
+    {"look": "tall-brunette", "desc": "tall brunette woman in her early thirties, long straight dark hair"},
+    {"look": "athletic-blonde", "desc": "athletic blonde woman in her mid twenties, toned figure, ponytail"},
+    {"look": "curvy-redhead", "desc": "curvy redhead woman in her late twenties, long wavy copper hair"},
+    {"look": "silver-blonde", "desc": "woman in her early thirties, striking silver-blonde hair, pale eyes"},
+    {"look": "jet-black-bob", "desc": "woman in her late twenties, sharp jet black bob, bold dark brows"},
+    {"look": "sun-freckled", "desc": "woman in her mid twenties, sandy brown hair, freckles across her nose"},
+    {"look": "long-wavy-caramel", "desc": "woman in her late twenties, long caramel waves, golden skin"},
+    {"look": "short-pixie", "desc": "woman in her early thirties, short dark pixie cut, elegant neckline"},
 ]
+
 
 SEXY_CUE = "seductive, sexy, alluring, round breasts, round ass, beautiful"
 NEGATIVE_HARD = ("child, teen, minor, young girl, schoolgirl, nude, topless, "

@@ -3377,6 +3377,33 @@ class SubjectVarietyTest(unittest.TestCase):
         looks = {imageslides._build_prefix({}, self.REFERENCE)[2] for _ in range(60)}
         self.assertGreater(len(looks), 5, "subject must not be effectively fixed")
 
+    def test_look_ids_are_unique(self):
+        """The id is the anti-repeat key -- two entries sharing one would make the
+        window block a look that was never used."""
+        looks = [s["look"] for s in imageslides.SUBJECTS]
+        self.assertEqual(len(looks), len(set(looks)))
+
+    def test_every_subject_states_an_adult_age_band(self):
+        """Redundant with SAFETY_PREFIX's "adult woman" on purpose: age is the one
+        attribute worth stating twice, and supervisor.age_appears_adult is the check
+        behind both. A new entry that forgets it should fail here, not in review."""
+        for sub in imageslides.SUBJECTS:
+            self.assertTrue(
+                any(band in sub["desc"] for band in ("twenties", "thirties", "forties")),
+                f"{sub['look']} names no adult age band: {sub['desc']}")
+
+    def test_no_subject_suggests_a_minor(self):
+        for sub in imageslides.SUBJECTS:
+            low = sub["desc"].lower()
+            for word in ("teen", "young girl", "schoolgirl", "child", "petite", "tiny"):
+                self.assertNotIn(word, low, sub["look"])
+
+    def test_the_pool_is_big_enough_to_outrun_the_window(self):
+        """The no-repeat window only helps if the pool is comfortably larger than it;
+        otherwise the fallback fires constantly and repeats come back."""
+        self.assertGreater(len(imageslides.SUBJECTS),
+                          imageslides.NO_REPEAT_WINDOW * 4)
+
     def test_no_subject_is_east_asian(self):
         """A standing operator preference (supervisor.ethnicity_excluded enforces it).
         "latina" was originally glued into SAFETY_PREFIX as a positive steer away from
