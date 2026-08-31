@@ -25,6 +25,7 @@ file CivitAI itself reports is also refused.
 """
 import os, random, re, time
 from pathlib import Path
+from urllib.parse import urlparse
 
 import requests
 
@@ -43,10 +44,41 @@ def _headers():
 
     The key also fixes a real problem: /api/v1/models and /api/v1/images returned 451
     to this account without it, for reasons CivitAI does not document on the response.
-    Model-version lookups and downloads work unauthenticated regardless."""
+
+    Downloads used to work unauthenticated; they no longer do for every model. See
+    _download_headers below -- this function is for the JSON API, that one for the
+    file endpoint, and they differ on redirects."""
     headers = {"User-Agent": "mpt-autopilot/1.0"}
     key = (os.environ.get("CIVITAI_API_KEY") or "").strip()
     if key:
+        headers["Authorization"] = f"Bearer {key}"
+    return headers
+
+
+# The signed storage host CivitAI's download endpoint redirects to. An Authorization
+# header on a pre-signed URL can fail signature validation on S3-compatible backends,
+# so the key must reach civitai.com and stop there. requests already drops Authorization
+# on a cross-host redirect, which handles the hop; this is the belt to that braces.
+_CIVITAI_API_HOSTS = {"civitai.com", "www.civitai.com"}
+
+
+def _download_headers(url):
+    """Headers for CivitAI's FILE endpoint (/api/download/...), which is a different
+    problem from _headers()' JSON API.
+
+    Both this and download() used to send a bare User-Agent, on a comment asserting
+    that resolved["url"] is "a pre-signed R2 storage link, not the civitai.com API".
+    That was wrong on both counts: _resolved() sets url to chosen["downloadUrl"], which
+    IS civitai.com/api/download/models/<id>, and CivitAI now gates at least some models
+    behind auth there. Confirmed live on model 352289: no auth -> 401, API key -> 200
+    then a 307 to b2.civitai.com. It broke every Kaggle image run (the 401 surfaced as
+    "Kaggle image gen failed", silently falling back to ~40min of local CPU generation)
+    and would have broken local downloads of the same gated models too.
+
+    The key is attached only for civitai.com itself, never for the storage host."""
+    headers = {"User-Agent": "mpt-autopilot/1.0"}
+    key = (os.environ.get("CIVITAI_API_KEY") or "").strip()
+    if key and urlparse(url).hostname in _CIVITAI_API_HOSTS:
         headers["Authorization"] = f"Bearer {key}"
     return headers
 
@@ -339,10 +371,9 @@ def download(resolved, dest_dir=None, chunk_size=1 << 20):
         return dest
 
     tmp = dest.with_suffix(dest.suffix + ".part")
-    # The download URL is a pre-signed R2 storage link, not the civitai.com API -- send
-    # a plain User-Agent, not the API key, since an unexpected Authorization header on a
-    # signed URL request can fail signature validation on some S3-compatible backends.
-    with requests.get(resolved["url"], headers={"User-Agent": "mpt-autopilot/1.0"},
+    # resolved["url"] is civitai.com's own /api/download endpoint, which 307s to signed
+    # storage -- see _download_headers for why the key goes on the first hop only.
+    with requests.get(resolved["url"], headers=_download_headers(resolved["url"]),
                       stream=True, timeout=120) as r:
         r.raise_for_status()
         total = int(r.headers.get("content-length", 0))
@@ -367,7 +398,7 @@ def resolve_final_url(url, timeout=15):
     independently reachable, so kaggle_imagegen.py resolves the final R2 link here (in
     CI, unblocked) and hands Kaggle that link directly instead of civitai.com's own
     endpoint."""
-    with requests.get(url, headers={"User-Agent": "mpt-autopilot/1.0"},
+    with requests.get(url, headers=_download_headers(url),
                       stream=True, timeout=timeout, allow_redirects=True) as r:
         r.raise_for_status()
         return r.url

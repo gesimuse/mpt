@@ -3305,6 +3305,54 @@ class AutopilotVideoNicheTest(unittest.TestCase):
         self.assertNotIn("motionforge_source_url", video_up)
 
 
+class CivitaiDownloadAuthTest(unittest.TestCase):
+    """CivitAI's FILE endpoint now gates at least some models behind the API key.
+    Confirmed live on model 352289: no auth -> 401, key -> 200 then a 307 to signed
+    storage. Both resolve_final_url and download() sent a bare User-Agent, on a comment
+    claiming resolved["url"] is "a pre-signed R2 link, not the civitai.com API" -- it is
+    civitai.com/api/download/models/<id>. The 401 broke every Kaggle image run, which
+    fell back to ~40 minutes of local CPU generation instead of ~15."""
+
+    API = "https://civitai.com/api/download/models/352289"
+    STORAGE = "https://b2.civitai.com/file/civitai-modelfiles/model/1/x.safetensors"
+
+    def test_key_is_sent_to_civitai_itself(self):
+        with mock.patch.dict(os.environ, {"CIVITAI_API_KEY": "k"}, clear=True):
+            self.assertEqual(civitai._download_headers(self.API)["Authorization"],
+                            "Bearer k")
+
+    def test_key_is_never_sent_to_signed_storage(self):
+        """An Authorization header on a pre-signed URL can fail signature validation
+        on S3-compatible backends -- and b2.civitai.com would match a naive
+        endswith("civitai.com") host check."""
+        with mock.patch.dict(os.environ, {"CIVITAI_API_KEY": "k"}, clear=True):
+            self.assertNotIn("Authorization", civitai._download_headers(self.STORAGE))
+
+    def test_no_key_configured_still_yields_a_usable_header_set(self):
+        with mock.patch.dict(os.environ, {}, clear=True):
+            h = civitai._download_headers(self.API)
+        self.assertNotIn("Authorization", h)
+        self.assertIn("User-Agent", h)
+
+    def test_resolve_final_url_authenticates(self):
+        captured = {}
+
+        class FakeResp:
+            url = "https://b2.civitai.com/file/x"
+            def raise_for_status(self): pass
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+
+        def fake_get(url, headers=None, **kw):
+            captured["headers"] = headers
+            return FakeResp()
+
+        with mock.patch.dict(os.environ, {"CIVITAI_API_KEY": "k"}, clear=True), \
+             mock.patch.object(civitai.requests, "get", fake_get):
+            civitai.resolve_final_url(self.API)
+        self.assertEqual(captured["headers"].get("Authorization"), "Bearer k")
+
+
 class PickerHtmlTest(unittest.TestCase):
     """picker.html is a static page on gh-pages -- no Python glue to test, but
     a few invariants are worth catching if a future edit breaks them: the
