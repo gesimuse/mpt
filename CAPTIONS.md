@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-08-31T16:44:50 — aibeautyvideo
+
+```
+Surrendering to the curve of the day
+
+Created with AI.
+
+#digitalart #bodypositivity #languagelimitations #generativeart #slowmotionmediocre
+```
+
 ## 2026-08-31T14:34:19 — aibeauty
 
 ```
@@ -68,14 +78,4 @@ Main character energy.
 Created with AI.
 
 #aiart #aivideo #wan22 #confident
-```
-
-## 2026-08-30T10:35:09 — aibeauty
-
-```
-Some days just look like this.
-
-Created with AI.
-
-#aiart #aigenerated #aiphotography #confident
 ```
