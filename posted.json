@@ -24,7 +24,8 @@
       "aibeauty-20260831-193252",
       "aibeauty-20260901-101422",
       "aibeauty-20260901-123833",
-      "aibeauty-20260901-141003"
+      "aibeauty-20260901-141003",
+      "aibeauty-20260901-153022"
     ]
   },
   "uploads": [
@@ -740,13 +741,47 @@
         "She bends her knees, lowering her body, then rises smoothly to a slight arch, body relaxed in a fluid movement."
       ],
       "ts": "2026-09-01T14:44:56"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260901-153022",
+      "title": "Secret's out backstage",
+      "tiktok": false,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7680606646275721238",
+      "tiktok_status": "FAILED",
+      "tiktok_caption": "Secret's out backstage\n\nCreated with AI.\n\n#aiart #neurodivergentart #synthmagic #glamourfuturism #lowpolyfashion #glitchart",
+      "image_urls": [
+        "https://gesimuse.github.io/mpt/media/1788280505-sd_0.jpg",
+        "https://gesimuse.github.io/mpt/media/1788280541-sd_1.jpg",
+        "https://gesimuse.github.io/mpt/media/1788280573-sd_2.jpg",
+        "https://gesimuse.github.io/mpt/media/1788280605-sd_3.jpg",
+        "https://gesimuse.github.io/mpt/media/1788280637-sd_4.jpg"
+      ],
+      "image_prompts": [
+        "beautiful adult woman, georgian woman in her early thirties, jet black hair, pale skin, backstage in a dressing room, mirror lights, seductive, sexy, alluring, round breasts, round ass, beautiful, hands running through hair, sultry confident gaze, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, full length shot, head to toe, natural stance, 1. \"Female ice skater (ethnicity: Caucasian, age: early 20s) on an indoor ice rink (setting: glacial, sparkling). She's wearing a dazzling skating costume (fabric: sequined, light blue) with her hair styled in a sleek bun, accented with delicate ice crystal accessories, and her makeup is shimmering and frost-like. She's performing an elegant spin (action: graceful, precise), her pose embodying fluidity and poise, surrounded by the soft glow of the rink lights reflecting off the ice.\"",
+        "beautiful adult woman, georgian woman in her early thirties, jet black hair, pale skin, backstage in a dressing room, mirror lights, seductive, sexy, alluring, round breasts, round ass, beautiful, hands running through hair, sultry confident gaze, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, close-up shot, shallow depth of field, 1. \"Female ice skater (ethnicity: Caucasian, age: early 20s) on an indoor ice rink (setting: glacial, sparkling). She's wearing a dazzling skating costume (fabric: sequined, light blue) with her hair styled in a sleek bun, accented with delicate ice crystal accessories, and her makeup is shimmering and frost-like. She's performing an elegant spin (action: graceful, precise), her pose embodying fluidity and poise, surrounded by the soft glow of the rink lights reflecting off the ice.\"",
+        "beautiful adult woman, georgian woman in her early thirties, jet black hair, pale skin, backstage in a dressing room, mirror lights, seductive, sexy, alluring, round breasts, round ass, beautiful, hands running through hair, sultry confident gaze, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, full body portrait, standing, wide angle, 1. \"Female ice skater (ethnicity: Caucasian, age: early 20s) on an indoor ice rink (setting: glacial, sparkling). She's wearing a dazzling skating costume (fabric: sequined, light blue) with her hair styled in a sleek bun, accented with delicate ice crystal accessories, and her makeup is shimmering and frost-like. She's performing an elegant spin (action: graceful, precise), her pose embodying fluidity and poise, surrounded by the soft glow of the rink lights reflecting off the ice.\"",
+        "beautiful adult woman, georgian woman in her early thirties, jet black hair, pale skin, backstage in a dressing room, mirror lights, seductive, sexy, alluring, round breasts, round ass, beautiful, hands running through hair, sultry confident gaze, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, three-quarter view, soft studio lighting, 1. \"Female ice skater (ethnicity: Caucasian, age: early 20s) on an indoor ice rink (setting: glacial, sparkling). She's wearing a dazzling skating costume (fabric: sequined, light blue) with her hair styled in a sleek bun, accented with delicate ice crystal accessories, and her makeup is shimmering and frost-like. She's performing an elegant spin (action: graceful, precise), her pose embodying fluidity and poise, surrounded by the soft glow of the rink lights reflecting off the ice.\"",
+        "beautiful adult woman, georgian woman in her early thirties, jet black hair, pale skin, backstage in a dressing room, mirror lights, seductive, sexy, alluring, round breasts, round ass, beautiful, hands running through hair, sultry confident gaze, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, candid framing, natural daylight, 1. \"Female ice skater (ethnicity: Caucasian, age: early 20s) on an indoor ice rink (setting: glacial, sparkling). She's wearing a dazzling skating costume (fabric: sequined, light blue) with her hair styled in a sleek bun, accented with delicate ice crystal accessories, and her makeup is shimmering and frost-like. She's performing an elegant spin (action: graceful, precise), her pose embodying fluidity and poise, surrounded by the soft glow of the rink lights reflecting off the ice.\""
+      ],
+      "vibe": "backstage before a shoot",
+      "look": "georgian",
+      "motion_prompts": [
+        "She leans forward, her weight shifting through her hips as her hands fall to her sides, fingers trailing along the edges of her skirt.",
+        "She pivots from the mirror to face the camera, weight shifting through her hips, hips swaying back and forth as she looks up, her hair falling into a loose sweep down her back.",
+        "She shifts her weight onto one leg, slowly arching her back and hips, as her upper body turns, then she looks back over her shoulder.",
+        "She slowly turns in place, hips maintaining a slight sway, revealing her full body to the camera.",
+        "She slowly pivots from profile to facing the camera, weight rolling through her hips, her hands drift through her hair as she turns, leaving a gentle trail in the sequins of her costume."
+      ],
+      "ts": "2026-09-01T16:37:59"
     }
   ],
   "model_stats": {
     "167537:288911": {
       "name": "BEAUTY_BY_STABLE_YOGI",
-      "used": 10,
-      "passed": 10
+      "used": 20,
+      "passed": 20
     },
     "89548:95334": {
       "name": "HydraMix",
@@ -829,6 +864,10 @@
       "passed": 10
     },
     "getting ready for a night out": {
+      "used": 10,
+      "passed": 10
+    },
+    "backstage before a shoot": {
       "used": 10,
       "passed": 10
     }
