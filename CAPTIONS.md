@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-01T18:36:48 — aibeauty
+
+```
+i'm louder in the quiet
+
+Created with AI.
+
+#neurallandscape #dreamlike #atmospherelight #sensualambiance #artificialromance #moodyatmospheres
+```
+
 ## 2026-09-01T14:44:56 — aibeauty
 
 ```
@@ -78,14 +88,4 @@ Surrendering to the curve of the day
 Created with AI.
 
 #digitalart #bodypositivity #languagelimitations #generativeart #slowmotionmediocre
-```
-
-## 2026-08-31T14:34:19 — aibeauty
-
-```
-my happy place
-
-Created with AI.
-
-#aiart #generativeart #courtsidevibes #scoreboardstyle #artificialintelligenceart #chicincolor
 ```
