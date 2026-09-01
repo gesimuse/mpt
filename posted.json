@@ -21,7 +21,8 @@
       "aibeauty-20260831-112913",
       "aibeauty-20260831-130433",
       "aibeauty-20260831-134409",
-      "aibeauty-20260831-193252"
+      "aibeauty-20260831-193252",
+      "aibeauty-20260901-101422"
     ]
   },
   "uploads": [
@@ -635,6 +636,40 @@
       "video_url": "https://gesimuse.github.io/mpt/media/1788245651-final.mp4",
       "ts": "2026-09-01T06:55:21",
       "motionforge_source_url": "https://gesimuse.github.io/mpt/media/1788207260-sd_1.jpg"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260901-101422",
+      "title": "Last call for what's left of me",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7680517002716743703",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "Last call for what's left of me\n\nCreated with AI.\n\n#digitalart #neuralimpressions #lostinnights #surrealism #artificialdreams #generativeart",
+      "image_urls": [
+        "https://gesimuse.github.io/mpt/media/1788259666-sd_0.jpg",
+        "https://gesimuse.github.io/mpt/media/1788259692-sd_1.jpg",
+        "https://gesimuse.github.io/mpt/media/1788259724-sd_2.jpg",
+        "https://gesimuse.github.io/mpt/media/1788259751-sd_3.jpg",
+        "https://gesimuse.github.io/mpt/media/1788259780-sd_4.jpg"
+      ],
+      "image_prompts": [
+        "beautiful adult woman, polish woman in her mid twenties, blonde hair, pale skin, blue eyes, in a dim jazz bar, brass and low amber light, seductive, sexy, alluring, round breasts, round ass, beautiful, chin on hand, unhurried, watching the room, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, close-up shot, shallow depth of field, a portrait of beautiful High-waisted jeans, graphic t-shirt, ankle boots, leather jacket, sunglasses",
+        "beautiful adult woman, polish woman in her mid twenties, blonde hair, pale skin, blue eyes, in a dim jazz bar, brass and low amber light, seductive, sexy, alluring, round breasts, round ass, beautiful, chin on hand, unhurried, watching the room, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, full length shot, head to toe, natural stance, a portrait of beautiful High-waisted jeans, graphic t-shirt, ankle boots, leather jacket, sunglasses",
+        "beautiful adult woman, polish woman in her mid twenties, blonde hair, pale skin, blue eyes, in a dim jazz bar, brass and low amber light, seductive, sexy, alluring, round breasts, round ass, beautiful, chin on hand, unhurried, watching the room, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, candid framing, natural daylight, a portrait of beautiful High-waisted jeans, graphic t-shirt, ankle boots, leather jacket, sunglasses",
+        "beautiful adult woman, polish woman in her mid twenties, blonde hair, pale skin, blue eyes, in a dim jazz bar, brass and low amber light, seductive, sexy, alluring, round breasts, round ass, beautiful, chin on hand, unhurried, watching the room, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, over-the-shoulder framing, warm ambient light, a portrait of beautiful High-waisted jeans, graphic t-shirt, ankle boots, leather jacket, sunglasses",
+        "beautiful adult woman, polish woman in her mid twenties, blonde hair, pale skin, blue eyes, in a dim jazz bar, brass and low amber light, seductive, sexy, alluring, round breasts, round ass, beautiful, chin on hand, unhurried, watching the room, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, three-quarter view, soft studio lighting, a portrait of beautiful High-waisted jeans, graphic t-shirt, ankle boots, leather jacket, sunglasses"
+      ],
+      "vibe": "the last table in the bar",
+      "look": "polish",
+      "motion_prompts": [
+        "She starts to rotate her body, weight shifting through her hips as she turns away from the camera, chin dipping towards her shoulder.",
+        "She slowly pivots her hips, weight moving onto one leg, as she looks over her shoulder, sunglasses glinting in the dim light, a fold of her leather jacket rustling.",
+        "She glides slowly around her axis, hips leading, then turns back to face the camera, eyes locked on the viewer.",
+        "She rotates her upper body to her right, shifting weight onto her right hip, hands resting on her waist, her lips barely parting as she takes in the room.",
+        "She slowly rises out of her pose, body lengthening as she straightens, her leather jacket creaking softly as she shifts her weight."
+      ],
+      "ts": "2026-09-01T10:50:51"
     }
   ],
   "model_stats": {
@@ -680,8 +715,8 @@
     },
     "251478:283756": {
       "name": "fashion-street-photography_and_film-v1",
-      "used": 30,
-      "passed": 30
+      "used": 40,
+      "passed": 40
     },
     "79632:84444": {
       "name": "Fashion Dress",
@@ -712,6 +747,10 @@
       "passed": 10
     },
     "city lights from the balcony": {
+      "used": 10,
+      "passed": 10
+    },
+    "the last table in the bar": {
       "used": 10,
       "passed": 10
     }

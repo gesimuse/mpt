@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-01T10:50:51 — aibeauty
+
+```
+Last call for what's left of me
+
+Created with AI.
+
+#digitalart #neuralimpressions #lostinnights #surrealism #artificialdreams #generativeart
+```
+
 ## 2026-09-01T06:55:21 — aibeautyvideo
 
 ```
@@ -88,14 +98,4 @@ Left you hanging now you're seeing
 Created with AI.
 
 #aiart #digitaldreaming #seductionmode #modelmotion #renderreplay #digitalfashion
-```
-
-## 2026-08-30T17:49:51 — aibeauty
-
-```
-Feeling the veil of anonymity slip away
-
-Created with AI.
-
-#aiart #artificialserendipity #isolated #luxuryhotels #softcorebliss #hotelnights
 ```
