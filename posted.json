@@ -23,7 +23,8 @@
       "aibeauty-20260831-134409",
       "aibeauty-20260831-193252",
       "aibeauty-20260901-101422",
-      "aibeauty-20260901-123833"
+      "aibeauty-20260901-123833",
+      "aibeauty-20260901-141003"
     ]
   },
   "uploads": [
@@ -705,6 +706,40 @@
         "She sinks lower into the pose, then rises back through it, running her fingertips down her thighs and settling on her hips."
       ],
       "ts": "2026-09-01T13:12:03"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260901-141003",
+      "title": "Ready to slay the night",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7680577727107532822",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "Ready to slay the night\n\nCreated with AI.\n\n#aiart #generativeart #80smetrosexual #glasgownightlife #urbanportrait",
+      "image_urls": [
+        "https://gesimuse.github.io/mpt/media/1788273715-sd_0.jpg",
+        "https://gesimuse.github.io/mpt/media/1788273754-sd_1.jpg",
+        "https://gesimuse.github.io/mpt/media/1788273790-sd_2.jpg",
+        "https://gesimuse.github.io/mpt/media/1788273822-sd_3.jpg",
+        "https://gesimuse.github.io/mpt/media/1788273855-sd_4.jpg"
+      ],
+      "image_prompts": [
+        "beautiful adult woman, french woman in her early thirties, chestnut brown hair, effortless styling, backstage in a dressing room, mirror lights, seductive, sexy, alluring, round breasts, round ass, beautiful, flirty smile, relaxed confident posture, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, three-quarter view, soft studio lighting, a portrait of beautiful Maxi dress, espadrilles, woven belt, straw hat, statement ring",
+        "beautiful adult woman, french woman in her early thirties, chestnut brown hair, effortless styling, backstage in a dressing room, mirror lights, seductive, sexy, alluring, round breasts, round ass, beautiful, flirty smile, relaxed confident posture, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, candid framing, natural daylight, a portrait of beautiful Maxi dress, espadrilles, woven belt, straw hat, statement ring",
+        "beautiful adult woman, french woman in her early thirties, chestnut brown hair, effortless styling, backstage in a dressing room, mirror lights, seductive, sexy, alluring, round breasts, round ass, beautiful, flirty smile, relaxed confident posture, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, close-up shot, shallow depth of field, a portrait of beautiful Maxi dress, espadrilles, woven belt, straw hat, statement ring",
+        "beautiful adult woman, french woman in her early thirties, chestnut brown hair, effortless styling, backstage in a dressing room, mirror lights, seductive, sexy, alluring, round breasts, round ass, beautiful, flirty smile, relaxed confident posture, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, wide shot, natural window light, a portrait of beautiful Maxi dress, espadrilles, woven belt, straw hat, statement ring",
+        "beautiful adult woman, french woman in her early thirties, chestnut brown hair, effortless styling, backstage in a dressing room, mirror lights, seductive, sexy, alluring, round breasts, round ass, beautiful, flirty smile, relaxed confident posture, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, full length shot, head to toe, natural stance, a portrait of beautiful Maxi dress, espadrilles, woven belt, straw hat, statement ring"
+      ],
+      "vibe": "getting ready for a night out",
+      "look": "french",
+      "motion_prompts": [
+        "She arches her back, hips shifting, weight moving onto one leg, and lets her shoulders relax into a subtle roll.",
+        "She shifts her weight onto one hip, her right hand tracing the curve of her round breasts, before running her fingers up the straps of her espadrilles.",
+        "She lowers her face onto her hands, resting her chin on her knuckles, and slowly lifts her chest, arching her back.",
+        "She slowly arches back, her hands falling to her hips, as her head tilts back, eyes still locked on the camera, her straw hat's ribbon slipping slightly over one eye.",
+        "She bends her knees, lowering her body, then rises smoothly to a slight arch, body relaxed in a fluid movement."
+      ],
+      "ts": "2026-09-01T14:44:56"
     }
   ],
   "model_stats": {
@@ -750,8 +785,8 @@
     },
     "251478:283756": {
       "name": "fashion-street-photography_and_film-v1",
-      "used": 40,
-      "passed": 40
+      "used": 50,
+      "passed": 50
     },
     "79632:84444": {
       "name": "Fashion Dress",
@@ -790,6 +825,10 @@
       "passed": 10
     },
     "harvest at the vineyard": {
+      "used": 10,
+      "passed": 10
+    },
+    "getting ready for a night out": {
       "used": 10,
       "passed": 10
     }

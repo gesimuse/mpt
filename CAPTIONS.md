@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-01T14:44:56 — aibeauty
+
+```
+Ready to slay the night
+
+Created with AI.
+
+#aiart #generativeart #80smetrosexual #glasgownightlife #urbanportrait
+```
+
 ## 2026-09-01T13:12:03 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Nights are for secrets
 Created with AI.
 
 #aiart #nightsawayfromhome #hottelmagic #solitairemode
-```
-
-## 2026-08-31T12:04:05 — aibeauty
-
-```
-romance by design
-
-Created with AI.
-
-#aiart #neuraesthetic #softdreams #artificialwool #dreamysoft #moodyvapour
 ```
