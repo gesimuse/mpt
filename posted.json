@@ -22,7 +22,8 @@
       "aibeauty-20260831-130433",
       "aibeauty-20260831-134409",
       "aibeauty-20260831-193252",
-      "aibeauty-20260901-101422"
+      "aibeauty-20260901-101422",
+      "aibeauty-20260901-123833"
     ]
   },
   "uploads": [
@@ -670,6 +671,40 @@
         "She slowly rises out of her pose, body lengthening as she straightens, her leather jacket creaking softly as she shifts her weight."
       ],
       "ts": "2026-09-01T10:50:51"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260901-123833",
+      "title": "Sundays are made for wine and sunshine",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7680553816529782806",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "Sundays are made for wine and sunshine\n\nCreated with AI.\n\n#artificialintelligence #contemporaryart #vino #farmtofork #slowliving #summervibesonly",
+      "image_urls": [
+        "https://gesimuse.github.io/mpt/media/1788268130-sd_0.jpg",
+        "https://gesimuse.github.io/mpt/media/1788268160-sd_1.jpg",
+        "https://gesimuse.github.io/mpt/media/1788268189-sd_2.jpg",
+        "https://gesimuse.github.io/mpt/media/1788268257-sd_3.jpg",
+        "https://gesimuse.github.io/mpt/media/1788268287-sd_4.jpg"
+      ],
+      "image_prompts": [
+        "beautiful adult woman, venezuelan woman in her mid twenties, glossy black hair, striking features, wearing a linen sundress with thin straps, seductive, sexy, alluring, round breasts, round ass, beautiful, sun on her shoulders, relaxed easy smile, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, full body shot, standing pose, wide framing, city street, neon, fog, volumetric, closeup portrait photo of young woman in dark clothes",
+        "beautiful adult woman, venezuelan woman in her mid twenties, glossy black hair, striking features, wearing a linen sundress with thin straps, seductive, sexy, alluring, round breasts, round ass, beautiful, sun on her shoulders, relaxed easy smile, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, full body portrait, standing, wide angle, city street, neon, fog, volumetric, closeup portrait photo of young woman in dark clothes",
+        "beautiful adult woman, venezuelan woman in her mid twenties, glossy black hair, striking features, wearing a linen sundress with thin straps, seductive, sexy, alluring, round breasts, round ass, beautiful, sun on her shoulders, relaxed easy smile, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, medium shot, gentle rim lighting, city street, neon, fog, volumetric, closeup portrait photo of young woman in dark clothes",
+        "beautiful adult woman, venezuelan woman in her mid twenties, glossy black hair, striking features, wearing a linen sundress with thin straps, seductive, sexy, alluring, round breasts, round ass, beautiful, sun on her shoulders, relaxed easy smile, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, full length shot, head to toe, natural stance, city street, neon, fog, volumetric, closeup portrait photo of young woman in dark clothes",
+        "beautiful adult woman, venezuelan woman in her mid twenties, glossy black hair, striking features, wearing a linen sundress with thin straps, seductive, sexy, alluring, round breasts, round ass, beautiful, sun on her shoulders, relaxed easy smile, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, over-the-shoulder framing, warm ambient light, city street, neon, fog, volumetric, closeup portrait photo of young woman in dark clothes"
+      ],
+      "vibe": "harvest at the vineyard",
+      "look": "venezuelan",
+      "motion_prompts": [
+        "She slowly turns, one shoulder brushing against a city sign as her gaze drifts back to the camera.",
+        "She begins to pivot, slowly turning her hips away from the camera, and looks back over her shoulder, maintaining a relaxed, seductive gaze.",
+        "She arches her back, exposing her round breasts and round ass, raising her chin to gaze out into the city street with a seductive, relaxed smile.",
+        "She slowly leans her shoulders forward, fingers trail down her chest, her breasts rising into view, as her linen sundress gapes open ever so slightly.",
+        "She sinks lower into the pose, then rises back through it, running her fingertips down her thighs and settling on her hips."
+      ],
+      "ts": "2026-09-01T13:12:03"
     }
   ],
   "model_stats": {
@@ -725,8 +760,8 @@
     },
     "4201:501240": {
       "name": "Realistic Vision V6.0 B1",
-      "used": 10,
-      "passed": 10
+      "used": 20,
+      "passed": 20
     }
   },
   "theme_stats": {
@@ -751,6 +786,10 @@
       "passed": 10
     },
     "the last table in the bar": {
+      "used": 10,
+      "passed": 10
+    },
+    "harvest at the vineyard": {
       "used": 10,
       "passed": 10
     }

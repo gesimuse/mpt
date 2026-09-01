@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-01T13:12:03 — aibeauty
+
+```
+Sundays are made for wine and sunshine
+
+Created with AI.
+
+#artificialintelligence #contemporaryart #vino #farmtofork #slowliving #summervibesonly
+```
+
 ## 2026-09-01T10:50:51 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ romance by design
 Created with AI.
 
 #aiart #neuraesthetic #softdreams #artificialwool #dreamysoft #moodyvapour
-```
-
-## 2026-08-30T18:40:02 — aibeautyvideo
-
-```
-Left you hanging now you're seeing
-
-Created with AI.
-
-#aiart #digitaldreaming #seductionmode #modelmotion #renderreplay #digitalfashion
 ```
