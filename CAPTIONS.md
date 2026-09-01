@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-01T06:55:21 — aibeautyvideo
+
+```
+confident curves
+
+Created with AI.
+
+#aiart #digitalart #bodypositivity #softcore #adultcontent #nsfwart
+```
+
 ## 2026-09-01T05:27:03 — aibeautyvideo
 
 ```
@@ -88,14 +98,4 @@ Feeling the veil of anonymity slip away
 Created with AI.
 
 #aiart #artificialserendipity #isolated #luxuryhotels #softcorebliss #hotelnights
-```
-
-## 2026-08-30T15:57:02 — aibeautyvideo
-
-```
-her eyes linger on the path behind her
-
-Created with AI.
-
-#gifart #portraitmode #btsmodel #slowmotionbeauty #hairflipperpeare #longexposurelove
 ```
