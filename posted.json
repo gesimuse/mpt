@@ -45,7 +45,13 @@
       "ts": "2026-08-25T14:38:39",
       "telegram_posted": [
         "https://gesimuse.github.io/mpt/media/upload-1787841488983.png"
-      ]
+      ],
+      "telegram_message_ids": {
+        "https://gesimuse.github.io/mpt/media/upload-1787841488983.png": {
+          "chat_id": "-1004449497323",
+          "message_id": 38
+        }
+      }
     },
     {
       "niche": "aibeautyvideo",
@@ -321,7 +327,21 @@
         "https://gesimuse.github.io/mpt/media/1788207292-sd_2.jpg",
         "https://gesimuse.github.io/mpt/media/1788207318-sd_3.jpg",
         "https://gesimuse.github.io/mpt/media/1788207352-sd_4.jpg"
-      ]
+      ],
+      "telegram_message_ids": {
+        "https://gesimuse.github.io/mpt/media/1788207292-sd_2.jpg": {
+          "chat_id": "-1004449497323",
+          "message_id": 39
+        },
+        "https://gesimuse.github.io/mpt/media/1788207318-sd_3.jpg": {
+          "chat_id": "-1004449497323",
+          "message_id": 40
+        },
+        "https://gesimuse.github.io/mpt/media/1788207352-sd_4.jpg": {
+          "chat_id": "-1004449497323",
+          "message_id": 41
+        }
+      }
     },
     {
       "niche": "aibeautyvideo",
@@ -394,7 +414,21 @@
         "https://gesimuse.github.io/mpt/media/1788259666-sd_0.jpg",
         "https://gesimuse.github.io/mpt/media/1788259692-sd_1.jpg",
         "https://gesimuse.github.io/mpt/media/1788259724-sd_2.jpg"
-      ]
+      ],
+      "telegram_message_ids": {
+        "https://gesimuse.github.io/mpt/media/1788259666-sd_0.jpg": {
+          "chat_id": "-1004449497323",
+          "message_id": 42
+        },
+        "https://gesimuse.github.io/mpt/media/1788259692-sd_1.jpg": {
+          "chat_id": "-1004449497323",
+          "message_id": 43
+        },
+        "https://gesimuse.github.io/mpt/media/1788259724-sd_2.jpg": {
+          "chat_id": "-1004449497323",
+          "message_id": 44
+        }
+      }
     },
     {
       "niche": "aibeauty",
@@ -423,7 +457,13 @@
         "https://gesimuse.github.io/mpt/media/1788268189-sd_2.jpg",
         "https://gesimuse.github.io/mpt/media/1788268257-sd_3.jpg",
         "https://gesimuse.github.io/mpt/media/1788268287-sd_4.jpg"
-      ]
+      ],
+      "telegram_message_ids": {
+        "https://gesimuse.github.io/mpt/media/1788268189-sd_2.jpg": {
+          "chat_id": "-1004449497323",
+          "message_id": 45
+        }
+      }
     },
     {
       "niche": "aibeauty",
@@ -464,7 +504,29 @@
         "https://gesimuse.github.io/mpt/media/1788273790-sd_2.jpg",
         "https://gesimuse.github.io/mpt/media/1788273822-sd_3.jpg",
         "https://gesimuse.github.io/mpt/media/1788273855-sd_4.jpg"
-      ]
+      ],
+      "telegram_message_ids": {
+        "https://gesimuse.github.io/mpt/media/1788273715-sd_0.jpg": {
+          "chat_id": "-1004449497323",
+          "message_id": 46
+        },
+        "https://gesimuse.github.io/mpt/media/1788273754-sd_1.jpg": {
+          "chat_id": "-1004449497323",
+          "message_id": 47
+        },
+        "https://gesimuse.github.io/mpt/media/1788273790-sd_2.jpg": {
+          "chat_id": "-1004449497323",
+          "message_id": 48
+        },
+        "https://gesimuse.github.io/mpt/media/1788273822-sd_3.jpg": {
+          "chat_id": "-1004449497323",
+          "message_id": 49
+        },
+        "https://gesimuse.github.io/mpt/media/1788273855-sd_4.jpg": {
+          "chat_id": "-1004449497323",
+          "message_id": 50
+        }
+      }
     },
     {
       "niche": "aibeauty",
@@ -538,7 +600,25 @@
         "https://gesimuse.github.io/mpt/media/1788287645-sd_2.jpg",
         "https://gesimuse.github.io/mpt/media/1788287677-sd_3.jpg",
         "https://gesimuse.github.io/mpt/media/1788287731-sd_4.jpg"
-      ]
+      ],
+      "telegram_message_ids": {
+        "https://gesimuse.github.io/mpt/media/1788287594-sd_1.jpg": {
+          "chat_id": "-1004449497323",
+          "message_id": 51
+        },
+        "https://gesimuse.github.io/mpt/media/1788287645-sd_2.jpg": {
+          "chat_id": "-1004449497323",
+          "message_id": 52
+        },
+        "https://gesimuse.github.io/mpt/media/1788287677-sd_3.jpg": {
+          "chat_id": "-1004449497323",
+          "message_id": 53
+        },
+        "https://gesimuse.github.io/mpt/media/1788287731-sd_4.jpg": {
+          "chat_id": "-1004449497323",
+          "message_id": 54
+        }
+      }
     },
     {
       "niche": "aibeautyvideo",
