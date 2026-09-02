@@ -990,7 +990,6 @@
         "https://gesimuse.github.io/mpt/media/1788356890-sd_5.jpg",
         "https://gesimuse.github.io/mpt/media/1788356922-sd_6.jpg",
         "https://gesimuse.github.io/mpt/media/1788356957-sd_7.jpg",
-        "https://gesimuse.github.io/mpt/media/1788356986-sd_8.jpg",
         "https://gesimuse.github.io/mpt/media/1788357015-sd_9.jpg"
       ],
       "image_prompts": [
@@ -1002,7 +1001,6 @@
         "beautiful adult woman, welsh woman in her mid twenties, dark curly hair, grey-green eyes, wearing a sheer mesh top over a bralette, seductive, sexy, alluring, round breasts, round ass, beautiful, sultry expression, soft dramatic shadows, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, full length shot, head to toe, natural stance, city street, neon, fog, volumetric, closeup portrait photo of young woman in dark clothes",
         "beautiful adult woman, welsh woman in her mid twenties, dark curly hair, grey-green eyes, wearing a sheer mesh top over a bralette, seductive, sexy, alluring, round breasts, round ass, beautiful, sultry expression, soft dramatic shadows, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, slightly low angle, golden hour light, city street, neon, fog, volumetric, closeup portrait photo of young woman in dark clothes",
         "beautiful adult woman, welsh woman in her mid twenties, dark curly hair, grey-green eyes, wearing a sheer mesh top over a bralette, seductive, sexy, alluring, round breasts, round ass, beautiful, sultry expression, soft dramatic shadows, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, over-the-shoulder framing, warm ambient light, city street, neon, fog, volumetric, closeup portrait photo of young woman in dark clothes",
-        "beautiful adult woman, welsh woman in her mid twenties, dark curly hair, grey-green eyes, wearing a sheer mesh top over a bralette, seductive, sexy, alluring, round breasts, round ass, beautiful, sultry expression, soft dramatic shadows, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, medium shot, gentle rim lighting, city street, neon, fog, volumetric, closeup portrait photo of young woman in dark clothes",
         "beautiful adult woman, welsh woman in her mid twenties, dark curly hair, grey-green eyes, wearing a sheer mesh top over a bralette, seductive, sexy, alluring, round breasts, round ass, beautiful, sultry expression, soft dramatic shadows, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, wide shot, natural window light, city street, neon, fog, volumetric, closeup portrait photo of young woman in dark clothes"
       ],
       "vibe": "a rainy moody afternoon",
@@ -1016,7 +1014,6 @@
         "She tilts her head, and as she exhales, her body lengthens as she slowly rises from a subtle arch, her hips shifting to bring weight onto one leg.",
         "She slowly turns her upper body, weight shifting through her hips, as she raises one hand to caress her side.",
         "She starts to walk away from the camera, hips swaying, and turns her head back, gazing over her shoulder, a subtle curl of her hair trailing behind her.",
-        "She walks toward the camera, hips swaying, hands on her hips, fingers trailing down the mesh top, and looks up, grey-green eyes meeting the lens.",
         "She turns to the side, arching her back and settling into the pose, then slowly rolls back up to center, her hands smoothing down her sides."
       ],
       "ts": "2026-09-02T13:51:06",
@@ -1061,7 +1058,8 @@
           "chat_id": "-1004449497323",
           "message_id": 99
         }
-      }
+      },
+      "owner_verdict": "skipped"
     },
     {
       "niche": "aibeauty",
