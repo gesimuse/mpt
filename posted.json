@@ -853,21 +853,6 @@
       "video_url": "https://gesimuse.github.io/mpt/media/1788334745-final.mp4",
       "ts": "2026-09-02T07:40:06",
       "motionforge_source_url": "https://gesimuse.github.io/mpt/media/1788287537-sd_0.jpg"
-    },
-    {
-      "niche": "aibeauty",
-      "topic": "e2e worker test",
-      "tiktok": true,
-      "image_urls": [
-        "https://gesimuse.github.io/mpt/media/1788287537-sd_0.jpg"
-      ],
-      "image_prompts": [
-        null
-      ],
-      "motion_prompts": [
-        "e2e test prompt"
-      ],
-      "ts": "2099-01-01T00:00:00"
     }
   ],
   "model_stats": {
