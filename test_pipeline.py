@@ -2136,6 +2136,7 @@ class CaptionWriterTest(unittest.TestCase):
                                " ".join(f"#t{i}" for i in range(20))):
             _, tags = caption_writer.write("a vibe")
         self.assertEqual(len(tags.split()), caption_writer.MAX_TAGS)
+        self.assertLessEqual(caption_writer.MAX_TAGS, 5, "operator cap is five")
 
     def test_duplicate_hashtags_are_removed_keeping_order(self):
         with mock.patch.object(caption_writer.llm, "ask", lambda prompt, **kw:
@@ -3593,6 +3594,16 @@ class TelegramTest(unittest.TestCase):
                 continue
             self.assertIn("TELEGRAM_VIDEO_CHAT_ID", text,
                          f"{wf} passes TELEGRAM_CHAT_ID but not the video channel")
+
+    def test_a_posted_video_carries_its_caption_and_hashtags(self):
+        """The channel is where the decision to publish gets made, so a bare
+        "queued to TikTok" is not enough -- the caption and tags already exist
+        (caption_writer, from that clip's own motion prompt) and were only ever
+        being sent to TikTok, never shown."""
+        src = (Path(__file__).parent / "autopilot.py").read_text()
+        block = src[src.index("def _publish_video"):src.index("def _run_video_niche")]
+        self.assertIn("status_line", block)
+        self.assertIn("{caption}", block)
 
     def test_videos_go_to_their_own_channel(self):
         with mock.patch.dict(os.environ, {"TELEGRAM_CHAT_ID": "-100111"}, clear=True):

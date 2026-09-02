@@ -11,6 +11,7 @@ The LLM call itself goes through llm.ask() -- HF's router first, a local Ollama
 instance second (see llm.py for why: the old Ollama-only path with a 30s timeout was
 what made this module fail on almost every real run, so the "fresh hashtags per post"
 promise above was true in the code and false in posted.json)."""
+import os
 import re
 
 import llm
@@ -26,7 +27,7 @@ what is literally in the photo (no "wearing a...", no "posing in..." ) -- write 
 kind of line a person adds ON TOP of a photo, a mood or a one-liner, not a caption of
 the caption.
 
-Then on a new line, 4-6 relevant lowercase hashtags, space-separated, each starting
+Then on a new line, 4-5 relevant lowercase hashtags, space-separated, each starting
 with #: a couple of broad-reach ones (aiart-adjacent) and a couple specific to the
 actual vibe above, not the same generic set every time.
 {trending}
@@ -42,9 +43,11 @@ def log(msg): print(f"[caption_writer] {msg}", flush=True)
 _CAPTION_RE = re.compile(r"CAPTION:\s*(.+)", re.I)
 _HASHTAGS_RE = re.compile(r"HASHTAGS:\s*(.*)", re.I | re.S)
 _TAG_RE = re.compile(r"#\w+")
-# The rubric asks for 4-6; a model that ignores that and emits fifteen would make
-# every post read as tag spam, so cap it here rather than trusting the instruction.
-MAX_TAGS = 6
+# The rubric asks for a handful; a model that ignores that and emits fifteen would
+# make every post read as tag spam, so cap it here rather than trusting the
+# instruction. Five, by operator preference, and applied to photo and video posts
+# alike -- there is no reason for the two to differ.
+MAX_TAGS = int(os.environ.get("MAX_HASHTAGS", "5"))
 
 
 def _parse(text):

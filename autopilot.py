@@ -320,10 +320,16 @@ def _publish_video(niche, state, token_niche, video_url, caption, topic, extra_f
     if telegram.enabled():
         entry = state["uploads"][-1]
         try:
+            # The post's real caption and hashtags, not just a status line. They are
+            # already written (caption_writer, from this clip's own motion prompt) and
+            # pre-filled on the TikTok draft -- showing them here is what makes the
+            # channel usable for deciding whether to actually publish, and gives
+            # something to copy if the draft's pre-fill ever fails.
+            status_line = ("✅ queued to TikTok" if entry.get("tiktok")
+                           else f"❌ TikTok rejected it: {fail_reason or status}")
             mid = telegram.send_video(
                 video_url, entry["ts"],
-                caption=("✅ queued to TikTok" if entry.get("tiktok")
-                         else f"❌ TikTok rejected it: {fail_reason or status}"),
+                caption=f"{status_line}\n\n{caption}" if caption else status_line,
                 failed=not entry.get("tiktok"))
             # Recorded for the same reason image ids are: without it the message can
             # never be moved or removed later, which is what left a video stranded in
