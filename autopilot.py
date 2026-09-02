@@ -248,8 +248,18 @@ def run_niche(niche, state):
         # callbacks look this batch up in posted.json by ts, so the entry has to exist
         # before the buttons can work at all.
         if telegram.enabled():
-            telegram.post_batch(image_urls, state["uploads"][-1]["ts"],
-                                caption=caption, motion_prompts=motion_prompts)
+            # Message ids recorded alongside the urls: without them a message can
+            # never be deleted or edited later, which is what made moving the videos
+            # to their own channel a manual cleanup job.
+            entry = state["uploads"][-1]
+            ids = telegram.post_batch(image_urls, entry["ts"],
+                                      caption=caption, motion_prompts=motion_prompts)
+            if ids:
+                entry["telegram_message_ids"] = {
+                    url: {"chat_id": os.environ.get("TELEGRAM_CHAT_ID"),
+                          "message_id": mid}
+                    for url, mid in zip(image_urls, ids)}
+                save_state(state)
         for img in images:
             try:
                 os.remove(img)

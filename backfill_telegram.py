@@ -104,10 +104,22 @@ def is_live(url):
         return False
 
 
-def mark_posted(state, ts, url):
+def mark_posted(state, ts, url, message_id=None):
+    """Record what has gone out, and WHERE it went.
+
+    telegram_posted (a list of urls) answers "already sent, don't resend".
+    telegram_message_ids (url -> {chat_id, message_id}) answers "delete or edit that
+    message later" -- which the first backfill could not do, so when the videos moved
+    to their own channel the old copies had to be cleared by hand. Recording the id
+    costs nothing at send time and is the only thing that makes cleanup possible."""
     for u in state.get("uploads", []):
         if u.get("ts") == ts:
             u.setdefault("telegram_posted", []).append(url)
+            if message_id is not None:
+                u.setdefault("telegram_message_ids", {})[url] = {
+                    "chat_id": os.environ.get("TELEGRAM_CHAT_ID"),
+                    "message_id": message_id,
+                }
             return
 
 
@@ -165,9 +177,9 @@ def main():
     sent = 0
     for item in live:
         try:
-            send_with_backoff(telegram.send_image, item["url"], item["ts"], item["index"],
-                              motion_prompt=item["prompt"])
-            mark_posted(state, item["ts"], item["url"])
+            mid = send_with_backoff(telegram.send_image, item["url"], item["ts"],
+                                    item["index"], motion_prompt=item["prompt"])
+            mark_posted(state, item["ts"], item["url"], mid)
             sent += 1
             STATE.write_text(json.dumps(state, indent=2))  # checkpoint every message
         except Exception as e:
@@ -177,9 +189,9 @@ def main():
 
     for v in live_v:
         try:
-            send_with_backoff(telegram.send_video, v["url"], v["ts"],
-                              caption=v["title"], failed=v["failed"])
-            mark_posted(state, v["ts"], v["url"])
+            mid = send_with_backoff(telegram.send_video, v["url"], v["ts"],
+                                    caption=v["title"], failed=v["failed"])
+            mark_posted(state, v["ts"], v["url"], mid)
             STATE.write_text(json.dumps(state, indent=2))
         except Exception as e:
             log(f"could not post video ({type(e).__name__}: {str(e)[:120]})")

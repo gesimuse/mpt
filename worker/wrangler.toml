@@ -13,4 +13,4 @@ VIDEO_WORKFLOW = "autopilot_video.yml"
 PAGES_BASE_URL = "https://gesimuse.github.io/mpt"
 # Second gate after the webhook secret: updates from any other chat are ignored, so a
 # leaked Worker URL alone cannot drive this. Fill in your channel id (starts with -100).
-ALLOWED_CHAT_ID = "-1004449497323"
+ALLOWED_CHAT_ID = "-1004449497323,-1004314616972"
