@@ -6,7 +6,7 @@
  * This Worker is the only always-on piece, and it exists solely to make the buttons
  * respond in seconds rather than whenever the next scheduled run happens to fire.
  */
-import { dispatchWorkflow, mutatePostedJson, hostOnPages } from "./github.js";
+import { dispatchWorkflow, mutatePostedJson, hostOnPages, recordUnknownChat } from "./github.js";
 import { answer, deleteMessage, getFileUrl, api } from "./telegram.js";
 
 /** callback_data is capped at 64 bytes, so buttons carry ids, not URLs. */
@@ -220,6 +220,11 @@ export default {
       // a member of, and only after the webhook secret has been verified above.
       console.log("update from non-allowed chat", chatId);
       if (chatId) {
+        // Written to the repo so the id survives being acked -- see recordUnknownChat.
+        const title = update.channel_post?.chat?.title
+          ?? update.message?.chat?.title ?? null;
+        try { await recordUnknownChat(env, chatId, title); }
+        catch (e) { console.error("could not record chat id", e); }
         await api(env, "sendMessage", {
           chat_id: chatId,
           text: `This chat's id is ${chatId}.\nIt is not in ALLOWED_CHAT_ID yet, so `

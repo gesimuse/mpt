@@ -99,3 +99,40 @@ export async function hostOnPages(env, path, contentB64) {
   if (!r.ok) throw new Error(`gh-pages upload failed: ${r.status} ${await r.text()}`);
   return `${env.PAGES_BASE_URL.replace(/\/$/, "")}/${path}`;
 }
+
+
+/**
+ * Record a chat id the Worker does not recognise, into a small file in the repo.
+ *
+ * Setting up a new channel is otherwise a coordination problem: with a webhook active
+ * getUpdates returns nothing, the Worker acks each update so Telegram drops it, and
+ * `wrangler tail` only shows what happens while someone is watching. Writing the id
+ * down makes it retroactive -- post whenever, read it whenever.
+ *
+ * Deliberately a separate file rather than a key in posted.json: this is transient
+ * setup scaffolding, and posted.json is written by three other things already.
+ */
+export async function recordUnknownChat(env, chatId, title) {
+  const path = "telegram_chats.json";
+  let sha, seen = {};
+  try {
+    const f = await getFile(env, path);
+    sha = f.sha;
+    seen = JSON.parse(b64ToUtf8(f.content));
+  } catch {
+    // 404 on first use is expected: PUT with no sha creates the file.
+  }
+  if (seen[chatId]) return;
+  seen[chatId] = { title: title || null, seen_at: new Date().toISOString() };
+  const body = {
+    message: `telegram: record chat id ${chatId}`,
+    content: utf8ToB64(JSON.stringify(seen, null, 2)),
+    branch: env.GITHUB_BRANCH,
+  };
+  if (sha) body.sha = sha;
+  await fetch(`${API}/repos/${env.GITHUB_OWNER}/${env.GITHUB_REPO}/contents/${path}`, {
+    method: "PUT",
+    headers: { ...headers(env), "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
