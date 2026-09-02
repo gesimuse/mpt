@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-02T11:26:42 — aibeauty
+
+```
+warm whispers in the dark
+
+Created with AI.
+
+#neuralarts #digitalart #foggy #muted #softcore
+```
+
 ## 2026-09-02T10:33:37 — aibeautyvideo
 
 ```
@@ -78,14 +88,4 @@ i'm louder in the quiet
 Created with AI.
 
 #neurallandscape #dreamlike #atmospherelight #sensualambiance #artificialromance #moodyatmospheres
-```
-
-## 2026-09-01T14:44:56 — aibeauty
-
-```
-Ready to slay the night
-
-Created with AI.
-
-#aiart #generativeart #80smetrosexual #glasgownightlife #urbanportrait
 ```
