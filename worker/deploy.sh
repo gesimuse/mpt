@@ -10,7 +10,10 @@ cd "$(dirname "$0")"
 ENV_FILE="../.env"
 
 [ -f "$ENV_FILE" ] || { echo "no $ENV_FILE"; exit 1; }
-get() { grep -E "^$1=" "$ENV_FILE" | head -1 | cut -d= -f2- | tr -d "\"' "; }
+# `|| true` matters: grep exits 1 when a key is absent, and under `set -e` that kills
+# the script. TELEGRAM_VIDEO_CHAT_ID is legitimately optional, so an absent key has to
+# yield an empty string rather than abort the deploy.
+get() { grep -E "^$1=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- | tr -d "\"' " || true; }
 
 BOT_TOKEN=$(get TELEGRAM_BOT_TOKEN)
 CHAT_ID=$(get TELEGRAM_CHAT_ID)
