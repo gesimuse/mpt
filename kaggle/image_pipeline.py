@@ -202,16 +202,25 @@ def main() -> None:
         # other. No version of torchao satisfies both peft's floor and torch 2.6.0,
         # so removing it outright is the only version that works with both: plain,
         # unquantized LoRA fusing never needed it in the first place.
-        # Only on the torch-2.6.0 path: the conflict is specifically between peft's
-        # torchao>=0.16.0 floor and 0.16.0's own torch-2.8-only imports. On Kaggle's
-        # stock torch there is no such squeeze, so its torchao is left alone.
-        if needs_pascal_torch:
-            log("removing Kaggle's preinstalled torchao -- transformers/peft both "
-                "skip it cleanly when it's simply not there, avoiding a version "
-                "nothing satisfies (see comment above)...")
-            subprocess.run(
-                [sys.executable, "-m", "pip", "uninstall", "-y", "-q", "torchao"],
-                check=True)
+        # UNCONDITIONAL, on both paths. Making this Pascal-only was a regression: on a
+        # T4 the uninstall was skipped, Kaggle's preinstalled torchao 0.10.0 stayed,
+        # and peft's own version probe raised on every single image --
+        # "Found an incompatible version of torchao. Found version 0.10.0, but only
+        # versions above 0.16.0 are supported" -- so a run generated 0 of 10 and fell
+        # back to ~40 minutes of CPU. Silent, because sdgen catches per-image errors.
+        #
+        # The reasoning that made it look conditional was that no torchao satisfies
+        # both peft's >=0.16.0 floor and torch 2.6.0 (0.16+ imports torch-2.8-only
+        # symbols). True, but it argues for removing torchao on the Pascal path, not
+        # for KEEPING an incompatible one on the T4 path. Both paths want it gone:
+        # transformers and peft both probe is_torchao_available() and take a clean
+        # False when it is simply absent, and plain unquantized LoRA fusing -- all
+        # this pipeline does -- never needed it.
+        log("removing Kaggle's preinstalled torchao -- transformers/peft both skip it "
+            "cleanly when it's absent, avoiding a version neither torch pin satisfies...")
+        subprocess.run(
+            [sys.executable, "-m", "pip", "uninstall", "-y", "-q", "torchao"],
+            check=True)
 
         # Diagnostic: sdgen.py's own per-image exception handler truncates
         # errors to 100 chars, which is exactly what hid the real cause of a
