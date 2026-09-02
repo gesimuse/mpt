@@ -700,7 +700,16 @@
       "tiktok_caption": "I found my own center\n\nCreated with AI.\n\n#digitalart #neuralstyle #softcore #choreographyinspiration #fluidmovement",
       "video_url": "https://gesimuse.github.io/mpt/media/1788342289-final.mp4",
       "ts": "2026-09-02T09:45:53",
-      "motionforge_source_url": "https://gesimuse.github.io/mpt/media/1788273855-sd_4.jpg"
+      "motionforge_source_url": "https://gesimuse.github.io/mpt/media/1788273855-sd_4.jpg",
+      "telegram_posted": [
+        "https://gesimuse.github.io/mpt/media/1788342289-final.mp4"
+      ],
+      "telegram_message_ids": {
+        "https://gesimuse.github.io/mpt/media/1788342289-final.mp4": {
+          "chat_id": "-1004314616972",
+          "message_id": 13
+        }
+      }
     }
   ],
   "model_stats": {
