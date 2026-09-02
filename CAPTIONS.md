@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-02T06:00:56 — aibeautyvideo
+
+```
+unashamed
+
+Created with AI.
+
+#generativeart #digitalpainting #surrealbodies #artslutlife #femaleforms #bodypositivity
+```
+
 ## 2026-09-01T18:36:48 — aibeauty
 
 ```
@@ -78,14 +88,4 @@ Body talk, eyes closed
 Created with AI.
 
 #popularart #deepdreams #dancingqueen #twerkinlife #bootyliciouspics #nsfwart
-```
-
-## 2026-08-31T16:44:50 — aibeautyvideo
-
-```
-Surrendering to the curve of the day
-
-Created with AI.
-
-#digitalart #bodypositivity #languagelimitations #generativeart #slowmotionmediocre
 ```
