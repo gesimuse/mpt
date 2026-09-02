@@ -213,6 +213,19 @@ export default {
     const allowed = String(env.ALLOWED_CHAT_ID || "")
       .split(",").map((s) => s.trim()).filter(Boolean);
     if (allowed.length && !allowed.includes(String(chatId))) {
+      // Setting up a new channel is otherwise circular: with a webhook active,
+      // getUpdates returns nothing (Telegram delivers here instead), and this Worker
+      // acks the update, so the chat id is unrecoverable afterwards. Replying with it
+      // makes the channel announce itself. Only ever reaches chats the bot is already
+      // a member of, and only after the webhook secret has been verified above.
+      console.log("update from non-allowed chat", chatId);
+      if (chatId) {
+        await api(env, "sendMessage", {
+          chat_id: chatId,
+          text: `This chat's id is ${chatId}.\nIt is not in ALLOWED_CHAT_ID yet, so `
+              + `buttons here will be ignored until it is added.`,
+        });
+      }
       return new Response("ok");
     }
     try {
