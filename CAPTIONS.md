@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-02T12:23:42 — aibeauty
+
+```
+when the bartender says you're the last one
+
+Created with AI.
+
+#generativeart #contemporaryphotography #lastcallvibes #alcoholicsonly #nightlowlife
+```
+
 ## 2026-09-02T11:26:42 — aibeauty
 
 ```
