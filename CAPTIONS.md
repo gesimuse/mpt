@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-02T08:57:13 — aibeautyvideo
+
+```
+Silk whispers secrets
+
+Created with AI.
+
+#artificialintelligence #generativeart #empirewaist #victorianvibes #softfocus #oldhollywoodromance
+```
+
 ## 2026-09-02T07:40:06 — aibeautyvideo
 
 ```
@@ -78,14 +88,4 @@ confident curves
 Created with AI.
 
 #aiart #digitalart #bodypositivity #softcore #adultcontent #nsfwart
-```
-
-## 2026-09-01T05:27:03 — aibeautyvideo
-
-```
-Feeling every inch of myself today
-
-Created with AI.
-
-#neuralart #women #bodypositivity #selflovejourney #femineenergy #artificialintelligenceart
 ```
