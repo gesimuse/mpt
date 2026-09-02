@@ -320,11 +320,17 @@ def _publish_video(niche, state, token_niche, video_url, caption, topic, extra_f
     if telegram.enabled():
         entry = state["uploads"][-1]
         try:
-            telegram.send_video(
+            mid = telegram.send_video(
                 video_url, entry["ts"],
                 caption=("✅ queued to TikTok" if entry.get("tiktok")
                          else f"❌ TikTok rejected it: {fail_reason or status}"),
                 failed=not entry.get("tiktok"))
+            # Recorded for the same reason image ids are: without it the message can
+            # never be moved or removed later, which is what left a video stranded in
+            # the photos channel with no way to clean it up programmatically.
+            entry.setdefault("telegram_message_ids", {})[video_url] = {
+                "chat_id": telegram.video_chat_id(), "message_id": mid}
+            save_state(state)
         except Exception as e:
             log(f"could not post the video to Telegram "
                 f"({type(e).__name__}: {str(e)[:150]})")

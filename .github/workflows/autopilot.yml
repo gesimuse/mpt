@@ -206,6 +206,11 @@ jobs:
           # the Cloudflare Worker in worker/, not here; see worker/README.md.
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          # Must be passed explicitly, not just exist as a secret. telegram.video_chat_id()
+          # falls back to TELEGRAM_CHAT_ID when this is unset -- which is correct for a
+          # deliberate single-channel setup, and is exactly why forgetting it here failed
+          # silently: a generated video landed in the photos channel with no error.
+          TELEGRAM_VIDEO_CHAT_ID: ${{ secrets.TELEGRAM_VIDEO_CHAT_ID }}
           PAGES_BASE_URL: https://gesimuse.github.io/mpt
           # actions/checkout already configures push credentials for this repo (any
           # branch, not just the default one), which is what tiktok.py's git push to

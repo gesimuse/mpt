@@ -3581,6 +3581,19 @@ class TelegramTest(unittest.TestCase):
         src = (Path(__file__).parent / "imageslides.py").read_text()
         self.assertIn('u.get("owner_verdict")', src)
 
+    def test_workflows_pass_every_telegram_var_they_rely_on(self):
+        """A secret that exists but is never put in the workflow env is invisible:
+        video_chat_id() falls back to TELEGRAM_CHAT_ID, so a missing
+        TELEGRAM_VIDEO_CHAT_ID silently posts videos into the photos channel with no
+        error anywhere. Caught in production exactly that way."""
+        root = Path(__file__).parent / ".github" / "workflows"
+        for wf in ("autopilot.yml", "autopilot_video.yml"):
+            text = (root / wf).read_text()
+            if "TELEGRAM_CHAT_ID" not in text:
+                continue
+            self.assertIn("TELEGRAM_VIDEO_CHAT_ID", text,
+                         f"{wf} passes TELEGRAM_CHAT_ID but not the video channel")
+
     def test_videos_go_to_their_own_channel(self):
         with mock.patch.dict(os.environ, {"TELEGRAM_CHAT_ID": "-100111"}, clear=True):
             self.assertEqual(telegram.video_chat_id(), "-100111")
