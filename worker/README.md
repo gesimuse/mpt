@@ -26,6 +26,20 @@ respond until tomorrow, is not usable.
 
 ## Deploy
 
+Everything below is wrapped in `./deploy.sh`, which reads the repo's `.env`, pushes the
+secrets, deploys, registers the webhook and verifies it. It refuses to run if
+`TELEGRAM_CHAT_ID` is an invite-link hash rather than a numeric channel id — that
+mistake otherwise surfaces only later, as "chat not found" on every call.
+
+The one thing it cannot do for you is authenticate to Cloudflare:
+
+```sh
+npx wrangler login          # browser OAuth, once
+./deploy.sh
+```
+
+<details><summary>Manual equivalent</summary>
+
 ```sh
 cd worker
 npm install -g wrangler          # once
@@ -55,6 +69,8 @@ curl "https://api.telegram.org/bot<BOT_TOKEN>/getWebhookInfo"
 
 `pending_update_count` climbing with a `last_error_message` means the Worker is
 rejecting or erroring — `wrangler tail` shows why.
+
+</details>
 
 ## Security
 
