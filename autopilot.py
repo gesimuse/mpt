@@ -28,6 +28,7 @@ from pathlib import Path
 import imageslides
 import kaggle_imagegen
 import motion_writer
+import telegram
 import tiktok
 import videogen
 
@@ -242,6 +243,13 @@ def run_niche(niche, state):
         })
         save_state(state)
         write_pending_captions(state)
+        # Review surface. Posted AFTER state is saved, so a Telegram outage can never
+        # cost us the record of a batch that already reached TikTok -- and the button
+        # callbacks look this batch up in posted.json by ts, so the entry has to exist
+        # before the buttons can work at all.
+        if telegram.enabled():
+            telegram.post_batch(image_urls, state["uploads"][-1]["ts"],
+                                caption=caption, motion_prompts=motion_prompts)
         for img in images:
             try:
                 os.remove(img)
@@ -299,6 +307,17 @@ def _publish_video(niche, state, token_niche, video_url, caption, topic, extra_f
     })
     save_state(state)
     write_pending_captions(state)
+    if telegram.enabled():
+        entry = state["uploads"][-1]
+        try:
+            telegram.send_video(
+                video_url, entry["ts"],
+                caption=("✅ queued to TikTok" if entry.get("tiktok")
+                         else f"❌ TikTok rejected it: {fail_reason or status}"),
+                failed=not entry.get("tiktok"))
+        except Exception as e:
+            log(f"could not post the video to Telegram "
+                f"({type(e).__name__}: {str(e)[:150]})")
 
 
 def _run_video_niche(niche, state):

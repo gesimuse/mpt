@@ -127,6 +127,13 @@ jobs:
           TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
           TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
           TIKTOK_REFRESH_TOKEN_AIBEAUTY: ${{ secrets.TIKTOK_REFRESH_TOKEN_AIBEAUTY }}
+          # Review surface: every generated image is posted to the Telegram channel
+          # with Make video / Skip buttons (telegram.py). Unset = not posted, which is
+          # a supported setup and never fails a run -- the TikTok draft is queued
+          # before this and does not depend on it. The button PRESSES are handled by
+          # the Cloudflare Worker in worker/, not here; see worker/README.md.
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           PAGES_BASE_URL: https://gesimuse.github.io/mpt
         run: python autopilot.py
 

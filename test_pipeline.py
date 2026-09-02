@@ -31,6 +31,7 @@ import push_draft  # noqa: E402
 import refine  # noqa: E402
 import sdgen  # noqa: E402
 import supervisor  # noqa: E402
+import telegram  # noqa: E402
 import tiktok  # noqa: E402
 import upscale  # noqa: E402
 import videogen  # noqa: E402
@@ -3515,6 +3516,113 @@ class RealismCueTest(unittest.TestCase):
             except Exception:
                 pass  # only the negative string matters here
         self.assertIn("plastic skin", captured.get("negative", ""))
+
+
+class TelegramTest(unittest.TestCase):
+    """telegram.py is the SEND half of the review surface; the Cloudflare Worker in
+    worker/ is the receive half. Split that way because nothing in this cron-driven
+    project is running when a button is pressed."""
+
+    ENV = {"TELEGRAM_BOT_TOKEN": "tok", "TELEGRAM_CHAT_ID": "-100123"}
+
+    def _capture(self, captured, ok=True):
+        def post(url, json=None, timeout=None, **kw):
+            captured.setdefault("calls", []).append((url, json))
+            return mock.Mock(ok=ok, status_code=200 if ok else 400, text="err",
+                             json=lambda: {"ok": ok, "result": {"message_id": 7}})
+        return post
+
+    def test_disabled_without_config(self):
+        with mock.patch.dict(os.environ, {}, clear=True):
+            self.assertFalse(telegram.enabled())
+        with mock.patch.dict(os.environ, self.ENV, clear=True):
+            self.assertTrue(telegram.enabled())
+
+    def test_callback_data_fits_telegrams_64_byte_cap(self):
+        """The cap is why buttons carry ids instead of URLs -- a gh-pages media URL
+        alone is already over it."""
+        data = telegram._callback("skip", "2026-08-31T12:04:05", 9)
+        self.assertLessEqual(len(data.encode()), 64)
+
+    def test_each_image_gets_its_own_buttons(self):
+        captured = {}
+        with mock.patch.dict(os.environ, self.ENV, clear=True), \
+             mock.patch.object(telegram.requests, "post", self._capture(captured)):
+            ids = telegram.post_batch(["https://x/a.jpg", "https://x/b.jpg"],
+                                     "2026-08-31T12:04:05", caption="cap",
+                                     motion_prompts=["turn and look back", "arch"])
+        self.assertEqual(ids, [7, 7])
+        first = captured["calls"][0][1]
+        self.assertIn("turn and look back", first["caption"])
+        buttons = first["reply_markup"]["inline_keyboard"][0]
+        self.assertEqual([b["callback_data"] for b in buttons],
+                        ["vid|2026-08-31T12:04:05|0", "skip|2026-08-31T12:04:05|0"])
+        second = captured["calls"][1][1]
+        self.assertTrue(second["reply_markup"]["inline_keyboard"][0][0]
+                       ["callback_data"].endswith("|1"))
+
+    def test_a_telegram_outage_never_fails_a_run(self):
+        """The images are already hosted and the TikTok draft already queued by the
+        time this runs -- the review surface is downstream of all of it."""
+        with mock.patch.dict(os.environ, self.ENV, clear=True), \
+             mock.patch.object(telegram.requests, "post",
+                               mock.Mock(side_effect=OSError("network down"))):
+            self.assertEqual(telegram.post_batch(["https://x/a.jpg"], "ts"), [])
+
+    def test_video_gets_a_retry_button_only_when_tiktok_rejected_it(self):
+        captured = {}
+        with mock.patch.dict(os.environ, self.ENV, clear=True), \
+             mock.patch.object(telegram.requests, "post", self._capture(captured)):
+            telegram.send_video("https://x/v.mp4", "ts", failed=False)
+            telegram.send_video("https://x/v.mp4", "ts", failed=True)
+        ok_row = captured["calls"][0][1]["reply_markup"]["inline_keyboard"][0]
+        failed_row = captured["calls"][1][1]["reply_markup"]["inline_keyboard"][0]
+        self.assertEqual(len(ok_row), 1)
+        self.assertEqual(failed_row[1]["callback_data"], "retry|ts|0")
+
+    def test_video_is_sent_as_a_document(self):
+        """Telegram re-encodes videos for streaming; the download button exists to
+        hand over the exact file that was hosted and posted."""
+        captured = {}
+        with mock.patch.dict(os.environ, self.ENV, clear=True), \
+             mock.patch.object(telegram.requests, "post", self._capture(captured)):
+            telegram.send_video("https://x/v.mp4", "ts")
+        self.assertIn("sendDocument", captured["calls"][0][0])
+
+
+class TelegramWorkerContractTest(unittest.TestCase):
+    """The Worker is JS and unrunnable from here, but it and telegram.py share a wire
+    format that nothing else enforces. Pin the parts that would silently break."""
+
+    SRC = Path(__file__).parent / "worker" / "src"
+
+    def test_worker_parses_the_callback_format_python_emits(self):
+        index = (self.SRC / "index.js").read_text()
+        self.assertIn('.split("|")', index)
+        for action in ("vid", "skip", "retry"):
+            self.assertIn(f'"{action}"', index)
+            self.assertIn(action, telegram._callback(action, "ts", 0))
+
+    def test_worker_verifies_the_webhook_secret_before_parsing(self):
+        """The Worker URL is public. Without this, anyone who finds it can dispatch
+        workflows and rewrite posted.json."""
+        index = (self.SRC / "index.js").read_text()
+        self.assertIn("X-Telegram-Bot-Api-Secret-Token", index)
+        self.assertLess(index.index("X-Telegram-Bot-Api-Secret-Token"),
+                       index.index("await request.json()"),
+                       "secret must be checked before the body is parsed")
+
+    def test_worker_always_returns_200(self):
+        """A non-2xx makes Telegram redeliver the same update forever -- for a button
+        that dispatches a workflow, that means dispatching it repeatedly."""
+        self.assertIn('return new Response("ok")', (self.SRC / "index.js").read_text())
+
+    def test_no_secrets_are_committed_in_wrangler_toml(self):
+        toml = (Path(__file__).parent / "worker" / "wrangler.toml").read_text()
+        for secret in ("TELEGRAM_BOT_TOKEN", "GITHUB_TOKEN", "TELEGRAM_WEBHOOK_SECRET"):
+            for line in toml.splitlines():
+                if line.strip().startswith(secret):
+                    self.fail(f"{secret} must be a wrangler secret, not committed")
 
 
 class MergeStateTest(unittest.TestCase):

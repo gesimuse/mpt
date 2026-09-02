@@ -199,6 +199,13 @@ jobs:
           # Images are committed to the gh-pages branch (tiktok.py) and served
           # directly from there -- GitHub Releases' download URLs redirect to a
           # signed, ~1h-expiring URL, which TikTok's PULL_FROM_URL disallows.
+          # Review surface: every generated image is posted to the Telegram channel
+          # with Make video / Skip buttons (telegram.py). Unset = not posted, which is
+          # a supported setup and never fails a run -- the TikTok draft is queued
+          # before this and does not depend on it. The button PRESSES are handled by
+          # the Cloudflare Worker in worker/, not here; see worker/README.md.
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           PAGES_BASE_URL: https://gesimuse.github.io/mpt
           # actions/checkout already configures push credentials for this repo (any
           # branch, not just the default one), which is what tiktok.py's git push to
