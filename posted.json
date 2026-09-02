@@ -1073,7 +1073,6 @@
       "tiktok_status": "SEND_TO_USER_INBOX",
       "tiktok_caption": "Night life is good life\n\nCreated with AI.\n\n#aiart #genart #citylights #urbanromance #balconyvibes",
       "image_urls": [
-        "https://gesimuse.github.io/mpt/media/1788362064-sd_0.jpg",
         "https://gesimuse.github.io/mpt/media/1788362094-sd_1.jpg",
         "https://gesimuse.github.io/mpt/media/1788362123-sd_2.jpg",
         "https://gesimuse.github.io/mpt/media/1788362217-sd_3.jpg",
@@ -1085,7 +1084,6 @@
         "https://gesimuse.github.io/mpt/media/1788362410-sd_9.jpg"
       ],
       "image_prompts": [
-        "beautiful adult woman, romanian woman in her early thirties, long dark hair, green eyes, seductive, sexy, alluring, round breasts, round ass, beautiful, leaning forward, playful confident energy, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, full body portrait, standing, wide angle, (emb-anada:0.7), large sweater, off-shoulder, (flat chest:1.3), standing, looking back, in classroom, windows, rimlit, slim, tattoo on back, slender, looking at viewer, (masterpiece), (best quality:1.2), absurdres, intricate details, (highly detailed skin:1.2) (highly detailed face:1.3)",
         "beautiful adult woman, romanian woman in her early thirties, long dark hair, green eyes, seductive, sexy, alluring, round breasts, round ass, beautiful, leaning forward, playful confident energy, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, candid framing, natural daylight, (emb-anada:0.7), large sweater, off-shoulder, (flat chest:1.3), standing, looking back, in classroom, windows, rimlit, slim, tattoo on back, slender, looking at viewer, (masterpiece), (best quality:1.2), absurdres, intricate details, (highly detailed skin:1.2) (highly detailed face:1.3)",
         "beautiful adult woman, romanian woman in her early thirties, long dark hair, green eyes, seductive, sexy, alluring, round breasts, round ass, beautiful, leaning forward, playful confident energy, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, full length shot, head to toe, natural stance, (emb-anada:0.7), large sweater, off-shoulder, (flat chest:1.3), standing, looking back, in classroom, windows, rimlit, slim, tattoo on back, slender, looking at viewer, (masterpiece), (best quality:1.2), absurdres, intricate details, (highly detailed skin:1.2) (highly detailed face:1.3)",
         "beautiful adult woman, romanian woman in her early thirties, long dark hair, green eyes, seductive, sexy, alluring, round breasts, round ass, beautiful, leaning forward, playful confident energy, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, profile view, moody side lighting, (emb-anada:0.7), large sweater, off-shoulder, (flat chest:1.3), standing, looking back, in classroom, windows, rimlit, slim, tattoo on back, slender, looking at viewer, (masterpiece), (best quality:1.2), absurdres, intricate details, (highly detailed skin:1.2) (highly detailed face:1.3)",
@@ -1099,7 +1097,6 @@
       "vibe": "city lights from the balcony",
       "look": "romanian",
       "motion_prompts": [
-        "She slowly turns her body, hips leading, until her back faces the camera, then looks back over her shoulder, her gaze locking onto the viewer.",
         "She turns slowly to her left, looks back with a subtle arch of her back, and then settles back into the original pose.",
         "As she slowly leans in, her hips lead and her weight shifts onto one leg, her sweater dipping off her shoulder.",
         "She slowly pivots around her standing position, her hips and upper body swaying in tandem, as her hair falls across her left shoulder in a loose trail.",
@@ -1152,7 +1149,8 @@
           "chat_id": "-1004449497323",
           "message_id": 109
         }
-      }
+      },
+      "owner_verdict": "skipped"
     }
   ],
   "model_stats": {
