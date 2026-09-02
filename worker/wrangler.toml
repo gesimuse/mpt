@@ -14,3 +14,18 @@ PAGES_BASE_URL = "https://gesimuse.github.io/mpt"
 # Second gate after the webhook secret: updates from any other chat are ignored, so a
 # leaked Worker URL alone cannot drive this. Fill in your channel id (starts with -100).
 ALLOWED_CHAT_ID = "-1004449497323,-1004314616972"
+# Video quality knobs, applied to every dispatch the bot makes.
+#
+# LENGTH is already the model's ceiling: the Space clamps to MAX_FRAMES_MODEL=80 at
+# FIXED_FPS=16, so 5.0s is the maximum it can produce at all.
+#
+# STEPS is NOT at the slider's maximum (30) on purpose. The Space bills ZeroGPU as
+# 10 + steps * ~15.6s at this resolution, against ~300s per HF account per day:
+#     4 steps ->  72s -> 4 videos/account/day
+#     8 steps -> 135s -> 2 videos/account/day   <- here
+#    16 steps -> 260s -> 1 video/account/day
+#    30 steps -> 478s -> exceeds a whole day's quota in one request, always fails
+# 8 is the highest setting that still leaves a workable number of videos per day.
+# Raise it here if quality matters more than volume; it is one line and a redeploy.
+VIDEO_STEPS = "8"
+VIDEO_LENGTH_S = "5.0"

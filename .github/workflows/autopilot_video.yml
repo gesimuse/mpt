@@ -28,13 +28,13 @@ on:
         type: string
       steps:
         description: >-
-          Wan rCM inference steps (4-8). Every step costs real ZeroGPU quota: the
-          Space bills 10 + steps * ~15.6s, so 8 steps asks for ~135s of a free
-          account's ~300s/day (two videos) while 4 asks ~72s (four). 4 is the
-          Space's own default -- rCM is a distilled consistency model, few steps
-          is the point of it.
+          Wan rCM inference steps. The Space's slider allows 1-30, but every step
+          costs real ZeroGPU quota: it bills 10 + steps * ~15.6s against ~300s per
+          HF account per day. 4 -> 72s (4 videos/account/day), 8 -> 135s (2),
+          16 -> 260s (1), 30 -> 478s, which exceeds a whole day in one request and
+          always fails. 8 is the highest that keeps a workable rate.
         required: false
-        default: "4"
+        default: "8"
         type: string
       retry_video_url:
         description: "Already-generated mp4 URL to republish as-is, skipping the HF Space call entirely (the picker's Retry button on a failed video)"
