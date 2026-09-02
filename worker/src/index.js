@@ -7,7 +7,7 @@
  * respond in seconds rather than whenever the next scheduled run happens to fire.
  */
 import { dispatchWorkflow, mutatePostedJson, hostOnPages, recordUnknownChat } from "./github.js";
-import { answer, deleteMessage, getFileUrl, api } from "./telegram.js";
+import { answer, deleteMessage, getFileUrl, api, redact } from "./telegram.js";
 
 /** callback_data is capped at 64 bytes, so buttons carry ids, not URLs. */
 function parseCallback(data) {
@@ -95,7 +95,7 @@ async function onMakeVideo(env, cq, ts, index, promptOverride) {
     try {
       url = await rehostFromTelegram(env, cq.message, ts, index);
     } catch (err) {
-      await answer(env, cq.id, `Could not restore it: ${String(err).slice(0, 120)}`, true);
+      await answer(env, cq.id, `Could not restore it: ${redact(env, err).slice(0, 120)}`, true);
       return;
     }
     if (!url) {
@@ -179,7 +179,7 @@ async function onCallback(env, cq) {
     await answer(env, cq.id, `Unknown action: ${action}`, true);
   } catch (err) {
     // Always answer, or the button spins forever and the bot looks hung.
-    await answer(env, cq.id, `Failed: ${String(err).slice(0, 150)}`, true);
+    await answer(env, cq.id, `Failed: ${redact(env, err).slice(0, 150)}`, true);
   }
 }
 
@@ -237,7 +237,7 @@ async function onMakeVideoFromReply(env, fake, ts, index, prompt, chatId) {
       { chat_id: chatId, text: `Sent to video generation:\n${prompt}` });
   } catch (err) {
     await api(env, "sendMessage",
-      { chat_id: chatId, text: `Failed: ${String(err).slice(0, 300)}` });
+      { chat_id: chatId, text: `Failed: ${redact(env, err).slice(0, 300)}` });
   }
 }
 
@@ -275,7 +275,7 @@ async function onPhoto(env, msg) {
     });
   } catch (err) {
     await api(env, "sendMessage",
-      { chat_id: msg.chat.id, text: `Upload failed: ${String(err).slice(0, 300)}` });
+      { chat_id: msg.chat.id, text: `Upload failed: ${redact(env, err).slice(0, 300)}` });
   }
 }
 
@@ -308,7 +308,7 @@ export default {
         const title = update.channel_post?.chat?.title
           ?? update.message?.chat?.title ?? null;
         try { await recordUnknownChat(env, chatId, title); }
-        catch (e) { console.error("could not record chat id", e); }
+        catch (e) { console.error("could not record chat id", redact(env, e)); }
         await api(env, "sendMessage", {
           chat_id: chatId,
           text: `This chat's id is ${chatId}.\nIt is not in ALLOWED_CHAT_ID yet, so `
@@ -327,7 +327,7 @@ export default {
       else if (post?.reply_to_message && post.text) await onReply(env, post);
       else if (post?.photo) await onPhoto(env, post);
     } catch (err) {
-      console.error("update failed", err);
+      console.error("update failed", redact(env, err));
     }
     // Always 200: a non-2xx makes Telegram redeliver the same update indefinitely,
     // which for a button that dispatches a workflow means dispatching it repeatedly.

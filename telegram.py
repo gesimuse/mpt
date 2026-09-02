@@ -40,7 +40,31 @@ API = "https://api.telegram.org"
 TIMEOUT = int(os.environ.get("TELEGRAM_TIMEOUT", "30"))
 
 
-def log(msg): print(f"[telegram] {msg}", flush=True)
+def redact(text):
+    """Strip the bot token out of anything about to be logged or raised.
+
+    Telegram has no header auth -- the token is a path segment, so every request URL
+    contains it. requests puts that URL into its own exception messages verbatim
+    ("Max retries exceeded with url: /bot<TOKEN>/sendPhoto"), and callers log
+    str(e) into GitHub Actions logs, which are PUBLIC on this repo. That is a real
+    credential disclosure from an ordinary network blip, not a hypothetical.
+
+    Redacting at the boundary rather than asking every call site to remember: the
+    ones that forgot are exactly the ones that would leak."""
+    token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+    text = str(text)
+    if token:
+        text = text.replace(token, "<TELEGRAM_BOT_TOKEN>")
+        # The numeric bot id before the colon is not secret, but the secret half alone
+        # is still enough to act as the bot, so scrub it even if the full token was
+        # split or truncated across a log boundary.
+        secret = token.split(":", 1)[-1]
+        if len(secret) > 8:
+            text = text.replace(secret, "<TELEGRAM_BOT_TOKEN>")
+    return text
+
+
+def log(msg): print(f"[telegram] {redact(msg)}", flush=True)
 
 
 def enabled():
@@ -52,12 +76,18 @@ def _call(method, payload):
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
     if not token:
         raise RuntimeError("TELEGRAM_BOT_TOKEN not set")
-    r = requests.post(f"{API}/bot{token}/{method}", json=payload, timeout=TIMEOUT)
+    try:
+        r = requests.post(f"{API}/bot{token}/{method}", json=payload, timeout=TIMEOUT)
+    except requests.RequestException as e:
+        # Re-raised redacted, because requests embeds the full request URL -- token
+        # included -- in its own message, and every caller logs that.
+        raise RuntimeError(f"telegram {method} unreachable: {redact(e)[:300]}") from None
     if not r.ok:
-        raise RuntimeError(f"telegram {method} failed: {r.status_code} {r.text[:300]}")
+        raise RuntimeError(
+            f"telegram {method} failed: {r.status_code} {redact(r.text)[:300]}")
     body = r.json()
     if not body.get("ok"):
-        raise RuntimeError(f"telegram {method} rejected: {str(body)[:300]}")
+        raise RuntimeError(f"telegram {method} rejected: {redact(body)[:300]}")
     return body["result"]
 
 
@@ -161,6 +191,6 @@ def post_batch(image_urls, ts, caption=None, motion_prompts=None, chat_id=None):
             ids.append(send_image(url, ts, i, caption=caption if i == 0 else None,
                                   motion_prompt=prompt, chat_id=chat_id))
         except Exception as e:
-            log(f"could not post image {i} ({type(e).__name__}: {str(e)[:150]})")
+            log(f"could not post image {i} ({type(e).__name__}: {redact(e)[:150]})")
     log(f"posted {len(ids)}/{len(image_urls or [])} images to the channel")
     return ids

@@ -184,7 +184,8 @@ def main():
             sent += 1
             STATE.write_text(json.dumps(state, indent=2))  # checkpoint every message
         except Exception as e:
-            log(f"could not post {item['url'][-28:]} ({type(e).__name__}: {str(e)[:120]})")
+            log(f"could not post {item['url'][-28:]} "
+                f"({type(e).__name__}: {telegram.redact(e)[:120]})")
         time.sleep(DELAY_S)
     log(f"posted {sent}/{len(live)} images")
 
@@ -195,7 +196,7 @@ def main():
             mark_posted(state, v["ts"], v["url"], mid)
             STATE.write_text(json.dumps(state, indent=2))
         except Exception as e:
-            log(f"could not post video ({type(e).__name__}: {str(e)[:120]})")
+            log(f"could not post video ({type(e).__name__}: {telegram.redact(e)[:120]})")
         time.sleep(DELAY_S)
 
     if args.prune_dead and dead:

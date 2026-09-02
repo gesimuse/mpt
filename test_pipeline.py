@@ -3533,6 +3533,41 @@ class TelegramTest(unittest.TestCase):
                              json=lambda: {"ok": ok, "result": {"message_id": 7}})
         return post
 
+    def test_the_token_is_stripped_from_anything_logged(self):
+        """Telegram has no header auth, so the token is a path segment of every
+        request URL -- and requests puts that URL verbatim into its own exception
+        messages ("Max retries exceeded with url: /bot<TOKEN>/sendPhoto"). Callers log
+        str(e), and this repo's Actions logs are PUBLIC. An ordinary network blip was
+        enough to disclose the credential."""
+        with mock.patch.dict(os.environ, {"TELEGRAM_BOT_TOKEN": "123456:SECRETHALF"},
+                            clear=True):
+            out = telegram.redact(
+                "Max retries exceeded with url: /bot123456:SECRETHALF/sendPhoto")
+            self.assertNotIn("SECRETHALF", out)
+            self.assertIn("<TELEGRAM_BOT_TOKEN>", out)
+            # The secret half alone still authenticates, so it is scrubbed even when
+            # the full token was split or truncated across a log boundary.
+            self.assertNotIn("SECRETHALF", telegram.redact("tail: SECRETHALF"))
+
+    def test_a_network_failure_raises_without_the_token(self):
+        with mock.patch.dict(os.environ, {"TELEGRAM_BOT_TOKEN": "123456:SECRETHALF",
+                                         "TELEGRAM_CHAT_ID": "-100"}, clear=True), \
+             mock.patch.object(telegram.requests, "post", mock.Mock(
+                 side_effect=telegram.requests.ConnectionError(
+                     "Max retries with url: /bot123456:SECRETHALF/sendPhoto"))):
+            with self.assertRaises(RuntimeError) as ctx:
+                telegram.send_text("hi")
+        self.assertNotIn("SECRETHALF", str(ctx.exception))
+
+    def test_the_worker_redacts_too(self):
+        """Same exposure on the Worker: getFileUrl returns a URL containing the token,
+        and errors built from it get logged and posted back into the channel."""
+        tg = (Path(__file__).parent / "worker" / "src" / "telegram.js").read_text()
+        self.assertIn("export function redact", tg)
+        index = (Path(__file__).parent / "worker" / "src" / "index.js").read_text()
+        self.assertNotIn("String(err)", index,
+                        "error text shown to users must go through redact()")
+
     def test_disabled_without_config(self):
         with mock.patch.dict(os.environ, {}, clear=True):
             self.assertFalse(telegram.enabled())

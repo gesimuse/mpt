@@ -338,8 +338,10 @@ def _publish_video(niche, state, token_niche, video_url, caption, topic, extra_f
                 "chat_id": telegram.video_chat_id(), "message_id": mid}
             save_state(state)
         except Exception as e:
+            # redact: a network error from requests carries the bot token in its
+            # message, and these logs are public on this repo.
             log(f"could not post the video to Telegram "
-                f"({type(e).__name__}: {str(e)[:150]})")
+                f"({type(e).__name__}: {telegram.redact(e)[:150]})")
 
 
 def _run_video_niche(niche, state):
