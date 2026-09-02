@@ -785,6 +785,20 @@
           "message_id": 14
         }
       }
+    },
+    {
+      "niche": "aibeauty",
+      "tiktok": true,
+      "ts": "2098-01-01T00:00:00",
+      "image_urls": [
+        "https://gesimuse.github.io/mpt/media/definitely-pruned-test.jpg"
+      ],
+      "image_prompts": [
+        null
+      ],
+      "motion_prompts": [
+        "test motion"
+      ]
     }
   ],
   "model_stats": {
