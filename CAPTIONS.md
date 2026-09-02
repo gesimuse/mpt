@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-02T15:20:57 — aibeauty
+
+```
+Night life is good life
+
+Created with AI.
+
+#aiart #genart #citylights #urbanromance #balconyvibes
+```
+
 ## 2026-09-02T13:51:06 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ All about the angle
 Created with AI.
 
 #aiart #dreamgirling #bohostyle #femmeart #gazeplay #eroticfemaleform
-```
-
-## 2026-09-02T06:00:56 — aibeautyvideo
-
-```
-unashamed
-
-Created with AI.
-
-#generativeart #digitalpainting #surrealbodies #artslutlife #femaleforms #bodypositivity
 ```
