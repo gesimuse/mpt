@@ -23,6 +23,55 @@ function findImage(state, ts, index) {
   return { entry, url: urls[index], urls };
 }
 
+/**
+ * Re-host a photo from Telegram's own copy back onto gh-pages, and point posted.json
+ * at the new file.
+ *
+ * The problem: tiktok.KEEP_MEDIA prunes gh-pages oldest-first, but a photo can sit in
+ * the channel for days waiting to be worked. Telegram keeps its own copy, so the
+ * MESSAGE never breaks -- but Make video hands the URL to an HF Space that has to
+ * fetch it, so a pruned file looks fine right up until someone presses the button.
+ * Half the backlog was already in that state when it was migrated.
+ *
+ * Mirroring the prune into the channel was the alternative and is worse: it would
+ * delete photos nobody had got to yet. Restoring the file keeps the backlog.
+ *
+ * Telegram's own file URL is deliberately NOT handed to the Space: it embeds the bot
+ * token, and the URL becomes a workflow input that lands in Actions logs.
+ *
+ * Quality is not a concern here: Telegram keeps photos at up to ~1280px and the Space
+ * downscales to 832x480 anyway, so its copy is comfortably larger than what is used.
+ */
+async function rehostFromTelegram(env, message, ts, index) {
+  const photo = message?.photo;
+  if (!photo?.length) return null;
+  // photo[] is ascending by resolution; the last is the largest Telegram kept.
+  const fileUrl = await getFileUrl(env, photo[photo.length - 1].file_id);
+  const bytes = new Uint8Array(await (await fetch(fileUrl)).arrayBuffer());
+  let bin = "";
+  for (const b of bytes) bin += String.fromCharCode(b);
+  const path = `media/rehosted-${Date.now()}.jpg`;
+  const url = await hostOnPages(env, path, btoa(bin));
+  // Kept: this is the one line that says a backlog image was rescued rather than lost,
+  // and it is rare enough to be worth finding in a tail.
+  console.log("restored a pruned image from Telegram ->", url);
+  await mutatePostedJson(env, (state) => {
+    const { entry } = findImage(state, ts, index);
+    if (!entry?.image_urls || index >= entry.image_urls.length) return false;
+    entry.image_urls[index] = url;
+  }, "telegram: re-host a pruned image from the channel's own copy");
+  return url;
+}
+
+async function isLive(url) {
+  try {
+    const r = await fetch(url, { method: "HEAD", redirect: "manual" });
+    return r.status === 200;
+  } catch {
+    return false;
+  }
+}
+
 async function onMakeVideo(env, cq, ts, index, promptOverride) {
   let url = null, prompt = promptOverride || null;
   // Read-only use of the mutate helper: returning false means no PUT is made.
@@ -38,6 +87,21 @@ async function onMakeVideo(env, cq, ts, index, promptOverride) {
   if (!url) {
     await answer(env, cq.id, "That image is no longer in posted.json.", true);
     return;
+  }
+  if (!(await isLive(url))) {
+    // Pruned from gh-pages while it waited in the backlog. Put it back from the copy
+    // this very message is holding, rather than failing or dropping it.
+    await answer(env, cq.id, "Image had expired - restoring it first...");
+    try {
+      url = await rehostFromTelegram(env, cq.message, ts, index);
+    } catch (err) {
+      await answer(env, cq.id, `Could not restore it: ${String(err).slice(0, 120)}`, true);
+      return;
+    }
+    if (!url) {
+      await answer(env, cq.id, "That image's file is gone and cannot be restored.", true);
+      return;
+    }
   }
   await dispatchWorkflow(env, {
     image_url: url,
@@ -153,6 +217,14 @@ async function onMakeVideoFromReply(env, fake, ts, index, prompt, chatId) {
       await api(env, "sendMessage",
         { chat_id: chatId, text: "That image is no longer in posted.json." });
       return;
+    }
+    if (!(await isLive(url))) {
+      url = await rehostFromTelegram(env, fake.message, ts, index);
+      if (!url) {
+        await api(env, "sendMessage", { chat_id: chatId,
+          text: "That image's file is gone and cannot be restored." });
+        return;
+      }
     }
     await dispatchWorkflow(env, {
       image_url: url, motion_prompt: prompt,

@@ -3612,6 +3612,31 @@ class TelegramTest(unittest.TestCase):
                                          "TELEGRAM_VIDEO_CHAT_ID": "-100222"}, clear=True):
             self.assertEqual(telegram.video_chat_id(), "-100222")
 
+    def test_a_pruned_image_is_restored_from_telegrams_own_copy(self):
+        """KEEP_MEDIA prunes gh-pages oldest-first while a photo can sit in the
+        channel for days. Telegram keeps its own copy so the message never breaks,
+        but Make video hands the URL to a Space that must fetch it -- so a pruned
+        file looks fine right until the button is pressed. Half the backlog was
+        already in that state when it was migrated."""
+        index = (Path(__file__).parent / "worker" / "src" / "index.js").read_text()
+        self.assertIn("rehostFromTelegram", index)
+        self.assertIn("isLive(url)", index)
+        make_video = index[index.index("async function onMakeVideo("):
+                          index.index("async function onResolve")]
+        self.assertIn("rehostFromTelegram", make_video,
+                     "Make video must restore a pruned image, not fail on it")
+
+    def test_the_bot_token_never_reaches_the_workflow(self):
+        """Telegram's file URL embeds the bot token, and a workflow input lands in
+        Actions logs -- so the restored gh-pages URL is dispatched, never that one."""
+        index = (Path(__file__).parent / "worker" / "src" / "index.js").read_text()
+        rehost = index[index.index("async function rehostFromTelegram"):
+                      index.index("async function isLive")]
+        self.assertIn("hostOnPages", rehost)
+        dispatch_calls = [seg for seg in index.split("dispatchWorkflow(env, {")[1:]]
+        for seg in dispatch_calls:
+            self.assertNotIn("api.telegram.org", seg[:400])
+
     def test_channel_posts_are_handled_not_just_private_messages(self):
         """A channel delivers everything as channel_post; only private chats and
         groups use `message`. Handling just `message` silently dropped every reply
