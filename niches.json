@@ -6,7 +6,7 @@
       "purpose": "TikTok-only image carousels, queued as native TikTok inbox drafts.",
       "content_type": "images",
       "images_per_video": 10,
-      "max_images": 5,
+      "max_images": 10,
       "min_images": 3,
       "videos_per_run": 1,
       "hashtags": "#aiart #aigenerated #aiphotography #confident",

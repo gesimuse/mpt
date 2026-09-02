@@ -804,6 +804,11 @@ def generate(niche, count=None, workdir=None, max_rounds=2, state=None):
 
     count = count or int(niche.get("images_per_video", 10))
     min_images = int(niche.get("min_images", 3))
+    # Defaults to images_per_video, i.e. keep everything generated. A cap BELOW that
+    # throws away images already paid for -- max_images was 5 against
+    # images_per_video 10, so half of every batch was generated and deleted. The cut
+    # is approved[:max_images], the FIRST n that passed, not the best n; there is no
+    # ranking, so a lower cap discards nothing worse than what it keeps.
     max_images = int(niche.get("max_images", niche.get("images_per_video", 5)))
     workdir = Path(workdir) if workdir else Path(tempfile.mkdtemp(prefix="imageslides_"))
     workdir.mkdir(parents=True, exist_ok=True)
