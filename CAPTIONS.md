@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-02T09:45:53 — aibeautyvideo
+
+```
+I found my own center
+
+Created with AI.
+
+#digitalart #neuralstyle #softcore #choreographyinspiration #fluidmovement
+```
+
 ## 2026-09-02T08:57:13 — aibeautyvideo
 
 ```
@@ -78,14 +88,4 @@ Last call for what's left of me
 Created with AI.
 
 #digitalart #neuralimpressions #lostinnights #surrealism #artificialdreams #generativeart
-```
-
-## 2026-09-01T06:55:21 — aibeautyvideo
-
-```
-confident curves
-
-Created with AI.
-
-#aiart #digitalart #bodypositivity #softcore #adultcontent #nsfwart
 ```

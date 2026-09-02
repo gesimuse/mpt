@@ -687,6 +687,20 @@
       "telegram_posted": [
         "https://gesimuse.github.io/mpt/media/1788339374-final.mp4"
       ]
+    },
+    {
+      "niche": "aibeautyvideo",
+      "topic": "video 20260902-094254",
+      "title": "I found my own center",
+      "tiktok": true,
+      "tiktok_via": "inbox_video",
+      "tiktok_post_id": "v_inbox_url~v2.7680871500165171222",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_fail_reason": null,
+      "tiktok_caption": "I found my own center\n\nCreated with AI.\n\n#digitalart #neuralstyle #softcore #choreographyinspiration #fluidmovement",
+      "video_url": "https://gesimuse.github.io/mpt/media/1788342289-final.mp4",
+      "ts": "2026-09-02T09:45:53",
+      "motionforge_source_url": "https://gesimuse.github.io/mpt/media/1788273855-sd_4.jpg"
     }
   ],
   "model_stats": {
