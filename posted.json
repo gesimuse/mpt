@@ -899,8 +899,7 @@
         "https://gesimuse.github.io/mpt/media/1788351645-sd_5.jpg",
         "https://gesimuse.github.io/mpt/media/1788351680-sd_6.jpg",
         "https://gesimuse.github.io/mpt/media/1788351709-sd_7.jpg",
-        "https://gesimuse.github.io/mpt/media/1788351742-sd_8.jpg",
-        "https://gesimuse.github.io/mpt/media/1788351774-sd_9.jpg"
+        "https://gesimuse.github.io/mpt/media/1788351742-sd_8.jpg"
       ],
       "image_prompts": [
         "beautiful adult woman, south african woman in her late twenties, sun-lightened brown hair, wearing a silk blouse half-tucked into tailored trousers, in a dim jazz bar, brass and low amber light, seductive, sexy, alluring, round breasts, round ass, beautiful, chin on hand, unhurried, watching the room, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, over-the-shoulder framing, warm ambient light, a 30yo, 30 years old mongolian woman\nhighly detailed mid shot portrait photo, sharp focus on eyes, cinematic lighting",
@@ -911,8 +910,7 @@
         "beautiful adult woman, south african woman in her late twenties, sun-lightened brown hair, wearing a silk blouse half-tucked into tailored trousers, in a dim jazz bar, brass and low amber light, seductive, sexy, alluring, round breasts, round ass, beautiful, chin on hand, unhurried, watching the room, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, slight high angle, soft backlighting, a 30yo, 30 years old mongolian woman\nhighly detailed mid shot portrait photo, sharp focus on eyes, cinematic lighting",
         "beautiful adult woman, south african woman in her late twenties, sun-lightened brown hair, wearing a silk blouse half-tucked into tailored trousers, in a dim jazz bar, brass and low amber light, seductive, sexy, alluring, round breasts, round ass, beautiful, chin on hand, unhurried, watching the room, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, profile view, moody side lighting, a 30yo, 30 years old mongolian woman\nhighly detailed mid shot portrait photo, sharp focus on eyes, cinematic lighting",
         "beautiful adult woman, south african woman in her late twenties, sun-lightened brown hair, wearing a silk blouse half-tucked into tailored trousers, in a dim jazz bar, brass and low amber light, seductive, sexy, alluring, round breasts, round ass, beautiful, chin on hand, unhurried, watching the room, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, candid framing, natural daylight, a 30yo, 30 years old mongolian woman\nhighly detailed mid shot portrait photo, sharp focus on eyes, cinematic lighting",
-        "beautiful adult woman, south african woman in her late twenties, sun-lightened brown hair, wearing a silk blouse half-tucked into tailored trousers, in a dim jazz bar, brass and low amber light, seductive, sexy, alluring, round breasts, round ass, beautiful, chin on hand, unhurried, watching the room, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, medium shot, gentle rim lighting, a 30yo, 30 years old mongolian woman\nhighly detailed mid shot portrait photo, sharp focus on eyes, cinematic lighting",
-        "beautiful adult woman, south african woman in her late twenties, sun-lightened brown hair, wearing a silk blouse half-tucked into tailored trousers, in a dim jazz bar, brass and low amber light, seductive, sexy, alluring, round breasts, round ass, beautiful, chin on hand, unhurried, watching the room, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, close-up shot, shallow depth of field, a 30yo, 30 years old mongolian woman\nhighly detailed mid shot portrait photo, sharp focus on eyes, cinematic lighting"
+        "beautiful adult woman, south african woman in her late twenties, sun-lightened brown hair, wearing a silk blouse half-tucked into tailored trousers, in a dim jazz bar, brass and low amber light, seductive, sexy, alluring, round breasts, round ass, beautiful, chin on hand, unhurried, watching the room, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, medium shot, gentle rim lighting, a 30yo, 30 years old mongolian woman\nhighly detailed mid shot portrait photo, sharp focus on eyes, cinematic lighting"
       ],
       "vibe": "the last table in the bar",
       "look": "south-african",
@@ -925,8 +923,7 @@
         "She begins to rotate her upper body, slowly tipping her head back as her eyes follow the movement, and then brings her gaze back to the lens.",
         "She slowly rises, her torso lengthening, as she straightens from the profile view, and she lowers her chin, her eyes lifting to scan the room, while a stray thread of silk slips down from the untucked blouse.",
         "She turns slowly away from the camera, then looks back over her shoulder, showcasing her profile and the curves of her body.",
-        "Her torso gradually tilts back, lower back arching, as her hips shift weight onto her left leg.",
-        "She settles back into the pose by crossing one leg over the other, then slowly rises onto her toes as she looks down at her hands."
+        "Her torso gradually tilts back, lower back arching, as her hips shift weight onto her left leg."
       ],
       "ts": "2026-09-02T12:23:42",
       "telegram_message_ids": {
@@ -970,7 +967,8 @@
           "chat_id": "-1004449497323",
           "message_id": 89
         }
-      }
+      },
+      "owner_verdict": "skipped"
     },
     {
       "niche": "aibeauty",
