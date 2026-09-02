@@ -236,10 +236,10 @@ jobs:
       # above), hit a real rebase conflict, and the old one-shot swallow silently
       # dropped the losing run's images from posted.json entirely (the TikTok
       # draft itself still went out fine -- that's a separate API call -- so the
-      # failure was invisible until someone checked the picker and the images
+      # failure was invisible until someone checked the review surface and the images
       # just weren't there, recovered by hand from the run's own log afterward).
       # Unifying the concurrency group should make this rare now, but retrying
-      # (any other concurrent writer -- the picker's own Contents-API writes, a
+      # (any other concurrent writer -- the Telegram worker's Contents-API writes, a
       # manual push) and failing the JOB loudly if every attempt is exhausted
       # means a future occurrence shows up as a red X instead of vanishing.
       - name: Persist state (keepalive)
@@ -256,7 +256,7 @@ jobs:
           for attempt in 1 2 3 4 5; do
             git fetch origin ${{ github.ref_name }}
             # Rebuild on top of the remote rather than rebasing onto it. posted.json's
-            # uploads array is appended to by BOTH workflows and by picker.html's
+            # uploads array is appended to by BOTH workflows and by the Telegram worker's
             # Contents-API writes, and two appends in the same place are a textual
             # conflict git cannot resolve -- the old loop ran `git pull --rebase`, hit
             # CONFLICT (content) in posted.json, aborted, and retried the identical

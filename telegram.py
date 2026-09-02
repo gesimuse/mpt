@@ -1,9 +1,9 @@
 """Post generated media to a Telegram channel with inline action buttons.
 
-Replaces picker.html as the review surface. The page is not deleted by this module --
-it stays working until the bot is proven, and gh-pages itself is NOT going anywhere
-regardless: it hosts the image and video files that TikTok's PULL_FROM_URL fetches, so
-it is load-bearing for publishing, not just for the picker UI.
+The review surface, replacing the picker page that used to live on gh-pages. That
+branch is NOT going anywhere regardless: it hosts the image and video files TikTok's
+PULL_FROM_URL fetches, and that a Space fetches when animating a still, so it is
+load-bearing for publishing rather than just for a UI.
 
 Division of labour, which is the whole design:
   * This module (running inside a GitHub Actions job) SENDS. One message per generated

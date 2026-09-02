@@ -509,7 +509,7 @@ OWNER_MAX_FACTOR = 1.5
 
 def _owner_theme_rates(state):
     """{vibe: posted_rate} from the account owner's own verdicts in
-    state["uploads"] -- picker.html writes owner_verdict ("posted"/"skipped") onto an
+    state["uploads"] -- the Telegram worker writes owner_verdict ("posted"/"skipped") onto an
     upload entry, and autopilot records that entry's `vibe`.
 
     This is the only real engagement signal available without TikTok's video.list
@@ -789,7 +789,7 @@ def generate(niche, count=None, workdir=None, max_rounds=2, state=None):
     from, both threaded through so the caller can write a caption about this batch's
     moment AND record what was used, so the next batch avoids repeating either.
     image_prompts is the actual per-image SD prompt behind each returned path
-    (same order), so a picker UI can show a motion-forge suggestion grounded in
+    (same order), so the review surface can show a motion suggestion grounded in
     what that specific photo's framing/pose/lighting actually is, instead of one
     generic prompt shared across the whole batch. Entries can be None for a path
     whose originating prompt couldn't be recovered (defensive; shouldn't happen
@@ -812,7 +812,7 @@ def generate(niche, count=None, workdir=None, max_rounds=2, state=None):
         "0", "false", "no")
     approved, generated_count = [], 0
     # str(path) -> the SD prompt that actually produced it, so the caller can hand a
-    # picker UI a per-image motion-forge suggestion instead of one prompt for the
+    # a per-image motion suggestion instead of one prompt for the
     # whole batch. sdgen.generate_batch names files sd_<index>.jpg (index into that
     # round's `prompts`), which survives supervisor.py's filtering unchanged.
     prompt_by_path = {}

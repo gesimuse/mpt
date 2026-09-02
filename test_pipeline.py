@@ -3770,40 +3770,6 @@ class MergeStateTest(unittest.TestCase):
         self.assertEqual(added, 1)
 
 
-class PickerHtmlTest(unittest.TestCase):
-    """picker.html is a static page on gh-pages -- no Python glue to test, but
-    a few invariants are worth catching if a future edit breaks them: the
-    hardcoded owner/repo/workflow, the raw.githubusercontent URLs, and the
-    workflow_dispatch endpoint shape."""
-
-    HTML = (Path(__file__).parent / "picker.html").read_text()
-
-    def test_targets_correct_workflow(self):
-        self.assertIn('WORKFLOW = "autopilot_video.yml"', self.HTML)
-
-    def test_fetches_posted_and_niches_from_raw(self):
-        self.assertIn("raw.githubusercontent.com/${OWNER}/${REPO}/main/posted.json", self.HTML)
-        self.assertIn("raw.githubusercontent.com/${OWNER}/${REPO}/main/niches.json", self.HTML)
-
-    def test_hits_workflow_dispatch_api(self):
-        self.assertIn("actions/workflows/${WORKFLOW}/dispatches", self.HTML)
-        # PAT is stored in localStorage (deliberate tradeoff for zero-setup UX --
-        # scope it to actions:write on this repo only per the setup blurb).
-        self.assertIn('localStorage.getItem("mpt_pat")', self.HTML)
-
-    def test_verdict_field_matches_what_python_reads_back(self):
-        """The picker writes owner_verdict/vibe; imageslides._owner_theme_rates reads
-        them. Two files, one contract, no schema to enforce it -- so pin the names."""
-        self.assertIn("owner_verdict", self.HTML)
-        self.assertIn('data-verdict="posted"', self.HTML)
-        self.assertIn('data-verdict="skipped"', self.HTML)
-        src = (Path(__file__).parent / "imageslides.py").read_text()
-        self.assertIn('u.get("owner_verdict")', src)
-        self.assertIn('u.get("vibe")', src)
-        self.assertIn('"vibe": vibe,',
-                     (Path(__file__).parent / "autopilot.py").read_text())
-
-
 class KaggleImagegenTest(unittest.TestCase):
     """kaggle_imagegen.generate() decides a checkpoint+reference prompt locally
     (civitai.com is blocked from Kaggle's own network -- confirmed live), resolves

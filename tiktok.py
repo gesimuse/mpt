@@ -34,7 +34,8 @@ signed, ~1-hour-expiring release-assets.githubusercontent.com URL, and TikTok's 
 docs explicitly disallow PULL_FROM_URL redirecting. Pages serves files directly, no
 redirect, stable URL, confirmed live. The gh-pages branch is kept as a git worktree
 (orphan branch, shares objects with the main checkout) specifically so the noisy
-per-image commits stay out of main's source history.
+per-image commits stay out of main's source history. It also hosted picker.html until
+the Telegram bot replaced it; the media/ folder is why the branch still exists.
 
 Env:
   TIKTOK_CLIENT_KEY / TIKTOK_CLIENT_SECRET   from the TikTok developer app
@@ -49,14 +50,20 @@ import requests
 REPO_ROOT = Path(__file__).resolve().parent
 PAGES_WORKTREE = REPO_ROOT / ".gh-pages-worktree"
 PAGES_BRANCH = "gh-pages"
-# picker.html's own display window alone needs 4 batches x 5 images (20) + 10
-# videos (10) = 30 files alive at once with zero slack -- a live run showed
-# exactly this: files still referenced by picker's "last 4 batches" got pruned
-# out from under it (404s in the grid) once a day's actual run volume (several
-# image batches + video attempts + the odd manual "+upload your own") pushed
-# past the old cap of 30. This is still a blunt oldest-by-mtime cutoff, not
-# reference-aware -- raised well past picker's own minimum need for headroom.
-KEEP_MEDIA = 60
+# How many files stay alive in gh-pages/media before the oldest get pruned.
+#
+# This used to be sized by picker.html's display window (4 batches x 5 images + 10
+# videos = 30, raised to 60 for slack). The picker is gone, and the Telegram backlog
+# has a completely different shape: a photo can sit in the channel for days waiting to
+# be worked, and Telegram keeps its own copy of the image so the MESSAGE never breaks
+# -- but "Make video" hands the URL to an HF Space, which has to fetch it. A pruned
+# file therefore looks fine right up until the moment someone tries to animate it.
+#
+# Measured when the backlog was moved into Telegram: 31 of 60 image references were
+# already dead, i.e. half the backlog was unanimatable. 300 is roughly a fortnight at
+# the current 5 batches/day, at ~300KB a file -- under 100MB on the branch, which is
+# nothing next to losing half the backlog again.
+KEEP_MEDIA = int(os.environ.get("KEEP_MEDIA", "300"))
 
 
 def log(msg): print(f"[tiktok] {msg}", flush=True)

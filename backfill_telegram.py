@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """Post every outstanding image (and generated video) into the Telegram channel, so
-the bot holds what picker.html used to show and the backlog can be worked from there.
+the bot holds the whole outstanding backlog and it can be worked from there.
 
-Run once when switching from the page to the bot:
+Run once when switching from the old picker page to the bot, and any time the
+channel needs re-seeding from posted.json:
 
     python3 backfill_telegram.py            # report only, posts nothing
     python3 backfill_telegram.py --post     # actually post
     python3 backfill_telegram.py --post --prune-dead
 
-"Outstanding" means the same thing the picker meant: an aibeauty image that has not
+"Outstanding" means an aibeauty image that has not
 already been SUCCESSFULLY animated. A failed video attempt does not consume its source
 image -- that is deliberate (autopilot._pick_source_image_url has the same rule), since
 the point of a retriable failure is that the image is still fair game.
@@ -19,7 +20,7 @@ DEAD LINKS. tiktok.KEEP_MEDIA prunes gh-pages by oldest-mtime, so roughly half o
 historical entries point at files that no longer exist. sendPhoto on a dead URL fails,
 and posting 20 failures into a channel is worse than posting nothing -- so every URL is
 HEAD-checked first. --prune-dead additionally drops those entries from posted.json,
-which is real cleanup: the picker was rendering them as broken thumbnails.
+which is real cleanup: the old page rendered them as broken thumbnails and nothing noticed.
 
 RATE LIMITS. Telegram throttles channel posts hard (sustained, well under a message a
 second). A burst gets 429s, and a 429 that is retried immediately just earns another.

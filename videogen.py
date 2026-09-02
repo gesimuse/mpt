@@ -31,7 +31,7 @@ stops".
 Needs env: HF_TOKEN, or HF_TOKENS (comma-separated) for more than one account.
 Optional: VIDEO_SPACES, a comma-separated list of space ids to override the ladder.
 """
-import os, subprocess, tempfile, urllib.request
+import os, subprocess, sys, tempfile, urllib.request
 from pathlib import Path
 
 
@@ -94,9 +94,18 @@ def _ltx_distilled_args(image_path, prompt, negative_prompt, length_s, steps, se
 # Ordered ladder. Signatures below were read off each Space's own view_api(), not
 # guessed -- three separate live incidents (commits 3228192, 2ceda0a, ed788ec) came
 # from assuming an argument name or type here.
+# LTX is deliberately absent. It was tried twice -- self-hosted 2B on a Kaggle T4 and
+# the hosted 13B Space -- and rejected both times by the account owner: its motion does
+# not read as a real person moving, which is the entire product here. Keeping it as a
+# fallback would mean a quota-exhausted run silently shipping output that would never
+# be posted, which is worse than the run failing. Its adapter is kept below so
+# VIDEO_SPACES can still name it for a one-off experiment.
 SPACES = [
     ("linoyts/wan2-2-i2v-rCM", "/generate_video", _wan22_rcm_args),
     ("multimodalart/wan2-1-fast", "/generate_video", _wan21_fast_args),
+]
+# Reachable only by naming it explicitly in VIDEO_SPACES.
+OPTIONAL_SPACES = [
     ("Lightricks/ltx-video-distilled", "/image_to_video", _ltx_distilled_args),
 ]
 
@@ -109,7 +118,7 @@ def _spaces():
     if not raw:
         return SPACES
     wanted = [s.strip() for s in raw.split(",") if s.strip()]
-    by_id = {sid: entry for entry in SPACES for sid in (entry[0],)}
+    by_id = {entry[0]: entry for entry in SPACES + OPTIONAL_SPACES}
     out = []
     for sid in wanted:
         if sid in by_id:
@@ -118,6 +127,24 @@ def _spaces():
             log(f"VIDEO_SPACES names {sid!r}, which has no argument adapter here; "
                 "skipping it")
     return out
+
+
+def _ensure_gradio_client():
+    """Install gradio_client only if it is actually missing.
+
+    It used to install unconditionally, which is harmless on a fresh CI runner and
+    fatal anywhere else: on a PEP 668 "externally managed" system python, pip refuses
+    outright and check=True turned that into a crash before a single Space was called.
+    The import check makes running this locally -- to test a Space by hand, which is
+    the only way to judge one -- possible at all, and skips a redundant install in CI."""
+    try:
+        import gradio_client  # noqa: F401
+        return
+    except ImportError:
+        pass
+    log("gradio_client missing, installing it")
+    subprocess.run([sys.executable, "-m", "pip", "install", "-q", "gradio_client"],
+                   check=True)
 
 
 def _fetch_image(image_url, tmp_dir):
@@ -210,7 +237,7 @@ def generate(image_url, prompt, length_s=5.0, steps=4, seed=None,
     # float("__LENGTH_S__") before ever reaching predict().
     length_s, steps = float(length_s), int(steps)
     negative_prompt = VIDEO_NEGATIVE if negative_prompt is None else negative_prompt
-    subprocess.run(["pip", "install", "-q", "gradio_client"], check=True)
+    _ensure_gradio_client()
 
     work_dir = tempfile.mkdtemp(prefix="videogen_in_")
     image_path = _fetch_image(image_url, work_dir)

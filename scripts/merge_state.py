@@ -2,7 +2,7 @@
 """Union two versions of posted.json so concurrent writers stop losing runs.
 
 The problem this replaces: posted.json's "uploads" is an append-only array written by
-BOTH autopilot workflows and by picker.html's Contents-API writes. Two writers
+BOTH autopilot workflows and by the Telegram worker's Contents-API writes. Two writers
 appending in the same place produce a textual conflict git cannot resolve, and the
 persist step's `git pull --rebase` then failed -- five times in a row, because the
 retry loop aborted and re-ran the identical rebase, which conflicts identically every
@@ -29,7 +29,7 @@ def _upload_key(u):
     """What makes an upload entry the same entry on both sides.
 
     tiktok_post_id is the only truly unique thing TikTok gives us, but it is absent on
-    DRY_RUN entries, on picker's manual uploads, and on any run where the init call
+    DRY_RUN entries, on manual uploads, and on any run where the init call
     itself failed -- so it cannot be the whole key. ts+niche is stable for everything
     autopilot writes (one entry per push, stamped at write time) and is what the picker
     itself already uses to find an entry to edit."""

@@ -1,7 +1,7 @@
 name: MPT Autopilot Video (aibeautyvideo)
-# No cron -- the video niche is intentionally manual. Open picker.html on GitHub
-# Pages, pick an image, edit the motion prompt, press Confirm; that fires this
-# workflow_dispatch with the chosen inputs. Video generation walks a ladder of HF
+# No cron -- the video niche is intentionally manual. Press Make video on a photo in
+# the Telegram channel (or reply to it with your own motion prompt); the Cloudflare
+# Worker in worker/ fires this workflow_dispatch with the chosen inputs. Video generation walks a ladder of HF
 # ZeroGPU Spaces (videogen.py: Wan 2.2 I2V rCM, then Wan 2.1 fast, then LTX-Video
 # distilled), rotating HF_TOKENS across accounts on a quota error.
 #
@@ -37,7 +37,7 @@ on:
         default: "8"
         type: string
       retry_video_url:
-        description: "Already-generated mp4 URL to republish as-is, skipping the HF Space call entirely (the picker's Retry button on a failed video)"
+        description: "Already-generated mp4 URL to republish as-is, skipping the HF Space call entirely (the channel's Retry button on a failed video)"
         required: false
         type: string
 
@@ -49,7 +49,7 @@ concurrency:
   # "Persist state" step in both workflows). Queuing image and video runs
   # against each other instead of racing is a real fix for that; the retry
   # loop in "Persist state" is the second layer, for any other concurrent
-  # writer (the picker's own Contents-API writes, a manual push).
+  # writer (the Telegram worker's Contents-API writes, a manual push).
   group: autopilot
   cancel-in-progress: false
 
@@ -161,7 +161,7 @@ jobs:
           for attempt in 1 2 3 4 5; do
             git fetch origin ${{ github.ref_name }}
             # Rebuild on top of the remote rather than rebasing onto it. posted.json's
-            # uploads array is appended to by BOTH workflows and by picker.html's
+            # uploads array is appended to by BOTH workflows and by the Telegram worker's
             # Contents-API writes, and two appends in the same place are a textual
             # conflict git cannot resolve -- the old loop ran `git pull --rebase`, hit
             # CONFLICT (content) in posted.json, aborted, and retried the identical

@@ -38,8 +38,12 @@ a midnight reset, not a rolling 24h window, so yesterday's late runs never occup
 morning's budget. Trigger manually from the Actions tab, optionally scoped to
 `aibeauty` via the `niches` input. Public repo = unlimited free minutes.
 
-The video run (`autopilot_video.yml`) has no cron on purpose: open the picker on GitHub
-Pages, choose a still, edit the motion prompt, Confirm.
+The video run (`autopilot_video.yml`) has no cron on purpose: every generated image is
+posted to a Telegram channel with **🎬 Make video / ✅ Done / 🗑 Skip** buttons, and a
+video is made when you press one (or reply with your own motion prompt). See
+`telegram.py` for the sending half and `worker/` for the Cloudflare Worker that handles
+the button presses -- nothing in this repo is running when a button is pressed, which is
+why that half exists.
 
 ### Local GPU -- generate, look at it yourself, then push
 `sdgen.py` auto-detects a local CUDA GPU (falls back to CPU otherwise) -- generation
@@ -80,7 +84,7 @@ When quota is gone the run fails and waits rather than shipping something worse.
 Two loops write back into `posted.json` and bias future runs:
 - **QA pass rate**, per checkpoint (`model_stats`) and per theme (`theme_stats`) -- how
   often a batch's images came out well-formed.
-- **Your own verdict**, from the picker's *Posted / Skipped* buttons (`owner_verdict`).
+- **Your own verdict**, from the Telegram channel's *Done / Skip* buttons (`owner_verdict`).
   QA only knows an image was well-formed; only you know it was worth posting. Real
   TikTok analytics would need the `video.list` scope, which requires an app audit this
   unaudited app cannot get -- this is the closest available signal.

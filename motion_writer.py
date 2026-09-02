@@ -31,7 +31,7 @@ second layer -- a negative prompt on every generation, wherever it runs.
 Goes through llm.ask() -- HF's router first, a local Ollama instance second. Same
 backend ladder caption_writer.py uses, and for the same reason: the Ollama-only path
 this used to have timed out on essentially every CI run, so motion prompts were almost
-always None and the picker fell back to showing each photo's raw SD prompt."""
+always None and the channel fell back to showing each photo's raw SD prompt."""
 import difflib
 import random
 import re

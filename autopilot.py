@@ -74,9 +74,9 @@ def _motion_prompts_for(image_prompts):
     any failure (Ollama unreachable, as it always is in CI today), NOT a baked-in
     generic string. A fixed fallback string here would make every image in a batch
     (and every batch, forever, while Ollama stays unreachable) show the identical
-    prompt in the picker -- worse than before this feature existed, when the
-    picker at least showed each image's own (if imperfect) SD prompt. Leaving it
-    None lets the picker fall back to that per-image SD prompt instead, so
+    prompt in the channel -- worse than before this feature existed, when the
+    channel at least showed each image's own (if imperfect) SD prompt. Leaving it
+    None lets the caption fall back to that per-image SD prompt instead, so
     photos stay visually distinguishable even without a working LLM."""
     out = []
     for p in image_prompts:
@@ -223,11 +223,11 @@ def run_niche(niche, state):
             "image_urls": image_urls,
             # Per-image SD prompt (same order as image_urls) -- the actual framing/
             # pose/lighting that generated each photo. Kept for reference/debugging;
-            # NOT what the video picker pre-fills (that's motion_prompts below) --
+            # NOT what the Telegram caption shows (that's motion_prompts below) --
             # this describes the still, not a motion.
             "image_prompts": image_prompts,
             # The theme this batch was built from (imageslides.DEFAULT_THEMES). Two
-            # jobs: it's the key picker.html's posted/skipped verdict gets attributed
+            # jobs: it's the key the channel's Done/Skip verdict gets attributed
             # to (imageslides._owner_theme_rates), and it makes a batch's own look
             # legible in posted.json without reverse-engineering it from a prompt.
             "vibe": vibe,
@@ -237,7 +237,7 @@ def run_niche(niche, state):
             "look": look,
             # Per-image motion instruction (motion_writer.write, an LLM rewrite of
             # image_prompts[i] into an actual action for the person to do) -- what
-            # the video picker actually pre-fills its motion-prompt field with.
+            # the Telegram caption shows and a reply overrides.
             "motion_prompts": motion_prompts,
             "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
         })
@@ -294,7 +294,7 @@ def _publish_video(niche, state, token_niche, video_url, caption, topic, extra_f
     """Publish an already-hosted mp4 URL to TikTok and record the outcome in state --
     shared by both a fresh generation and a retry of one already generated, so a
     TikTok-side failure always leaves the SAME shape behind (video_url,
-    tiktok_fail_reason included) for the picker to list and let the account owner
+    tiktok_fail_reason included) for the channel to list and let the account owner
     download or retry regardless of whether TikTok ever accepted it."""
     publish_id = tiktok.publish_video_draft(
         None, niche["id"], video_url=video_url, caption=caption, token_niche=token_niche)
@@ -355,15 +355,15 @@ def _run_video_niche(niche, state):
     No pending-drafts cap check here: TikTok's cap applies to the ACCOUNT, so the photo
     cron and video pushes collectively must stay under 5, but we can't poll TikTok for
     that number. Kept simple: this niche has no cron at all -- every video run is fired
-    by hand from picker.html, so the account owner is already looking at the inbox when
-    one goes out."""
+    by hand from the Telegram channel, so the account owner is already looking at the
+    inbox when one goes out."""
     token_niche = niche.get("tiktok_token_niche") or (
         niche.get("source_niche") or niche["id"].removesuffix("video"))
     if not DRY_RUN and not tiktok.enabled(token_niche):
         log(f"[{niche['id']}] skipped: TIKTOK_REFRESH_TOKEN_{token_niche.upper()} not set")
         return
 
-    # VIDEO_RETRY_URL (the picker's Retry button on an already-generated video that
+    # VIDEO_RETRY_URL (the channel's Retry button on an already-generated video that
     # TikTok rejected) skips the HF Space call entirely -- no reason to pay another
     # multi-minute generation to re-attempt publishing the SAME mp4 that already
     # exists and is already hosted.
