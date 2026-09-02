@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-02T07:40:06 — aibeautyvideo
+
+```
+moments like these
+
+Created with AI.
+
+#artificialintelligence #deepdreams #flirtmode #girlyvibes #softcoreart #eroticartificialintelligence
+```
+
 ## 2026-09-02T06:06:57 — aibeautyvideo
 
 ```
@@ -78,14 +88,4 @@ Feeling every inch of myself today
 Created with AI.
 
 #neuralart #women #bodypositivity #selflovejourney #femineenergy #artificialintelligenceart
-```
-
-## 2026-08-31T20:16:34 — aibeauty
-
-```
-city magic at my fingertips
-
-Created with AI.
-
-#artificialdreams #neuraesthetic #citylifevibes #eveningmoods
 ```
