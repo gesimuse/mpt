@@ -122,8 +122,20 @@ async function onCallback(env, cq) {
 /** A reply to a photo message = "use my text as the motion prompt for that image". */
 async function onReply(env, msg) {
   const target = msg.reply_to_message;
-  const data = target?.reply_markup?.inline_keyboard?.[0]?.[0]?.callback_data;
-  if (!data) return;
+  // Any button on the message will do: the photo keyboard's first row is Make video,
+  // but reading only [0][0] would break the moment the layout changes again.
+  const data = (target?.reply_markup?.inline_keyboard || [])
+    .flat().map((b) => b.callback_data).find(Boolean);
+  if (!data) {
+    // Never silent. A reply to something with no buttons is a user asking for
+    // something and getting nothing back, which is indistinguishable from broken.
+    await api(env, "sendMessage", {
+      chat_id: msg.chat.id,
+      reply_to_message_id: msg.message_id,
+      text: "Reply to one of the photo posts to use your text as its motion prompt.",
+    });
+    return;
+  }
   const { ts, index } = parseCallback(data);
   const fake = { id: null, message: target };
   // answerCallbackQuery needs a real id; there is none here, so acknowledge in chat.
@@ -234,10 +246,14 @@ export default {
       return new Response("ok");
     }
     try {
+      // A CHANNEL delivers everything as channel_post; only private chats and groups
+      // use `message`. Handling just `message` meant every reply typed in the photos
+      // channel -- the documented way to set a different motion prompt -- was dropped
+      // without a word. Normalise the two before dispatching.
+      const post = update.message ?? update.channel_post;
       if (update.callback_query) await onCallback(env, update.callback_query);
-      else if (update.message?.reply_to_message && update.message.text) {
-        await onReply(env, update.message);
-      } else if (update.message?.photo) await onPhoto(env, update.message);
+      else if (post?.reply_to_message && post.text) await onReply(env, post);
+      else if (post?.photo) await onPhoto(env, post);
     } catch (err) {
       console.error("update failed", err);
     }

@@ -3612,6 +3612,22 @@ class TelegramTest(unittest.TestCase):
                                          "TELEGRAM_VIDEO_CHAT_ID": "-100222"}, clear=True):
             self.assertEqual(telegram.video_chat_id(), "-100222")
 
+    def test_channel_posts_are_handled_not_just_private_messages(self):
+        """A channel delivers everything as channel_post; only private chats and
+        groups use `message`. Handling just `message` silently dropped every reply
+        typed in the photos channel -- which is the documented way to set a different
+        motion prompt."""
+        index = (Path(__file__).parent / "worker" / "src" / "index.js").read_text()
+        self.assertIn("update.message ?? update.channel_post", index)
+        dispatch = index[index.index("const post = update.message"):]
+        self.assertIn("post?.reply_to_message", dispatch)
+        self.assertIn("post?.photo", dispatch)
+
+    def test_a_reply_never_fails_silently(self):
+        index = (Path(__file__).parent / "worker" / "src" / "index.js").read_text()
+        reply = index[index.index("async function onReply"):index.index("async function onMakeVideoFromReply")]
+        self.assertIn("sendMessage", reply)
+
     def test_the_chat_gate_admits_both_channels(self):
         """Photos carry Make video/Done/Skip and videos carry Retry, so the Worker has
         to accept updates from either."""
