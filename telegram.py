@@ -18,9 +18,19 @@ reach something within seconds, and a cron-driven job cannot do that.
 An image that is neither skipped nor sent to video generation simply stays in the
 channel. The channel IS the backlog; nothing expires it.
 
+Two channels, not one. Images accumulate as a working backlog and videos accumulate
+as output; interleaving them in a single channel makes both unreadable once there are
+more than a handful of each.
+
+  TELEGRAM_CHAT_ID        outstanding photos -- the backlog you work from
+  TELEGRAM_VIDEO_CHAT_ID  generated videos -- output, with download/retry
+                          (falls back to TELEGRAM_CHAT_ID when unset, so a
+                          single-channel setup keeps working unchanged)
+
 Env:
-  TELEGRAM_BOT_TOKEN   from @BotFather
-  TELEGRAM_CHAT_ID     the channel/chat to post into (e.g. -1001234567890)
+  TELEGRAM_BOT_TOKEN      from @BotFather
+  TELEGRAM_CHAT_ID        e.g. -1001234567890
+  TELEGRAM_VIDEO_CHAT_ID  optional second channel
 """
 import os
 
@@ -59,9 +69,29 @@ def _callback(action, ts, index):
     return f"{action}|{ts}|{index}"
 
 
+def video_chat_id():
+    """The videos channel, or the photos one when no separate channel is configured."""
+    return (os.environ.get("TELEGRAM_VIDEO_CHAT_ID", "").strip()
+            or os.environ.get("TELEGRAM_CHAT_ID", "").strip())
+
+
 def _image_keyboard(ts, index):
+    """Three actions, and the important one is what "Make video" does NOT do.
+
+    Making a video leaves the image in the channel with its buttons intact, because
+    one still is worth several attempts -- a different motion prompt on the same photo
+    is a normal thing to want, and an image that vanished the moment it was used made
+    that impossible. Only Done and Skip remove it.
+
+    Done and Skip both remove, and differ in what they record: Done means "used this,
+    finished with it", Skip means "didn't want it". The Worker writes that to
+    owner_verdict, which is exactly the signal imageslides._owner_theme_rates biases
+    theme and subject selection with -- so the learning loop comes back for free, off
+    buttons that had to exist anyway."""
     return {"inline_keyboard": [[
         {"text": "🎬 Make video", "callback_data": _callback("vid", ts, index)},
+    ], [
+        {"text": "✅ Done", "callback_data": _callback("done", ts, index)},
         {"text": "🗑 Skip", "callback_data": _callback("skip", ts, index)},
     ]]}
 
@@ -75,7 +105,8 @@ def send_image(image_url, ts, index, caption=None, motion_prompt=None, chat_id=N
     lines = [caption] if caption else []
     if motion_prompt:
         lines.append(f"🎬 {motion_prompt}")
-    lines.append("Reply to this message to change the motion prompt.")
+    lines.append("Reply with a different prompt to make another video from this "
+                 "photo. Done or Skip removes it.")
     return _call("sendPhoto", {
         "chat_id": chat_id or os.environ["TELEGRAM_CHAT_ID"],
         "photo": image_url,
@@ -100,7 +131,7 @@ def send_video(video_url, ts, caption=None, failed=False, chat_id=None):
     streaming, and the whole point of the download button is to get the exact file
     that was hosted and posted."""
     return _call("sendDocument", {
-        "chat_id": chat_id or os.environ["TELEGRAM_CHAT_ID"],
+        "chat_id": chat_id or video_chat_id(),
         "document": video_url,
         "caption": (caption or "")[:1024],
         "reply_markup": _video_keyboard(video_url, ts, failed),

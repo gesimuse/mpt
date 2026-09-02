@@ -3554,12 +3554,46 @@ class TelegramTest(unittest.TestCase):
         self.assertEqual(ids, [7, 7])
         first = captured["calls"][0][1]
         self.assertIn("turn and look back", first["caption"])
-        buttons = first["reply_markup"]["inline_keyboard"][0]
-        self.assertEqual([b["callback_data"] for b in buttons],
-                        ["vid|2026-08-31T12:04:05|0", "skip|2026-08-31T12:04:05|0"])
+        rows = first["reply_markup"]["inline_keyboard"]
+        actions = [b["callback_data"].split("|")[0] for row in rows for b in row]
+        self.assertEqual(actions, ["vid", "done", "skip"])
         second = captured["calls"][1][1]
         self.assertTrue(second["reply_markup"]["inline_keyboard"][0][0]
                        ["callback_data"].endswith("|1"))
+
+    def test_making_a_video_does_not_consume_the_image(self):
+        """One still is worth several attempts. The Worker must leave the message and
+        its keyboard alone on "vid" -- only done/skip remove it -- so a different
+        motion prompt can be tried on the same photo."""
+        index = (Path(__file__).parent / "worker" / "src" / "index.js").read_text()
+        make_video = index[index.index("async function onMakeVideo"):
+                          index.index("async function noteAttempt")]
+        self.assertNotIn("deleteMessage", make_video)
+        self.assertIn("noteAttempt", make_video)
+
+    def test_done_and_skip_record_opposite_verdicts(self):
+        """Both remove the image; the difference is the signal they leave behind, which
+        is what imageslides._owner_theme_rates biases future batches with."""
+        index = (Path(__file__).parent / "worker" / "src" / "index.js").read_text()
+        self.assertIn('onResolve(env, cq, ts, index, "posted")', index)
+        self.assertIn('onResolve(env, cq, ts, index, "skipped")', index)
+        self.assertIn("entry.owner_verdict = verdict", index)
+        src = (Path(__file__).parent / "imageslides.py").read_text()
+        self.assertIn('u.get("owner_verdict")', src)
+
+    def test_videos_go_to_their_own_channel(self):
+        with mock.patch.dict(os.environ, {"TELEGRAM_CHAT_ID": "-100111"}, clear=True):
+            self.assertEqual(telegram.video_chat_id(), "-100111")
+        with mock.patch.dict(os.environ, {"TELEGRAM_CHAT_ID": "-100111",
+                                         "TELEGRAM_VIDEO_CHAT_ID": "-100222"}, clear=True):
+            self.assertEqual(telegram.video_chat_id(), "-100222")
+
+    def test_the_chat_gate_admits_both_channels(self):
+        """Photos carry Make video/Done/Skip and videos carry Retry, so the Worker has
+        to accept updates from either."""
+        index = (Path(__file__).parent / "worker" / "src" / "index.js").read_text()
+        self.assertIn('.split(",")', index)
+        self.assertIn("allowed.includes(String(chatId))", index)
 
     def test_a_telegram_outage_never_fails_a_run(self):
         """The images are already hosted and the TikTok draft already queued by the

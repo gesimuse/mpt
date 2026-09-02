@@ -14,6 +14,7 @@ get() { grep -E "^$1=" "$ENV_FILE" | head -1 | cut -d= -f2- | tr -d "\"' "; }
 
 BOT_TOKEN=$(get TELEGRAM_BOT_TOKEN)
 CHAT_ID=$(get TELEGRAM_CHAT_ID)
+VIDEO_CHAT_ID=$(get TELEGRAM_VIDEO_CHAT_ID)
 WEBHOOK_SECRET=$(get TELEGRAM_WEBHOOK_SECRET)
 GH_PAT=$(get GITHUB_TOKEN)
 
@@ -35,7 +36,11 @@ case "$CHAT_ID" in
 esac
 
 echo "==> writing ALLOWED_CHAT_ID into wrangler.toml"
-sed -i.bak -E "s|^ALLOWED_CHAT_ID = .*|ALLOWED_CHAT_ID = \"$CHAT_ID\"|" wrangler.toml
+# Both channels: photos carry Make video/Done/Skip, videos carry Retry, and the gate
+# has to admit either.
+ALLOWED="$CHAT_ID"
+[ -n "$VIDEO_CHAT_ID" ] && [ "$VIDEO_CHAT_ID" != "$CHAT_ID" ] && ALLOWED="$CHAT_ID,$VIDEO_CHAT_ID"
+sed -i.bak -E "s|^ALLOWED_CHAT_ID = .*|ALLOWED_CHAT_ID = \"$ALLOWED\"|" wrangler.toml
 rm -f wrangler.toml.bak
 
 echo "==> pushing secrets to Cloudflare"

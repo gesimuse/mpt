@@ -8,8 +8,9 @@ What it handles:
 
 | Button / action | What happens |
 | --- | --- |
-| 🎬 Make video | Dispatches `autopilot_video.yml` with that image's URL and motion prompt, then edits the message to show it was sent |
-| 🗑 Skip | Deletes the message from the channel **and** removes the image from `posted.json`, so the pipeline never reuses it |
+| 🎬 Make video | Dispatches `autopilot_video.yml` with that image's URL and motion prompt, notes the attempt in the caption, and **leaves the image in place** — one still is worth several prompts |
+| ✅ Done | Finished with it: removes the image from the channel and from `posted.json`, and records `owner_verdict: posted` |
+| 🗑 Skip | Didn't want it: same removal, but records `owner_verdict: skipped` |
 | 🔄 Retry post | Dispatches the video workflow with `retry_video_url`, republishing the same mp4 without regenerating |
 | Reply to a photo | Uses your text as the motion prompt for that image, then makes the video |
 | Send a photo | Hosts it on `gh-pages` and registers it in `posted.json`, so it can be animated like any generated image |

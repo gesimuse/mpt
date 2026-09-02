@@ -7,7 +7,7 @@
  * respond in seconds rather than whenever the next scheduled run happens to fire.
  */
 import { dispatchWorkflow, mutatePostedJson, hostOnPages } from "./github.js";
-import { answer, deleteMessage, markDone, getFileUrl, api } from "./telegram.js";
+import { answer, deleteMessage, getFileUrl, api } from "./telegram.js";
 
 /** callback_data is capped at 64 bytes, so buttons carry ids, not URLs. */
 function parseCallback(data) {
@@ -46,13 +46,32 @@ async function onMakeVideo(env, cq, ts, index, promptOverride) {
     steps: env.VIDEO_STEPS || "4",
   });
   await answer(env, cq.id, "Sent to video generation.");
-  await markDone(env, cq.message.chat.id, cq.message.message_id,
-    `🎬 Sent to video generation.\n\n${prompt}`);
+  // Deliberately NOT markDone: the image stays in the channel with its buttons, so a
+  // different motion prompt can be tried on the same still. One photo is worth several
+  // attempts, and an image that disappeared the moment it was used made that
+  // impossible. Only Done and Skip remove it.
+  await noteAttempt(env, cq.message, prompt);
 }
 
-async function onSkip(env, cq, ts, index) {
-  // Both halves matter: deleting only the Telegram message would leave the image in
-  // posted.json, where _pick_source_image_url would happily animate it later.
+/** Append a line recording this attempt, leaving the keyboard in place. */
+async function noteAttempt(env, message, prompt) {
+  const existing = message.caption || "";
+  const line = `🎬 sent: ${prompt}`;
+  if (existing.includes(line)) return;
+  await api(env, "editMessageCaption", {
+    chat_id: message.chat.id, message_id: message.message_id,
+    caption: `${existing}\n${line}`.slice(0, 1024),
+    reply_markup: message.reply_markup,
+  });
+}
+
+/**
+ * Done and Skip both remove the image; they differ only in the verdict recorded.
+ * "posted" means it was used, "skipped" means it was not wanted -- and that is exactly
+ * the signal imageslides._owner_theme_rates weights theme and subject choice by, so
+ * pressing these keeps the pipeline learning what is worth generating.
+ */
+async function onResolve(env, cq, ts, index, verdict) {
   await mutatePostedJson(env, (state) => {
     const { entry, url } = findImage(state, ts, index);
     if (!entry || !url) return false;
@@ -61,13 +80,12 @@ async function onSkip(env, cq, ts, index) {
     entry.image_urls.splice(i, 1);
     if (entry.image_prompts) entry.image_prompts.splice(i, 1);
     if (entry.motion_prompts) entry.motion_prompts.splice(i, 1);
-    // Drop an entry once its last image is gone, rather than leaving an empty shell
-    // that still counts as an upload.
-    if (!entry.image_urls.length) {
-      state.uploads.splice(state.uploads.indexOf(entry), 1);
-    }
-  }, "telegram: skip image");
-  await answer(env, cq.id, "Skipped.");
+    entry.owner_verdict = verdict;
+    // The entry is KEPT even with no images left. It still carries vibe and look, and
+    // _owner_theme_rates reads exactly those alongside owner_verdict -- deleting it
+    // would throw away the feedback the button just produced.
+  }, `telegram: ${verdict === "posted" ? "done with" : "skip"} image`);
+  await answer(env, cq.id, verdict === "posted" ? "Done." : "Skipped.");
   await deleteMessage(env, cq.message.chat.id, cq.message.message_id);
 }
 
@@ -91,7 +109,8 @@ async function onCallback(env, cq) {
   const { action, ts, index } = parseCallback(cq.data);
   try {
     if (action === "vid") return await onMakeVideo(env, cq, ts, index);
-    if (action === "skip") return await onSkip(env, cq, ts, index);
+    if (action === "done") return await onResolve(env, cq, ts, index, "posted");
+    if (action === "skip") return await onResolve(env, cq, ts, index, "skipped");
     if (action === "retry") return await onRetry(env, cq, ts);
     await answer(env, cq.id, `Unknown action: ${action}`, true);
   } catch (err) {
@@ -127,8 +146,9 @@ async function onMakeVideoFromReply(env, fake, ts, index, prompt, chatId) {
       image_url: url, motion_prompt: prompt,
       length_s: env.VIDEO_LENGTH_S || "5.0", steps: env.VIDEO_STEPS || "4",
     });
-    await markDone(env, fake.message.chat.id, fake.message.message_id,
-      `🎬 Sent to video generation.\n\n${prompt}`);
+    // Same rule as the button: a reply makes a video and LEAVES the image, so the
+    // next reply can try a different prompt on the same still.
+    await noteAttempt(env, fake.message, prompt);
     await api(env, "sendMessage",
       { chat_id: chatId, text: `Sent to video generation:\n${prompt}` });
   } catch (err) {
@@ -163,10 +183,11 @@ async function onPhoto(env, msg) {
     await api(env, "sendPhoto", {
       chat_id: msg.chat.id, photo: url,
       caption: "Uploaded and registered.\n\nReply to this message to set a motion prompt.",
-      reply_markup: { inline_keyboard: [[
-        { text: "🎬 Make video", callback_data: `vid|${ts}|0` },
-        { text: "🗑 Skip", callback_data: `skip|${ts}|0` },
-      ]] },
+      reply_markup: { inline_keyboard: [
+        [{ text: "🎬 Make video", callback_data: `vid|${ts}|0` }],
+        [{ text: "✅ Done", callback_data: `done|${ts}|0` },
+         { text: "🗑 Skip", callback_data: `skip|${ts}|0` }],
+      ] },
     });
   } catch (err) {
     await api(env, "sendMessage",
@@ -187,7 +208,11 @@ export default {
     const chatId = update.callback_query?.message?.chat?.id
       ?? update.message?.chat?.id ?? update.channel_post?.chat?.id;
     // Second gate: even a correctly-signed update from someone else's chat is ignored.
-    if (env.ALLOWED_CHAT_ID && String(chatId) !== String(env.ALLOWED_CHAT_ID)) {
+    // Comma-separated because photos and videos live in separate channels and buttons
+    // (Retry) exist in both.
+    const allowed = String(env.ALLOWED_CHAT_ID || "")
+      .split(",").map((s) => s.trim()).filter(Boolean);
+    if (allowed.length && !allowed.includes(String(chatId))) {
       return new Response("ok");
     }
     try {

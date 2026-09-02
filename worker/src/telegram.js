@@ -22,18 +22,6 @@ export function deleteMessage(env, chatId, messageId) {
   return api(env, "deleteMessage", { chat_id: chatId, message_id: messageId });
 }
 
-/**
- * Mark a message as acted on instead of deleting it. Editing the caption and dropping
- * the keyboard is what makes "sent to video gen" visible in the channel afterwards --
- * an image that is neither skipped nor sent keeps its buttons and stays as backlog.
- */
-export function markDone(env, chatId, messageId, caption) {
-  return api(env, "editMessageCaption", {
-    chat_id: chatId, message_id: messageId,
-    caption: caption.slice(0, 1024), reply_markup: { inline_keyboard: [] },
-  });
-}
-
 export async function getFileUrl(env, fileId) {
   const r = await api(env, "getFile", { file_id: fileId });
   const body = await r.json();
