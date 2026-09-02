@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-02T10:33:37 — aibeautyvideo
+
+```
+Slaying the game without permission
+
+Created with AI.
+
+#aiart #digitalart #bodypositivity #confidenceiskey #selfexpression
+```
+
 ## 2026-09-02T10:29:03 — aibeauty
 
 ```
@@ -78,14 +88,4 @@ Ready to slay the night
 Created with AI.
 
 #aiart #generativeart #80smetrosexual #glasgownightlife #urbanportrait
-```
-
-## 2026-09-01T13:12:03 — aibeauty
-
-```
-Sundays are made for wine and sunshine
-
-Created with AI.
-
-#artificialintelligence #contemporaryart #vino #farmtofork #slowliving #summervibesonly
 ```

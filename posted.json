@@ -767,6 +767,26 @@
           "message_id": 64
         }
       }
+    },
+    {
+      "niche": "aibeautyvideo",
+      "topic": "video 20260902-103042",
+      "title": "Slaying the game without permission",
+      "tiktok": true,
+      "tiktok_via": "inbox_video",
+      "tiktok_post_id": "v_inbox_url~v2.7680883789774047254",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_fail_reason": null,
+      "tiktok_caption": "Slaying the game without permission\n\nCreated with AI.\n\n#aiart #digitalart #bodypositivity #confidenceiskey #selfexpression",
+      "video_url": "https://gesimuse.github.io/mpt/media/1788345153-final.mp4",
+      "ts": "2026-09-02T10:33:37",
+      "motionforge_source_url": "https://gesimuse.github.io/mpt/media/1788273855-sd_4.jpg",
+      "telegram_message_ids": {
+        "https://gesimuse.github.io/mpt/media/1788345153-final.mp4": {
+          "chat_id": "-1004314616972",
+          "message_id": 14
+        }
+      }
     }
   ],
   "model_stats": {
