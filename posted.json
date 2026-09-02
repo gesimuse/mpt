@@ -26,7 +26,8 @@
       "aibeauty-20260901-123833",
       "aibeauty-20260901-141003",
       "aibeauty-20260901-153022",
-      "aibeauty-20260901-180000"
+      "aibeauty-20260901-180000",
+      "aibeauty-20260902-094833"
     ]
   },
   "uploads": [
@@ -710,6 +711,62 @@
           "message_id": 13
         }
       }
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260902-094833",
+      "title": "mornings are made for me",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7680882810801948694",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "mornings are made for me\n\nCreated with AI.\n\n#digitaldreams #watercolors #goldenhourvibes #aiarttrends #natureloverwonderland #dreamywhispers",
+      "image_urls": [
+        "https://gesimuse.github.io/mpt/media/1788344789-sd_0.jpg",
+        "https://gesimuse.github.io/mpt/media/1788344822-sd_1.jpg",
+        "https://gesimuse.github.io/mpt/media/1788344851-sd_2.jpg",
+        "https://gesimuse.github.io/mpt/media/1788344877-sd_3.jpg",
+        "https://gesimuse.github.io/mpt/media/1788344907-sd_4.jpg"
+      ],
+      "image_prompts": [
+        "beautiful adult woman, australian woman in her mid twenties, sun-bleached blonde hair, tanned, wearing a bikini top and open linen shirt, on a sailboat deck at sunrise, open sea, seductive, sexy, alluring, round breasts, round ass, beautiful, salt spray, hair loose, squinting into the light, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, slight high angle, soft backlighting, a portrait of beautiful Graphic hoodie, joggers, sneakers, bucket hat, backpack",
+        "beautiful adult woman, australian woman in her mid twenties, sun-bleached blonde hair, tanned, wearing a bikini top and open linen shirt, on a sailboat deck at sunrise, open sea, seductive, sexy, alluring, round breasts, round ass, beautiful, salt spray, hair loose, squinting into the light, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, over-the-shoulder framing, warm ambient light, a portrait of beautiful Graphic hoodie, joggers, sneakers, bucket hat, backpack",
+        "beautiful adult woman, australian woman in her mid twenties, sun-bleached blonde hair, tanned, wearing a bikini top and open linen shirt, on a sailboat deck at sunrise, open sea, seductive, sexy, alluring, round breasts, round ass, beautiful, salt spray, hair loose, squinting into the light, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, full length shot, head to toe, natural stance, a portrait of beautiful Graphic hoodie, joggers, sneakers, bucket hat, backpack",
+        "beautiful adult woman, australian woman in her mid twenties, sun-bleached blonde hair, tanned, wearing a bikini top and open linen shirt, on a sailboat deck at sunrise, open sea, seductive, sexy, alluring, round breasts, round ass, beautiful, salt spray, hair loose, squinting into the light, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, eye-level shot, diffused overcast light, a portrait of beautiful Graphic hoodie, joggers, sneakers, bucket hat, backpack",
+        "beautiful adult woman, australian woman in her mid twenties, sun-bleached blonde hair, tanned, wearing a bikini top and open linen shirt, on a sailboat deck at sunrise, open sea, seductive, sexy, alluring, round breasts, round ass, beautiful, salt spray, hair loose, squinting into the light, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, medium shot, gentle rim lighting, a portrait of beautiful Graphic hoodie, joggers, sneakers, bucket hat, backpack"
+      ],
+      "vibe": "on the water at dawn",
+      "look": "australian",
+      "motion_prompts": [
+        "She arches her back, stretching her torso, and looks out at the sea, her hair blowing gently in the morning breeze.",
+        "She rolls her shoulders back, chest lifting, waist drawing in, then turns her upper body slightly toward the camera, eyes still fixed on the horizon.",
+        "Shift her weight onto one leg, her hips slightly rotating and her chest easing forward, while her loose hair swirls from the ocean breeze.",
+        "She turns slowly to face the camera, weight shifting onto one hip, and rises up onto her toes, bringing her chin to her chest and eyes to the lens.",
+        "As she rises up out of the pose, her hips roll gently towards the camera, weight shifting back into her heels, fabric of her linen shirt rustling softly in the breeze."
+      ],
+      "ts": "2026-09-02T10:29:03",
+      "telegram_message_ids": {
+        "https://gesimuse.github.io/mpt/media/1788344789-sd_0.jpg": {
+          "chat_id": "-1004449497323",
+          "message_id": 60
+        },
+        "https://gesimuse.github.io/mpt/media/1788344822-sd_1.jpg": {
+          "chat_id": "-1004449497323",
+          "message_id": 61
+        },
+        "https://gesimuse.github.io/mpt/media/1788344851-sd_2.jpg": {
+          "chat_id": "-1004449497323",
+          "message_id": 62
+        },
+        "https://gesimuse.github.io/mpt/media/1788344877-sd_3.jpg": {
+          "chat_id": "-1004449497323",
+          "message_id": 63
+        },
+        "https://gesimuse.github.io/mpt/media/1788344907-sd_4.jpg": {
+          "chat_id": "-1004449497323",
+          "message_id": 64
+        }
+      }
     }
   ],
   "model_stats": {
@@ -755,8 +812,8 @@
     },
     "251478:283756": {
       "name": "fashion-street-photography_and_film-v1",
-      "used": 50,
-      "passed": 50
+      "used": 60,
+      "passed": 60
     },
     "79632:84444": {
       "name": "Fashion Dress",
@@ -811,6 +868,10 @@
       "passed": 10
     },
     "candlelight and quiet": {
+      "used": 10,
+      "passed": 10
+    },
+    "on the water at dawn": {
       "used": 10,
       "passed": 10
     }
