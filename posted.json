@@ -805,14 +805,12 @@
       "tiktok_caption": "warm whispers in the dark\n\nCreated with AI.\n\n#neuralarts #digitalart #foggy #muted #softcore",
       "image_urls": [
         "https://gesimuse.github.io/mpt/media/1788348042-sd_0.jpg",
-        "https://gesimuse.github.io/mpt/media/1788348074-sd_1.jpg",
         "https://gesimuse.github.io/mpt/media/1788348142-sd_3.jpg",
         "https://gesimuse.github.io/mpt/media/1788348328-sd_8.jpg",
         "https://gesimuse.github.io/mpt/media/1788348357-sd_9.jpg"
       ],
       "image_prompts": [
         "beautiful adult woman, french woman in her mid twenties, tousled dark brown hair, natural makeup, in a steamy shower, glass fogged with steam, seductive, sexy, alluring, round breasts, round ass, beautiful, wet skin, dripping water, glistening body, three-quarter view, soft studio lighting, (MASTERPIECE:1. 2), (REALISTIC:1. 4), (POST PROCESSING:1. 3), (SHARP FOCUS:1. 3), 8K, mid body shot (85mm photo) , A Woman, Portrait, outdoor, Empire Waist dress, bokeh, wavy hair , (highly detailed body, highly detailed face, highly detailed eye, best quality:1. 2)",
-        "beautiful adult woman, french woman in her mid twenties, tousled dark brown hair, natural makeup, in a steamy shower, glass fogged with steam, seductive, sexy, alluring, round breasts, round ass, beautiful, wet skin, dripping water, glistening body, close-up shot, shallow depth of field, (MASTERPIECE:1. 2), (REALISTIC:1. 4), (POST PROCESSING:1. 3), (SHARP FOCUS:1. 3), 8K, mid body shot (85mm photo) , A Woman, Portrait, outdoor, Empire Waist dress, bokeh, wavy hair , (highly detailed body, highly detailed face, highly detailed eye, best quality:1. 2)",
         "beautiful adult woman, french woman in her mid twenties, tousled dark brown hair, natural makeup, in a steamy shower, glass fogged with steam, seductive, sexy, alluring, round breasts, round ass, beautiful, wet skin, dripping water, glistening body, eye-level shot, diffused overcast light, (MASTERPIECE:1. 2), (REALISTIC:1. 4), (POST PROCESSING:1. 3), (SHARP FOCUS:1. 3), 8K, mid body shot (85mm photo) , A Woman, Portrait, outdoor, Empire Waist dress, bokeh, wavy hair , (highly detailed body, highly detailed face, highly detailed eye, best quality:1. 2)",
         "beautiful adult woman, french woman in her mid twenties, tousled dark brown hair, natural makeup, in a steamy shower, glass fogged with steam, seductive, sexy, alluring, round breasts, round ass, beautiful, wet skin, dripping water, glistening body, full length shot, head to toe, natural stance, (MASTERPIECE:1. 2), (REALISTIC:1. 4), (POST PROCESSING:1. 3), (SHARP FOCUS:1. 3), 8K, mid body shot (85mm photo) , A Woman, Portrait, outdoor, Empire Waist dress, bokeh, wavy hair , (highly detailed body, highly detailed face, highly detailed eye, best quality:1. 2)",
         "beautiful adult woman, french woman in her mid twenties, tousled dark brown hair, natural makeup, in a steamy shower, glass fogged with steam, seductive, sexy, alluring, round breasts, round ass, beautiful, wet skin, dripping water, glistening body, medium shot, gentle rim lighting, (MASTERPIECE:1. 2), (REALISTIC:1. 4), (POST PROCESSING:1. 3), (SHARP FOCUS:1. 3), 8K, mid body shot (85mm photo) , A Woman, Portrait, outdoor, Empire Waist dress, bokeh, wavy hair , (highly detailed body, highly detailed face, highly detailed eye, best quality:1. 2)"
@@ -821,7 +819,6 @@
       "look": "parisian-brunette",
       "motion_prompts": [
         "She slowly turns to face the camera, weight shifting through her hips. Her hair drifts forward, veiling her face for a moment.",
-        "She slowly sinks deeper into the pose, weight shifting to one hip, and then rises back up, limbering the pose.",
         "She slowly pivots her body, her hips shifting inward as her upper body faces the camera, and her left leg nestles against her right.",
         "She turns her upper body, slowly sliding her hands down her Empire Waist dress, tracing the outline of her curves, as her hair drifts silhouette behind her, water droplets beading and rolling down her skin.",
         "She shifts weight through her hips, slowly turning a quarter turn towards the camera, water droplets glistening on her skin as her hair parts ahead and falls crisply behind her."
@@ -869,7 +866,7 @@
           "message_id": 79
         }
       },
-      "owner_verdict": "skipped"
+      "owner_verdict": "posted"
     },
     {
       "niche": "aibeauty",
