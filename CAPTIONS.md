@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-03T15:16:02 — aibeauty
+
+```
+caught looking my best in the chaos
+
+Created with AI.
+
+#aiart #artoftheday #rainydays #surrealart #dreamyvibes
+```
+
 ## 2026-09-03T13:50:51 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ mornings are made for me
 Created with AI.
 
 #digitaldreams #watercolors #goldenhourvibes #aiarttrends #natureloverwonderland #dreamywhispers
-```
-
-## 2026-09-02T09:45:53 — aibeautyvideo
-
-```
-I found my own center
-
-Created with AI.
-
-#digitalart #neuralstyle #softcore #choreographyinspiration #fluidmovement
 ```
