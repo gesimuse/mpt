@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-03T17:17:49 — aibeauty
+
+```
+la vie en rose
+
+Created with AI.
+
+#aiart #digitalart #harvestvibes #winecountry #fallinduce
+```
+
 ## 2026-09-03T15:16:02 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Slaying the game without permission
 Created with AI.
 
 #aiart #digitalart #bodypositivity #confidenceiskey #selfexpression
-```
-
-## 2026-09-02T10:29:03 — aibeauty
-
-```
-mornings are made for me
-
-Created with AI.
-
-#digitaldreams #watercolors #goldenhourvibes #aiarttrends #natureloverwonderland #dreamywhispers
 ```
