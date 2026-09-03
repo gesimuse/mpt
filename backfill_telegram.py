@@ -78,7 +78,9 @@ def outstanding(state):
         if u.get("niche") != "aibeauty" or not u.get("tiktok"):
             continue
         for i, url in enumerate(u.get("image_urls") or []):
-            if url in used or url in posted:
+            # null is a tombstone written by the worker when an image is marked done
+            # or skipped: the slot is kept so the other messages' indices stay valid.
+            if not url or url in used or url in posted:
                 continue
             prompts = u.get("motion_prompts") or []
             fallback = u.get("image_prompts") or []

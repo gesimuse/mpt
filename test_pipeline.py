@@ -10,6 +10,7 @@ Run: python3 test_pipeline.py
 """
 import datetime as dt
 import json, os, subprocess, sys, tempfile, time, unittest
+import pathlib
 from pathlib import Path
 from unittest import mock
 
@@ -4298,3 +4299,54 @@ class VideoGenTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class WorkerKeepsImageIndexesStable(unittest.TestCase):
+    """Every Telegram photo message carries a fixed index in its callback_data, so
+    image_urls must never be spliced.
+
+    Observed live: replying to a photo answered "That image is no longer in
+    posted.json". The cause was onResolve removing the element -- after one image in a
+    batch of ten was marked done, the last message's index fell off the end and the
+    ones between it silently addressed the WRONG image.
+    """
+
+    def source(self):
+        return (pathlib.Path(__file__).parent / "worker" / "src" / "index.js").read_text()
+
+    def test_onresolve_tombstones_rather_than_splices(self):
+        src = self.source()
+        start = src.index("async function onResolve")
+        body = src[start:src.index("async function onRetry")]
+        self.assertNotIn("image_urls.splice", body,
+                         "splicing renumbers every later message's index")
+        self.assertIn("entry.image_urls[i] = null", body)
+
+    def test_prompt_arrays_stay_the_same_length_as_the_urls(self):
+        # They are addressed by the same index, so shortening one desynchronises the
+        # motion prompt from the photo it belongs to.
+        src = self.source()
+        start = src.index("async function onResolve")
+        body = src[start:src.index("async function onRetry")]
+        for field in ("image_prompts", "motion_prompts"):
+            self.assertNotIn(f"{field}.splice", body, field)
+            self.assertIn(f"entry.{field}[i] = null", body)
+
+    def test_the_source_picker_skips_tombstones(self):
+        # autopilot picks the next un-animated still out of image_urls; a null there
+        # must be stepped over rather than handed to a Space as an image URL.
+        state = {"uploads": [{
+            "niche": "aibeauty", "tiktok": "x", "ts": "2026-09-03T00:00:00",
+            "image_urls": [None, None, "https://example.test/media/c.jpg"],
+        }]}
+        niche = {"id": "aibeautyvideo", "source_niche": "aibeauty"}
+        self.assertEqual(autopilot._pick_source_image_url(niche, state),
+                         "https://example.test/media/c.jpg")
+
+    def test_a_fully_resolved_batch_yields_no_source(self):
+        state = {"uploads": [{
+            "niche": "aibeauty", "tiktok": "x", "ts": "2026-09-03T00:00:00",
+            "image_urls": [None, None],
+        }]}
+        niche = {"id": "aibeautyvideo", "source_niche": "aibeauty"}
+        self.assertIsNone(autopilot._pick_source_image_url(niche, state))

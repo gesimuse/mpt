@@ -85,7 +85,9 @@ async function onMakeVideo(env, cq, ts, index, promptOverride) {
     return false;
   }, "");
   if (!url) {
-    await answer(env, cq.id, "That image is no longer in posted.json.", true);
+    await answer(env, cq.id, found.entry
+      ? "Already marked done or skipped - nothing to generate from."
+      : "That batch is no longer in posted.json.", true);
     return;
   }
   if (!(await isLive(url))) {
@@ -141,9 +143,17 @@ async function onResolve(env, cq, ts, index, verdict) {
     if (!entry || !url) return false;
     const i = entry.image_urls.indexOf(url);
     if (i === -1) return false;
-    entry.image_urls.splice(i, 1);
-    if (entry.image_prompts) entry.image_prompts.splice(i, 1);
-    if (entry.motion_prompts) entry.motion_prompts.splice(i, 1);
+    // TOMBSTONE, never splice. Every message in the channel carries a fixed index in
+    // its callback_data, so removing an element renumbers all the later ones: the last
+    // message's index falls off the end ("no longer in posted.json") and the ones in
+    // between silently point at the WRONG image, which is worse than the error. A
+    // batch of ten photos only had to have one resolved for the rest to be wrong.
+    //
+    // Consumers already tolerate this: autopilot's source picker tests `if url and
+    // url not in used`, and the media prune walks gh-pages files rather than state.
+    entry.image_urls[i] = null;
+    if (entry.image_prompts) entry.image_prompts[i] = null;
+    if (entry.motion_prompts) entry.motion_prompts[i] = null;
     entry.owner_verdict = verdict;
     // The entry is KEPT even with no images left. It still carries vibe and look, and
     // _owner_theme_rates reads exactly those alongside owner_verdict -- deleting it
@@ -208,14 +218,17 @@ async function onReply(env, msg) {
 
 async function onMakeVideoFromReply(env, fake, ts, index, prompt, chatId) {
   try {
-    let url = null;
+    let url = null, hadEntry = false;
     await mutatePostedJson(env, (state) => {
-      url = findImage(state, ts, index).url;
+      const found = findImage(state, ts, index);
+      url = found.url;
+      hadEntry = Boolean(found.entry);
       return false;
     }, "");
     if (!url) {
-      await api(env, "sendMessage",
-        { chat_id: chatId, text: "That image is no longer in posted.json." });
+      await api(env, "sendMessage", { chat_id: chatId, text: hadEntry
+        ? "Already marked done or skipped - press nothing, it is finished."
+        : "That batch is no longer in posted.json." });
       return;
     }
     if (!(await isLive(url))) {
