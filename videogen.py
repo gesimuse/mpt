@@ -21,6 +21,13 @@ Two independent axes of failure, and this module walks both:
     signature. SPACES below is an ordered ladder; a Space-side failure moves to the next
     one rather than failing the run.
 
+There is a third axis, and it is the one that decides most runs: SIZE. A ZeroGPU
+Space reserves GPU time in proportion to the work requested, so the same Space that
+demands 195s at 5.0s/8 steps only demands 94s at 4.0s/5. Against a ~300s daily
+allowance that is the difference between one video per account per day and three.
+Once every Space x token combination has come back quota-blocked -- and only then --
+generate() retries the whole ladder at a smaller size, down to a 3.0s floor.
+
 Quota detection is by MESSAGE, not exception class: HF's real text is
 "You have exceeded your GPU quota (60s requested vs. 42s left)". The previous check
 looked for "zerogpu quota" / "exceeded your free", neither of which appears in that

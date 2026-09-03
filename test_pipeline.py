@@ -4196,6 +4196,91 @@ class VideoGenTest(unittest.TestCase):
                 videogen.generate("https://x/img.jpg", "hi")
         self.assertIn("unexpected Space return", str(ctx.exception))
 
+    def test_retries_smaller_when_the_whole_ladder_is_quota_blocked(self):
+        """A ZeroGPU Space reserves GPU time in proportion to the work asked for --
+        measured live, linoyts/wan2-2-i2v-rCM asks for 195s at 5.0s/8 steps and only
+        94s at 4.0s/5. So a run that every account refuses at full size can still
+        fit at a smaller one, which is the difference between one video a day per
+        account and three. Full size is tried across the whole ladder first."""
+        from gradio_client.exceptions import AppError
+        with tempfile.TemporaryDirectory() as tmp:
+            src_mp4 = Path(tmp) / "raw.mp4"
+            src_mp4.write_bytes(b"rawpayload")
+            asked = []
+
+            def fake_client_factory(space_id, token=None):
+                client = mock.Mock()
+
+                def predict(**kw):
+                    asked.append((kw["duration_seconds"], kw["steps"]))
+                    if kw["duration_seconds"] > 3.0:
+                        raise AppError(message="You have exceeded your free ZeroGPU "
+                                               "quota (195s requested vs. 5s left)")
+                    return (str(src_mp4), 1)
+                client.predict.side_effect = predict
+                return client
+
+            with mock.patch.dict(os.environ, {"HF_TOKEN": "tok"}, clear=True), \
+                 mock.patch.object(videogen.subprocess, "run", self._fake_run([])), \
+                 mock.patch.object(videogen.urllib.request, "urlretrieve",
+                                  self._fake_urlretrieve()), \
+                 mock.patch("gradio_client.Client", side_effect=fake_client_factory), \
+                 mock.patch("gradio_client.handle_file", side_effect=lambda x: x):
+                out = videogen.generate("https://x/img.jpg", "hi", length_s=5.0,
+                                       steps=8, out_dir=str(Path(tmp) / "out"))
+
+            self.assertTrue(Path(out).exists())
+            self.assertEqual(asked[0], (5.0, 8))
+            # Every Space is tried at full size before anything shrinks.
+            self.assertEqual(asked[:len(videogen.SPACES)],
+                            [(5.0, 8)] * len(videogen.SPACES))
+            self.assertEqual(asked[-1], (3.0, 4))
+
+    def test_does_not_retry_smaller_after_a_non_quota_failure(self):
+        """Shrinking only helps against a quota wall. If a Space failed for its own
+        reasons, a shorter clip fails there identically -- retrying just burns time
+        and makes the run take three times as long to reach the same error."""
+        from gradio_client.exceptions import AppError
+        asked = []
+
+        def fake_client_factory(space_id, token=None):
+            client = mock.Mock()
+
+            def predict(**kw):
+                asked.append((kw["duration_seconds"], kw["steps"]))
+                raise AppError(message="Space is down")
+            client.predict.side_effect = predict
+            return client
+
+        with mock.patch.dict(os.environ, {"HF_TOKEN": "tok"}, clear=True), \
+             mock.patch.object(videogen.subprocess, "run", self._fake_run([])), \
+             mock.patch.object(videogen.urllib.request, "urlretrieve",
+                              self._fake_urlretrieve()), \
+             mock.patch("gradio_client.Client", side_effect=fake_client_factory), \
+             mock.patch("gradio_client.handle_file", side_effect=lambda x: x):
+            with self.assertRaises(RuntimeError):
+                videogen.generate("https://x/img.jpg", "hi", length_s=5.0, steps=8)
+
+        self.assertEqual(len(asked), len(videogen.SPACES))
+        self.assertEqual(set(asked), {(5.0, 8)})
+
+    def test_arguments_are_clamped_to_what_each_space_accepts(self):
+        """An out-of-range Slider value comes back as a bare `AppError: RuntimeError`
+        with no detail -- indistinguishable from the Space being broken, and enough
+        to silently retire a ladder rung. multimodalart/wan2-1-fast caps
+        duration_seconds at 3.4 while the pipeline asks for 5.0."""
+        with mock.patch("gradio_client.handle_file", side_effect=lambda x: x):
+            args = videogen._wan21_fast_args("/tmp/x.jpg", "hi", "", 5.0, 40, 7)
+            self.assertEqual(args["duration_seconds"], 3.4)
+            self.assertEqual(args["steps"], 30)
+            # Upsampler's steps slider stops at 12.
+            self.assertEqual(
+                videogen._upsampler_wan22_args("/tmp/x.jpg", "hi", "", 9.0, 40, 7)
+                ["steps"], 12)
+            self.assertEqual(
+                videogen._wan22_rcm_args("/tmp/x.jpg", "hi", "", 9.0, 4, 7)
+                ["duration_seconds"], 5.0)
+
     def test_video_spaces_env_overrides_the_ladder(self):
         with mock.patch.dict(os.environ,
                             {"VIDEO_SPACES": "Lightricks/ltx-video-distilled"},
