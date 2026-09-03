@@ -307,13 +307,26 @@ export default {
         // Written to the repo so the id survives being acked -- see recordUnknownChat.
         const title = update.channel_post?.chat?.title
           ?? update.message?.chat?.title ?? null;
-        try { await recordUnknownChat(env, chatId, title); }
-        catch (e) { console.error("could not record chat id", redact(env, e)); }
-        await api(env, "sendMessage", {
-          chat_id: chatId,
-          text: `This chat's id is ${chatId}.\nIt is not in ALLOWED_CHAT_ID yet, so `
-              + `buttons here will be ignored until it is added.`,
-        });
+        let isNew = true;
+        try { isNew = await recordUnknownChat(env, chatId, title); }
+        catch (e) {
+          console.error("could not record chat id", redact(env, e));
+          // Could not tell whether this is new. Stay quiet: an un-acked id is a
+          // nuisance, a reply under every message forever is worse.
+          isNew = false;
+        }
+        // Announce the id ONCE per chat, not on every message. This bot is a member
+        // of a channel belonging to a different project, and the hint fired on every
+        // post there -- a reply under each card, forever, in a channel that will
+        // never be added. recordUnknownChat returns false when the id was already
+        // recorded, which is exactly "we have said this before".
+        if (isNew) {
+          await api(env, "sendMessage", {
+            chat_id: chatId,
+            text: `This chat's id is ${chatId}.\nIt is not in ALLOWED_CHAT_ID yet, so `
+                + `buttons here will be ignored until it is added.`,
+          });
+        }
       }
       return new Response("ok");
     }

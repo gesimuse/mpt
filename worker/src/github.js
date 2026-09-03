@@ -112,6 +112,10 @@ export async function hostOnPages(env, path, contentB64) {
  * Deliberately a separate file rather than a key in posted.json: this is transient
  * setup scaffolding, and posted.json is written by three other things already.
  */
+// Returns true when this chat id had NOT been recorded before, so the caller can
+// announce it once instead of replying under every message in a channel that is never
+// going to be added -- which is what happened in a sibling project's channel this bot
+// is a member of.
 export async function recordUnknownChat(env, chatId, title) {
   const path = "telegram_chats.json";
   let sha, seen = {};
@@ -122,7 +126,7 @@ export async function recordUnknownChat(env, chatId, title) {
   } catch {
     // 404 on first use is expected: PUT with no sha creates the file.
   }
-  if (seen[chatId]) return;
+  if (seen[chatId]) return false;
   seen[chatId] = { title: title || null, seen_at: new Date().toISOString() };
   const body = {
     message: `telegram: record chat id ${chatId}`,
@@ -130,9 +134,13 @@ export async function recordUnknownChat(env, chatId, title) {
     branch: env.GITHUB_BRANCH,
   };
   if (sha) body.sha = sha;
-  await fetch(`${API}/repos/${env.GITHUB_OWNER}/${env.GITHUB_REPO}/contents/${path}`, {
-    method: "PUT",
-    headers: { ...headers(env), "content-type": "application/json" },
-    body: JSON.stringify(body),
-  });
+  const r = await fetch(
+    `${API}/repos/${env.GITHUB_OWNER}/${env.GITHUB_REPO}/contents/${path}`, {
+      method: "PUT",
+      headers: { ...headers(env), "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  // A failed write means the id was not persisted, so the next message would look new
+  // again. Report not-new so the announcement does not repeat on every post.
+  return r.ok;
 }

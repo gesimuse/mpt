@@ -60,21 +60,65 @@ VIDEO_NEGATIVE = (
     "morphing anatomy, flickering, jittery motion, blurry, watermark, text, logo")
 
 
+def _clamp(value, lo, hi):
+    """Pin a slider argument inside the range the Space actually accepts.
+
+    Out-of-range values do not come back as a useful error. A Slider outside its
+    bounds surfaces as a bare `AppError: RuntimeError` with no detail at all, which
+    reads exactly like the Space being broken -- and since a non-quota failure moves
+    the ladder on, one stale bound silently retires a whole rung. Clamping per Space
+    means the caller keeps asking for what it wants and each Space takes what it can."""
+    return max(lo, min(hi, value))
+
+
 def _wan22_rcm_args(image_path, prompt, negative_prompt, length_s, steps, seed):
     from gradio_client import handle_file
     return dict(
-        input_image=handle_file(str(image_path)), prompt=prompt, steps=steps,
-        negative_prompt=negative_prompt or "", duration_seconds=length_s,
+        input_image=handle_file(str(image_path)), prompt=prompt,
+        steps=_clamp(steps, 1, 30),
+        negative_prompt=negative_prompt or "",
+        duration_seconds=_clamp(length_s, 0.5, 5.0),
         guidance_scale=1.0, guidance_scale_2=1.0,
+        seed=seed if seed is not None else 0, randomize_seed=seed is None)
+
+
+def _upsampler_wan22_args(image_path, prompt, negative_prompt, length_s, steps, seed):
+    """Upsampler/wan-2-2-14b-image-to-video -- same Wan 2.2 14B weights as the rCM
+    Space above, so its output is interchangeable here, and it asks ZeroGPU for less
+    time for the same request (150s where rCM asks 195s at 5s/8 steps). That gap is
+    the whole reason it is on the ladder: a token with 160s left can serve this and
+    not rCM."""
+    from gradio_client import handle_file
+    return dict(
+        input_image=handle_file(str(image_path)), prompt=prompt,
+        steps=_clamp(steps, 1, 12),
+        negative_prompt=negative_prompt or "",
+        duration_seconds=_clamp(length_s, 0.5, 5.0),
+        guidance_scale=1.0, guidance_scale_2=1.0,
+        seed=seed if seed is not None else 0, randomize_seed=seed is None,
+        end_image=None)
+
+
+def _wan22_fast_b64_args(image_path, prompt, negative_prompt, length_s, steps, seed):
+    """prithivMLmods/Wan2.2-Fast. Takes the image as a base64 STRING, not a file
+    handle -- the only Space here that does. Its parameters carry no declared ranges
+    (they are plain API inputs, not Sliders), so nothing is clamped."""
+    import base64
+    return dict(
+        image_b64=base64.b64encode(Path(image_path).read_bytes()).decode(),
+        prompt=prompt, steps=steps, negative_prompt=negative_prompt or "",
+        duration_seconds=length_s, guidance_scale=1.0, guidance_scale_2=1.0,
         seed=seed if seed is not None else 0, randomize_seed=seed is None)
 
 
 def _wan21_fast_args(image_path, prompt, negative_prompt, length_s, steps, seed):
     from gradio_client import handle_file
     return dict(
-        input_image=handle_file(str(image_path)), prompt=prompt, height=_H, width=_W,
-        negative_prompt=negative_prompt or "", duration_seconds=length_s,
-        guidance_scale=1.0, steps=steps,
+        input_image=handle_file(str(image_path)), prompt=prompt,
+        height=_clamp(_H, 128, 896), width=_clamp(_W, 128, 896),
+        negative_prompt=negative_prompt or "",
+        duration_seconds=_clamp(length_s, 0.3, 3.4),
+        guidance_scale=1.0, steps=_clamp(steps, 1, 30),
         seed=seed if seed is not None else 0, randomize_seed=seed is None)
 
 
@@ -100,13 +144,28 @@ def _ltx_distilled_args(image_path, prompt, negative_prompt, length_s, steps, se
 # fallback would mean a quota-exhausted run silently shipping output that would never
 # be posted, which is worse than the run failing. Its adapter is kept below so
 # VIDEO_SPACES can still name it for a one-off experiment.
+#
+# Ordered cheapest-quality-loss first, and the ZeroGPU seconds each one asks for at
+# 5s/8 steps are noted because that number, not the daily allowance, is what decides
+# whether a run happens: the allowance is ~300s per account per day, so a 195s Space
+# fits once and a 150s Space fits twice.
+#
+# multimodalart/wan2-1-fast used to sit on this ladder as the fallback. It is dead:
+# on 2026-09-03 it returned a bare `AppError: RuntimeError` for every token AND for
+# an anonymous call using the Space's own default arguments, which rules out both
+# quota and our arguments. It is kept as an adapter below so VIDEO_SPACES can pick it
+# up again if its owner fixes it, but a rung that always fails only wastes a round
+# trip on every quota-exhausted run.
 SPACES = [
-    ("linoyts/wan2-2-i2v-rCM", "/generate_video", _wan22_rcm_args),
-    ("multimodalart/wan2-1-fast", "/generate_video", _wan21_fast_args),
+    ("linoyts/wan2-2-i2v-rCM", "/generate_video", _wan22_rcm_args),            # 195s
+    ("Upsampler/wan-2-2-14b-image-to-video", "/generate_video",
+     _upsampler_wan22_args),                                                   # 150s
+    ("prithivMLmods/Wan2.2-Fast", "/generate_video", _wan22_fast_b64_args),    # 120s
 ]
 # Reachable only by naming it explicitly in VIDEO_SPACES.
 OPTIONAL_SPACES = [
     ("Lightricks/ltx-video-distilled", "/image_to_video", _ltx_distilled_args),
+    ("multimodalart/wan2-1-fast", "/generate_video", _wan21_fast_args),
 ]
 
 
@@ -222,30 +281,39 @@ def _video_path_from(result):
     return None
 
 
-def generate(image_url, prompt, length_s=5.0, steps=4, seed=None,
-             negative_prompt=None, out_dir=None):
-    """Walk the Space ladder, rotating tokens within each Space on a ZeroGPU quota
-    error, and return the local mp4 path (re-encoded for TikTok). Raises only once
-    every Space x token combination is exhausted -- the caller treats that as a
-    skipped run."""
-    # autopilot.py's _run_video_niche passes these through straight from env
-    # vars (VIDEO_STEPS/VIDEO_LENGTH_S), so they arrive as strings -- the
-    # Space's steps/duration_seconds are both Slider (float) components, and
-    # a live run crashed there with an opaque, unhelpful "the upstream Gradio
-    # app has raised an exception" every time. The old Kaggle-kernel design
-    # never hit this because its template substitution did int("__STEPS__")/
-    # float("__LENGTH_S__") before ever reaching predict().
-    length_s, steps = float(length_s), int(steps)
-    negative_prompt = VIDEO_NEGATIVE if negative_prompt is None else negative_prompt
-    _ensure_gradio_client()
+# How far a quota-blocked run is allowed to shrink, as (seconds, steps) multipliers
+# of what the caller asked for. A ZeroGPU Space reserves GPU time in proportion to
+# the work requested -- measured live on linoyts/wan2-2-i2v-rCM, which asks for 195s
+# at 5.0s/8 steps and ran on an account with 78s left once asked for 3.0s/4 steps.
+# The free allowance is ~300s per account per day, so this is the difference between
+# one video a day per account and three or four.
+#
+# Full size is always tried first and the ladder only shrinks after every Space x
+# token combination has come back quota-blocked, so a run with quota to spare is
+# unaffected. The floor stops well short of unusable: below ~3s there is not enough
+# motion for a post, and a clip too short to publish is no better than no clip.
+_QUOTA_RUNGS = [(1.0, 1.0), (0.8, 0.625), (0.6, 0.5)]
+_MIN_SECONDS, _MIN_STEPS = 3.0, 4
 
-    work_dir = tempfile.mkdtemp(prefix="videogen_in_")
-    image_path = _fetch_image(image_url, work_dir)
 
-    spaces, tokens = _spaces(), _tokens()
-    if not spaces:
-        raise RuntimeError("no usable video Space configured (check VIDEO_SPACES)")
-    video_path, last_err = None, None
+def _quota_rungs(length_s, steps):
+    """Successively cheaper (seconds, steps) pairs, de-duplicated and floored."""
+    out = []
+    for s_mul, st_mul in _QUOTA_RUNGS:
+        rung = (max(_MIN_SECONDS, round(length_s * s_mul, 1)),
+                max(_MIN_STEPS, int(steps * st_mul)))
+        if rung not in out:
+            out.append(rung)
+    return out
+
+
+def _walk_ladder(spaces, tokens, image_path, prompt, negative_prompt, length_s,
+                 steps, seed):
+    """One full pass over every Space x token at one size.
+
+    Returns (video_path, last_error, every_failure_was_quota). That last flag is what
+    tells the caller whether retrying at a smaller size could possibly help."""
+    video_path, last_err, all_quota = None, None, True
     for s_i, (space_id, api_name, arg_fn) in enumerate(spaces):
         for t_i, token in enumerate(tokens):
             try:
@@ -271,12 +339,53 @@ def generate(image_url, prompt, length_s=5.0, steps=4, seed=None,
                     break
                 # Not a quota problem: the same call fails identically on every token,
                 # so move to the next Space rather than burning the token list.
+                all_quota = False
                 log(f"{space_id} failed ({type(e).__name__}: {str(e)[:150]})")
                 break
         if video_path:
-            break
+            return video_path, last_err, all_quota
         if s_i < len(spaces) - 1:
             log(f"falling back to {spaces[s_i + 1][0]}")
+    return None, last_err, all_quota
+
+
+def generate(image_url, prompt, length_s=5.0, steps=4, seed=None,
+             negative_prompt=None, out_dir=None):
+    """Walk the Space ladder, rotating tokens within each Space on a ZeroGPU quota
+    error, and return the local mp4 path (re-encoded for TikTok). Raises only once
+    every Space x token combination is exhausted -- the caller treats that as a
+    skipped run."""
+    # autopilot.py's _run_video_niche passes these through straight from env
+    # vars (VIDEO_STEPS/VIDEO_LENGTH_S), so they arrive as strings -- the
+    # Space's steps/duration_seconds are both Slider (float) components, and
+    # a live run crashed there with an opaque, unhelpful "the upstream Gradio
+    # app has raised an exception" every time. The old Kaggle-kernel design
+    # never hit this because its template substitution did int("__STEPS__")/
+    # float("__LENGTH_S__") before ever reaching predict().
+    length_s, steps = float(length_s), int(steps)
+    negative_prompt = VIDEO_NEGATIVE if negative_prompt is None else negative_prompt
+    _ensure_gradio_client()
+
+    work_dir = tempfile.mkdtemp(prefix="videogen_in_")
+    image_path = _fetch_image(image_url, work_dir)
+
+    spaces, tokens = _spaces(), _tokens()
+    if not spaces:
+        raise RuntimeError("no usable video Space configured (check VIDEO_SPACES)")
+
+    video_path, last_err, all_quota = None, None, False
+    for r_i, (rung_s, rung_steps) in enumerate(_quota_rungs(length_s, steps)):
+        if r_i:
+            log(f"whole ladder is quota-blocked at {length_s}s/{steps} steps; "
+                f"retrying smaller ({rung_s}s, {rung_steps} steps) -- a Space asks "
+                "ZeroGPU for less time when asked for less video")
+        video_path, last_err, all_quota = _walk_ladder(
+            spaces, tokens, image_path, prompt, negative_prompt, rung_s, rung_steps,
+            seed)
+        # Only a pure quota wall is worth retrying smaller. If any Space failed for
+        # its own reasons, a shorter clip would fail there the same way.
+        if video_path or not all_quota:
+            break
     if not video_path:
         raise RuntimeError(
             f"every video Space failed ({len(spaces)} space(s) x {len(tokens)} "
