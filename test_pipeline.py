@@ -2152,6 +2152,57 @@ class CaptionWriterTest(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 caption_writer.write("a vibe")
 
+    def test_an_explicit_caption_is_blocked(self):
+        """The rubric asks for "suggestive, not explicit", but that is an
+        instruction to the model, not a guarantee -- this raises so
+        image_caption() falls back to the reviewed static pool, exactly like an
+        unparseable reply."""
+        with mock.patch.object(caption_writer.llm, "ask", lambda prompt, **kw:
+                               "CAPTION: Just posted my nudes\nHASHTAGS: #aiart #vibe"):
+            with self.assertRaises(RuntimeError):
+                caption_writer.write("a vibe")
+
+    def test_an_explicit_hashtag_is_blocked_even_with_a_clean_caption(self):
+        with mock.patch.object(caption_writer.llm, "ask", lambda prompt, **kw:
+                               "CAPTION: Golden hour vibes\nHASHTAGS: #aiart #onlyfans"):
+            with self.assertRaises(RuntimeError):
+                caption_writer.write("a vibe")
+
+    def test_does_not_flag_words_that_merely_contain_a_banned_substring(self):
+        # Word-boundary matching matters: "sexy"/"sextant" must not trip on "sex",
+        # and a flirty-but-tasteful caption is exactly what the rubric asks for.
+        with mock.patch.object(caption_writer.llm, "ask", lambda prompt, **kw:
+                               "CAPTION: Feeling sexy and confident today\n"
+                               "HASHTAGS: #aiart #confidence #glowup #ootd"):
+            caption, tags = caption_writer.write("a vibe")
+        self.assertIn("sexy", caption)
+
+    def test_a_hyphenated_hashtag_is_truncated_at_the_hyphen_not_dropped(self):
+        """#\w+ (the extraction regex) stops at the first non-word character, which
+        happens to match how TikTok itself delimits a hashtag -- "#two-words" is not
+        a valid tag on the platform either, and TikTok reads it as "#two" followed by
+        plain text "-words". The extraction already produces exactly that, before
+        the validity check ever runs."""
+        with mock.patch.object(caption_writer.llm, "ask", lambda prompt, **kw:
+                               "CAPTION: A line.\n"
+                               "HASHTAGS: #aiart #two-words #aigenerated #confident"):
+            _, tags = caption_writer.write("a vibe")
+        self.assertEqual(tags, "#aiart #two #aigenerated #confident")
+
+    def test_an_overlong_hashtag_is_dropped_without_costing_a_real_slot(self):
+        with mock.patch.object(caption_writer.llm, "ask", lambda prompt, **kw:
+                               "CAPTION: A line.\nHASHTAGS: #aiart "
+                               "#" + "x" * 40 + " #aigenerated #confident"):
+            _, tags = caption_writer.write("a vibe")
+        self.assertEqual(tags, "#aiart #aigenerated #confident")
+
+    def test_all_hashtags_invalid_raises(self):
+        with mock.patch.object(caption_writer.llm, "ask", lambda prompt, **kw:
+                               "CAPTION: A line.\nHASHTAGS: #" + "x" * 40 +
+                               " #" + "y" * 40):
+            with self.assertRaises(RuntimeError):
+                caption_writer.write("a vibe")
+
     def test_trend_hint_is_included_when_the_niche_has_one(self):
         seen = {}
 
