@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-03T06:56:27 — aibeautyvideo
+
+```
+I'm feeling like a boss today
+
+Created with AI.
+
+#artofaiphotography #aigeneration #femmeconfidence #sultryvibes #lickedlip
+```
+
 ## 2026-09-02T15:20:57 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ moments like these
 Created with AI.
 
 #artificialintelligence #deepdreams #flirtmode #girlyvibes #softcoreart #eroticartificialintelligence
-```
-
-## 2026-09-02T06:06:57 — aibeautyvideo
-
-```
-All about the angle
-
-Created with AI.
-
-#aiart #dreamgirling #bohostyle #femmeart #gazeplay #eroticfemaleform
 ```

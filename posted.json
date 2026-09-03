@@ -1094,6 +1094,26 @@
         }
       },
       "owner_verdict": "skipped"
+    },
+    {
+      "niche": "aibeautyvideo",
+      "topic": "video 20260903-065254",
+      "title": "I'm feeling like a boss today",
+      "tiktok": true,
+      "tiktok_via": "inbox_video",
+      "tiktok_post_id": "v_inbox_url~v2.7681198963710035991",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_fail_reason": null,
+      "tiktok_caption": "I'm feeling like a boss today\n\nCreated with AI.\n\n#artofaiphotography #aigeneration #femmeconfidence #sultryvibes #lickedlip",
+      "video_url": "https://gesimuse.github.io/mpt/media/1788418485-final.mp4",
+      "ts": "2026-09-03T06:56:27",
+      "motionforge_source_url": "https://gesimuse.github.io/mpt/media/1788362378-sd_8.jpg",
+      "telegram_message_ids": {
+        "https://gesimuse.github.io/mpt/media/1788418485-final.mp4": {
+          "chat_id": "-1004314616972",
+          "message_id": 15
+        }
+      }
     }
   ],
   "model_stats": {
