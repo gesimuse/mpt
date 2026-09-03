@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-03T19:02:42 — aibeautyvideo
+
+```
+?smizing doesn't equal self-satisfaction
+
+Created with AI.
+
+#artificialintelligenceportrait #neuralstyletransfer #anime #selfexpression #bodypositivity
+```
+
 ## 2026-09-03T18:00:05 — aibeautyvideo
 
 ```
@@ -88,14 +98,4 @@ rain makes everything deeper
 Created with AI.
 
 #artificialintelligenceart #neuralnetworkcreations #atmosphericphotography #moodyvibes #rainyreverie
-```
-
-## 2026-09-02T12:23:42 — aibeauty
-
-```
-when the bartender says you're the last one
-
-Created with AI.
-
-#generativeart #contemporaryphotography #lastcallvibes #alcoholicsonly #nightlowlife
 ```

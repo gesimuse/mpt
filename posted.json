@@ -1380,6 +1380,26 @@
           "message_id": 17
         }
       }
+    },
+    {
+      "niche": "aibeautyvideo",
+      "topic": "video 20260903-185940",
+      "title": "?smizing doesn't equal self-satisfaction",
+      "tiktok": true,
+      "tiktok_via": "inbox_video",
+      "tiktok_post_id": "v_inbox_url~v2.7681386273025656854",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_fail_reason": null,
+      "tiktok_caption": "?smizing doesn't equal self-satisfaction\n\nCreated with AI.\n\n#artificialintelligenceportrait #neuralstyletransfer #anime #selfexpression #bodypositivity",
+      "video_url": "https://gesimuse.github.io/mpt/media/1788462091-final.mp4",
+      "ts": "2026-09-03T19:02:42",
+      "motionforge_source_url": "https://gesimuse.github.io/mpt/media/1788348074-sd_1.jpg",
+      "telegram_message_ids": {
+        "https://gesimuse.github.io/mpt/media/1788462091-final.mp4": {
+          "chat_id": "-1004314616972",
+          "message_id": 18
+        }
+      }
     }
   ],
   "model_stats": {
