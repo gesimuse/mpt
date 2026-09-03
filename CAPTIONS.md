@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-03T10:10:50 — aibeauty
+
+```
+Leaving drama behind
+
+Created with AI.
+
+#aiart #digitalpainting #runawayvibes #freedomfeeling #midnightsolace
+```
+
 ## 2026-09-03T06:56:27 — aibeautyvideo
 
 ```
@@ -88,14 +98,4 @@ Silk whispers secrets
 Created with AI.
 
 #artificialintelligence #generativeart #empirewaist #victorianvibes #softfocus #oldhollywoodromance
-```
-
-## 2026-09-02T07:40:06 — aibeautyvideo
-
-```
-moments like these
-
-Created with AI.
-
-#artificialintelligence #deepdreams #flirtmode #girlyvibes #softcoreart #eroticartificialintelligence
 ```
