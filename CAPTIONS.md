@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-03T18:00:05 — aibeautyvideo
+
+```
+love what I see in the mirror
+
+Created with AI.
+
+#sexpositive #bodypositivity #aiart #eroticart #boudoirmode
+```
+
 ## 2026-09-03T17:51:20 — aibeautyvideo
 
 ```
@@ -88,14 +98,4 @@ when the bartender says you're the last one
 Created with AI.
 
 #generativeart #contemporaryphotography #lastcallvibes #alcoholicsonly #nightlowlife
-```
-
-## 2026-09-02T11:26:42 — aibeauty
-
-```
-warm whispers in the dark
-
-Created with AI.
-
-#neuralarts #digitalart #foggy #muted #softcore
 ```
