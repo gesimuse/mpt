@@ -229,7 +229,7 @@ def generate(niche, count=None, workdir=None, state=None):
     prefix, vibe, look = imageslides._build_prefix(niche, reference, state=state)
     base_negative = ", ".join(
         x for x in (imageslides.NEGATIVE_HARD, reference["negative_prompt"],
-                    imageslides.NEGATIVE_QUALITY) if x)
+                    imageslides.NEGATIVE_QUALITY, imageslides.NEGATIVE_MODEST) if x)
     log(f"{resolved['name']!r} | prefix: {prefix} | reference: {reference['prompt'][:120]}")
 
     prompts, negatives = imageslides.build_variations(

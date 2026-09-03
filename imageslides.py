@@ -210,7 +210,7 @@ _REALISM_RE = re.compile(
 # The invariant half of the subject, present on EVERY image without exception. "adult
 # woman" is a content-safety guardrail, not styling -- supervisor.py's
 # age_appears_adult gate is the check, this is the steer, and neither is optional.
-SAFETY_PREFIX = "beautiful adult woman"
+SAFETY_PREFIX = "stunningly beautiful adult woman"
 
 # The varying half. Every prompt this pipeline had ever produced began with the same
 # eight words -- "beautiful adult latina woman in her late twenties" was baked into
@@ -334,7 +334,24 @@ SUBJECTS = [
 ]
 
 
-SEXY_CUE = "seductive, sexy, alluring, round breasts, round ass, beautiful"
+# The one cue on every single image, so "sexy" is never left to whichever reference
+# prompt happened to get harvested. Widened from the original six words ("seductive,
+# sexy, alluring, round breasts, round ass, beautiful") because those leaned entirely
+# on abstract adjectives -- SD1.5 checkpoints respond far more strongly to concrete
+# figure/styling nouns (hourglass, cleavage, waist, legs) and to a named photographic
+# genre (glamour/boudoir editorial) than to being told the subject is "sexy". Stays
+# inside NEGATIVE_HARD's line: suggestive and figure-forward, never undressed.
+SEXY_CUE = ("smoking hot, seductive, sultry gaze, glamour photography, "
+            "curvy hourglass figure, huge breasts, big round ass, deep cleavage, "
+            "narrow waist, wide hips, thick thighs, long toned legs, "
+            "glossy lips, flawless makeup")
+# Suppressing the OPPOSITE of SEXY_CUE, which none of the other negatives covered:
+# NEGATIVE_HARD is the safety floor and NEGATIVE_QUALITY is about render defects, so
+# nothing was pushing against a demure, shapeless, plainly-styled result -- the most
+# common way an otherwise technically fine image missed the brief.
+NEGATIVE_MODEST = ("modest clothing, baggy oversized clothes, frumpy, shapeless, "
+                   "unflattering outfit, plain styling, flat chest, "
+                   "androgynous, masculine features, dowdy")
 NEGATIVE_HARD = ("child, teen, minor, young girl, schoolgirl, nude, topless, "
                  "exposed nipples, exposed genitals, explicit sexual content")
 # Hand/finger terms expanded per community-standard SD negative-prompt practice (the
@@ -676,7 +693,8 @@ def _pick_avoiding_repeats(options, key, recent, weights=None):
 def _build_subject(state=None):
     """(subject_phrase, look) -- SAFETY_PREFIX plus one rotating look from SUBJECTS.
 
-    SAFETY_PREFIX ("beautiful adult woman") is always first and never substituted:
+    SAFETY_PREFIX ("stunningly beautiful adult woman") is always first and never
+    substituted:
     it is the age/subject guardrail supervisor.py also gates on. Everything after it
     varies, which is what stops every prompt in the account's history opening with the
     identical eight words."""
@@ -704,6 +722,12 @@ def _build_prefix(niche, reference, state=None):
     # pose/expression cue does not conflict with whatever the reference prompt already
     # says. SEXY_CUE is the guaranteed baseline ("every image must be sexy" is a hard
     # requirement, not a random pick); mood adds per-image variety on top of it.
+    #
+    # SEXY_CUE sits directly after the subject, ahead of clothing/setting, rather than
+    # after them as it used to. Two reasons, both about how much of it survives to the
+    # model: CLIP weights earlier tokens more heavily, and everything here competes
+    # with a harvested reference prompt that build_variations appends after it, so the
+    # further right a cue sits the likelier it is to be the part that gets diluted.
     themes = niche.get("themes") or DEFAULT_THEMES
     theme = _pick_avoiding_repeats(themes, "vibe", _recently_used(state, "vibe"),
                                    _theme_weights(state))
@@ -711,7 +735,7 @@ def _build_prefix(niche, reference, state=None):
     clothing = "" if _CLOTHING_RE.search(reference["prompt"]) else f"{theme['outfit']}, "
     setting = "" if _LOCATION_RE.search(reference["prompt"]) else f"{theme['location']}, "
     realism = "" if _REALISM_RE.search(reference["prompt"]) else f", {REALISM_CUE}"
-    prefix = f"{subject}, {clothing}{setting}{SEXY_CUE}, {theme['mood']}{realism}"
+    prefix = f"{subject}, {SEXY_CUE}, {clothing}{setting}{theme['mood']}{realism}"
     return prefix, theme["vibe"], look
 
 
@@ -840,7 +864,8 @@ def generate(niche, count=None, workdir=None, max_rounds=2, state=None):
         civitai_spec = f"{resolved['model_id']}:{resolved['version_id']}"
         prefix, vibe, look = _build_prefix(niche, reference, state=state)
         base_negative = ", ".join(
-            x for x in (NEGATIVE_HARD, reference["negative_prompt"], NEGATIVE_QUALITY) if x)
+            x for x in (NEGATIVE_HARD, reference["negative_prompt"], NEGATIVE_QUALITY,
+                        NEGATIVE_MODEST) if x)
         log(f"round {round_num}: {resolved['name']!r} | prefix: {prefix} | "
             f"reference: {reference['prompt'][:120]}")
 
