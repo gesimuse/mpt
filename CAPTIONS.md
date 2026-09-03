@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-03T17:51:20 — aibeautyvideo
+
+```
+a little to the right is where the magic happens
+
+Created with AI.
+
+#neuralart #artificialbeauty #righttilt #slowliving #hipswiveltok
+```
+
 ## 2026-09-03T17:17:49 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ warm whispers in the dark
 Created with AI.
 
 #neuralarts #digitalart #foggy #muted #softcore
-```
-
-## 2026-09-02T10:33:37 — aibeautyvideo
-
-```
-Slaying the game without permission
-
-Created with AI.
-
-#aiart #digitalart #bodypositivity #confidenceiskey #selfexpression
 ```

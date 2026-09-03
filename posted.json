@@ -1367,6 +1367,26 @@
         }
       },
       "owner_verdict": "skipped"
+    },
+    {
+      "niche": "aibeautyvideo",
+      "topic": "video 20260903-174813",
+      "title": "a little to the right is where the magic happens",
+      "tiktok": true,
+      "tiktok_via": "inbox_video",
+      "tiktok_post_id": "v_inbox_url~v2.7681367623184123926",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_fail_reason": null,
+      "tiktok_caption": "a little to the right is where the magic happens\n\nCreated with AI.\n\n#neuralart #artificialbeauty #righttilt #slowliving #hipswiveltok",
+      "video_url": "https://gesimuse.github.io/mpt/media/1788457808-final.mp4",
+      "ts": "2026-09-03T17:51:20",
+      "motionforge_source_url": "https://gesimuse.github.io/mpt/media/1788430117-sd_6.jpg",
+      "telegram_message_ids": {
+        "https://gesimuse.github.io/mpt/media/1788457808-final.mp4": {
+          "chat_id": "-1004314616972",
+          "message_id": 16
+        }
+      }
     }
   ],
   "model_stats": {
