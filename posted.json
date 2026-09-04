@@ -1423,6 +1423,26 @@
       }
     },
     {
+      "niche": "aibeautyvideo",
+      "topic": "video 20260904-082137",
+      "title": "Feeling carefree, loving every bounce",
+      "tiktok": true,
+      "tiktok_via": "inbox_video",
+      "tiktok_post_id": "v_inbox_url~v2.7681592637312747523",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_fail_reason": null,
+      "tiktok_caption": "Feeling carefree, loving every bounce\n\nCreated with AI.\n\n#generativeart #midnightart #aiart #dancingqueen #freewheeling",
+      "video_url": "https://gesimuse.github.io/mpt/media/1788510189-final.mp4",
+      "ts": "2026-09-04T08:24:12",
+      "motionforge_source_url": "https://gesimuse.github.io/mpt/media/1788509625-sd_6.jpg",
+      "telegram_message_ids": {
+        "https://gesimuse.github.io/mpt/media/1788510189-final.mp4": {
+          "chat_id": "-1004314616972",
+          "message_id": 20
+        }
+      }
+    },
+    {
       "niche": "aibeauty",
       "topic": "image slideshow 20260904-103327",
       "title": "All I need is the night and my secrets",
