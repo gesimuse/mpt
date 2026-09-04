@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-04T14:23:31 — aibeauty
+
+```
+Sweat makes me shine
+
+Created with AI.
+
+#digitalart #artificiallybeauty #fitnessmotivation #postworkoutvibes #womaninmotion
+```
+
 ## 2026-09-04T12:37:51 — aibeauty
 
 ```
@@ -68,14 +78,4 @@ a little to the right is where the magic happens
 Created with AI.
 
 #neuralart #artificialbeauty #righttilt #slowliving #hipswiveltok
-```
-
-## 2026-09-03T17:17:49 — aibeauty
-
-```
-la vie en rose
-
-Created with AI.
-
-#aiart #digitalart #harvestvibes #winecountry #fallinduce
 ```
