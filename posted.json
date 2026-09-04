@@ -1440,7 +1440,7 @@
         "https://gesimuse.github.io/mpt/media/1788507649-sd_6.jpg",
         "https://gesimuse.github.io/mpt/media/1788507686-sd_7.jpg",
         "https://gesimuse.github.io/mpt/media/1788507726-sd_8.jpg",
-        "https://gesimuse.github.io/mpt/media/1788507761-sd_9.jpg"
+        null
       ],
       "image_prompts": [
         "stunningly beautiful adult woman, mixed heritage woman in her late twenties, loose curls, amber skin, smoking hot, seductive, sultry gaze, glamour photography, curvy hourglass figure, huge breasts, big round ass, deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, glossy lips, flawless makeup, in a red velvet lounge, moody dramatic lighting, arched back pose, confident sultry expression, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, slightly low angle, golden hour light, 3. An elderly woman (ethnicity: Black, age: 70s) in a beautiful, serene garden (setting: lush, floral). She's wearing a colorful, flowing maxi dress (fabric: light, airy) with vibrant floral patterns, accessorized with a wide-brimmed sun hat. Her hair is styled in elegant, silver twists, and her makeup is graceful and natural. She's gently tending to the flowers (variety: roses), with a peaceful and content expression, surrounded by a vivid explosion of colors and scents.",
@@ -1452,7 +1452,7 @@
         "stunningly beautiful adult woman, mixed heritage woman in her late twenties, loose curls, amber skin, smoking hot, seductive, sultry gaze, glamour photography, curvy hourglass figure, huge breasts, big round ass, deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, glossy lips, flawless makeup, in a red velvet lounge, moody dramatic lighting, arched back pose, confident sultry expression, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, medium shot, gentle rim lighting, 3. An elderly woman (ethnicity: Black, age: 70s) in a beautiful, serene garden (setting: lush, floral). She's wearing a colorful, flowing maxi dress (fabric: light, airy) with vibrant floral patterns, accessorized with a wide-brimmed sun hat. Her hair is styled in elegant, silver twists, and her makeup is graceful and natural. She's gently tending to the flowers (variety: roses), with a peaceful and content expression, surrounded by a vivid explosion of colors and scents.",
         "stunningly beautiful adult woman, mixed heritage woman in her late twenties, loose curls, amber skin, smoking hot, seductive, sultry gaze, glamour photography, curvy hourglass figure, huge breasts, big round ass, deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, glossy lips, flawless makeup, in a red velvet lounge, moody dramatic lighting, arched back pose, confident sultry expression, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, full body portrait, standing, wide angle, 3. An elderly woman (ethnicity: Black, age: 70s) in a beautiful, serene garden (setting: lush, floral). She's wearing a colorful, flowing maxi dress (fabric: light, airy) with vibrant floral patterns, accessorized with a wide-brimmed sun hat. Her hair is styled in elegant, silver twists, and her makeup is graceful and natural. She's gently tending to the flowers (variety: roses), with a peaceful and content expression, surrounded by a vivid explosion of colors and scents.",
         "stunningly beautiful adult woman, mixed heritage woman in her late twenties, loose curls, amber skin, smoking hot, seductive, sultry gaze, glamour photography, curvy hourglass figure, huge breasts, big round ass, deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, glossy lips, flawless makeup, in a red velvet lounge, moody dramatic lighting, arched back pose, confident sultry expression, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, profile view, moody side lighting, 3. An elderly woman (ethnicity: Black, age: 70s) in a beautiful, serene garden (setting: lush, floral). She's wearing a colorful, flowing maxi dress (fabric: light, airy) with vibrant floral patterns, accessorized with a wide-brimmed sun hat. Her hair is styled in elegant, silver twists, and her makeup is graceful and natural. She's gently tending to the flowers (variety: roses), with a peaceful and content expression, surrounded by a vivid explosion of colors and scents.",
-        "stunningly beautiful adult woman, mixed heritage woman in her late twenties, loose curls, amber skin, smoking hot, seductive, sultry gaze, glamour photography, curvy hourglass figure, huge breasts, big round ass, deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, glossy lips, flawless makeup, in a red velvet lounge, moody dramatic lighting, arched back pose, confident sultry expression, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, eye-level shot, diffused overcast light, 3. An elderly woman (ethnicity: Black, age: 70s) in a beautiful, serene garden (setting: lush, floral). She's wearing a colorful, flowing maxi dress (fabric: light, airy) with vibrant floral patterns, accessorized with a wide-brimmed sun hat. Her hair is styled in elegant, silver twists, and her makeup is graceful and natural. She's gently tending to the flowers (variety: roses), with a peaceful and content expression, surrounded by a vivid explosion of colors and scents."
+        null
       ],
       "model_spec": "167537:288911",
       "model_name": "BEAUTY_BY_STABLE_YOGI",
@@ -1468,7 +1468,7 @@
         "Her upper body slowly swivels and arches back, shoulders rolling back, chest lifting, and waist drawing in, as her long hair gently drapes behind her.",
         "She leans back, hips slowly tilting upwards, the wide-brimmed hat's shade angling across her face as her hair twists smoothly pivot around it.",
         "She turns to profile, her hips swaying ever so slightly as she bends to gently sweep her hand over the curve of her lower back, her hair falling across her shoulder.",
-        "slipping her hands slowly down her thighs, her fingers trailing along her curvy legs, her hips swaying slightly with the motion, dark hair catching some subtle fiber of the red velvet lounge."
+        null
       ],
       "ts": "2026-09-04T10:43:33",
       "telegram_message_ids": {
@@ -1512,7 +1512,8 @@
           "chat_id": "-1004449497323",
           "message_id": 189
         }
-      }
+      },
+      "owner_verdict": "skipped"
     }
   ],
   "model_stats": {
