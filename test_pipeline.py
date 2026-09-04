@@ -557,6 +557,34 @@ class SdgenTest(unittest.TestCase):
         # actually gets saved to disk.
         marker.convert.assert_called_once_with("RGB")
 
+    def test_final_image_is_clamped_to_tiktoks_size_ceiling(self):
+        """Live-confirmed against the real TikTok API: a batch upscaled to 1152x1728
+        (a checkpoint's own adopted resolution -- imageslides._adopted_settings --
+        upscaled 2x) got every image rejected with fail_reason=picture_size_check_
+        failed, while re-hosting the SAME images resized to 1080x1920's box reached
+        the inbox clean. upscale.upscale() can return anything up to roughly
+        896x896*2 (imageslides._SIZE_MAX, doubled), so generate_image() has to clamp
+        after it, not rely on the base render or upscale factor staying small."""
+        from PIL import Image
+        fake = FakePipe()
+        oversized = Image.new("RGB", (1152, 1728))
+
+        with mock.patch.object(sdgen, "_load", lambda key: fake), \
+             mock.patch.dict(os.environ, {"CIVITAI_MODEL": ""}), \
+             mock.patch.object(sdgen, "CIVITAI_MODEL", ""), \
+             mock.patch.dict(sdgen._pipe_arch, {"dreamshaper": "sd15"}), \
+             mock.patch.object(sdgen, "_encode", self._passthrough_encode), \
+             mock.patch.object(refine, "refine", lambda image, pipe, *a, **kw: image), \
+             mock.patch.object(upscale, "upscale", lambda image, *a, **kw: oversized), \
+             tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / "out.jpg"
+            sdgen.generate_image("a prompt", dest, model_key="dreamshaper")
+            saved = Image.open(dest)
+            self.assertLessEqual(saved.width, 1080)
+            self.assertLessEqual(saved.height, 1920)
+            # Aspect ratio preserved, not squashed to fit the box.
+            self.assertAlmostEqual(saved.width / saved.height, 1152 / 1728, places=2)
+
 
 class RefineTest(unittest.TestCase):
     """refine.py's own logic: the crop/pad/feather math (pure, no model needed) and

@@ -232,9 +232,17 @@ def generate_image(prompt, dest, model_key=None, negative_prompt="", seed=None,
                           steps=steps or STEPS, guidance=guidance if guidance is not None else GUIDANCE,
                           kinds=("face", "hand"), arch=_pipe_arch[cache_key])
     # Sharper/higher-res final image than the base render alone -- TikTok favors
-    # higher resolution photo posts. Runs last, after refine's touch-up, so the
-    # upscale sees the best version of the image, not the pre-touch-up one.
+    # higher resolution photo posts, up to a point it does NOT document: a live batch
+    # at 1152x1728 (a checkpoint's own adopted resolution, see imageslides.
+    # _adopted_settings, upscaled 2x) got every image rejected with
+    # fail_reason=picture_size_check_failed, and re-hosting the SAME images resized to
+    # 1024x1536 with nothing else changed reached the inbox clean -- confirmed live,
+    # isolating the dimensions themselves, not content. TikTok's own marketing copy
+    # for photo posts names 1080x1920 as the canvas; clamp to that, matching a
+    # confirmed-good size instead of guessing where the real undocumented ceiling is.
     image = upscale.upscale(image)
+    from PIL import Image
+    image.thumbnail((1080, 1920), Image.LANCZOS)
     dest = Path(dest)
     dest.parent.mkdir(parents=True, exist_ok=True)
     # JPEG, not PNG -- a live check found TikTok's Content Posting API rejecting
