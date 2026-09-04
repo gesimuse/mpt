@@ -1534,7 +1534,7 @@
         "https://gesimuse.github.io/mpt/media/1788509590-sd_5.jpg",
         "https://gesimuse.github.io/mpt/media/1788509625-sd_6.jpg",
         "https://gesimuse.github.io/mpt/media/1788509659-sd_7.jpg",
-        "https://gesimuse.github.io/mpt/media/1788509694-sd_8.jpg",
+        null,
         "https://gesimuse.github.io/mpt/media/1788509747-sd_9.jpg"
       ],
       "image_prompts": [
@@ -1546,7 +1546,7 @@
         "stunningly beautiful adult woman, tunisian woman in her late twenties, dark curls, olive skin, smoking hot, seductive, sultry gaze, glamour photography, curvy hourglass figure, huge breasts, big round ass, deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, glossy lips, flawless makeup, wearing an oversized knit sweater slipping off one shoulder, on a wooden cabin porch, snow and pines behind her, cold-flushed cheeks, breath visible, soft smile, full body shot, standing pose, wide framing, High detail RAW color Photo of gorgeous czech woman, smile, fit, toned, sexy look, high detail hair, (skin pores, skin imperfections), sharp body, highly detailed body, highly detailed face, sharp focus, 8k high definition, insanely detailed, intricate, masterpiece, highest quality",
         "stunningly beautiful adult woman, tunisian woman in her late twenties, dark curls, olive skin, smoking hot, seductive, sultry gaze, glamour photography, curvy hourglass figure, huge breasts, big round ass, deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, glossy lips, flawless makeup, wearing an oversized knit sweater slipping off one shoulder, on a wooden cabin porch, snow and pines behind her, cold-flushed cheeks, breath visible, soft smile, full length shot, head to toe, natural stance, High detail RAW color Photo of gorgeous czech woman, smile, fit, toned, sexy look, high detail hair, (skin pores, skin imperfections), sharp body, highly detailed body, highly detailed face, sharp focus, 8k high definition, insanely detailed, intricate, masterpiece, highest quality",
         "stunningly beautiful adult woman, tunisian woman in her late twenties, dark curls, olive skin, smoking hot, seductive, sultry gaze, glamour photography, curvy hourglass figure, huge breasts, big round ass, deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, glossy lips, flawless makeup, wearing an oversized knit sweater slipping off one shoulder, on a wooden cabin porch, snow and pines behind her, cold-flushed cheeks, breath visible, soft smile, three-quarter view, soft studio lighting, High detail RAW color Photo of gorgeous czech woman, smile, fit, toned, sexy look, high detail hair, (skin pores, skin imperfections), sharp body, highly detailed body, highly detailed face, sharp focus, 8k high definition, insanely detailed, intricate, masterpiece, highest quality",
-        "stunningly beautiful adult woman, tunisian woman in her late twenties, dark curls, olive skin, smoking hot, seductive, sultry gaze, glamour photography, curvy hourglass figure, huge breasts, big round ass, deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, glossy lips, flawless makeup, wearing an oversized knit sweater slipping off one shoulder, on a wooden cabin porch, snow and pines behind her, cold-flushed cheeks, breath visible, soft smile, slightly low angle, golden hour light, High detail RAW color Photo of gorgeous czech woman, smile, fit, toned, sexy look, high detail hair, (skin pores, skin imperfections), sharp body, highly detailed body, highly detailed face, sharp focus, 8k high definition, insanely detailed, intricate, masterpiece, highest quality",
+        null,
         "stunningly beautiful adult woman, tunisian woman in her late twenties, dark curls, olive skin, smoking hot, seductive, sultry gaze, glamour photography, curvy hourglass figure, huge breasts, big round ass, deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, glossy lips, flawless makeup, wearing an oversized knit sweater slipping off one shoulder, on a wooden cabin porch, snow and pines behind her, cold-flushed cheeks, breath visible, soft smile, full body portrait, standing, wide angle, High detail RAW color Photo of gorgeous czech woman, smile, fit, toned, sexy look, high detail hair, (skin pores, skin imperfections), sharp body, highly detailed body, highly detailed face, sharp focus, 8k high definition, insanely detailed, intricate, masterpiece, highest quality"
       ],
       "model_spec": "83490:88738",
@@ -1562,7 +1562,7 @@
         "She slowly arches her back, shoulders rolling under her sweater, hips swaying, and weight shifting to her heels, as her hair catches the cold air in a gentle motion.",
         "She slowly arches her back, hips shifting, weight moving onto one leg, as her long hair cascades down over her shoulder.",
         "She turns slowly to her left, exposing her profile, and lets her gaze fall back to the camera with a soft, sultry smile.",
-        "She slowly turns her body to frame the pine trees behind her, then looks back over her shoulder with a soft smile.",
+        null,
         "She arches her back, tilts her head, and lets her gaze drift upward, her weight shifting onto one hip, as her sweater slips further off her shoulder."
       ],
       "ts": "2026-09-04T11:16:44",
@@ -1607,7 +1607,8 @@
           "chat_id": "-1004449497323",
           "message_id": 200
         }
-      }
+      },
+      "owner_verdict": "skipped"
     }
   ],
   "model_stats": {
