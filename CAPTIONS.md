@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-04T15:15:16 — aibeauty
+
+```
+Stormy nights leave me wondering
+
+Created with AI.
+
+#artificialintelligeanceart #generativeart #moodyvibes #rainydaysaremylover #melancholymoods
+```
+
 ## 2026-09-04T14:23:31 — aibeauty
 
 ```
@@ -68,14 +78,4 @@ love what I see in the mirror
 Created with AI.
 
 #sexpositive #bodypositivity #aiart #eroticart #boudoirmode
-```
-
-## 2026-09-03T17:51:20 — aibeautyvideo
-
-```
-a little to the right is where the magic happens
-
-Created with AI.
-
-#neuralart #artificialbeauty #righttilt #slowliving #hipswiveltok
 ```
