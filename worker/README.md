@@ -12,6 +12,9 @@ What it handles:
 | ✅ Done | Finished with it: removes the image from the channel and from `posted.json`, and records `owner_verdict: posted` |
 | 🗑 Skip | Didn't want it: same removal, but records `owner_verdict: skipped` |
 | 🔄 Retry post | Dispatches the video workflow with `retry_video_url`, republishing the same mp4 without regenerating |
+| 👍 Good | Rates the checkpoint + SD prompt that produced this image (not the post itself — see Done/Skip above): +1 to that model's score and +1 to that exact prompt's score under it in `model_leaderboard.json`, then removes the message |
+| 👎 Not good | Same removal as Good, records nothing — there is no "bad" ledger, only what earned a point |
+| `/leaderboard` | Replies with the top models by score and, under each, its top 3 prompts by their own score, read straight from `model_leaderboard.json` |
 | Reply to a photo | Uses your text as the motion prompt for that image, then makes the video |
 | Send a photo | Hosts it on `gh-pages` and registers it in `posted.json`, so it can be animated like any generated image |
 

@@ -207,13 +207,18 @@ def _generate_batch_on_kaggle(resolved, prompts, negatives, adopted, workdir):
     return paths
 
 
-def generate(niche, count=None, workdir=None, state=None):
+def generate(niche, count=None, workdir=None, state=None, model_info=None):
     """One Kaggle round: decide a CivitAI checkpoint + reference prompt (same
     logic imageslides.generate() uses), generate `count` camera variations on
     Kaggle's GPU, keep what passes supervisor.py review. Returns (image_paths,
     vibe, look, image_prompts) -- same 4-tuple contract as imageslides.generate().
     Raises on any shortfall; caller (autopilot.py) treats that as "fall back
-    to the local path", not a hard stop."""
+    to the local path", not a hard stop.
+
+    model_info, when given a dict, gets {"spec", "name"} written into it for the
+    checkpoint this round used -- same contract as imageslides.generate()'s own
+    model_info param, see there for why it's a side-output rather than a 5th tuple
+    element."""
     if not available():
         raise RuntimeError("Kaggle credentials not configured "
                            "(KAGGLE_USERNAME + KAGGLE_API_TOKEN/KAGGLE_KEY)")
@@ -263,4 +268,6 @@ def generate(niche, count=None, workdir=None, state=None):
             f"(need at least {min_images}); not using this Kaggle round")
 
     kept = approved[:max_images]
+    if model_info is not None:
+        model_info["spec"], model_info["name"] = civitai_spec, resolved["name"]
     return kept, vibe, look, [prompt_by_path.get(str(p)) for p in kept]

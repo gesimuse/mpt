@@ -84,6 +84,64 @@ export async function mutatePostedJson(env, mutate, message) {
   }
 }
 
+/**
+ * Read-modify-write an arbitrary small JSON file on the main branch, with retry on
+ * 409 -- same shape as mutatePostedJson but for a file that may not exist yet (a 404
+ * starts from `{}` and PUTs with no sha, which GitHub's Contents API treats as
+ * "create"), used for model_leaderboard.json.
+ */
+export async function mutateJsonFile(env, path, mutate, message) {
+  const MAX = 5;
+  for (let attempt = 0; attempt < MAX; attempt++) {
+    let file = null, state = {};
+    try {
+      file = await getFile(env, path);
+      state = JSON.parse(b64ToUtf8(file.content));
+    } catch {
+      // First write for this file -- putFile below with no sha creates it.
+    }
+    if (mutate(state) === false) return null;
+    const r = await putFile(env, path,
+      utf8ToB64(JSON.stringify(state, null, 2)), file?.sha, message);
+    if (r.ok) return state;
+    if (r.status !== 409 || attempt === MAX - 1) {
+      throw new Error(`${path} write failed: ${r.status} ${await r.text()}`);
+    }
+    await new Promise((res) => setTimeout(res, 400 * (attempt + 1)));
+  }
+}
+
+/**
+ * +1 to a checkpoint's score and +1 to that specific SD prompt's own score under it,
+ * in model_leaderboard.json -- what the Telegram 👍 Good button records. spec is the
+ * canonical "model_id:version_id" key (same as posted.json/model_stats); name is the
+ * checkpoint's display name; prompt is the exact per-image SD prompt being rated.
+ */
+export async function recordGoodRating(env, spec, name, prompt) {
+  return mutateJsonFile(env, "model_leaderboard.json", (state) => {
+    state.models = state.models || {};
+    const model = state.models[spec] || (state.models[spec] = {
+      name: name || spec, score: 0, prompts: {},
+    });
+    if (name) model.name = name; // keep the latest name; checkpoints get renamed
+    model.score += 1;
+    if (prompt) {
+      const p = model.prompts[prompt] || (model.prompts[prompt] = { score: 0 });
+      p.score += 1;
+    }
+  }, `telegram: +1 good (${name || spec})`);
+}
+
+/** Read model_leaderboard.json as-is, or {models: {}} if it has never been written. */
+export async function readLeaderboard(env) {
+  try {
+    const f = await getFile(env, "model_leaderboard.json");
+    return JSON.parse(b64ToUtf8(f.content));
+  } catch {
+    return { models: {} };
+  }
+}
+
 /** Commit a binary file to gh-pages and return its public Pages URL. */
 export async function hostOnPages(env, path, contentB64) {
   const url = `${API}/repos/${env.GITHUB_OWNER}/${env.GITHUB_REPO}/contents/${path}`;

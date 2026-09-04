@@ -106,37 +106,55 @@ def video_chat_id():
 
 
 def _image_keyboard(ts, index):
-    """Three actions, and the important one is what "Make video" does NOT do.
+    """Four actions, and the important one is what "Make video" does NOT do.
 
     Making a video leaves the image in the channel with its buttons intact, because
     one still is worth several attempts -- a different motion prompt on the same photo
     is a normal thing to want, and an image that vanished the moment it was used made
-    that impossible. Only Done and Skip remove it.
+    that impossible. Only Done, Skip, Good and Bad remove it.
 
     Done and Skip both remove, and differ in what they record: Done means "used this,
     finished with it", Skip means "didn't want it". The Worker writes that to
     owner_verdict, which is exactly the signal imageslides._owner_theme_rates biases
     theme and subject selection with -- so the learning loop comes back for free, off
-    buttons that had to exist anyway."""
+    buttons that had to exist anyway.
+
+    Good/Bad are a separate rating, of the CHECKPOINT + SD PROMPT that produced the
+    image (send_image's model_name/image_prompt), not of whether the post got used --
+    a photo can be a bad TikTok fit (wrong vibe, Skip) while still being exactly what
+    that model+prompt combo reliably renders (Good), and the two must not be
+    conflated. The Worker adds a Good press to model_leaderboard.json (model score +1,
+    that prompt's own score +1 under it) and ignores Bad past removing the message --
+    there is no "bad" ledger, only what got a point and what did not."""
     return {"inline_keyboard": [[
         {"text": "🎬 Make video", "callback_data": _callback("vid", ts, index)},
     ], [
         {"text": "✅ Done", "callback_data": _callback("done", ts, index)},
         {"text": "🗑 Skip", "callback_data": _callback("skip", ts, index)},
+    ], [
+        {"text": "👍 Good", "callback_data": _callback("good", ts, index)},
+        {"text": "👎 Not good", "callback_data": _callback("bad", ts, index)},
     ]]}
 
 
-def send_image(image_url, ts, index, caption=None, motion_prompt=None, chat_id=None):
+def send_image(image_url, ts, index, caption=None, motion_prompt=None,
+               model_name=None, image_prompt=None, chat_id=None):
     """One reviewable image in the channel. Returns Telegram's message_id.
 
-    The motion prompt is shown in the caption rather than hidden: it is what the video
-    model would actually be told to do, and the point of showing it is that the owner
-    can reply to this message with a different one before pressing Make video."""
+    model_name and image_prompt (the checkpoint and the actual SD prompt that
+    rendered this specific photo) are shown so Good/Bad is a rating of something the
+    owner can actually read, not a blind button. The motion prompt is shown for the
+    same reason as always: it is what the video model would actually be told to do,
+    and the owner can reply with a different one before pressing Make video."""
     lines = [caption] if caption else []
+    if model_name:
+        lines.append(f"🧪 {model_name}")
+    if image_prompt:
+        lines.append(f"📝 {image_prompt}")
     if motion_prompt:
         lines.append(f"🎬 {motion_prompt}")
-    lines.append("Reply with a different prompt to make another video from this "
-                 "photo. Done or Skip removes it.")
+    lines.append("👍/👎 rates this model + prompt. Reply with a different prompt to "
+                 "make another video from this photo. Done or Skip removes it.")
     return _call("sendPhoto", {
         "chat_id": chat_id or os.environ["TELEGRAM_CHAT_ID"],
         "photo": image_url,
@@ -176,11 +194,16 @@ def send_text(text, chat_id=None):
     })["message_id"]
 
 
-def post_batch(image_urls, ts, caption=None, motion_prompts=None, chat_id=None):
+def post_batch(image_urls, ts, caption=None, motion_prompts=None, image_prompts=None,
+               model_name=None, chat_id=None):
     """Every image from one batch, newest batch last. Never raises: Telegram being
     unreachable must not fail a run whose images are already hosted and whose TikTok
     draft is already queued -- the review surface is downstream of all of that.
-    Returns the message ids it managed to send."""
+    Returns the message ids it managed to send.
+
+    model_name is the one checkpoint the whole batch was generated from (imageslides.
+    generate()'s model_info); image_prompts is the per-image SD prompt, same order as
+    image_urls. Both shown on every image so Good/Bad has something to rate."""
     ids = []
     for i, url in enumerate(image_urls or []):
         try:
@@ -188,8 +211,13 @@ def post_batch(image_urls, ts, caption=None, motion_prompts=None, chat_id=None):
         except IndexError:
             prompt = None
         try:
+            img_prompt = (image_prompts or [None] * len(image_urls))[i]
+        except IndexError:
+            img_prompt = None
+        try:
             ids.append(send_image(url, ts, i, caption=caption if i == 0 else None,
-                                  motion_prompt=prompt, chat_id=chat_id))
+                                  motion_prompt=prompt, model_name=model_name,
+                                  image_prompt=img_prompt, chat_id=chat_id))
         except Exception as e:
             log(f"could not post image {i} ({type(e).__name__}: {redact(e)[:150]})")
     log(f"posted {len(ids)}/{len(image_urls or [])} images to the channel")

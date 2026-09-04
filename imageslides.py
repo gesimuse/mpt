@@ -782,10 +782,19 @@ def _adopted_settings(reference):
     return out
 
 
-def generate(niche, count=None, workdir=None, max_rounds=2, state=None):
+def generate(niche, count=None, workdir=None, max_rounds=2, state=None, model_info=None):
     """Decide on a CivitAI checkpoint + reference prompt, generate `count` camera
     variations of it, keep what passes supervisor.py review, and repeat with a fresh
     round if the batch still falls short of min_images.
+
+    model_info, when given a dict, gets {"spec": "<model_id>:<version_id>", "name":
+    ...} written into it for the round that actually produced the returned images --
+    the checkpoint used for the whole batch in the normal case (one round), or the
+    last round tried in the rare multi-round case. A side-output param rather than a
+    5th tuple element on purpose: generate()'s 4-tuple return is unpacked at ~10 call
+    sites across autopilot.py and test_pipeline.py, and this is read by exactly one
+    caller (autopilot.py, to attach the model to posted.json for the Telegram
+    good/bad leaderboard) that can opt in without the other 9 changing at all.
 
     A round that ends with ZERO approved images -- whether nothing generated at all
     (a gated CivitAI model 401'd on every download attempt, a live run hit this
@@ -934,10 +943,14 @@ def generate(niche, count=None, workdir=None, max_rounds=2, state=None):
                 f"{len(broken_generations)} raw generations without QA "
                 f"(account owner still reviews the draft in TikTok before posting)")
             kept = broken_generations[:max_images]
+            if model_info is not None:
+                model_info["spec"], model_info["name"] = civitai_spec, resolved["name"]
             return kept, vibe, look, [prompt_by_path.get(str(p)) for p in kept]
         raise RuntimeError(
             f"only {len(approved)} of {generated_count} images passed review across "
             f"{max_rounds} round(s) (need at least {min_images}); not posting")
     log(f"{len(approved)}/{generated_count} images approved")
     kept = approved[:max_images]
+    if model_info is not None:
+        model_info["spec"], model_info["name"] = civitai_spec, resolved["name"]
     return kept, vibe, look, [prompt_by_path.get(str(p)) for p in kept]

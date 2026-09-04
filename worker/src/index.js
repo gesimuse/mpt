@@ -6,7 +6,10 @@
  * This Worker is the only always-on piece, and it exists solely to make the buttons
  * respond in seconds rather than whenever the next scheduled run happens to fire.
  */
-import { dispatchWorkflow, mutatePostedJson, hostOnPages, recordUnknownChat } from "./github.js";
+import {
+  dispatchWorkflow, mutatePostedJson, hostOnPages, recordUnknownChat,
+  recordGoodRating, readLeaderboard,
+} from "./github.js";
 import { answer, deleteMessage, getFileUrl, api, redact } from "./telegram.js";
 
 /** callback_data is capped at 64 bytes, so buttons carry ids, not URLs. */
@@ -163,6 +166,45 @@ async function onResolve(env, cq, ts, index, verdict) {
   await deleteMessage(env, cq.message.chat.id, cq.message.message_id);
 }
 
+/**
+ * 👍 Good / 👎 Not good: a rating of the CHECKPOINT + SD PROMPT that produced this
+ * image, separate from Done/Skip's "was the post itself worth using" verdict (see
+ * telegram._image_keyboard's docstring). Only Good writes anything -- there is no
+ * "bad" ledger, model_leaderboard.json only ever counts what earned a point. Both
+ * remove the message, same as Done/Skip: rating it is what "mark as good or not"
+ * means to press.
+ */
+async function onRate(env, cq, ts, index, verdict) {
+  let spec = null, name = null, prompt = null, found = false;
+  await mutatePostedJson(env, (state) => {
+    const { entry } = findImage(state, ts, index);
+    if (!entry) return false;
+    found = true;
+    spec = entry.model_spec || null;
+    name = entry.model_name || null;
+    prompt = (entry.image_prompts || [])[index] || null;
+    return false; // read-only: this handler never edits posted.json
+  }, "");
+  if (!found) {
+    await answer(env, cq.id, "That batch is no longer in posted.json.", true);
+    return;
+  }
+  if (verdict === "good") {
+    if (spec) {
+      await recordGoodRating(env, spec, name, prompt);
+    } else {
+      // Older batches (before model_spec was recorded) or a manually-uploaded
+      // photo have nothing to credit. Still remove the message -- "mark as good or
+      // not" should never get stuck on a button that can't do its job.
+      await answer(env, cq.id, "No model recorded for this image; not counted.", true);
+      await deleteMessage(env, cq.message.chat.id, cq.message.message_id);
+      return;
+    }
+  }
+  await answer(env, cq.id, verdict === "good" ? "+1 to that model and prompt." : "Noted.");
+  await deleteMessage(env, cq.message.chat.id, cq.message.message_id);
+}
+
 async function onRetry(env, cq, ts) {
   let videoUrl = null;
   await mutatePostedJson(env, (state) => {
@@ -186,11 +228,41 @@ async function onCallback(env, cq) {
     if (action === "done") return await onResolve(env, cq, ts, index, "posted");
     if (action === "skip") return await onResolve(env, cq, ts, index, "skipped");
     if (action === "retry") return await onRetry(env, cq, ts);
+    if (action === "good" || action === "bad") return await onRate(env, cq, ts, index, action);
     await answer(env, cq.id, `Unknown action: ${action}`, true);
   } catch (err) {
     // Always answer, or the button spins forever and the bot looks hung.
     await answer(env, cq.id, `Failed: ${redact(env, err).slice(0, 150)}`, true);
   }
+}
+
+/**
+ * /leaderboard: what "see, after a while, a list of good models with their prompts
+ * and how many points" means in the one place this project already reads from --
+ * no separate dashboard, just ask the bot. Top models by score, and under each, its
+ * top few prompts by their own score.
+ */
+async function onLeaderboard(env, chatId) {
+  const board = await readLeaderboard(env);
+  const models = Object.entries(board.models || {})
+    .sort((a, b) => b[1].score - a[1].score);
+  if (!models.length) {
+    await api(env, "sendMessage", {
+      chat_id: chatId, text: "No 👍 Good votes recorded yet.",
+    });
+    return;
+  }
+  const lines = ["🏆 Model leaderboard\n"];
+  for (const [spec, model] of models.slice(0, 15)) {
+    lines.push(`${model.score}pt  ${model.name || spec}`);
+    const prompts = Object.entries(model.prompts || {})
+      .sort((a, b) => b[1].score - a[1].score)
+      .slice(0, 3);
+    for (const [prompt, p] of prompts) {
+      lines.push(`   ${p.score}pt  ${prompt.slice(0, 90)}`);
+    }
+  }
+  await api(env, "sendMessage", { chat_id: chatId, text: lines.join("\n").slice(0, 4096) });
 }
 
 /** A reply to a photo message = "use my text as the motion prompt for that image". */
@@ -350,7 +422,9 @@ export default {
       // without a word. Normalise the two before dispatching.
       const post = update.message ?? update.channel_post;
       if (update.callback_query) await onCallback(env, update.callback_query);
-      else if (post?.reply_to_message && post.text) await onReply(env, post);
+      else if (post?.text?.trim().split(/[@\s]/)[0] === "/leaderboard") {
+        await onLeaderboard(env, post.chat.id);
+      } else if (post?.reply_to_message && post.text) await onReply(env, post);
       else if (post?.photo) await onPhoto(env, post);
     } catch (err) {
       console.error("update failed", redact(env, err));

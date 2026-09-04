@@ -1811,9 +1811,17 @@ class RunNicheTest(unittest.TestCase):
     def test_real_run_queues_a_draft_and_records_state(self):
         fake_images = [Path(f"/tmp/i{i}.png") for i in range(5)]
         state = {"topics": {}, "uploads": []}
+
+        def fake_generate(n, state=None, model_info=None):
+            # generate() writes into model_info in place -- see its docstring for why
+            # that's a side-output param rather than a 5th tuple element.
+            if model_info is not None:
+                model_info["spec"], model_info["name"] = "123:456", "AbsoluteReality"
+            return fake_images, None, None, ["a prompt"] * len(fake_images)
+
         with mock.patch.object(autopilot, "DRY_RUN", False), \
              mock.patch.object(tiktok, "enabled", lambda niche_id: True), \
-             mock.patch.object(imageslides, "generate", lambda n, state=None: (fake_images, None, None, [None] * len(fake_images))), \
+             mock.patch.object(imageslides, "generate", fake_generate), \
              mock.patch.object(tiktok, "host_file", lambda p: f"https://pages/media/{Path(p).name}"), \
              mock.patch.object(tiktok, "publish_photos_draft",
                                lambda imgs, niche_id, image_urls=None, caption=None, title=None: "publish1"), \
@@ -1830,6 +1838,10 @@ class RunNicheTest(unittest.TestCase):
         self.assertTrue(entry["tiktok"])
         # Image URLs are recorded on the upload so the video niche can pick from them.
         self.assertEqual(len(entry["image_urls"]), 5)
+        # The checkpoint generate() used, recorded so the Telegram Good button
+        # (worker/src/index.js's onRate) knows what to credit.
+        self.assertEqual(entry["model_spec"], "123:456")
+        self.assertEqual(entry["model_name"], "AbsoluteReality")
 
     def test_publish_that_fails_downstream_is_not_recorded_as_success(self):
         """init returning a publish_id only means TikTok accepted the job -- live-
@@ -1840,7 +1852,7 @@ class RunNicheTest(unittest.TestCase):
         state = {"topics": {}, "uploads": []}
         with mock.patch.object(autopilot, "DRY_RUN", False), \
              mock.patch.object(tiktok, "enabled", lambda niche_id: True), \
-             mock.patch.object(imageslides, "generate", lambda n, state=None: (fake_images, None, None, [None] * len(fake_images))), \
+             mock.patch.object(imageslides, "generate", lambda n, state=None, model_info=None: (fake_images, None, None, [None] * len(fake_images))), \
              mock.patch.object(tiktok, "host_file", lambda p: f"https://pages/media/{Path(p).name}"), \
              mock.patch.object(tiktok, "publish_photos_draft",
                                lambda imgs, niche_id, image_urls=None, caption=None, title=None: "publish1"), \
@@ -1858,7 +1870,7 @@ class RunNicheTest(unittest.TestCase):
     def test_dry_run_writes_files_and_never_queues_a_draft(self):
         fake_images = [Path(f"/tmp/i{i}.png") for i in range(5)]
         with mock.patch.object(autopilot, "DRY_RUN", True), \
-             mock.patch.object(imageslides, "generate", lambda n, state=None: (fake_images, None, None, [None] * len(fake_images))), \
+             mock.patch.object(imageslides, "generate", lambda n, state=None, model_info=None: (fake_images, None, None, [None] * len(fake_images))), \
              mock.patch.object(tiktok, "publish_photos_draft",
                                mock.Mock(side_effect=AssertionError("must not push"))), \
              mock.patch.object(autopilot.shutil, "copy", lambda a, b: None), \
@@ -1873,7 +1885,7 @@ class RunNicheTest(unittest.TestCase):
         with mock.patch.object(autopilot, "DRY_RUN", True), \
              mock.patch.object(kaggle_imagegen, "available", lambda: True), \
              mock.patch.object(kaggle_imagegen, "generate",
-                               lambda n, state=None: (fake_images, "kaggle vibe", "latina-dark",
+                               lambda n, state=None, model_info=None: (fake_images, "kaggle vibe", "latina-dark",
                                                        [None] * len(fake_images))), \
              mock.patch.object(imageslides, "generate",
                                mock.Mock(side_effect=AssertionError("must not run"))), \
@@ -1895,7 +1907,7 @@ class RunNicheTest(unittest.TestCase):
                                mock.Mock(side_effect=RuntimeError("kernel did not "
                                                                   "reach a terminal state"))), \
              mock.patch.object(imageslides, "generate",
-                               lambda n, state=None: (fake_images, None, None,
+                               lambda n, state=None, model_info=None: (fake_images, None, None,
                                                        [None] * len(fake_images))), \
              mock.patch.object(autopilot.shutil, "copy", lambda a, b: None), \
              tempfile.TemporaryDirectory() as tmp:
@@ -1911,7 +1923,7 @@ class RunNicheTest(unittest.TestCase):
              mock.patch.object(kaggle_imagegen, "generate",
                                mock.Mock(side_effect=AssertionError("must not run"))), \
              mock.patch.object(imageslides, "generate",
-                               lambda n, state=None: (fake_images, None, None,
+                               lambda n, state=None, model_info=None: (fake_images, None, None,
                                                        [None] * len(fake_images))), \
              mock.patch.object(autopilot.shutil, "copy", lambda a, b: None), \
              tempfile.TemporaryDirectory() as tmp:
@@ -1972,7 +1984,7 @@ class RunNicheTest(unittest.TestCase):
         state = {"topics": {}, "uploads": [self._upload() for _ in range(3)]}
         calls = []
 
-        def fake_generate(n, state=None):
+        def fake_generate(n, state=None, model_info=None):
             calls.append(1)
             return [Path(f"/tmp/i{len(calls)}.png")], None, None, [None]
 
@@ -3644,10 +3656,23 @@ class TelegramTest(unittest.TestCase):
         self.assertIn("turn and look back", first["caption"])
         rows = first["reply_markup"]["inline_keyboard"]
         actions = [b["callback_data"].split("|")[0] for row in rows for b in row]
-        self.assertEqual(actions, ["vid", "done", "skip"])
+        self.assertEqual(actions, ["vid", "done", "skip", "good", "bad"])
         second = captured["calls"][1][1]
         self.assertTrue(second["reply_markup"]["inline_keyboard"][0][0]
                        ["callback_data"].endswith("|1"))
+
+    def test_caption_shows_model_and_prompt_for_the_good_bad_rating(self):
+        """Good/Bad rates the checkpoint + SD prompt, so both have to be readable in
+        the message the buttons sit under -- a blind rating button is useless."""
+        captured = {}
+        with mock.patch.dict(os.environ, self.ENV, clear=True), \
+             mock.patch.object(telegram.requests, "post", self._capture(captured)):
+            telegram.post_batch(["https://x/a.jpg"], "2026-08-31T12:04:05",
+                                caption="cap", model_name="AbsoluteReality",
+                                image_prompts=["woman in a kitchen, golden light"])
+        caption = captured["calls"][0][1]["caption"]
+        self.assertIn("AbsoluteReality", caption)
+        self.assertIn("woman in a kitchen, golden light", caption)
 
     def test_making_a_video_does_not_consume_the_image(self):
         """One still is worth several attempts. The Worker must leave the message and

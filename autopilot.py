@@ -169,16 +169,22 @@ def run_niche(niche, state):
         # call this always used, unchanged. A speed win is not worth risking the
         # pipeline that already works.
         images = vibe = look = image_prompts = None
+        # Filled in by generate() with {"spec": "<model_id>:<version_id>", "name":
+        # ...} for whichever checkpoint actually produced `images` -- recorded on the
+        # upload entry below so the Telegram Good/Bad buttons have a model to credit.
+        model_info = {}
         if kaggle_imagegen.available():
             try:
                 images, vibe, look, image_prompts = kaggle_imagegen.generate(
-                    niche, state=state)
+                    niche, state=state, model_info=model_info)
                 log(f"[{niche['id']}] generated on Kaggle's GPU ({len(images)} images)")
             except Exception as e:
                 log(f"[{niche['id']}] Kaggle image gen failed "
                     f"({type(e).__name__}: {str(e)[:200]}); falling back to local")
         if images is None:
-            images, vibe, look, image_prompts = imageslides.generate(niche, state=state)
+            model_info = {}
+            images, vibe, look, image_prompts = imageslides.generate(
+                niche, state=state, model_info=model_info)
         caption = imageslides.image_caption(niche, vibe=vibe, state=state)
         log(f"[{niche['id']}] caption (pre-filled on the draft; also saved to "
             f"CAPTIONS.md as a fallback):\n{caption}")
@@ -224,8 +230,17 @@ def run_niche(niche, state):
             # Per-image SD prompt (same order as image_urls) -- the actual framing/
             # pose/lighting that generated each photo. Kept for reference/debugging;
             # NOT what the Telegram caption shows (that's motion_prompts below) --
-            # this describes the still, not a motion.
+            # this describes the still, not a motion. Also what the Telegram worker
+            # reads for a Good press: model_leaderboard.json credits THIS text, not
+            # motion_prompts, since it's rating the image, not a video instruction.
             "image_prompts": image_prompts,
+            # The CivitAI checkpoint the whole batch was generated from (see
+            # generate()'s model_info param). One per batch, not per image -- the
+            # rare multi-round case that mixes checkpoints records only the last
+            # round's, same simplification model_stats already makes. Read by the
+            # Telegram worker's Good button to credit model_leaderboard.json.
+            "model_spec": model_info.get("spec"),
+            "model_name": model_info.get("name"),
             # The theme this batch was built from (imageslides.DEFAULT_THEMES). Two
             # jobs: it's the key the channel's Done/Skip verdict gets attributed
             # to (imageslides._owner_theme_rates), and it makes a batch's own look
@@ -252,8 +267,10 @@ def run_niche(niche, state):
             # never be deleted or edited later, which is what made moving the videos
             # to their own channel a manual cleanup job.
             entry = state["uploads"][-1]
-            ids = telegram.post_batch(image_urls, entry["ts"],
-                                      caption=caption, motion_prompts=motion_prompts)
+            ids = telegram.post_batch(image_urls, entry["ts"], caption=caption,
+                                      motion_prompts=motion_prompts,
+                                      image_prompts=image_prompts,
+                                      model_name=model_info.get("name"))
             if ids:
                 entry["telegram_message_ids"] = {
                     url: {"chat_id": os.environ.get("TELEGRAM_CHAT_ID"),
