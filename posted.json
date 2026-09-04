@@ -486,13 +486,13 @@
       "image_urls": [
         "https://gesimuse.github.io/mpt/media/1788273715-sd_0.jpg",
         "https://gesimuse.github.io/mpt/media/1788273754-sd_1.jpg",
-        "https://gesimuse.github.io/mpt/media/1788273790-sd_2.jpg",
+        null,
         null
       ],
       "image_prompts": [
         "beautiful adult woman, french woman in her early thirties, chestnut brown hair, effortless styling, backstage in a dressing room, mirror lights, seductive, sexy, alluring, round breasts, round ass, beautiful, flirty smile, relaxed confident posture, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, three-quarter view, soft studio lighting, a portrait of beautiful Maxi dress, espadrilles, woven belt, straw hat, statement ring",
         "beautiful adult woman, french woman in her early thirties, chestnut brown hair, effortless styling, backstage in a dressing room, mirror lights, seductive, sexy, alluring, round breasts, round ass, beautiful, flirty smile, relaxed confident posture, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, candid framing, natural daylight, a portrait of beautiful Maxi dress, espadrilles, woven belt, straw hat, statement ring",
-        "beautiful adult woman, french woman in her early thirties, chestnut brown hair, effortless styling, backstage in a dressing room, mirror lights, seductive, sexy, alluring, round breasts, round ass, beautiful, flirty smile, relaxed confident posture, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, close-up shot, shallow depth of field, a portrait of beautiful Maxi dress, espadrilles, woven belt, straw hat, statement ring",
+        null,
         null
       ],
       "vibe": "getting ready for a night out",
@@ -500,7 +500,7 @@
       "motion_prompts": [
         "She arches her back, hips shifting, weight moving onto one leg, and lets her shoulders relax into a subtle roll.",
         "She shifts her weight onto one hip, her right hand tracing the curve of her round breasts, before running her fingers up the straps of her espadrilles.",
-        "She lowers her face onto her hands, resting her chin on her knuckles, and slowly lifts her chest, arching her back.",
+        null,
         null
       ],
       "ts": "2026-09-01T14:44:56",
