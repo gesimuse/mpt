@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-04T12:37:51 — aibeauty
+
+```
+Last call for my kind of trouble
+
+Created with AI.
+
+#aiart #genart #moodynights #barlifevibes #neuralnightscape
+```
+
 ## 2026-09-04T11:16:44 — aibeauty
 
 ```
@@ -68,14 +78,4 @@ la vie en rose
 Created with AI.
 
 #aiart #digitalart #harvestvibes #winecountry #fallinduce
-```
-
-## 2026-09-03T15:16:02 — aibeauty
-
-```
-caught looking my best in the chaos
-
-Created with AI.
-
-#aiart #artoftheday #rainydays #surrealart #dreamyvibes
 ```
