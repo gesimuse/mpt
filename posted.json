@@ -37,7 +37,8 @@
       "aibeauty-20260903-150320",
       "aibeauty-20260903-170530",
       "aibeauty-20260904-103327",
-      "aibeauty-20260904-110522"
+      "aibeauty-20260904-110522",
+      "aibeauty-20260904-094448"
     ]
   },
   "uploads": [
@@ -1444,6 +1445,57 @@
     },
     {
       "niche": "aibeauty",
+      "topic": "image slideshow 20260904-094448",
+      "title": "when the lights are low and the fire's burning",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7681615997601810454",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "when the lights are low and the fire's burning\n\nCreated with AI.\n\n#neuralart #steamwave #softfocus #atmospherelighting #dreamscapeart",
+      "image_urls": [
+        "https://gesimuse.github.io/mpt/media/1788515455-sd_0.jpg",
+        "https://gesimuse.github.io/mpt/media/1788515485-sd_4.jpg",
+        "https://gesimuse.github.io/mpt/media/1788515555-sd_5.jpg",
+        "https://gesimuse.github.io/mpt/media/1788515593-sd_6.jpg"
+      ],
+      "image_prompts": [
+        "stunningly beautiful adult woman, spanish woman in her early thirties, dark hair in loose waves, olive skin, smoking hot, seductive, sultry gaze, glamour photography, curvy hourglass figure, huge breasts, big round ass, deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, glossy lips, flawless makeup, in a steamy shower, glass fogged with steam, wet skin, dripping water, glistening body, profile view, moody side lighting, a woman in a bra with,wearing a tank top,slim figure,((masterpiece)),((best quality)),8k,high detailed,ultra-detailed,(photorealistic:1.4),(highly detailed skin),4K,RAW,best quality,(masterpiece),(ultra-detailed),(hyperrealism:1.2),extremely detailed eyes,(extremely detailed face),full body,textured skin,looking at camera,(photorealistic),hyperdetailed:1.2),insane details,makeup,eyeliner,red lips,happy,Wrinkles,Fine Lines,Hyperpigmentation",
+        "stunningly beautiful adult woman, spanish woman in her early thirties, dark hair in loose waves, olive skin, smoking hot, seductive, sultry gaze, glamour photography, curvy hourglass figure, huge breasts, big round ass, deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, glossy lips, flawless makeup, in a steamy shower, glass fogged with steam, wet skin, dripping water, glistening body, full body shot, standing pose, wide framing, a woman in a bra with,wearing a tank top,slim figure,((masterpiece)),((best quality)),8k,high detailed,ultra-detailed,(photorealistic:1.4),(highly detailed skin),4K,RAW,best quality,(masterpiece),(ultra-detailed),(hyperrealism:1.2),extremely detailed eyes,(extremely detailed face),full body,textured skin,looking at camera,(photorealistic),hyperdetailed:1.2),insane details,makeup,eyeliner,red lips,happy,Wrinkles,Fine Lines,Hyperpigmentation",
+        "stunningly beautiful adult woman, spanish woman in her early thirties, dark hair in loose waves, olive skin, smoking hot, seductive, sultry gaze, glamour photography, curvy hourglass figure, huge breasts, big round ass, deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, glossy lips, flawless makeup, in a steamy shower, glass fogged with steam, wet skin, dripping water, glistening body, over-the-shoulder framing, warm ambient light, a woman in a bra with,wearing a tank top,slim figure,((masterpiece)),((best quality)),8k,high detailed,ultra-detailed,(photorealistic:1.4),(highly detailed skin),4K,RAW,best quality,(masterpiece),(ultra-detailed),(hyperrealism:1.2),extremely detailed eyes,(extremely detailed face),full body,textured skin,looking at camera,(photorealistic),hyperdetailed:1.2),insane details,makeup,eyeliner,red lips,happy,Wrinkles,Fine Lines,Hyperpigmentation",
+        "stunningly beautiful adult woman, spanish woman in her early thirties, dark hair in loose waves, olive skin, smoking hot, seductive, sultry gaze, glamour photography, curvy hourglass figure, huge breasts, big round ass, deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, glossy lips, flawless makeup, in a steamy shower, glass fogged with steam, wet skin, dripping water, glistening body, medium shot, gentle rim lighting, a woman in a bra with,wearing a tank top,slim figure,((masterpiece)),((best quality)),8k,high detailed,ultra-detailed,(photorealistic:1.4),(highly detailed skin),4K,RAW,best quality,(masterpiece),(ultra-detailed),(hyperrealism:1.2),extremely detailed eyes,(extremely detailed face),full body,textured skin,looking at camera,(photorealistic),hyperdetailed:1.2),insane details,makeup,eyeliner,red lips,happy,Wrinkles,Fine Lines,Hyperpigmentation"
+      ],
+      "model_spec": "133118:187992",
+      "model_name": "Realistic-Digital-Genius-SDXL",
+      "vibe": "steam and soft light",
+      "look": "spanish",
+      "motion_prompts": [
+        "She rises up slowly, body lengthening as she straightens, her long toned legs unfolding from the pose, and her hands slide down the fluid lines of her sides, coming to rest on her hips.",
+        "She shifts her weight onto her right leg, slowly bends her left knee, and gazes back over her shoulder, water droplets shimmering on her skin.",
+        "She pivots slowly to face the camera, arms sliding down her sides to rest at her hips as water drips from her skin and fog begins to clear.",
+        "She turns slowly, her body arched, and looks back over her shoulder, hair dripping behind her."
+      ],
+      "ts": "2026-09-04T09:54:26",
+      "telegram_message_ids": {
+        "https://gesimuse.github.io/mpt/media/1788515455-sd_0.jpg": {
+          "chat_id": "-1004449497323",
+          "message_id": 203
+        },
+        "https://gesimuse.github.io/mpt/media/1788515485-sd_4.jpg": {
+          "chat_id": "-1004449497323",
+          "message_id": 204
+        },
+        "https://gesimuse.github.io/mpt/media/1788515555-sd_5.jpg": {
+          "chat_id": "-1004449497323",
+          "message_id": 205
+        },
+        "https://gesimuse.github.io/mpt/media/1788515593-sd_6.jpg": {
+          "chat_id": "-1004449497323",
+          "message_id": 206
+        }
+      }
+    },
+    {
+      "niche": "aibeauty",
       "topic": "image slideshow 20260904-103327",
       "title": "All I need is the night and my secrets",
       "tiktok": false,
@@ -1689,8 +1741,8 @@
     },
     "133118:187992": {
       "name": "Realistic-Digital-Genius-SDXL",
-      "used": 8,
-      "passed": 8
+      "used": 12,
+      "passed": 12
     }
   },
   "theme_stats": {
@@ -1703,8 +1755,8 @@
       "passed": 0
     },
     "steam and soft light": {
-      "used": 20,
-      "passed": 20
+      "used": 24,
+      "passed": 24
     },
     "courtside": {
       "used": 10,
