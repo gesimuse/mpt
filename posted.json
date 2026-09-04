@@ -1399,6 +1399,26 @@
           "message_id": 18
         }
       }
+    },
+    {
+      "niche": "aibeautyvideo",
+      "topic": "video 20260904-061653",
+      "title": "confidence is my superpower",
+      "tiktok": false,
+      "tiktok_via": "inbox_video",
+      "tiktok_post_id": "v_inbox_url~v2.7681560161664124931",
+      "tiktok_status": "TIMEOUT",
+      "tiktok_fail_reason": null,
+      "tiktok_caption": "confidence is my superpower\n\nCreated with AI.\n\n#digitalart #generativeart #bouncybooty #confidentwomen #goprovingit",
+      "video_url": "https://gesimuse.github.io/mpt/media/1788502702-final.mp4",
+      "ts": "2026-09-04T06:21:56",
+      "motionforge_source_url": "https://gesimuse.github.io/mpt/media/1788207292-sd_2.jpg",
+      "telegram_message_ids": {
+        "https://gesimuse.github.io/mpt/media/1788502702-final.mp4": {
+          "chat_id": "-1004314616972",
+          "message_id": 19
+        }
+      }
     }
   ],
   "model_stats": {
