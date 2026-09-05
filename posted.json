@@ -2385,6 +2385,26 @@
           "message_id": 282
         }
       }
+    },
+    {
+      "niche": "aibeautyvideo",
+      "topic": "video 20260905-140814",
+      "title": "Bending my limits",
+      "tiktok": true,
+      "tiktok_via": "inbox_video",
+      "tiktok_post_id": "v_inbox_url~v2.7682053106414143491",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_fail_reason": null,
+      "tiktok_caption": "Bending my limits\n\nCreated with AI.\n\n#digitalart #glossylens #darkaesthetic #gothicvibes #undergroundart",
+      "video_url": "https://gesimuse.github.io/mpt/media/1788617382-final.mp4",
+      "ts": "2026-09-05T14:10:53",
+      "motionforge_source_url": "https://gesimuse.github.io/mpt/media/1788531617-sd_5.jpg",
+      "telegram_message_ids": {
+        "https://gesimuse.github.io/mpt/media/1788617382-final.mp4": {
+          "chat_id": "-1004314616972",
+          "message_id": 23
+        }
+      }
     }
   ],
   "model_stats": {
