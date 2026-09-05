@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-05T18:51:06 — aibeautyvideo
+
+```
+Self-love is sassy
+
+Created with AI.
+
+#girlswhogamenight #gaminggirls #artgenerated #bodypositivityart
+```
+
 ## 2026-09-05T16:47:02 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Stormy nights leave me wondering
 Created with AI.
 
 #artificialintelligeanceart #generativeart #moodyvibes #rainydaysaremylover #melancholymoods
-```
-
-## 2026-09-04T14:23:31 — aibeauty
-
-```
-Sweat makes me shine
-
-Created with AI.
-
-#digitalart #artificiallybeauty #fitnessmotivation #postworkoutvibes #womaninmotion
 ```

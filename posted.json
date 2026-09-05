@@ -2500,6 +2500,26 @@
           "message_id": 292
         }
       }
+    },
+    {
+      "niche": "aibeautyvideo",
+      "topic": "video 20260905-184800",
+      "title": "Self-love is sassy",
+      "tiktok": true,
+      "tiktok_via": "inbox_video",
+      "tiktok_post_id": "v_inbox_url~v2.7682125260775393302",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_fail_reason": null,
+      "tiktok_caption": "Self-love is sassy\n\nCreated with AI.\n\n#girlswhogamenight #gaminggirls #artgenerated #bodypositivityart",
+      "video_url": "https://gesimuse.github.io/mpt/media/1788634190-final.mp4",
+      "ts": "2026-09-05T18:51:06",
+      "motionforge_source_url": "https://gesimuse.github.io/mpt/media/1788626459-sd_0.jpg",
+      "telegram_message_ids": {
+        "https://gesimuse.github.io/mpt/media/1788634190-final.mp4": {
+          "chat_id": "-1004314616972",
+          "message_id": 24
+        }
+      }
     }
   ],
   "model_stats": {
