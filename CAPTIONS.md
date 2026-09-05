@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-05T08:41:36 — aibeautyvideo
+
+```
+Own the view
+
+Created with AI.
+
+#digitalart #genart #confidencevibes #bodypositivity #freespirited
+```
+
 ## 2026-09-04T15:15:16 — aibeauty
 
 ```
@@ -68,14 +78,4 @@ Created with AI.
 Created with AI.
 
 #artificialintelligenceportrait #neuralstyletransfer #anime #selfexpression #bodypositivity
-```
-
-## 2026-09-03T18:00:05 — aibeautyvideo
-
-```
-love what I see in the mirror
-
-Created with AI.
-
-#sexpositive #bodypositivity #aiart #eroticart #boudoirmode
 ```
