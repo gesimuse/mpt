@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-05T09:48:06 — aibeauty
+
+```
+when the water gets under your skin
+
+Created with AI.
+
+#aiart #digitaldreaming #beachlife #vibesonly #portraitmode
+```
+
 ## 2026-09-05T08:45:56 — aibeautyvideo
 
 ```
