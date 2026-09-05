@@ -2520,6 +2520,26 @@
           "message_id": 24
         }
       }
+    },
+    {
+      "niche": "aibeautyvideo",
+      "topic": "video 20260905-185245",
+      "title": "Some days just look like this.",
+      "tiktok": true,
+      "tiktok_via": "inbox_video",
+      "tiktok_post_id": "v_inbox_url~v2.7682126303159486486",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_fail_reason": null,
+      "tiktok_caption": "Some days just look like this.\n\nCreated with AI.\n\n#aiart #aivideo #wan22 #confident",
+      "video_url": "https://gesimuse.github.io/mpt/media/1788634475-final.mp4",
+      "ts": "2026-09-05T18:55:48",
+      "motionforge_source_url": "https://gesimuse.github.io/mpt/media/1788607556-sd_1.jpg",
+      "telegram_message_ids": {
+        "https://gesimuse.github.io/mpt/media/1788634475-final.mp4": {
+          "chat_id": "-1004314616972",
+          "message_id": 25
+        }
+      }
     }
   ],
   "model_stats": {
