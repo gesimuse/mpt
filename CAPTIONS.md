@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-05T12:57:09 — aibeauty
+
+```
+getting ready to slay the night
+
+Created with AI.
+
+#aiart #digitalart #nightoutvibes #artificialintimacy #generativeart
+```
+
 ## 2026-09-05T11:31:28 — aibeauty
 
 ```
@@ -78,14 +88,4 @@ frosty mornings have a way of waking me up
 Created with AI.
 
 #aipractice #generativeart #winterlandscapes #frozenmountains #mountainlove
-```
-
-## 2026-09-04T09:54:26 — aibeauty
-
-```
-when the lights are low and the fire's burning
-
-Created with AI.
-
-#neuralart #steamwave #softfocus #atmospherelighting #dreamscapeart
 ```
