@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-05T08:45:56 — aibeautyvideo
+
+```
+Body autonomy, every day
+
+Created with AI.
+
+#digitalartmood #portraitlover #surrealart #female #fashionillustration
+```
+
 ## 2026-09-05T08:41:36 — aibeautyvideo
 
 ```
@@ -68,14 +78,4 @@ Feeling carefree, loving every bounce
 Created with AI.
 
 #generativeart #midnightart #aiart #dancingqueen #freewheeling
-```
-
-## 2026-09-03T19:02:42 — aibeautyvideo
-
-```
-?smizing doesn't equal self-satisfaction
-
-Created with AI.
-
-#artificialintelligenceportrait #neuralstyletransfer #anime #selfexpression #bodypositivity
 ```
