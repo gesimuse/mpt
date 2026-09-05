@@ -2215,7 +2215,7 @@
         "https://gesimuse.github.io/mpt/media/1788612844-sd_6.jpg",
         "https://gesimuse.github.io/mpt/media/1788612910-sd_7.jpg",
         "https://gesimuse.github.io/mpt/media/1788612945-sd_8.jpg",
-        "https://gesimuse.github.io/mpt/media/1788612980-sd_9.jpg"
+        null
       ],
       "image_prompts": [
         "stunningly beautiful adult woman, bulgarian woman in her late twenties, dark brown hair, olive skin, smoking hot, seductive, sultry gaze, glamour photography, curvy hourglass figure, huge breasts, big round ass, deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, glossy lips, flawless makeup, wearing a fitted bodycon mini dress and heels, flirty smile, relaxed confident posture, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, over-the-shoulder framing, warm ambient light, city street, neon, fog, volumetric, closeup portrait photo of young woman in dark clothes",
@@ -2227,7 +2227,7 @@
         "stunningly beautiful adult woman, bulgarian woman in her late twenties, dark brown hair, olive skin, smoking hot, seductive, sultry gaze, glamour photography, curvy hourglass figure, huge breasts, big round ass, deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, glossy lips, flawless makeup, wearing a fitted bodycon mini dress and heels, flirty smile, relaxed confident posture, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, profile view, moody side lighting, city street, neon, fog, volumetric, closeup portrait photo of young woman in dark clothes",
         "stunningly beautiful adult woman, bulgarian woman in her late twenties, dark brown hair, olive skin, smoking hot, seductive, sultry gaze, glamour photography, curvy hourglass figure, huge breasts, big round ass, deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, glossy lips, flawless makeup, wearing a fitted bodycon mini dress and heels, flirty smile, relaxed confident posture, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, three-quarter view, soft studio lighting, city street, neon, fog, volumetric, closeup portrait photo of young woman in dark clothes",
         "stunningly beautiful adult woman, bulgarian woman in her late twenties, dark brown hair, olive skin, smoking hot, seductive, sultry gaze, glamour photography, curvy hourglass figure, huge breasts, big round ass, deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, glossy lips, flawless makeup, wearing a fitted bodycon mini dress and heels, flirty smile, relaxed confident posture, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, eye-level shot, diffused overcast light, city street, neon, fog, volumetric, closeup portrait photo of young woman in dark clothes",
-        "stunningly beautiful adult woman, bulgarian woman in her late twenties, dark brown hair, olive skin, smoking hot, seductive, sultry gaze, glamour photography, curvy hourglass figure, huge breasts, big round ass, deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, glossy lips, flawless makeup, wearing a fitted bodycon mini dress and heels, flirty smile, relaxed confident posture, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, full body portrait, standing, wide angle, city street, neon, fog, volumetric, closeup portrait photo of young woman in dark clothes"
+        null
       ],
       "model_spec": "4201:501240",
       "model_name": "Realistic Vision V6.0 B1",
@@ -2243,7 +2243,7 @@
         "She turns her torso, letting her hips lead, and looks back over her shoulder, a subtle smile forming on her lips as her hair falls across her cheek.",
         "Weight shifts through her hips as she pivots from profile, eyes locked on something in the distance, hair swaying behind her.",
         "Slipping one leg behind the other, weight shifting onto the new rear leg, hips swaying slightly as she turns to face the camera.",
-        "Slowly sinks lower into the pose, then rises back through it, letting the bodycon dress ripple across her curves."
+        null
       ],
       "ts": "2026-09-05T12:57:09",
       "telegram_message_ids": {
@@ -2287,7 +2287,8 @@
           "chat_id": "-1004449497323",
           "message_id": 270
         }
-      }
+      },
+      "owner_verdict": "skipped"
     }
   ],
   "model_stats": {
