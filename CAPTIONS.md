@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-05T11:31:28 — aibeauty
+
+```
+When you're just trying to make an entrance
+
+Created with AI.
+
+#generativeart #rainydays #virtualvibes #waterwoman #futuristicfemme
+```
+
 ## 2026-09-05T09:48:06 — aibeauty
 
 ```
@@ -78,14 +88,4 @@ when the lights are low and the fire's burning
 Created with AI.
 
 #neuralart #steamwave #softfocus #atmospherelighting #dreamscapeart
-```
-
-## 2026-09-04T08:24:12 — aibeautyvideo
-
-```
-Feeling carefree, loving every bounce
-
-Created with AI.
-
-#generativeart #midnightart #aiart #dancingqueen #freewheeling
 ```
