@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-05T16:47:02 — aibeauty
+
+```
+This is your sign to go outside.
+
+Created with AI.
+
+#aiart #aigenerated #aiphotography #confident
+```
+
 ## 2026-09-05T14:10:53 — aibeautyvideo
 
 ```
@@ -88,14 +98,4 @@ Sweat makes me shine
 Created with AI.
 
 #digitalart #artificiallybeauty #fitnessmotivation #postworkoutvibes #womaninmotion
-```
-
-## 2026-09-04T12:37:51 — aibeauty
-
-```
-Last call for my kind of trouble
-
-Created with AI.
-
-#aiart #genart #moodynights #barlifevibes #neuralnightscape
 ```
