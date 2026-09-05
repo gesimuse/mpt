@@ -1801,7 +1801,7 @@
         "https://gesimuse.github.io/mpt/media/1788531655-sd_6.jpg",
         "https://gesimuse.github.io/mpt/media/1788531690-sd_7.jpg",
         "https://gesimuse.github.io/mpt/media/1788531722-sd_8.jpg",
-        "https://gesimuse.github.io/mpt/media/1788531757-sd_9.jpg"
+        null
       ],
       "image_prompts": [
         "stunningly beautiful adult woman, puerto rican woman in her late twenties, caramel highlights, hourglass figure, smoking hot, seductive, sultry gaze, glamour photography, curvy hourglass figure, huge breasts, big round ass, deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, glossy lips, flawless makeup, wearing a cropped sports bra and high-waisted leggings, in a sunlit gym, chalk dust in the air, flushed skin, catching her breath, confident stance, wide shot, natural window light, High detail RAW color Photo of gorgeous czech woman, smile, fit, toned, sexy look, high detail hair, (skin pores, skin imperfections), sharp body, highly detailed body, highly detailed face, sharp focus, 8k high definition, insanely detailed, intricate, masterpiece, highest quality",
@@ -1813,7 +1813,7 @@
         "stunningly beautiful adult woman, puerto rican woman in her late twenties, caramel highlights, hourglass figure, smoking hot, seductive, sultry gaze, glamour photography, curvy hourglass figure, huge breasts, big round ass, deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, glossy lips, flawless makeup, wearing a cropped sports bra and high-waisted leggings, in a sunlit gym, chalk dust in the air, flushed skin, catching her breath, confident stance, slight high angle, soft backlighting, High detail RAW color Photo of gorgeous czech woman, smile, fit, toned, sexy look, high detail hair, (skin pores, skin imperfections), sharp body, highly detailed body, highly detailed face, sharp focus, 8k high definition, insanely detailed, intricate, masterpiece, highest quality",
         "stunningly beautiful adult woman, puerto rican woman in her late twenties, caramel highlights, hourglass figure, smoking hot, seductive, sultry gaze, glamour photography, curvy hourglass figure, huge breasts, big round ass, deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, glossy lips, flawless makeup, wearing a cropped sports bra and high-waisted leggings, in a sunlit gym, chalk dust in the air, flushed skin, catching her breath, confident stance, eye-level shot, diffused overcast light, High detail RAW color Photo of gorgeous czech woman, smile, fit, toned, sexy look, high detail hair, (skin pores, skin imperfections), sharp body, highly detailed body, highly detailed face, sharp focus, 8k high definition, insanely detailed, intricate, masterpiece, highest quality",
         "stunningly beautiful adult woman, puerto rican woman in her late twenties, caramel highlights, hourglass figure, smoking hot, seductive, sultry gaze, glamour photography, curvy hourglass figure, huge breasts, big round ass, deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, glossy lips, flawless makeup, wearing a cropped sports bra and high-waisted leggings, in a sunlit gym, chalk dust in the air, flushed skin, catching her breath, confident stance, close-up shot, shallow depth of field, High detail RAW color Photo of gorgeous czech woman, smile, fit, toned, sexy look, high detail hair, (skin pores, skin imperfections), sharp body, highly detailed body, highly detailed face, sharp focus, 8k high definition, insanely detailed, intricate, masterpiece, highest quality",
-        "stunningly beautiful adult woman, puerto rican woman in her late twenties, caramel highlights, hourglass figure, smoking hot, seductive, sultry gaze, glamour photography, curvy hourglass figure, huge breasts, big round ass, deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, glossy lips, flawless makeup, wearing a cropped sports bra and high-waisted leggings, in a sunlit gym, chalk dust in the air, flushed skin, catching her breath, confident stance, three-quarter view, soft studio lighting, High detail RAW color Photo of gorgeous czech woman, smile, fit, toned, sexy look, high detail hair, (skin pores, skin imperfections), sharp body, highly detailed body, highly detailed face, sharp focus, 8k high definition, insanely detailed, intricate, masterpiece, highest quality"
+        null
       ],
       "model_spec": "83490:88738",
       "model_name": "Vendo Photorealistic 2",
@@ -1829,7 +1829,7 @@
         "She pivots to her right, eyes locked on the camera, as a wisp of chalk dust slips from her hair.",
         "She slowly runs her hands up her inner thighs, her palms catching the light as they rise, before settling on her hips with a confident gesture.",
         "She turns her hips away from the camera, her gaze following, and raises her arms up and back, her hands settling on her hips, her hair brushing her shoulders.",
-        "She slowly pivots 90 degrees to her right, her eyes catching her breath and looking back over her shoulder, a hint of a smile on her lips, her tousled hair fluttering slightly in the sunlit air."
+        null
       ],
       "ts": "2026-09-04T14:23:31",
       "telegram_message_ids": {
@@ -1873,7 +1873,8 @@
           "chat_id": "-1004449497323",
           "message_id": 226
         }
-      }
+      },
+      "owner_verdict": "skipped"
     },
     {
       "niche": "aibeauty",
