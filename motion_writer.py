@@ -64,6 +64,20 @@ REVEALS = [
     "hands smoothing down her sides, from her ribs to her hips",
     "her hands run up her thighs and settle on her hips",
     "a slow arch of the back, hips shifting, weight moving onto one leg",
+    "she turns side-on, one hip pushed out, then looks straight down the lens",
+    "a half turn away, weight sinking into one hip, chin coming back over her shoulder",
+    "she steps forward into the light, hips rolling with each step",
+    "leaning back against the wall behind her, spine arching off it, hips forward",
+    "she pushes up off the surface she is leaning on, body unfolding as she rises",
+    "a slow sway from one hip to the other, shoulders counter-turning",
+    "she drops one shoulder, turns, and lets her hair fall across her back",
+    "sinking down into a crouch and rising again, knees together, back long",
+    "she twists at the waist toward the camera, hips staying square away from it",
+    "walking past the camera, close, without breaking eye contact",
+    "she turns on the spot in one unbroken motion, hair sweeping after her",
+    "a stretch upward onto her toes, calves and waist lengthening, then settling back",
+    "she rolls her hips once, slow, and lets a smile start",
+    "turning to look back, one hand trailing down the curve of her waist",
 ]
 
 # Everything else: posture, breath, face. Carries the tighter framings, where a full
@@ -81,6 +95,22 @@ ACCENTS = [
     "biting her lip, then letting a smile break through",
     "head tipping back, throat exposed, eyes closing for a beat",
     "fabric or wet skin catching the light as she moves",
+    "she adjusts a strap on her shoulder without looking away from the lens",
+    "a hand sliding along the waistband at her hip, fingers spread",
+    "she gathers her hair up off her neck, holds it, then lets it drop",
+    "one finger tracing along her jaw and down the line of her throat",
+    "a slow blink, gaze lifting to the lens from under her lashes",
+    "she runs a hand down her stomach and hooks a thumb at her hip",
+    "leaning into the frame so the camera has to take her in",
+    "her hand flattens against her ribs and slides slowly to her waist",
+    "a breath drawn in, chest rising, shoulders settling back down",
+    "she tilts her head, hair falling across one eye, and looks through it",
+    "toying with the hem at her thigh, eyes staying on the lens",
+    "she tips her chin down and looks up, holding the gaze a beat too long",
+    "a hand braced on her hip, elbow out, weight dropping into the stance",
+    "she leans her shoulder into the wall, body curving along it",
+    "wind or water moving over her skin as she holds the pose",
+    "a slow smile spreading while her eyes stay level with the lens",
 ]
 MOVEMENTS = REVEALS + ACCENTS
 # Per menu: this many whole-body reveals, plus this many accents.
