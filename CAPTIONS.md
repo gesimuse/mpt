@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-06T09:45:43 — aibeauty
+
+```
+City nights were made for me
+
+Created with AI.
+
+#aiart #digitalart #citylightsmagic #neonvibes #eveningmoods
+```
+
 ## 2026-09-06T05:58:21 — aibeautyvideo
 
 ```
@@ -78,14 +88,4 @@ When you're just trying to make an entrance
 Created with AI.
 
 #generativeart #rainydays #virtualvibes #waterwoman #futuristicfemme
-```
-
-## 2026-09-05T09:48:06 — aibeauty
-
-```
-when the water gets under your skin
-
-Created with AI.
-
-#aiart #digitaldreaming #beachlife #vibesonly #portraitmode
 ```
