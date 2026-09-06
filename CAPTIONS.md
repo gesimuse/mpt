@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-06T16:32:27 — aibeauty
+
+```
+Burning it off
+
+Created with AI.
+
+#aiart #digitalart #gymvibes #sweatlife #fitnessinspo
+```
+
 ## 2026-09-06T14:23:47 — aibeauty
 
 ```
@@ -78,14 +88,4 @@ Self-love is sassy
 Created with AI.
 
 #girlswhogamenight #gaminggirls #artgenerated #bodypositivityart
-```
-
-## 2026-09-05T16:47:02 — aibeauty
-
-```
-This is your sign to go outside.
-
-Created with AI.
-
-#aiart #aigenerated #aiphotography #confident
 ```
