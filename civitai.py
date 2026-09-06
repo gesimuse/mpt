@@ -218,17 +218,24 @@ _ETHNICITY_MODEL_NAME_RE = re.compile(
     r"\b(?:asian|chinese)\b|[一-鿿぀-ヿ가-힣]", re.I)
 
 
-def search_models(query, limit=20, sort="Most Downloaded", nsfw=False):
+def search_models(query, limit=20, sort="Most Downloaded", nsfw=True):
     """Candidate checkpoints for a free-text query, most-downloaded first.
 
-    nsfw=False restored (operator request) -- was removed earlier, on the reasoning
-    that a live check found the same checkpoint results either way, so it wasn't
-    what was surfacing ethnicity-biased ones (still true; _ETHNICITY_MODEL_NAME_RE
-    is the actual fix for that). Re-added after a real run showed the secondary QA
-    vision model refusing to even look at 10/10 images in a round -- narrowing the
-    checkpoint pool back to nsfw=false-tagged models is one lever on how often
-    generated content lands in territory that model won't engage with at all,
-    though it's a checkpoint-level signal, not a guarantee about any one image."""
+    nsfw is a plain boolean on CivitAI's public API -- there is no finer-grained
+    request param for their actual G/PG/PG13/R/X/XXX content tiers (that breakdown
+    only comes back as a response field, nsfwLevel, a bitmask you cannot filter the
+    request by), so nsfw=True widens the checkpoint pool to the whole R-XXX range at
+    once, not "R and nothing spicier."
+
+    History: nsfw=False was the operator's own prior call, after a real run showed
+    the secondary QA vision model refusing to even look at 10/10 images in a round --
+    a checkpoint whose overall visual style skews explicit trips that model's own
+    refusal regardless of whether any individual output actually is. Re-opened to
+    nsfw=True on a later, explicit operator request for a spicier checkpoint pool,
+    accepting that tradeoff (more QA-refused rounds) in exchange for it. Reference
+    prompts harvested from ANY checkpoint still pass civitai._usable()'s explicit/
+    age/real-person filter regardless of this flag -- that gate doesn't relax with
+    it, only which checkpoints get searched does."""
     params = {"query": query, "types": "Checkpoint", "limit": limit, "sort": sort,
               "nsfw": "false" if nsfw is False else nsfw}
     return _get(f"{API}/models", params=params).json().get("items", [])
