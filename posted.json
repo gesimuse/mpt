@@ -743,14 +743,14 @@
       "image_urls": [
         "https://gesimuse.github.io/mpt/media/1788344789-sd_0.jpg",
         "https://gesimuse.github.io/mpt/media/1788344822-sd_1.jpg",
-        "https://gesimuse.github.io/mpt/media/1788344851-sd_2.jpg",
+        null,
         "https://gesimuse.github.io/mpt/media/1788344877-sd_3.jpg",
         "https://gesimuse.github.io/mpt/media/1788344907-sd_4.jpg"
       ],
       "image_prompts": [
         "beautiful adult woman, australian woman in her mid twenties, sun-bleached blonde hair, tanned, wearing a bikini top and open linen shirt, on a sailboat deck at sunrise, open sea, seductive, sexy, alluring, round breasts, round ass, beautiful, salt spray, hair loose, squinting into the light, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, slight high angle, soft backlighting, a portrait of beautiful Graphic hoodie, joggers, sneakers, bucket hat, backpack",
         "beautiful adult woman, australian woman in her mid twenties, sun-bleached blonde hair, tanned, wearing a bikini top and open linen shirt, on a sailboat deck at sunrise, open sea, seductive, sexy, alluring, round breasts, round ass, beautiful, salt spray, hair loose, squinting into the light, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, over-the-shoulder framing, warm ambient light, a portrait of beautiful Graphic hoodie, joggers, sneakers, bucket hat, backpack",
-        "beautiful adult woman, australian woman in her mid twenties, sun-bleached blonde hair, tanned, wearing a bikini top and open linen shirt, on a sailboat deck at sunrise, open sea, seductive, sexy, alluring, round breasts, round ass, beautiful, salt spray, hair loose, squinting into the light, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, full length shot, head to toe, natural stance, a portrait of beautiful Graphic hoodie, joggers, sneakers, bucket hat, backpack",
+        null,
         "beautiful adult woman, australian woman in her mid twenties, sun-bleached blonde hair, tanned, wearing a bikini top and open linen shirt, on a sailboat deck at sunrise, open sea, seductive, sexy, alluring, round breasts, round ass, beautiful, salt spray, hair loose, squinting into the light, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, eye-level shot, diffused overcast light, a portrait of beautiful Graphic hoodie, joggers, sneakers, bucket hat, backpack",
         "beautiful adult woman, australian woman in her mid twenties, sun-bleached blonde hair, tanned, wearing a bikini top and open linen shirt, on a sailboat deck at sunrise, open sea, seductive, sexy, alluring, round breasts, round ass, beautiful, salt spray, hair loose, squinting into the light, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, medium shot, gentle rim lighting, a portrait of beautiful Graphic hoodie, joggers, sneakers, bucket hat, backpack"
       ],
@@ -759,7 +759,7 @@
       "motion_prompts": [
         "She arches her back, stretching her torso, and looks out at the sea, her hair blowing gently in the morning breeze.",
         "She rolls her shoulders back, chest lifting, waist drawing in, then turns her upper body slightly toward the camera, eyes still fixed on the horizon.",
-        "Shift her weight onto one leg, her hips slightly rotating and her chest easing forward, while her loose hair swirls from the ocean breeze.",
+        null,
         "She turns slowly to face the camera, weight shifting onto one hip, and rises up onto her toes, bringing her chin to her chest and eyes to the lens.",
         "As she rises up out of the pose, her hips roll gently towards the camera, weight shifting back into her heels, fabric of her linen shirt rustling softly in the breeze."
       ],
@@ -785,7 +785,8 @@
           "chat_id": "-1004449497323",
           "message_id": 64
         }
-      }
+      },
+      "owner_verdict": "posted"
     },
     {
       "niche": "aibeautyvideo",
