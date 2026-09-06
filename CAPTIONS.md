@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-06T13:02:08 — aibeauty
+
+```
+Some days just look like this.
+
+Created with AI.
+
+#aiart #aigenerated #aiphotography #confident
+```
+
 ## 2026-09-06T11:55:14 — aibeauty
 
 ```
@@ -78,14 +88,4 @@ Bending my limits
 Created with AI.
 
 #digitalart #glossylens #darkaesthetic #gothicvibes #undergroundart
-```
-
-## 2026-09-05T14:06:51 — aibeauty
-
-```
-Secrets are whispered in the quiet
-
-Created with AI.
-
-#aiphotography #lanternandlight #amateurart #sensualatmosphere #candlelitmood
 ```

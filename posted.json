@@ -48,7 +48,8 @@
       "aibeauty-20260905-135420",
       "aibeauty-20260905-160703",
       "aibeauty-20260906-093126",
-      "aibeauty-20260906-114248"
+      "aibeauty-20260906-114248",
+      "aibeauty-20260906-125435"
     ]
   },
   "uploads": [
@@ -2790,6 +2791,50 @@
           "message_id": 324
         }
       }
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260906-125435",
+      "title": "Some days just look like this.",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7682406699080730646",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "Some days just look like this.\n\nCreated with AI.\n\n#aiart #aigenerated #aiphotography #confident",
+      "image_urls": [
+        "https://gesimuse.github.io/mpt/media/1788699568-sd_2.jpg",
+        "https://gesimuse.github.io/mpt/media/1788699605-sd_7.jpg",
+        "https://gesimuse.github.io/mpt/media/1788699646-sd_8.jpg"
+      ],
+      "image_prompts": [
+        "stunningly beautiful adult woman, dominican woman in her mid twenties, voluminous curly hair, radiant skin, delicate features, button nose, wide doe eyes, soft natural makeup, smoking hot, seductive, sultry gaze, glamour photography, curvy hourglass figure, huge natural breasts, curvy natural ass, deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, glossy lips, flawless makeup, backstage in a dressing room, mirror lights, hands running through hair, sultry confident gaze, slight high angle, soft backlighting, score_9, score_8_up, score_7_up, photo \\(medium\\), score_9, score_8_up, solo, photo (medium), cinematic film still, reflections, dreamy, soft focus, 1woman, (30yo), (elegant, slender, long flowing hair, wearing a silk dress, tattoos), natural smile, delicate makeup, RAW photo, hyper detailed photorealistic 8k, (accurate cinematic lighting), photorealistic detail, (selective focus:0.7), soft lighting, ultra detailed, 4k,epic, raw, dslr photo, color graded, realistic eyes with pupil and iris, intricate details, smile, looking at viewer",
+        "stunningly beautiful adult woman, dominican woman in her mid twenties, voluminous curly hair, radiant skin, delicate features, button nose, wide doe eyes, soft natural makeup, smoking hot, seductive, sultry gaze, glamour photography, curvy hourglass figure, huge natural breasts, curvy natural ass, deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, glossy lips, flawless makeup, backstage in a dressing room, mirror lights, hands running through hair, sultry confident gaze, full body portrait, standing, wide angle, score_9, score_8_up, score_7_up, photo \\(medium\\), score_9, score_8_up, solo, photo (medium), cinematic film still, reflections, dreamy, soft focus, 1woman, (30yo), (elegant, slender, long flowing hair, wearing a silk dress, tattoos), natural smile, delicate makeup, RAW photo, hyper detailed photorealistic 8k, (accurate cinematic lighting), photorealistic detail, (selective focus:0.7), soft lighting, ultra detailed, 4k,epic, raw, dslr photo, color graded, realistic eyes with pupil and iris, intricate details, smile, looking at viewer",
+        "stunningly beautiful adult woman, dominican woman in her mid twenties, voluminous curly hair, radiant skin, delicate features, button nose, wide doe eyes, soft natural makeup, smoking hot, seductive, sultry gaze, glamour photography, curvy hourglass figure, huge natural breasts, curvy natural ass, deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, glossy lips, flawless makeup, backstage in a dressing room, mirror lights, hands running through hair, sultry confident gaze, full length shot, head to toe, natural stance, score_9, score_8_up, score_7_up, photo \\(medium\\), score_9, score_8_up, solo, photo (medium), cinematic film still, reflections, dreamy, soft focus, 1woman, (30yo), (elegant, slender, long flowing hair, wearing a silk dress, tattoos), natural smile, delicate makeup, RAW photo, hyper detailed photorealistic 8k, (accurate cinematic lighting), photorealistic detail, (selective focus:0.7), soft lighting, ultra detailed, 4k,epic, raw, dslr photo, color graded, realistic eyes with pupil and iris, intricate details, smile, looking at viewer"
+      ],
+      "model_spec": "659428:2113674",
+      "model_name": "Photorealistic All-Purpose, Porn and Gay-Friendly XL Model",
+      "vibe": "backstage before a shoot",
+      "look": "dominican",
+      "motion_prompts": [
+        "She turns to her right, her hands running up her thighs before settling on her hips, and she arches her back slightly, her eyes locked on the viewer.",
+        "She slowly shifts her weight to one hip, her hand tracing a path from the curve of her hip to the swell of her thigh, as her head tips back, exposing her throat.",
+        "She raises her arms overhead, stretches up slowly, and then lowers them behind her back, the silk dress flowing and her curly hair cascading down her back."
+      ],
+      "ts": "2026-09-06T13:02:08",
+      "telegram_message_ids": {
+        "https://gesimuse.github.io/mpt/media/1788699568-sd_2.jpg": {
+          "chat_id": "-1004449497323",
+          "message_id": 325
+        },
+        "https://gesimuse.github.io/mpt/media/1788699605-sd_7.jpg": {
+          "chat_id": "-1004449497323",
+          "message_id": 326
+        },
+        "https://gesimuse.github.io/mpt/media/1788699646-sd_8.jpg": {
+          "chat_id": "-1004449497323",
+          "message_id": 327
+        }
+      }
     }
   ],
   "model_stats": {
@@ -2852,6 +2897,11 @@
       "name": "Realistic-Digital-Genius-SDXL",
       "used": 12,
       "passed": 12
+    },
+    "659428:2113674": {
+      "name": "Photorealistic All-Purpose, Porn and Gay-Friendly XL Model",
+      "used": 3,
+      "passed": 3
     }
   },
   "theme_stats": {
@@ -2888,8 +2938,8 @@
       "passed": 20
     },
     "backstage before a shoot": {
-      "used": 10,
-      "passed": 10
+      "used": 13,
+      "passed": 13
     },
     "arcade at midnight": {
       "used": 20,
