@@ -342,16 +342,28 @@ SUBJECTS = [
 # genre (glamour/boudoir editorial) than to being told the subject is "sexy". Stays
 # inside NEGATIVE_HARD's line: suggestive and figure-forward, never undressed.
 SEXY_CUE = ("smoking hot, seductive, sultry gaze, glamour photography, "
-            "curvy hourglass figure, huge breasts, big round ass, deep cleavage, "
-            "narrow waist, wide hips, thick thighs, long toned legs, "
+            "curvy hourglass figure, large natural breasts, curvy natural ass, "
+            "deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, "
             "glossy lips, flawless makeup")
 # Suppressing the OPPOSITE of SEXY_CUE, which none of the other negatives covered:
 # NEGATIVE_HARD is the safety floor and NEGATIVE_QUALITY is about render defects, so
 # nothing was pushing against a demure, shapeless, plainly-styled result -- the most
 # common way an otherwise technically fine image missed the brief.
+#
+# breast implants/fake breasts/silicone/plastic surgery added after "huge breasts,
+# big round ass" (SEXY_CUE's old wording) reliably rendered the same artificial,
+# perfectly-round, gravity-defying implant look on every checkpoint -- "round" and
+# "huge" alone are exactly the shape descriptors SD1.5 checkpoints associate with
+# augmented/surgical bodies in their training data, not natural ones. SEXY_CUE now
+# asks for "natural" on the positive side; this is the negative-side half of the
+# same fix, since a positive descriptor alone measured weaker against a checkpoint
+# whose realistic-portrait training data skews augmented (same asymmetry NEGATIVE_
+# HARD's "chinese"/SUBJECTS' positive-steer comment already documents for ethnicity).
 NEGATIVE_MODEST = ("modest clothing, baggy oversized clothes, frumpy, shapeless, "
                    "unflattering outfit, plain styling, flat chest, "
-                   "androgynous, masculine features, dowdy")
+                   "androgynous, masculine features, dowdy, "
+                   "breast implants, fake breasts, silicone breasts, "
+                   "plastic surgery, augmented breasts, spherical breasts")
 NEGATIVE_HARD = ("child, teen, minor, young girl, schoolgirl, nude, topless, "
                  "exposed nipples, exposed genitals, explicit sexual content")
 # Hand/finger terms expanded per community-standard SD negative-prompt practice (the
