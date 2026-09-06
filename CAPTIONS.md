@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-06T11:55:14 — aibeauty
+
+```
+Leaving this all behind is my superpower
+
+Created with AI.
+
+#artificiallygenerous #digitalromantics #desert #traversingnewhorizons #estrangedpaths
+```
+
 ## 2026-09-06T10:43:30 — aibeautyvideo
 
 ```
@@ -78,14 +88,4 @@ Secrets are whispered in the quiet
 Created with AI.
 
 #aiphotography #lanternandlight #amateurart #sensualatmosphere #candlelitmood
-```
-
-## 2026-09-05T12:57:09 — aibeauty
-
-```
-getting ready to slay the night
-
-Created with AI.
-
-#aiart #digitalart #nightoutvibes #artificialintimacy #generativeart
 ```
