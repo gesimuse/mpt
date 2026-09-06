@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-06T18:22:36 — aibeautyvideo
+
+```
+Conversation starts with a curve
+
+Created with AI.
+
+#portraitmode #lowpolyart #digitalelegance
+```
+
 ## 2026-09-06T16:32:27 — aibeauty
 
 ```
@@ -78,14 +88,4 @@ Some days just look like this.
 Created with AI.
 
 #aiart #aivideo #wan22 #confident
-```
-
-## 2026-09-05T18:51:06 — aibeautyvideo
-
-```
-Self-love is sassy
-
-Created with AI.
-
-#girlswhogamenight #gaminggirls #artgenerated #bodypositivityart
 ```
