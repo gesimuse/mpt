@@ -185,6 +185,21 @@ _LOCATION_RE = re.compile(
 # avoid for setting and outfit.
 REALISM_CUE = ("photorealistic photograph, natural skin texture, visible skin pores, "
                "fine facial detail, shot on 85mm lens, subtle film grain")
+# A second realism register: a candid phone snapshot instead of a staged 85mm shoot.
+# Pulled from a reference prompt the account owner specifically liked the output of
+# (candid smartphone photography, 24mm, hand-held shake, slight overexposure/motion
+# blur, unfiltered) -- deliberately NOT merged into REALISM_CUE above, since stacking
+# "85mm lens, subtle film grain" with "24mm smartphone lens, hand-held camera shake"
+# in the same prompt is the same self-contradiction _LOCATION_RE/_CLOTHING_RE exist to
+# avoid, just for camera style instead of setting/outfit. REALISM_STYLES below picks
+# ONE of the two per batch, so the account gets both looks in rotation, not a single
+# new fixed formula replacing the old one -- the fastest way back to "every batch
+# looks the same" is baking one specific prompt in as the new default.
+CANDID_REALISM_CUE = ("candid smartphone photography, amateur composition, "
+                      "24mm smartphone lens, f/2.0, hand-held camera shake, "
+                      "slight motion blur, slightly overexposed highlights, "
+                      "unfiltered aesthetic, raw photo, 4k")
+REALISM_STYLES = [REALISM_CUE, CANDID_REALISM_CUE]
 # Harvested CivitAI showcase prompts frequently already open with "RAW photo",
 # "(skin pores:1.2)", "8K" and similar -- those creators are optimising for the same
 # thing. Appending our own copy on top of one of those spends scarce prompt budget
@@ -342,7 +357,7 @@ SUBJECTS = [
 # genre (glamour/boudoir editorial) than to being told the subject is "sexy". Stays
 # inside NEGATIVE_HARD's line: suggestive and figure-forward, never undressed.
 SEXY_CUE = ("smoking hot, seductive, sultry gaze, glamour photography, "
-            "curvy hourglass figure, large natural breasts, curvy natural ass, "
+            "curvy hourglass figure, huge natural breasts, curvy natural ass, "
             "deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, "
             "glossy lips, flawless makeup")
 # Suppressing the OPPOSITE of SEXY_CUE, which none of the other negatives covered:
@@ -350,20 +365,10 @@ SEXY_CUE = ("smoking hot, seductive, sultry gaze, glamour photography, "
 # nothing was pushing against a demure, shapeless, plainly-styled result -- the most
 # common way an otherwise technically fine image missed the brief.
 #
-# breast implants/fake breasts/silicone/plastic surgery added after "huge breasts,
-# big round ass" (SEXY_CUE's old wording) reliably rendered the same artificial,
-# perfectly-round, gravity-defying implant look on every checkpoint -- "round" and
-# "huge" alone are exactly the shape descriptors SD1.5 checkpoints associate with
-# augmented/surgical bodies in their training data, not natural ones. SEXY_CUE now
-# asks for "natural" on the positive side; this is the negative-side half of the
-# same fix, since a positive descriptor alone measured weaker against a checkpoint
-# whose realistic-portrait training data skews augmented (same asymmetry NEGATIVE_
-# HARD's "chinese"/SUBJECTS' positive-steer comment already documents for ethnicity).
-NEGATIVE_MODEST = ("modest clothing, baggy oversized clothes, frumpy, shapeless, "
+NEGATIVE_MODEST = ("modest clothing, frumpy, shapeless, "
                    "unflattering outfit, plain styling, flat chest, "
                    "androgynous, masculine features, dowdy, "
-                   "breast implants, fake breasts, silicone breasts, "
-                   "plastic surgery, augmented breasts, spherical breasts")
+                   "fat, overweight, obese, chubby, plus size")
 NEGATIVE_HARD = ("child, teen, minor, young girl, schoolgirl, nude, topless, "
                  "exposed nipples, exposed genitals, explicit sexual content")
 # Hand/finger terms expanded per community-standard SD negative-prompt practice (the
@@ -702,16 +707,32 @@ def _pick_avoiding_repeats(options, key, recent, weights=None):
     return random.choices(pool, weights=w, k=1)[0]
 
 
+FACE_DETAILS = [
+    "cute feminine face, small nose, almond shaped eyes, minimal makeup",
+    "delicate features, button nose, wide doe eyes, soft natural makeup",
+    "sharp cheekbones, full lips, striking eyes, bold makeup",
+    "soft round face, freckled cheeks, bright eyes, dewy makeup",
+    "elegant features, defined jawline, deep-set eyes, subtle makeup",
+]
+
+
 def _build_subject(state=None):
-    """(subject_phrase, look) -- SAFETY_PREFIX plus one rotating look from SUBJECTS.
+    """(subject_phrase, look) -- SAFETY_PREFIX plus one rotating look from SUBJECTS,
+    plus one rotating face from FACE_DETAILS.
 
     SAFETY_PREFIX ("stunningly beautiful adult woman") is always first and never
     substituted:
     it is the age/subject guardrail supervisor.py also gates on. Everything after it
     varies, which is what stops every prompt in the account's history opening with the
-    identical eight words."""
+    identical eight words.
+
+    FACE_DETAILS is a plain random.choice, not run through _pick_avoiding_repeats like
+    SUBJECTS/DEFAULT_THEMES -- it's a small pool meant to add variety on top of
+    whichever SUBJECTS entry got picked, not a second identity axis worth its own
+    no-repeat window and owner-verdict weighting."""
     subject = _pick_avoiding_repeats(SUBJECTS, "look", _recently_used(state, "look"))
-    return f"{SAFETY_PREFIX}, {subject['desc']}", subject["look"]
+    face = random.choice(FACE_DETAILS)
+    return f"{SAFETY_PREFIX}, {subject['desc']}, {face}", subject["look"]
 
 
 def _build_prefix(niche, reference, state=None):
@@ -746,7 +767,8 @@ def _build_prefix(niche, reference, state=None):
     subject, look = _build_subject(state)
     clothing = "" if _CLOTHING_RE.search(reference["prompt"]) else f"{theme['outfit']}, "
     setting = "" if _LOCATION_RE.search(reference["prompt"]) else f"{theme['location']}, "
-    realism = "" if _REALISM_RE.search(reference["prompt"]) else f", {REALISM_CUE}"
+    realism = ("" if _REALISM_RE.search(reference["prompt"])
+              else f", {random.choice(REALISM_STYLES)}")
     prefix = f"{subject}, {SEXY_CUE}, {clothing}{setting}{theme['mood']}{realism}"
     return prefix, theme["vibe"], look
 

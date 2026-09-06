@@ -3562,9 +3562,16 @@ class RealismCueTest(unittest.TestCase):
     PLAIN = {"prompt": "a woman standing in a room", "negative_prompt": ""}
 
     def test_realism_cue_is_added_when_the_reference_lacks_it(self):
-        prefix, _, _ = imageslides._build_prefix({}, self.PLAIN)
-        self.assertIn("visible skin pores", prefix)
-        self.assertIn("film grain", prefix)
+        """One of REALISM_STYLES gets appended -- which one is a random per-batch
+        choice (see REALISM_STYLES's docstring: two camera registers in rotation,
+        not stacked, so no single run is guaranteed the 85mm one specifically)."""
+        prefixes = [imageslides._build_prefix({}, self.PLAIN)[0] for _ in range(30)]
+        self.assertTrue(all(any(style in p for style in imageslides.REALISM_STYLES)
+                           for p in prefixes))
+        # Both styles show up across 30 draws (>99.9997% likely at a fair 50/50 coin)
+        # -- confirms the choice is actually randomized, not silently pinned to one.
+        self.assertTrue(any("film grain" in p for p in prefixes))
+        self.assertTrue(any(imageslides.CANDID_REALISM_CUE in p for p in prefixes))
 
     def test_it_is_skipped_when_the_reference_already_asks_for_it(self):
         """CivitAI showcase prompts routinely open with "RAW photo, (skin pores:1.2),
@@ -3577,9 +3584,13 @@ class RealismCueTest(unittest.TestCase):
 
     def test_the_cue_never_dictates_lighting(self):
         """Every theme names its own light (candlelit, neon, golden hour, firelight);
-        a generic "soft natural light" here would contradict most of them."""
-        for word in ("soft light", "natural light", "studio light", "golden hour"):
-            self.assertNotIn(word, imageslides.REALISM_CUE.lower())
+        a generic "soft natural light" here would contradict most of them. Applies to
+        both REALISM_STYLES entries -- CANDID_REALISM_CUE's "slightly overexposed
+        highlights" describes an exposure ARTIFACT, not a light source, so it doesn't
+        count as naming one."""
+        for cue in imageslides.REALISM_STYLES:
+            for word in ("soft light", "natural light", "studio light", "golden hour"):
+                self.assertNotIn(word, cue.lower())
 
     def test_realism_negatives_reach_every_generation_path(self):
         """sdgen.generate_image builds the negative for local AND Kaggle runs, so
