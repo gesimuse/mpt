@@ -2540,6 +2540,26 @@
           "message_id": 25
         }
       }
+    },
+    {
+      "niche": "aibeautyvideo",
+      "topic": "video 20260906-055508",
+      "title": "I know I'm trouble",
+      "tiktok": true,
+      "tiktok_via": "inbox_video",
+      "tiktok_post_id": "v_inbox_url~v2.7682297032807090198",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_fail_reason": null,
+      "tiktok_caption": "I know I'm trouble\n\nCreated with AI.\n\n#aiart #deepdreams #beyondtheflow #bouncyvibes #confidenceclub",
+      "video_url": "https://gesimuse.github.io/mpt/media/1788674219-final.mp4",
+      "ts": "2026-09-06T05:58:21",
+      "motionforge_source_url": "https://gesimuse.github.io/mpt/media/1788601564-sd_7.jpg",
+      "telegram_message_ids": {
+        "https://gesimuse.github.io/mpt/media/1788674219-final.mp4": {
+          "chat_id": "-1004314616972",
+          "message_id": 26
+        }
+      }
     }
   ],
   "model_stats": {
