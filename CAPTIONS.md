@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-06T10:43:30 — aibeautyvideo
+
+```
+Self-made siren, no apologies
+
+Created with AI.
+
+#generatedart #digitalconfection #confidencevibes #femaleempowermentart #stylizedportraits
+```
+
 ## 2026-09-06T09:45:43 — aibeauty
 
 ```
@@ -78,14 +88,4 @@ getting ready to slay the night
 Created with AI.
 
 #aiart #digitalart #nightoutvibes #artificialintimacy #generativeart
-```
-
-## 2026-09-05T11:31:28 — aibeauty
-
-```
-When you're just trying to make an entrance
-
-Created with AI.
-
-#generativeart #rainydays #virtualvibes #waterwoman #futuristicfemme
 ```
