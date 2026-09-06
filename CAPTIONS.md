@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-06T14:23:47 — aibeauty
+
+```
+When the sun dips and the ocean whispers secrets
+
+Created with AI.
+
+#artificialintelligenceart #generativeart #summervibes #waterclassic #coastalbliss
+```
+
 ## 2026-09-06T13:02:08 — aibeauty
 
 ```
@@ -78,14 +88,4 @@ This is your sign to go outside.
 Created with AI.
 
 #aiart #aigenerated #aiphotography #confident
-```
-
-## 2026-09-05T14:10:53 — aibeautyvideo
-
-```
-Bending my limits
-
-Created with AI.
-
-#digitalart #glossylens #darkaesthetic #gothicvibes #undergroundart
 ```
