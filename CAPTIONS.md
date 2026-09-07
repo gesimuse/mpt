@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-07T10:42:14 — aibeauty
+
+```
+I'd rather get lost in the grey
+
+Created with AI.
+
+#chainofbeauty #novemberrain #atmosphericartai #darkart #milan_streetart
+```
+
 ## 2026-09-06T18:22:36 — aibeautyvideo
 
 ```
@@ -78,14 +88,4 @@ I know I'm trouble
 Created with AI.
 
 #aiart #deepdreams #beyondtheflow #bouncyvibes #confidenceclub
-```
-
-## 2026-09-05T18:55:48 — aibeautyvideo
-
-```
-Some days just look like this.
-
-Created with AI.
-
-#aiart #aivideo #wan22 #confident
 ```
