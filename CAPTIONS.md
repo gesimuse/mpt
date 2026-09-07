@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-07T16:41:58 — aibeauty
+
+```
+Secrets stay on the screen after hours
+
+Created with AI.
+
+#nighttimepixels #neonloveallen #arcadevibes #latepages #virtualpassion
+```
+
 ## 2026-09-07T15:18:15 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Some days just look like this.
 Created with AI.
 
 #aiart #aigenerated #aiphotography #confident
-```
-
-## 2026-09-06T11:55:14 — aibeauty
-
-```
-Leaving this all behind is my superpower
-
-Created with AI.
-
-#artificiallygenerous #digitalromantics #desert #traversingnewhorizons #estrangedpaths
 ```
