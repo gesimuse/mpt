@@ -3454,6 +3454,26 @@
         }
       },
       "owner_verdict": "skipped"
+    },
+    {
+      "niche": "aibeautyvideo",
+      "topic": "video 20260907-174730",
+      "title": "when life gives you one hand, use it for content",
+      "tiktok": true,
+      "tiktok_via": "inbox_video",
+      "tiktok_post_id": "v_inbox_url~v2.7682851779989506070",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_fail_reason": null,
+      "tiktok_caption": "when life gives you one hand, use it for content\n\nCreated with AI.\n\n#digitalart #womenempowerment #femalefilmmaker #selfsufficient #aiart",
+      "video_url": "https://gesimuse.github.io/mpt/media/1788803340-final.mp4",
+      "ts": "2026-09-07T17:50:15",
+      "motionforge_source_url": "https://gesimuse.github.io/mpt/media/1788788807-sd_8.jpg",
+      "telegram_message_ids": {
+        "https://gesimuse.github.io/mpt/media/1788803340-final.mp4": {
+          "chat_id": "-1004314616972",
+          "message_id": 32
+        }
+      }
     }
   ],
   "model_stats": {
