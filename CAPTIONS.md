@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-07T10:58:25 — aibeautyvideo
+
+```
+Love my curves
+
+Created with AI.
+
+#digitalart #portraitphotography #femininity #squeeze
+```
+
 ## 2026-09-07T10:42:14 — aibeauty
 
 ```
@@ -78,14 +88,4 @@ City nights were made for me
 Created with AI.
 
 #aiart #digitalart #citylightsmagic #neonvibes #eveningmoods
-```
-
-## 2026-09-06T05:58:21 — aibeautyvideo
-
-```
-I know I'm trouble
-
-Created with AI.
-
-#aiart #deepdreams #beyondtheflow #bouncyvibes #confidenceclub
 ```

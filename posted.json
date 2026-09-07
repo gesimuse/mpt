@@ -3131,6 +3131,26 @@
           "message_id": 356
         }
       }
+    },
+    {
+      "niche": "aibeautyvideo",
+      "topic": "video 20260907-105525",
+      "title": "Love my curves",
+      "tiktok": true,
+      "tiktok_via": "inbox_video",
+      "tiktok_post_id": "v_inbox_url~v2.7682745684809811990",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_fail_reason": null,
+      "tiktok_caption": "Love my curves\n\nCreated with AI.\n\n#digitalart #portraitphotography #femininity #squeeze",
+      "video_url": "https://gesimuse.github.io/mpt/media/1788778637-final.mp4",
+      "ts": "2026-09-07T10:58:25",
+      "motionforge_source_url": "https://gesimuse.github.io/mpt/media/1788777386-sd_0.jpg",
+      "telegram_message_ids": {
+        "https://gesimuse.github.io/mpt/media/1788778637-final.mp4": {
+          "chat_id": "-1004314616972",
+          "message_id": 30
+        }
+      }
     }
   ],
   "model_stats": {
