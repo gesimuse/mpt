@@ -3151,6 +3151,26 @@
           "message_id": 30
         }
       }
+    },
+    {
+      "niche": "aibeautyvideo",
+      "topic": "video 20260907-105938",
+      "title": "When the view from behind is everything",
+      "tiktok": true,
+      "tiktok_via": "inbox_video",
+      "tiktok_post_id": "v_inbox_url~v2.7682746908876261398",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_fail_reason": null,
+      "tiktok_caption": "When the view from behind is everything\n\nCreated with AI.\n\n#aiart #generativeart #artificialdreams #artforfun #silhouettes",
+      "video_url": "https://gesimuse.github.io/mpt/media/1788778887-final.mp4",
+      "ts": "2026-09-07T11:02:29",
+      "motionforge_source_url": "https://gesimuse.github.io/mpt/media/1788712234-sd_7.jpg",
+      "telegram_message_ids": {
+        "https://gesimuse.github.io/mpt/media/1788778887-final.mp4": {
+          "chat_id": "-1004314616972",
+          "message_id": 31
+        }
+      }
     }
   ],
   "model_stats": {
