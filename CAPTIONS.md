@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-07T15:18:15 — aibeauty
+
+```
+evenings like a dream
+
+Created with AI.
+
+#artificialintelligence #cyberart #citylights #urbanromance #newyorknightscapes
+```
+
 ## 2026-09-07T13:48:18 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Leaving this all behind is my superpower
 Created with AI.
 
 #artificiallygenerous #digitalromantics #desert #traversingnewhorizons #estrangedpaths
-```
-
-## 2026-09-06T10:43:30 — aibeautyvideo
-
-```
-Self-made siren, no apologies
-
-Created with AI.
-
-#generatedart #digitalconfection #confidencevibes #femaleempowermentart #stylizedportraits
 ```
