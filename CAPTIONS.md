@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-07T13:48:18 — aibeauty
+
+```
+Secrets I whisper in the steam
+
+Created with AI.
+
+#aiart #neonlit #lowpolydreams #surrealism #hazyvibes
+```
+
 ## 2026-09-07T11:02:29 — aibeautyvideo
 
 ```
@@ -88,14 +98,4 @@ Self-made siren, no apologies
 Created with AI.
 
 #generatedart #digitalconfection #confidencevibes #femaleempowermentart #stylizedportraits
-```
-
-## 2026-09-06T09:45:43 — aibeauty
-
-```
-City nights were made for me
-
-Created with AI.
-
-#aiart #digitalart #citylightsmagic #neonvibes #eveningmoods
 ```
