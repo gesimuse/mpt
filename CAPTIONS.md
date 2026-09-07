@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-07T18:31:06 — aibeauty
+
+```
+secrets are kept at the last table
+
+Created with AI.
+
+#aiart #digitalart #lowkeyvibes #barlife #neonnoir
+```
+
 ## 2026-09-07T18:05:19 — aibeautyvideo
 
 ```
@@ -88,14 +98,4 @@ Conversation starts with a curve
 Created with AI.
 
 #portraitmode #lowpolyart #digitalelegance
-```
-
-## 2026-09-06T16:32:27 — aibeauty
-
-```
-Burning it off
-
-Created with AI.
-
-#aiart #digitalart #gymvibes #sweatlife #fitnessinspo
 ```
