@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-07T18:05:19 — aibeautyvideo
+
+```
+Turning heads from behind
+
+Created with AI.
+
+#datascapes #digitalart #urbanbeauty #citylife #artofcreativity
+```
+
 ## 2026-09-07T17:50:15 — aibeautyvideo
 
 ```
@@ -88,14 +98,4 @@ Burning it off
 Created with AI.
 
 #aiart #digitalart #gymvibes #sweatlife #fitnessinspo
-```
-
-## 2026-09-06T14:23:47 — aibeauty
-
-```
-When the sun dips and the ocean whispers secrets
-
-Created with AI.
-
-#artificialintelligenceart #generativeart #summervibes #waterclassic #coastalbliss
 ```
