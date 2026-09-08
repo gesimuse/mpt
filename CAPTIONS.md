@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-08T13:58:01 — aibeautyvideo
+
+```
+When the city smells sweet at night
+
+Created with AI.
+
+#generativeart #digitalbrushstrokes #citynightsinpictures #moodlamp #femaleformations
+```
+
 ## 2026-09-08T13:52:36 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Secrets stay on the screen after hours
 Created with AI.
 
 #nighttimepixels #neonloveallen #arcadevibes #latepages #virtualpassion
-```
-
-## 2026-09-07T15:18:15 — aibeauty
-
-```
-evenings like a dream
-
-Created with AI.
-
-#artificialintelligence #cyberart #citylights #urbanromance #newyorknightscapes
 ```

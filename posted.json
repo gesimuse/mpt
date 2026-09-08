@@ -3912,6 +3912,26 @@
           "message_id": 438
         }
       }
+    },
+    {
+      "niche": "aibeautyvideo",
+      "topic": "video 20260908-135452",
+      "title": "When the city smells sweet at night",
+      "tiktok": true,
+      "tiktok_via": "inbox_video",
+      "tiktok_post_id": "v_inbox_url~v2.7683162959908882454",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_fail_reason": null,
+      "tiktok_caption": "When the city smells sweet at night\n\nCreated with AI.\n\n#generativeart #digitalbrushstrokes #citynightsinpictures #moodlamp #femaleformations",
+      "video_url": "https://gesimuse.github.io/mpt/media/1788875805-final.mp4",
+      "ts": "2026-09-08T13:58:01",
+      "motionforge_source_url": "https://gesimuse.github.io/mpt/media/1788870099-sd_4.jpg",
+      "telegram_message_ids": {
+        "https://gesimuse.github.io/mpt/media/1788875805-final.mp4": {
+          "chat_id": "-1004314616972",
+          "message_id": 36
+        }
+      }
     }
   ],
   "model_stats": {
