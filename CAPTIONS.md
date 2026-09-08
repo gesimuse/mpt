@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-08T13:52:36 — aibeauty
+
+```
+Leaving it all behind
+
+Created with AI.
+
+#aiart #generativeart #adventurouspirit #freedomvibes #blurredlines
+```
+
 ## 2026-09-08T12:25:52 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ evenings like a dream
 Created with AI.
 
 #artificialintelligence #cyberart #citylights #urbanromance #newyorknightscapes
-```
-
-## 2026-09-07T13:48:18 — aibeauty
-
-```
-Secrets I whisper in the steam
-
-Created with AI.
-
-#aiart #neonlit #lowpolydreams #surrealism #hazyvibes
 ```
