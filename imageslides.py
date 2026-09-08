@@ -708,6 +708,7 @@ NEGATIVE_QUALITY = ("cartoon, illustration, painting, anime, 3d render, deformed
 # about which platform an image is headed to changes that floor; generate_fanvue_
 # variant() below uses the same NEGATIVE_HARD the TikTok path does, on purpose, not
 # by oversight.
+FANVUE_NEGATIVE_HARD = ("child, teen, minor, young girl, schoolgirl, ")
 FANVUE_NEGATIVE_MODEST = ("modest clothing, frumpy, shapeless, "
                           "unflattering outfit, plain styling, flat chest, "
                           "androgynous, masculine features, dowdy, "
@@ -1373,7 +1374,7 @@ def generate_fanvue_variant(niche, resolved, reference, count, workdir, state=No
     # above FANVUE_NEGATIVE_MODEST/FANVUE_NEGATIVE_QUALITY for why that one specific
     # negative never forks per destination.
     base_negative = ", ".join(
-        x for x in (NEGATIVE_HARD, reference["negative_prompt"], FANVUE_NEGATIVE_QUALITY,
+        x for x in (FANVUE_NEGATIVE_HARD, reference["negative_prompt"], FANVUE_NEGATIVE_QUALITY,
                     FANVUE_NEGATIVE_MODEST) if x)
     prompts, negatives = build_variations(prefix, reference["prompt"], base_negative,
                                           count, niche)
