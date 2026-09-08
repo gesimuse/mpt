@@ -270,4 +270,8 @@ def generate(niche, count=None, workdir=None, state=None, model_info=None):
     kept = approved[:max_images]
     if model_info is not None:
         model_info["spec"], model_info["name"] = civitai_spec, resolved["name"]
+        # Same contract as imageslides.generate(): the Fanvue variant (always run
+        # locally, never on Kaggle) reuses this checkpoint + reference prompt rather
+        # than a second CivitAI decision.
+        model_info["resolved"], model_info["reference"] = resolved, reference
     return kept, vibe, look, [prompt_by_path.get(str(p)) for p in kept]

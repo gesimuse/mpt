@@ -8,6 +8,7 @@ instead of shipping, and that DRY_RUN never queues a draft.
 
 Run: python3 test_pipeline.py
 """
+import contextlib
 import datetime as dt
 import json, os, subprocess, sys, tempfile, time, unittest
 import pathlib
@@ -204,6 +205,21 @@ class ImageSlideshowTest(unittest.TestCase):
         self.assertIn("in a room", prefix)
         self.assertIn("a calm pose", prefix)
 
+    def test_build_prefix_cue_override_replaces_sexy_cue(self):
+        """The Fanvue track (generate_fanvue_variant) passes FANVUE_CUE here instead
+        of the SEXY_CUE default -- the one hook that lets its wording diverge from
+        TikTok's without a second copy of this whole function."""
+        reference = {"prompt": "closeup portrait, dramatic lighting"}
+        prefix, _vibe, _look = imageslides._build_prefix(
+            self.AIBEAUTY, reference, cue="a distinctive marker phrase")
+        self.assertIn("a distinctive marker phrase", prefix)
+        self.assertNotIn(imageslides.SEXY_CUE, prefix)
+
+    def test_build_prefix_defaults_to_sexy_cue(self):
+        reference = {"prompt": "closeup portrait, dramatic lighting"}
+        prefix, _vibe, _look = imageslides._build_prefix(self.AIBEAUTY, reference)
+        self.assertIn(imageslides.SEXY_CUE, prefix)
+
     @staticmethod
     def _fake_decide(query, prompt_filter=None, weights=None):
         return ({"model_id": 4201, "version_id": 130072, "name": "Test Model"},
@@ -219,6 +235,63 @@ class ImageSlideshowTest(unittest.TestCase):
              tempfile.TemporaryDirectory() as tmp:
             approved, vibe, look, _prompts = imageslides.generate(self.AIBEAUTY, workdir=tmp)
         self.assertEqual(len(approved), 4)
+
+    def test_generate_model_info_carries_resolved_and_reference(self):
+        """generate_fanvue_variant() needs these to reuse the exact checkpoint +
+        civitai prompt the TikTok batch decided on, without a second CivitAI search."""
+        fake_paths = [Path(f"/tmp/img_{i}.png") for i in range(10)]
+        model_info = {}
+        with mock.patch.object(civitai, "decide_reference", self._fake_decide), \
+             mock.patch.object(imageslides.sdgen, "generate_batch",
+                               lambda *a, **k: fake_paths), \
+             mock.patch.object(imageslides.supervisor, "filter_images",
+                               lambda paths: paths[:4]), \
+             tempfile.TemporaryDirectory() as tmp:
+            imageslides.generate(self.AIBEAUTY, workdir=tmp, model_info=model_info)
+        self.assertEqual(model_info["resolved"]["name"], "Test Model")
+        self.assertEqual(model_info["reference"]["prompt"],
+                         "studio portrait, dramatic lighting")
+
+    def test_generate_fanvue_variant_reuses_the_given_checkpoint(self):
+        """No civitai.decide_reference call here at all -- resolved/reference are
+        handed in directly, matching "same model, same base prompt from civitai" for
+        the Fanvue queue."""
+        resolved = {"model_id": 4201, "version_id": 130072, "name": "Test Model"}
+        reference = {"prompt": "studio portrait, dramatic lighting", "negative_prompt": ""}
+        fake_paths = [Path(f"/tmp/img_{i}.png") for i in range(5)]
+        seen = {}
+
+        def spy_generate_batch(prompts, workdir, **kw):
+            seen["prompts"] = prompts
+            seen["civitai_model"] = kw.get("civitai_model")
+            return fake_paths
+
+        with mock.patch.object(civitai, "decide_reference",
+                               mock.Mock(side_effect=AssertionError("must not run"))), \
+             mock.patch.object(imageslides.sdgen, "generate_batch", spy_generate_batch), \
+             mock.patch.object(imageslides.supervisor, "filter_images",
+                               lambda paths: paths[:3]), \
+             tempfile.TemporaryDirectory() as tmp:
+            approved, prompts = imageslides.generate_fanvue_variant(
+                self.AIBEAUTY, resolved, reference, 5, tmp)
+        self.assertEqual(len(approved), 3)
+        self.assertEqual(len(prompts), 3)
+        self.assertEqual(seen["civitai_model"], "4201:130072")
+        self.assertTrue(all(imageslides.FANVUE_CUE in p for p in seen["prompts"]))
+
+    def test_generate_fanvue_variant_never_raises_on_a_bad_checkpoint(self):
+        """One-round, best-effort: the TikTok batch this runs alongside has already
+        succeeded, so a Fanvue-side failure must degrade to an empty result, never an
+        exception that could take the rest of run_niche down with it."""
+        resolved = {"model_id": 1, "version_id": 2, "name": "Broken Model"}
+        reference = {"prompt": "a prompt", "negative_prompt": ""}
+        with mock.patch.object(imageslides.sdgen, "generate_batch",
+                               mock.Mock(side_effect=RuntimeError("checkpoint gone"))), \
+             tempfile.TemporaryDirectory() as tmp:
+            approved, prompts = imageslides.generate_fanvue_variant(
+                self.AIBEAUTY, resolved, reference, 5, tmp)
+        self.assertEqual(approved, [])
+        self.assertEqual(prompts, [])
 
     def test_short_round_triggers_a_second_round_of_fresh_variations(self):
         """Ten generations, fewer than three pass: try again with a fresh batch of
@@ -1870,6 +1943,78 @@ class RunNicheTest(unittest.TestCase):
         # (worker/src/index.js's onRate) knows what to credit.
         self.assertEqual(entry["model_spec"], "123:456")
         self.assertEqual(entry["model_name"], "AbsoluteReality")
+
+    def _fanvue_env(self, state, fanvue_enabled, fanvue_variant, post_fanvue_batch=None):
+        fake_images = [Path(f"/tmp/i{i}.png") for i in range(5)]
+
+        def fake_generate(n, state=None, model_info=None):
+            if model_info is not None:
+                model_info["spec"], model_info["name"] = "123:456", "AbsoluteReality"
+                model_info["resolved"] = {"model_id": 123, "version_id": 456}
+                model_info["reference"] = {"prompt": "p", "negative_prompt": ""}
+            return fake_images, None, None, ["a prompt"] * len(fake_images)
+
+        return [
+            mock.patch.object(autopilot, "DRY_RUN", False),
+            mock.patch.object(autopilot, "FANVUE_ENABLED", fanvue_enabled),
+            mock.patch.object(tiktok, "enabled", lambda niche_id: True),
+            mock.patch.object(imageslides, "generate", fake_generate),
+            mock.patch.object(imageslides, "generate_fanvue_variant", fanvue_variant),
+            mock.patch.object(tiktok, "host_file", lambda p: f"https://pages/media/{Path(p).name}"),
+            mock.patch.object(tiktok, "publish_photos_draft",
+                             lambda imgs, niche_id, image_urls=None, caption=None, title=None: "publish1"),
+            mock.patch.object(tiktok, "check_publish_status",
+                             lambda pid, niche_id: ("SEND_TO_USER_INBOX", None)),
+            mock.patch.object(autopilot.os, "remove", lambda p: None),
+            mock.patch.object(autopilot, "save_state", lambda s: None),
+            mock.patch.object(telegram, "enabled", lambda: True),
+            mock.patch.object(telegram, "post_batch", lambda *a, **k: []),
+            mock.patch.object(telegram, "post_fanvue_batch",
+                             post_fanvue_batch or (lambda *a, **k: [])),
+        ]
+
+    def test_fanvue_variant_not_generated_when_disabled(self):
+        """FANVUE_ENABLED defaults off -- doubling every run's local generation time
+        for a feature most accounts can't post through yet (Fanvue's creator API is
+        waitlisted) must never happen silently."""
+        state = {"topics": {}, "uploads": []}
+        patchers = self._fanvue_env(
+            state, fanvue_enabled=False,
+            fanvue_variant=mock.Mock(side_effect=AssertionError("must not run")))
+        with contextlib.ExitStack() as stack:
+            for p in patchers:
+                stack.enter_context(p)
+            with tempfile.TemporaryDirectory() as tmp, \
+                 mock.patch.object(autopilot, "ROOT", Path(tmp)):
+                autopilot.run_niche(self.AIBEAUTY, state)
+
+    def test_fanvue_variant_generated_and_posted_when_enabled(self):
+        fanvue_paths = [Path(f"/tmp/fv{i}.png") for i in range(3)]
+        seen = {}
+
+        def fake_variant(niche, resolved, reference, count, workdir, state=None):
+            seen["resolved"] = resolved
+            seen["reference"] = reference
+            return fanvue_paths, ["fv prompt"] * 3
+
+        def fake_post_fanvue_batch(paths, prompts=None, model_name=None, chat_id=None):
+            seen["posted_paths"] = paths
+            seen["posted_model_name"] = model_name
+            return [1, 2, 3]
+
+        state = {"topics": {}, "uploads": []}
+        patchers = self._fanvue_env(state, fanvue_enabled=True, fanvue_variant=fake_variant,
+                                    post_fanvue_batch=fake_post_fanvue_batch)
+        with contextlib.ExitStack() as stack:
+            for p in patchers:
+                stack.enter_context(p)
+            with tempfile.TemporaryDirectory() as tmp, \
+                 mock.patch.object(autopilot, "ROOT", Path(tmp)):
+                autopilot.run_niche(self.AIBEAUTY, state)
+        self.assertEqual(seen["resolved"], {"model_id": 123, "version_id": 456})
+        self.assertEqual(seen["reference"], {"prompt": "p", "negative_prompt": ""})
+        self.assertEqual(seen["posted_paths"], fanvue_paths)
+        self.assertEqual(seen["posted_model_name"], "AbsoluteReality")
 
     def test_publish_that_fails_downstream_is_not_recorded_as_success(self):
         """init returning a publish_id only means TikTok accepted the job -- live-
@@ -3745,6 +3890,12 @@ class TelegramTest(unittest.TestCase):
                 continue
             self.assertIn("TELEGRAM_VIDEO_CHAT_ID", text,
                          f"{wf} passes TELEGRAM_CHAT_ID but not the video channel")
+        # Only autopilot.yml (NICHES includes aibeauty) ever calls
+        # telegram.fanvue_chat_id() -- autopilot_video.yml runs NICHES=aibeautyvideo
+        # only, whose _run_video_niche path never touches the Fanvue queue.
+        text = (root / "autopilot.yml").read_text()
+        self.assertIn("TELEGRAM_FANVUE_CHAT_ID", text,
+                     "autopilot.yml passes TELEGRAM_CHAT_ID but not the fanvue channel")
 
     def test_a_posted_video_carries_its_caption_and_hashtags(self):
         """The channel is where the decision to publish gets made, so a bare
@@ -3827,8 +3978,13 @@ class TelegramTest(unittest.TestCase):
             telegram.send_video("https://x/v.mp4", "ts", failed=True)
         ok_row = captured["calls"][0][1]["reply_markup"]["inline_keyboard"][0]
         failed_row = captured["calls"][1][1]["reply_markup"]["inline_keyboard"][0]
-        self.assertEqual(len(ok_row), 1)
+        # Download + Post to Fanvue always; Retry only when TikTok rejected it, and
+        # always sits right after Download regardless of Fanvue's button.
+        self.assertEqual(len(ok_row), 2)
+        self.assertEqual(len(failed_row), 3)
         self.assertEqual(failed_row[1]["callback_data"], "retry|ts|0")
+        self.assertEqual(ok_row[-1]["callback_data"], "fvvid|ts|0")
+        self.assertEqual(failed_row[-1]["callback_data"], "fvvid|ts|0")
 
     def test_video_is_sent_as_a_document(self):
         """Telegram re-encodes videos for streaming; the download button exists to
@@ -3838,6 +3994,51 @@ class TelegramTest(unittest.TestCase):
              mock.patch.object(telegram.requests, "post", self._capture(captured)):
             telegram.send_video("https://x/v.mp4", "ts")
         self.assertIn("sendDocument", captured["calls"][0][0])
+
+    def _capture_multipart(self, captured, ok=True):
+        def post(url, data=None, files=None, timeout=None, **kw):
+            captured.setdefault("calls", []).append((url, data, files))
+            return mock.Mock(ok=ok, status_code=200 if ok else 400, text="err",
+                             json=lambda: {"ok": ok, "result": {"message_id": 9}})
+        return post
+
+    def test_fanvue_photo_is_uploaded_as_raw_bytes_not_a_url(self):
+        """The one hard requirement this whole queue exists to satisfy: the image
+        must never be hosted anywhere (gh-pages included) -- send_fanvue_photo has to
+        go through the multipart file-upload path, not the JSON/URL one every other
+        send_* function here uses."""
+        captured = {}
+        with mock.patch.dict(os.environ, self.ENV, clear=True), \
+             mock.patch.object(telegram.requests, "post",
+                               self._capture_multipart(captured)), \
+             tempfile.NamedTemporaryFile(suffix=".jpg") as f:
+            f.write(b"fake jpeg bytes")
+            f.flush()
+            mid = telegram.send_fanvue_photo(f.name, prompt="a test prompt",
+                                             model_name="Test Model")
+        self.assertEqual(mid, 9)
+        url, data, files = captured["calls"][0]
+        self.assertIn("sendPhoto", url)
+        self.assertIn("photo", files)
+        self.assertIn("💜 FANVUE", data["caption"])
+        self.assertIn("a test prompt", data["caption"])
+        self.assertIn("Test Model", data["caption"])
+        keyboard = json.loads(data["reply_markup"])
+        actions = [b["callback_data"] for row in keyboard["inline_keyboard"] for b in row]
+        self.assertEqual(actions, ["fvpost", "fvskip"])
+
+    def test_fanvue_batch_never_raises_on_one_bad_upload(self):
+        captured = {}
+        with mock.patch.dict(os.environ, self.ENV, clear=True), \
+             mock.patch.object(telegram.requests, "post",
+                               self._capture_multipart(captured)), \
+             tempfile.NamedTemporaryFile(suffix=".jpg") as f1, \
+             tempfile.NamedTemporaryFile(suffix=".jpg") as f2:
+            f1.write(b"one"); f1.flush()
+            f2.write(b"two"); f2.flush()
+            ids = telegram.post_fanvue_batch([f1.name, "/no/such/file.jpg", f2.name],
+                                             prompts=["p1", "p2", "p3"])
+        self.assertEqual(len(ids), 2)
 
 
 class TelegramWorkerContractTest(unittest.TestCase):
@@ -3852,6 +4053,17 @@ class TelegramWorkerContractTest(unittest.TestCase):
         for action in ("vid", "skip", "retry"):
             self.assertIn(f'"{action}"', index)
             self.assertIn(action, telegram._callback(action, "ts", 0))
+
+    def test_worker_parses_the_fanvue_actions(self):
+        """fvpost/fvskip carry no ts|index (see telegram.py's _fanvue_keyboard
+        docstring -- the image was never hosted anywhere to look up), so they're bare
+        literals rather than going through _callback(); fvvid is a normal video
+        button and does use the ts|index format."""
+        index = (self.SRC / "index.js").read_text()
+        for action in ("fvpost", "fvskip"):
+            self.assertIn(f'"{action}"', index)
+        self.assertIn("fvvid", index)
+        self.assertIn("fvvid", telegram._callback("fvvid", "ts", 0))
 
     def test_worker_verifies_the_webhook_secret_before_parsing(self):
         """The Worker URL is public. Without this, anyone who finds it can dispatch

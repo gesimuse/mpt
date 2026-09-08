@@ -20,8 +20,15 @@ Optional:
   DRY_RUN     generate + QA, write to ./out, never queue a draft -- the natural way to
               run this on a local GPU box: generate, look at ./out yourself, and use
               push_draft.py on whichever batch turned out well.
+  FANVUE_ENABLED  generate a second photoset per aibeauty batch (same checkpoint,
+                  same civitai reference prompt, imageslides.FANVUE_CUE instead of
+                  SEXY_CUE) sent straight to Telegram for approve/disapprove --
+                  never hosted on gh-pages/written to posted.json. Off by default:
+                  doubles local generation time, and Fanvue's own creator API is
+                  currently waitlisted (see worker/src/fanvue.js) so there is
+                  nothing to actually post approved images to yet for most accounts.
 """
-import json, os, shutil, sys, time
+import json, os, shutil, sys, tempfile, time
 from datetime import datetime
 from pathlib import Path
 
@@ -47,6 +54,11 @@ STATE_FILE = ROOT / "posted.json"
 # DRY_RUN generates and QAs everything but queues nothing, leaving the images in
 # ./out for review.
 DRY_RUN = os.environ.get("DRY_RUN", "").strip().lower() in ("1", "true", "yes")
+# Off by default: doubles local generation time for the niche every run, and
+# Fanvue's own creator API is currently waitlisted (help.fanvue.com, checked
+# 2026-09-08) -- nothing to post to yet for most accounts. See generate_fanvue_
+# variant()'s call site in run_niche for what this actually gates.
+FANVUE_ENABLED = os.environ.get("FANVUE_ENABLED", "").strip().lower() in ("1", "true", "yes")
 OUT_DIR = ROOT / "out"
 RUN_ATTEMPTS = int(os.environ.get("RUN_ATTEMPTS", "3"))
 # TikTok's Content Posting API caps at 5 pending (unposted) drafts within any rolling
@@ -277,6 +289,32 @@ def run_niche(niche, state):
                           "message_id": mid}
                     for url, mid in zip(image_urls, ids)}
                 save_state(state)
+            # The Fanvue track: a second, independent photoset from the exact same
+            # checkpoint + civitai reference prompt the TikTok batch above just used
+            # (model_info["resolved"]/["reference"], see generate()'s docstring),
+            # sent straight to Telegram for manual approve/disapprove -- NEVER hosted
+            # on gh-pages/committed to posted.json, an explicit requirement (this is
+            # the one thing in this whole pipeline that stays off GitHub entirely).
+            if FANVUE_ENABLED and model_info.get("resolved") and model_info.get("reference"):
+                fanvue_workdir = Path(tempfile.mkdtemp(prefix="fanvue_"))
+                try:
+                    fanvue_images, fanvue_prompts = imageslides.generate_fanvue_variant(
+                        niche, model_info["resolved"], model_info["reference"],
+                        len(images), fanvue_workdir, state=state)
+                    if fanvue_images:
+                        telegram.post_fanvue_batch(
+                            fanvue_images, prompts=fanvue_prompts,
+                            model_name=model_info.get("name"))
+                except Exception as e:
+                    log(f"[{niche['id']}] fanvue variant failed "
+                        f"({type(e).__name__}: {str(e)[:200]}); skipping this run's "
+                        "fanvue queue")
+                finally:
+                    for img in fanvue_workdir.glob("*"):
+                        try:
+                            img.unlink()
+                        except OSError:
+                            pass
         for img in images:
             try:
                 os.remove(img)

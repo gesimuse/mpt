@@ -18,8 +18,10 @@ get() { grep -E "^$1=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- | tr -d 
 BOT_TOKEN=$(get TELEGRAM_BOT_TOKEN)
 CHAT_ID=$(get TELEGRAM_CHAT_ID)
 VIDEO_CHAT_ID=$(get TELEGRAM_VIDEO_CHAT_ID)
+FANVUE_CHAT_ID=$(get TELEGRAM_FANVUE_CHAT_ID)
 WEBHOOK_SECRET=$(get TELEGRAM_WEBHOOK_SECRET)
 GH_PAT=$(get GITHUB_TOKEN)
+FANVUE_TOKEN=$(get FANVUE_API_TOKEN)
 
 for pair in "TELEGRAM_BOT_TOKEN:$BOT_TOKEN" "TELEGRAM_CHAT_ID:$CHAT_ID" \
             "TELEGRAM_WEBHOOK_SECRET:$WEBHOOK_SECRET" "GITHUB_TOKEN:$GH_PAT"; do
@@ -42,7 +44,8 @@ echo "==> writing ALLOWED_CHAT_ID into wrangler.toml"
 # Both channels: photos carry Make video/Done/Skip, videos carry Retry, and the gate
 # has to admit either.
 ALLOWED="$CHAT_ID"
-[ -n "$VIDEO_CHAT_ID" ] && [ "$VIDEO_CHAT_ID" != "$CHAT_ID" ] && ALLOWED="$CHAT_ID,$VIDEO_CHAT_ID"
+[ -n "$VIDEO_CHAT_ID" ] && [ "$VIDEO_CHAT_ID" != "$CHAT_ID" ] && ALLOWED="$ALLOWED,$VIDEO_CHAT_ID"
+[ -n "$FANVUE_CHAT_ID" ] && [ "$FANVUE_CHAT_ID" != "$CHAT_ID" ] && ALLOWED="$ALLOWED,$FANVUE_CHAT_ID"
 sed -i.bak -E "s|^ALLOWED_CHAT_ID = .*|ALLOWED_CHAT_ID = \"$ALLOWED\"|" wrangler.toml
 rm -f wrangler.toml.bak
 
@@ -56,6 +59,12 @@ for name in TELEGRAM_BOT_TOKEN TELEGRAM_WEBHOOK_SECRET GITHUB_TOKEN; do
   printf '%s' "$val" | npx --yes wrangler@latest secret put "$name" >/dev/null
   echo "    $name"
 done
+# Optional: Fanvue's creator API is currently waitlisted (see worker/src/fanvue.js),
+# so most accounts won't have this yet -- skip rather than fail the deploy over it.
+if [ -n "$FANVUE_TOKEN" ]; then
+  printf '%s' "$FANVUE_TOKEN" | npx --yes wrangler@latest secret put FANVUE_API_TOKEN >/dev/null
+  echo "    FANVUE_API_TOKEN"
+fi
 
 echo "==> deploying"
 DEPLOY_OUT=$(npx --yes wrangler@latest deploy 2>&1)

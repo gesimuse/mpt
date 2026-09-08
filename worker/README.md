@@ -17,9 +17,38 @@ What it handles:
 | `/leaderboard` | Replies with the top models by score and, under each, its top 3 prompts by their own score, read straight from `model_leaderboard.json` |
 | Reply to a photo | Uses your text as the motion prompt for that image, then makes the video |
 | Send a photo | Hosts it on `gh-pages` and registers it in `posted.json`, so it can be animated like any generated image |
+| ✅ Approve → post to Fanvue | *(Fanvue queue only)* Downloads that message's own photo straight from Telegram (this image was never hosted anywhere else — see below) and posts it to Fanvue via `fanvue.js`, then deletes the message — only on a confirmed successful post |
+| 🗑 Disapprove | *(Fanvue queue only)* Deletes the message, no Fanvue call |
+| 📮 Post to Fanvue | *(on a generated video)* One click, posts the already gh-pages-hosted mp4 to Fanvue via `fanvue.js`; does not delete the video message |
 
 An image that is neither skipped nor sent stays in the channel. The channel is the
 backlog; nothing expires it.
+
+## The Fanvue queue
+
+A second, independent photoset generated alongside every aibeauty TikTok batch (same
+checkpoint, same harvested civitai reference prompt — only `imageslides.FANVUE_CUE`
+swapped in for `SEXY_CUE`, identical text for now, see that constant's own comment for
+where to change Fanvue-specific wording). Gated behind `FANVUE_ENABLED=1` in
+`autopilot.py` (off by default).
+
+These images are sent to Telegram as raw uploaded bytes (`telegram.py`'s
+`send_fanvue_photo`), **never hosted on `gh-pages` and never written to
+`posted.json`** — an explicit requirement, not an optimization. That also means the
+Approve/Disapprove buttons carry no `ts`/index the way every other button here does;
+the Worker reads the photo straight off the callback's own message.
+
+`FANVUE_API_TOKEN` is a required secret for Approve to actually post anywhere.
+**Fanvue's public creator API is currently waitlisted** (help.fanvue.com, checked
+2026-09-08 — no API keys for general creator use yet), so until you have real access
+this button will fail with a clear "not configured" error, which is expected. See
+`worker/src/fanvue.js`'s module docstring for exactly what's implemented and what's
+unverified about it (the upload endpoint path in particular — Fanvue's own docs
+describe the flow but not that exact REST path outside their MCP tool wrapper).
+
+Optional `TELEGRAM_FANVUE_CHAT_ID` gives the Fanvue queue its own channel instead of
+sharing the photos channel — if you set it, add it to `ALLOWED_CHAT_ID` too (`deploy.sh`
+does this automatically from `.env`).
 
 ## Why a Worker and not a polling workflow
 

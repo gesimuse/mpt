@@ -211,6 +211,16 @@ jobs:
           # deliberate single-channel setup, and is exactly why forgetting it here failed
           # silently: a generated video landed in the photos channel with no error.
           TELEGRAM_VIDEO_CHAT_ID: ${{ secrets.TELEGRAM_VIDEO_CHAT_ID }}
+          # Same "must be passed explicitly" reasoning as TELEGRAM_VIDEO_CHAT_ID
+          # above, for the Fanvue approve/disapprove queue (telegram.fanvue_chat_id()
+          # falls back to TELEGRAM_CHAT_ID the same way).
+          TELEGRAM_FANVUE_CHAT_ID: ${{ secrets.TELEGRAM_FANVUE_CHAT_ID }}
+          # Off by default -- see autopilot.py's own module docstring for why (doubles
+          # generation time; Fanvue's creator API is currently waitlisted so there is
+          # nothing to post approved images to yet for most accounts). Set the
+          # FANVUE_ENABLED repository variable (not secret -- it's not sensitive) to
+          # "1" once ready.
+          FANVUE_ENABLED: ${{ vars.FANVUE_ENABLED }}
           PAGES_BASE_URL: https://gesimuse.github.io/mpt
           # actions/checkout already configures push credentials for this repo (any
           # branch, not just the default one), which is what tiktok.py's git push to

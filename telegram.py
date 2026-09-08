@@ -26,12 +26,17 @@ more than a handful of each.
   TELEGRAM_VIDEO_CHAT_ID  generated videos -- output, with download/retry
                           (falls back to TELEGRAM_CHAT_ID when unset, so a
                           single-channel setup keeps working unchanged)
+  TELEGRAM_FANVUE_CHAT_ID the Fanvue approve/disapprove queue (see
+                          send_fanvue_photo) -- also falls back to
+                          TELEGRAM_CHAT_ID when unset
 
 Env:
   TELEGRAM_BOT_TOKEN      from @BotFather
   TELEGRAM_CHAT_ID        e.g. -1001234567890
   TELEGRAM_VIDEO_CHAT_ID  optional second channel
+  TELEGRAM_FANVUE_CHAT_ID optional third channel
 """
+import json
 import os
 
 import requests
@@ -81,6 +86,29 @@ def _call(method, payload):
     except requests.RequestException as e:
         # Re-raised redacted, because requests embeds the full request URL -- token
         # included -- in its own message, and every caller logs that.
+        raise RuntimeError(f"telegram {method} unreachable: {redact(e)[:300]}") from None
+    if not r.ok:
+        raise RuntimeError(
+            f"telegram {method} failed: {r.status_code} {redact(r.text)[:300]}")
+    body = r.json()
+    if not body.get("ok"):
+        raise RuntimeError(f"telegram {method} rejected: {redact(body)[:300]}")
+    return body["result"]
+
+
+def _call_multipart(method, payload, file_field, file_path):
+    """Same as _call, but uploads a LOCAL file's raw bytes instead of passing a URL
+    in the JSON body -- what send_fanvue_photo() needs: Fanvue-track images must
+    never touch gh-pages/GitHub at all (an explicit requirement, not an optimization),
+    so there is no URL to hand Telegram in the first place, only a local temp file."""
+    token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+    if not token:
+        raise RuntimeError("TELEGRAM_BOT_TOKEN not set")
+    try:
+        with open(file_path, "rb") as f:
+            r = requests.post(f"{API}/bot{token}/{method}", data=payload,
+                             files={file_field: f}, timeout=TIMEOUT)
+    except requests.RequestException as e:
         raise RuntimeError(f"telegram {method} unreachable: {redact(e)[:300]}") from None
     if not r.ok:
         raise RuntimeError(
@@ -171,6 +199,11 @@ def _video_keyboard(video_url, ts, failed):
         # (frame rate, fetch failure) says nothing about the video itself, and
         # regenerating would burn ZeroGPU quota to produce an equivalent file.
         row.append({"text": "🔄 Retry post", "callback_data": _callback("retry", ts, 0)})
+    # The video is already hosted on gh-pages (TikTok's PULL_FROM_URL requires it) --
+    # unlike the Fanvue image queue, there is no "must not touch GitHub" constraint on
+    # video, so this button just hands the Worker the same URL Retry post already
+    # uses. One click; posts the exact file already generated, no regeneration.
+    row.append({"text": "📮 Post to Fanvue", "callback_data": _callback("fvvid", ts, 0)})
     return {"inline_keyboard": [row]}
 
 
@@ -185,6 +218,69 @@ def send_video(video_url, ts, caption=None, failed=False, chat_id=None):
         "caption": (caption or "")[:1024],
         "reply_markup": _video_keyboard(video_url, ts, failed),
     })["message_id"]
+
+
+def fanvue_chat_id():
+    """The Fanvue review queue's own channel, or the photos one when unset -- same
+    fallback shape as video_chat_id(), so a single-channel setup keeps working."""
+    return (os.environ.get("TELEGRAM_FANVUE_CHAT_ID", "").strip()
+            or os.environ.get("TELEGRAM_CHAT_ID", "").strip())
+
+
+def _fanvue_keyboard():
+    """Approve/Disapprove only -- no Make video, no Good/Bad. Deliberately carries no
+    ts/index: unlike every other button here, this image was never hosted anywhere
+    (send_fanvue_photo uploads local bytes directly, no gh-pages URL exists to look
+    up), so there is nothing in posted.json for a callback to reference. The Worker
+    reads the photo straight off cq.message.photo instead -- the message IS the only
+    copy of this image that exists anywhere."""
+    return {"inline_keyboard": [[
+        {"text": "✅ Approve -> post to Fanvue", "callback_data": "fvpost"},
+        {"text": "🗑 Disapprove", "callback_data": "fvskip"},
+    ]]}
+
+
+def send_fanvue_photo(image_path, prompt=None, model_name=None, chat_id=None):
+    """One Fanvue-queue candidate, uploaded as raw bytes (never a gh-pages URL -- see
+    _fanvue_keyboard's docstring: this image must never touch GitHub at all). The
+    "💜 FANVUE" header is the visual distinction from the TikTok queue's photos the
+    account owner asked for -- same channel by default (fanvue_chat_id() falls back to
+    TELEGRAM_CHAT_ID), different-looking message, different buttons.
+
+    Approve triggers the Worker's onFanvuePost, which downloads this exact message's
+    photo from Telegram, posts it to Fanvue, and ONLY THEN deletes the message -- so a
+    failed Fanvue post leaves the candidate in the channel to retry, never silently
+    drops it."""
+    lines = ["💜 FANVUE -- pending approval"]
+    if model_name:
+        lines.append(f"🧪 {model_name}")
+    if prompt:
+        lines.append(f"📝 {prompt}")
+    return _call_multipart("sendPhoto", {
+        "chat_id": chat_id or fanvue_chat_id(),
+        "caption": "\n\n".join(lines)[:1024],
+        "reply_markup": json.dumps(_fanvue_keyboard()),
+    }, "photo", image_path)["message_id"]
+
+
+def post_fanvue_batch(image_paths, prompts=None, model_name=None, chat_id=None):
+    """Every image from one Fanvue-track batch. Never raises, same reasoning as
+    post_batch(): one failed upload must not cost the rest of an already-generated
+    batch. Returns the message ids it managed to send."""
+    ids = []
+    for i, path in enumerate(image_paths or []):
+        try:
+            prompt = (prompts or [None] * len(image_paths))[i]
+        except IndexError:
+            prompt = None
+        try:
+            ids.append(send_fanvue_photo(path, prompt=prompt, model_name=model_name,
+                                         chat_id=chat_id))
+        except Exception as e:
+            log(f"could not post fanvue image {i} "
+                f"({type(e).__name__}: {redact(e)[:150]})")
+    log(f"posted {len(ids)}/{len(image_paths or [])} images to the fanvue queue")
+    return ids
 
 
 def send_text(text, chat_id=None):

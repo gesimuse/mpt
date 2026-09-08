@@ -11,6 +11,7 @@ import {
   recordRating, readLeaderboard,
 } from "./github.js";
 import { answer, deleteMessage, getFileUrl, api, redact } from "./telegram.js";
+import * as fanvue from "./fanvue.js";
 
 /** callback_data is capped at 64 bytes, so buttons carry ids, not URLs. */
 function parseCallback(data) {
@@ -205,6 +206,59 @@ async function onRate(env, cq, ts, index, verdict) {
   await deleteMessage(env, cq.message.chat.id, cq.message.message_id);
 }
 
+/**
+ * ✅ Approve -> post to Fanvue. The message's own photo IS the only copy of this
+ * image anywhere (send_fanvue_photo uploads bytes directly, never a gh-pages URL --
+ * see telegram.py's _fanvue_keyboard docstring), so there is no posted.json lookup:
+ * everything needed is already on cq.message.
+ *
+ * Deletes the message ONLY after a confirmed successful Fanvue post -- a failed post
+ * (waitlisted token, Fanvue API down, wrong endpoint -- see fanvue.js's own module
+ * docstring on that) leaves the candidate in the channel to retry, never silently
+ * drops the only copy of the image.
+ */
+async function onFanvuePost(env, cq) {
+  const photo = cq.message?.photo;
+  if (!photo?.length) {
+    await answer(env, cq.id, "No photo on this message.", true);
+    return;
+  }
+  const fileUrl = await getFileUrl(env, photo[photo.length - 1].file_id);
+  const bytes = await (await fetch(fileUrl)).arrayBuffer();
+  await fanvue.postImage(env, bytes, cq.message.caption || "");
+  await answer(env, cq.id, "Posted to Fanvue.");
+  await deleteMessage(env, cq.message.chat.id, cq.message.message_id);
+}
+
+/** 🗑 Disapprove: just removes the candidate, no Fanvue call. */
+async function onFanvueSkip(env, cq) {
+  await answer(env, cq.id, "Disapproved.");
+  await deleteMessage(env, cq.message.chat.id, cq.message.message_id);
+}
+
+/**
+ * 📮 Post to Fanvue, on an already-generated and already gh-pages-hosted video (see
+ * telegram.py's _video_keyboard docstring for why video has no "never touch GitHub"
+ * constraint the way images do). Reuses the same video_url lookup onRetry does; does
+ * NOT delete the video message -- unlike the image queue, this button doesn't retire
+ * the candidate, since the same clip may still need its normal TikTok retry/download
+ * too.
+ */
+async function onFanvueVideo(env, cq, ts) {
+  let videoUrl = null;
+  await mutatePostedJson(env, (state) => {
+    videoUrl = (state.uploads || []).find((u) => u.ts === ts)?.video_url || null;
+    return false;
+  }, "");
+  if (!videoUrl) {
+    await answer(env, cq.id, "No hosted mp4 recorded for that entry.", true);
+    return;
+  }
+  const bytes = await (await fetch(videoUrl)).arrayBuffer();
+  await fanvue.postVideo(env, bytes, cq.message.caption || "");
+  await answer(env, cq.id, "Posted to Fanvue.");
+}
+
 async function onRetry(env, cq, ts) {
   let videoUrl = null;
   await mutatePostedJson(env, (state) => {
@@ -229,6 +283,9 @@ async function onCallback(env, cq) {
     if (action === "skip") return await onResolve(env, cq, ts, index, "skipped");
     if (action === "retry") return await onRetry(env, cq, ts);
     if (action === "good" || action === "bad") return await onRate(env, cq, ts, index, action);
+    if (action === "fvpost") return await onFanvuePost(env, cq);
+    if (action === "fvskip") return await onFanvueSkip(env, cq);
+    if (action === "fvvid") return await onFanvueVideo(env, cq, ts);
     await answer(env, cq.id, `Unknown action: ${action}`, true);
   } catch (err) {
     // Always answer, or the button spins forever and the bot looks hung.

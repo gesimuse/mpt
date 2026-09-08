@@ -29,3 +29,8 @@ ALLOWED_CHAT_ID = "-1004449497323,-1004314616972"
 # Raise it here if quality matters more than volume; it is one line and a redeploy.
 VIDEO_STEPS = "8"
 VIDEO_LENGTH_S = "5.0"
+# Fanvue post visibility. See worker/src/fanvue.js for why this whole integration is
+# unverified -- Fanvue's creator API is currently waitlisted, no live account to test
+# against yet. FANVUE_API_TOKEN is a SECRET (wrangler secret put FANVUE_API_TOKEN),
+# not set here, once you have one.
+FANVUE_AUDIENCE = "subscribers"

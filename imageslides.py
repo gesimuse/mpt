@@ -667,6 +667,17 @@ SEXY_CUE = ("smoking hot, seductive, sultry gaze, glamour photography, "
             "curvy hourglass figure, huge perfectly round breasts, perfectly round ass, "
             "deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, "
             "glossy lips, flawless makeup")
+# THE line to edit for Fanvue-specific wording. Identical to SEXY_CUE right now on
+# purpose (2026-09-08: the Fanvue track was built as a plumbing/routing change only --
+# same model, same civitai reference prompt, same cue text -- so the only thing that
+# differs between the TikTok and Fanvue queues today is which Telegram queue an image
+# lands in). Kept as its own constant, not a reference to SEXY_CUE, specifically so a
+# future edit here never touches the TikTok path. See generate_fanvue_variant()'s
+# docstring for where this gets used.
+FANVUE_CUE = ("smoking hot, seductive, sultry gaze, glamour photography, "
+             "curvy hourglass figure, huge perfectly round breasts, perfectly round ass, "
+             "deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, "
+             "glossy lips, flawless makeup")
 # Suppressing the OPPOSITE of SEXY_CUE, which none of the other negatives covered:
 # NEGATIVE_HARD is the safety floor and NEGATIVE_QUALITY is about render defects, so
 # nothing was pushing against a demure, shapeless, plainly-styled result -- the most
@@ -1042,7 +1053,7 @@ def _build_subject(state=None):
     return f"{SAFETY_PREFIX}, {subject['desc']}, {face}", subject["look"]
 
 
-def _build_prefix(niche, reference, state=None):
+def _build_prefix(niche, reference, state=None, cue=None):
     """Returns (prefix, vibe, look) -- vibe is the theme's short human description,
     threaded through to caption_writer.write() so the post's caption/hashtags are
     actually about this batch's moment; look is which SUBJECTS entry the subject came
@@ -1053,7 +1064,12 @@ def _build_prefix(niche, reference, state=None):
     decide_reference runs for checkpoints -- and excludes the themes and subjects used
     in the last few batches outright. The weighting alone is not enough for variety;
     it actively pushes TOWARD repetition, since a theme that keeps passing QA keeps
-    winning. Without state, both fall back to a plain uniform pick."""
+    winning. Without state, both fall back to a plain uniform pick.
+
+    cue, when given, replaces SEXY_CUE -- generate_fanvue_variant() passes FANVUE_CUE
+    so the Fanvue queue's wording can diverge from TikTok's without a second copy of
+    this whole function."""
+    cue = SEXY_CUE if cue is None else cue
     # An explicit outfit/location is only injected when the reference prompt does not
     # already name one -- appending "wearing jeans and a coat" onto a prompt that
     # already says "wearing a black dress" (or "poolside cabana" onto "in a bustling
@@ -1076,7 +1092,7 @@ def _build_prefix(niche, reference, state=None):
     setting = "" if _LOCATION_RE.search(reference["prompt"]) else f"{theme['location']}, "
     realism = ("" if _REALISM_RE.search(reference["prompt"])
               else f", {random.choice(REALISM_STYLES)}")
-    prefix = f"{subject}, {SEXY_CUE}, {clothing}{setting}{theme['mood']}{realism}"
+    prefix = f"{subject}, {cue}, {clothing}{setting}{theme['mood']}{realism}"
     return prefix, theme["vibe"], look
 
 
@@ -1286,6 +1302,7 @@ def generate(niche, count=None, workdir=None, max_rounds=2, state=None, model_in
             kept = broken_generations[:max_images]
             if model_info is not None:
                 model_info["spec"], model_info["name"] = civitai_spec, resolved["name"]
+                model_info["resolved"], model_info["reference"] = resolved, reference
             return kept, vibe, look, [prompt_by_path.get(str(p)) for p in kept]
         raise RuntimeError(
             f"only {len(approved)} of {generated_count} images passed review across "
@@ -1294,4 +1311,62 @@ def generate(niche, count=None, workdir=None, max_rounds=2, state=None, model_in
     kept = approved[:max_images]
     if model_info is not None:
         model_info["spec"], model_info["name"] = civitai_spec, resolved["name"]
+        # resolved/reference: the exact checkpoint + harvested civitai prompt this
+        # batch used, so generate_fanvue_variant() (see below) can reuse both instead
+        # of a second CivitAI decision -- "same model, same base prompt from civitai"
+        # for the Fanvue queue means literally these two objects, not a re-search.
+        model_info["resolved"], model_info["reference"] = resolved, reference
     return kept, vibe, look, [prompt_by_path.get(str(p)) for p in kept]
+
+
+def generate_fanvue_variant(niche, resolved, reference, count, workdir, state=None):
+    """A second, independent photoset for the Fanvue review queue, reusing the exact
+    checkpoint (resolved) and harvested civitai reference prompt (reference) an
+    aibeauty batch's generate() already decided on and QA'd -- same model, same
+    civitai base prompt, only FANVUE_CUE swapping in for SEXY_CUE (see that constant's
+    own comment for how to change Fanvue-specific wording without touching TikTok's).
+
+    Deliberately much simpler than generate(): ONE round, no retry, no re-deciding a
+    checkpoint on a bad round. This runs alongside a TikTok batch that has already
+    succeeded (draft queued, images posted) by the time this is called -- if this
+    comes up short or empty, the run has already done its job, so failing loudly or
+    burning a second expensive multi-round retry here would be wrong. Callers should
+    treat a short/empty result as "fewer Fanvue candidates this run", never as an
+    error.
+
+    Runs supervisor.py's QA (age/anatomy/ethnicity hard gates -- unrelated to which
+    platform the image is headed to) exactly like the TikTok path; this pipeline's
+    safety floor does not change per destination.
+
+    Returns (image_paths, image_prompts) -- image_prompts is per-image, same order,
+    same convention as generate()'s own 4th return value. Both lists may be empty; no
+    exception on a normal shortfall (sdgen/supervisor missing is also silent-empty --
+    the caller only reaches this from the same code path generate() already required
+    them for)."""
+    if sdgen is None or supervisor is None:
+        return [], []
+    civitai_spec = f"{resolved['model_id']}:{resolved['version_id']}"
+    prefix, _vibe, _look = _build_prefix(niche, reference, state=state, cue=FANVUE_CUE)
+    base_negative = ", ".join(
+        x for x in (NEGATIVE_HARD, reference["negative_prompt"], NEGATIVE_QUALITY,
+                    NEGATIVE_MODEST) if x)
+    prompts, negatives = build_variations(prefix, reference["prompt"], base_negative,
+                                          count, niche)
+    adopted = _adopted_settings(reference)
+    try:
+        generated = sdgen.generate_batch(
+            prompts, workdir, negative_prompts=negatives, civitai_model=civitai_spec,
+            **adopted)
+    except RuntimeError as e:
+        log(f"fanvue variant: checkpoint unusable ({str(e)[:150]})")
+        return [], []
+    prompt_by_path = {}
+    for path in generated:
+        m = re.search(r"sd_(\d+)\.[^.]+$", str(path))
+        if m and int(m.group(1)) < len(prompts):
+            prompt_by_path[str(path)] = prompts[int(m.group(1))]
+    supervisor_on = os.environ.get("SUPERVISOR_ENABLED", "1").strip().lower() not in (
+        "0", "false", "no")
+    approved = list(supervisor.filter_images(generated)) if supervisor_on else generated
+    log(f"fanvue variant: {len(approved)}/{len(generated)} passed QA")
+    return approved, [prompt_by_path.get(str(p)) for p in approved]
