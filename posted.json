@@ -4142,6 +4142,26 @@
           "message_id": 37
         }
       }
+    },
+    {
+      "niche": "aibeautyvideo",
+      "topic": "video 20260908-195958",
+      "title": "Feeling myself today",
+      "tiktok": true,
+      "tiktok_via": "inbox_video",
+      "tiktok_post_id": "v_inbox_url~v2.7683257216668895254",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_fail_reason": null,
+      "tiktok_caption": "Feeling myself today\n\nCreated with AI.\n\n#artificialintelligence #generativeart #sultrymood #confidenceativibes #bodypositivity",
+      "video_url": "https://gesimuse.github.io/mpt/media/1788897714-final.mp4",
+      "ts": "2026-09-08T20:03:11",
+      "motionforge_source_url": "https://gesimuse.github.io/mpt/media/1788870134-sd_5.jpg",
+      "telegram_message_ids": {
+        "https://gesimuse.github.io/mpt/media/1788897714-final.mp4": {
+          "chat_id": "-1004314616972",
+          "message_id": 38
+        }
+      }
     }
   ],
   "model_stats": {
