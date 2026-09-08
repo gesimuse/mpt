@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-08T04:18:30 — aibeautyvideo
+
+```
+Body Language Says It All
+
+Created with AI.
+
+#generativeart #artificialintelligence #confidentaesthetic #modelvibes #fashionforwardart
+```
+
 ## 2026-09-07T18:31:06 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ I'd rather get lost in the grey
 Created with AI.
 
 #chainofbeauty #novemberrain #atmosphericartai #darkart #milan_streetart
-```
-
-## 2026-09-06T18:22:36 — aibeautyvideo
-
-```
-Conversation starts with a curve
-
-Created with AI.
-
-#portraitmode #lowpolyart #digitalelegance
 ```
