@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-08T04:23:50 — aibeautyvideo
+
+```
+curves, no apologies
+
+Created with AI.
+
+#aiart #digitalart #bodypositivity #fitnessmotivation #waifuart
+```
+
 ## 2026-09-08T04:18:30 — aibeautyvideo
 
 ```
@@ -88,14 +98,4 @@ Love my curves
 Created with AI.
 
 #digitalart #portraitphotography #femininity #squeeze
-```
-
-## 2026-09-07T10:42:14 — aibeauty
-
-```
-I'd rather get lost in the grey
-
-Created with AI.
-
-#chainofbeauty #novemberrain #atmosphericartai #darkart #milan_streetart
 ```
