@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-08T12:25:52 — aibeauty
+
+```
+Last night was a wet kiss
+
+Created with AI.
+
+#rainydays #artificialintelligence #generativeart #romanticmood #aiart
+```
+
 ## 2026-09-08T04:23:50 — aibeautyvideo
 
 ```
@@ -88,14 +98,4 @@ When the view from behind is everything
 Created with AI.
 
 #aiart #generativeart #artificialdreams #artforfun #silhouettes
-```
-
-## 2026-09-07T10:58:25 — aibeautyvideo
-
-```
-Love my curves
-
-Created with AI.
-
-#digitalart #portraitphotography #femininity #squeeze
 ```
