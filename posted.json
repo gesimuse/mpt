@@ -4121,6 +4121,26 @@
         }
       },
       "owner_verdict": "skipped"
+    },
+    {
+      "niche": "aibeautyvideo",
+      "topic": "video 20260908-184326",
+      "title": "Feeling myself",
+      "tiktok": true,
+      "tiktok_via": "inbox_video",
+      "tiktok_post_id": "v_inbox_url~v2.7683237257125365782",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_fail_reason": null,
+      "tiktok_caption": "Feeling myself\n\nCreated with AI.\n\n#digitalart #gallery_of_excellence #sensual #selflove #confidenceportrait",
+      "video_url": "https://gesimuse.github.io/mpt/media/1788893097-final.mp4",
+      "ts": "2026-09-08T18:46:22",
+      "motionforge_source_url": "https://gesimuse.github.io/mpt/media/1788888812-sd_9.jpg",
+      "telegram_message_ids": {
+        "https://gesimuse.github.io/mpt/media/1788893097-final.mp4": {
+          "chat_id": "-1004314616972",
+          "message_id": 37
+        }
+      }
     }
   ],
   "model_stats": {

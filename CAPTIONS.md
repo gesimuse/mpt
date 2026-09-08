@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-08T18:46:22 — aibeautyvideo
+
+```
+Feeling myself
+
+Created with AI.
+
+#digitalart #gallery_of_excellence #sensual #selflove #confidenceportrait
+```
+
 ## 2026-09-08T17:34:25 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ secrets are kept at the last table
 Created with AI.
 
 #aiart #digitalart #lowkeyvibes #barlife #neonnoir
-```
-
-## 2026-09-07T18:05:19 — aibeautyvideo
-
-```
-Turning heads from behind
-
-Created with AI.
-
-#datascapes #digitalart #urbanbeauty #citylife #artofcreativity
 ```
