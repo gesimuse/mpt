@@ -279,6 +279,35 @@ class ImageSlideshowTest(unittest.TestCase):
         self.assertEqual(seen["civitai_model"], "4201:130072")
         self.assertTrue(all(imageslides.FANVUE_CUE in p for p in seen["prompts"]))
 
+    def test_generate_fanvue_variant_uses_its_own_negatives_but_shares_the_hard_floor(self):
+        """FANVUE_NEGATIVE_QUALITY/FANVUE_NEGATIVE_MODEST are separate constants from
+        NEGATIVE_QUALITY/NEGATIVE_MODEST (on request, so Fanvue's negatives can diverge
+        without touching TikTok's) -- but NEGATIVE_HARD, the actual safety floor, is
+        deliberately shared, not forked. Checked in the source, not by runtime object
+        identity (CPython may or may not intern equal string literals -- not a
+        contract to rely on): neither Fanvue constant is written as a bare alias of
+        its TikTok counterpart."""
+        src = Path(__file__).parent.joinpath("imageslides.py").read_text()
+        self.assertNotIn("FANVUE_NEGATIVE_QUALITY = NEGATIVE_QUALITY", src)
+        self.assertNotIn("FANVUE_NEGATIVE_MODEST = NEGATIVE_MODEST", src)
+        resolved = {"model_id": 1, "version_id": 2, "name": "Test Model"}
+        reference = {"prompt": "a prompt", "negative_prompt": "a ref negative"}
+        seen = {}
+
+        def spy_generate_batch(prompts, workdir, negative_prompts=None, **kw):
+            seen["negatives"] = negative_prompts
+            return [Path(f"/tmp/img_{i}.png") for i in range(3)]
+
+        with mock.patch.object(imageslides.sdgen, "generate_batch", spy_generate_batch), \
+             mock.patch.object(imageslides.supervisor, "filter_images", lambda p: p), \
+             tempfile.TemporaryDirectory() as tmp:
+            imageslides.generate_fanvue_variant(self.AIBEAUTY, resolved, reference, 3, tmp)
+        neg = seen["negatives"][0]
+        self.assertIn(imageslides.NEGATIVE_HARD, neg)
+        self.assertIn(imageslides.FANVUE_NEGATIVE_QUALITY, neg)
+        self.assertIn(imageslides.FANVUE_NEGATIVE_MODEST, neg)
+        self.assertIn("a ref negative", neg)
+
     def test_generate_fanvue_variant_never_raises_on_a_bad_checkpoint(self):
         """One-round, best-effort: the TikTok batch this runs alongside has already
         succeeded, so a Fanvue-side failure must degrade to an empty result, never an

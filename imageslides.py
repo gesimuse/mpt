@@ -698,6 +698,25 @@ NEGATIVE_QUALITY = ("cartoon, illustration, painting, anime, 3d render, deformed
                     "mutated hands, deformed hands, bad hands, malformed hands, "
                     "extra hands, missing hands, bad anatomy, blurry, watermark, "
                     "text, logo, malformed")
+# THE lines to edit for Fanvue-specific negatives -- same split as FANVUE_CUE (see
+# that constant's own comment): identical text to NEGATIVE_MODEST/NEGATIVE_QUALITY
+# right now, kept as separate constants so an edit here never touches TikTok's.
+#
+# NEGATIVE_HARD is deliberately NOT forked. It is the hard safety floor (no nudity/
+# minors/explicit -- see this module's own "Content policy" docstring at the top),
+# shared by every destination this pipeline generates for, TikTok or Fanvue. Nothing
+# about which platform an image is headed to changes that floor; generate_fanvue_
+# variant() below uses the same NEGATIVE_HARD the TikTok path does, on purpose, not
+# by oversight.
+FANVUE_NEGATIVE_MODEST = ("modest clothing, frumpy, shapeless, "
+                          "unflattering outfit, plain styling, flat chest, "
+                          "androgynous, masculine features, dowdy, "
+                          "fat, overweight, obese, chubby, plus size")
+FANVUE_NEGATIVE_QUALITY = ("cartoon, illustration, painting, anime, 3d render, deformed, "
+                           "extra fingers, missing fingers, fused fingers, extra limbs, "
+                           "mutated hands, deformed hands, bad hands, malformed hands, "
+                           "extra hands, missing hands, bad anatomy, blurry, watermark, "
+                           "text, logo, malformed")
 
 
 def log(msg): print(f"[imageslides] {msg}", flush=True)
@@ -1323,8 +1342,11 @@ def generate_fanvue_variant(niche, resolved, reference, count, workdir, state=No
     """A second, independent photoset for the Fanvue review queue, reusing the exact
     checkpoint (resolved) and harvested civitai reference prompt (reference) an
     aibeauty batch's generate() already decided on and QA'd -- same model, same
-    civitai base prompt, only FANVUE_CUE swapping in for SEXY_CUE (see that constant's
-    own comment for how to change Fanvue-specific wording without touching TikTok's).
+    civitai base prompt. FANVUE_CUE swaps in for SEXY_CUE and FANVUE_NEGATIVE_QUALITY/
+    FANVUE_NEGATIVE_MODEST swap in for NEGATIVE_QUALITY/NEGATIVE_MODEST (see those
+    constants' own comments for how to change Fanvue-specific wording without
+    touching TikTok's). NEGATIVE_HARD -- the actual safety floor -- is shared, not
+    forked; see its own comment for why.
 
     Deliberately much simpler than generate(): ONE round, no retry, no re-deciding a
     checkpoint on a bad round. This runs alongside a TikTok batch that has already
@@ -1347,9 +1369,12 @@ def generate_fanvue_variant(niche, resolved, reference, count, workdir, state=No
         return [], []
     civitai_spec = f"{resolved['model_id']}:{resolved['version_id']}"
     prefix, _vibe, _look = _build_prefix(niche, reference, state=state, cue=FANVUE_CUE)
+    # NEGATIVE_HARD is shared with the TikTok path on purpose -- see its own comment
+    # above FANVUE_NEGATIVE_MODEST/FANVUE_NEGATIVE_QUALITY for why that one specific
+    # negative never forks per destination.
     base_negative = ", ".join(
-        x for x in (NEGATIVE_HARD, reference["negative_prompt"], NEGATIVE_QUALITY,
-                    NEGATIVE_MODEST) if x)
+        x for x in (NEGATIVE_HARD, reference["negative_prompt"], FANVUE_NEGATIVE_QUALITY,
+                    FANVUE_NEGATIVE_MODEST) if x)
     prompts, negatives = build_variations(prefix, reference["prompt"], base_negative,
                                           count, niche)
     adopted = _adopted_settings(reference)
