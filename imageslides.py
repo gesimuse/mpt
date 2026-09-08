@@ -61,7 +61,7 @@ DEFAULT_THEMES = [
     {"vibe": "a lazy morning at home",
      "outfit": "wearing a lace-trim camisole and matching shorts, loungewear at home",
      "location": "in a dimly lit bedroom, silk sheets",
-     "mood": "relaxed sultry pose, soft lighting"},
+     "mood": "relaxed and unguarded, soft lighting"},
     {"vibe": "a sunny beach day",
      "outfit": "wearing a two-piece bikini, beach setting",
      "location": "on a beach at sunset, waves in the background",
@@ -69,11 +69,11 @@ DEFAULT_THEMES = [
     {"vibe": "poolside at a luxury villa",
      "outfit": "wearing a string bikini, beach setting",
      "location": "poolside at a luxury villa, golden hour",
-     "mood": "confident sultry gaze, alluring pose"},
+     "mood": "confident sultry gaze, caught mid-glance"},
     {"vibe": "getting ready for a night out",
      "outfit": "wearing a fitted bodycon mini dress and heels",
      "location": "backstage in a dressing room, mirror lights",
-     "mood": "flirty smile, relaxed confident posture"},
+     "mood": "flirty smile, caught mid-laugh"},
     {"vibe": "a rooftop bar at night",
      "outfit": "wearing a cut-out bodycon dress with side cutouts",
      "location": "on a rooftop bar at night, neon lighting",
@@ -81,7 +81,7 @@ DEFAULT_THEMES = [
     {"vibe": "a quiet night in a hotel room",
      "outfit": "wearing a satin slip dress with thin straps",
      "location": "in a hotel room, city lights through the window",
-     "mood": "lying back, relaxed sultry pose, soft lighting"},
+     "mood": "lying back, unguarded and relaxed, soft lighting"},
     {"vibe": "candlelight and quiet",
      "outfit": "wearing a lace lingerie set with a silk robe draped open",
      "location": "in a candlelit bathtub, warm ambient light",
@@ -109,11 +109,11 @@ DEFAULT_THEMES = [
     {"vibe": "an evening in, curves and candlelight",
      "outfit": "wearing a tight, clingy bodycon dress that hugs every curve",
      "location": "in a red velvet lounge, moody dramatic lighting",
-     "mood": "arched back pose, confident sultry expression"},
+     "mood": "back arching as she stretches, confident sultry expression"},
     {"vibe": "just out of the pool",
      "outfit": "wearing a wet white t-shirt clinging to her figure, poolside",
      "location": "poolside at a luxury villa, golden hour",
-     "mood": "tight clingy fabric, curves accentuated, sultry pose"},
+     "mood": "tight clingy fabric, curves accentuated, caught mid-step"},
     # --- Everything above is one register: bedroom, pool, hotel, bathtub, rooftop.
     # Fourteen entries, one idea. The batches read as interchangeable even when the
     # theme technically changed, which is what "very similar with previous
@@ -167,6 +167,68 @@ DEFAULT_THEMES = [
      "outfit": "wearing a silk blouse half-tucked into tailored trousers",
      "location": "in a dim jazz bar, brass and low amber light",
      "mood": "chin on hand, unhurried, watching the room"},
+    # --- Activity-driven: she is doing something, not just standing somewhere
+    # dressed for it, and not posed for it either -- an explicit correction from the
+    # account owner ("must NOT always pose"). Every mood below is a moment caught
+    # mid-motion (mid-stretch, mid-stride, mid-spin, reclining, pausing), not a held
+    # pose -- pairs with CANDID_REALISM_CUE's own candid-snapshot framing instead of
+    # fighting it.
+    {"vibe": "yoga at sunrise",
+     "outfit": "wearing a fitted sports bra and high-waisted yoga leggings",
+     "location": "on a rooftop at sunrise, city skyline hazy behind her",
+     "mood": "mid-stretch, calm focused expression, glowing skin"},
+    {"vibe": "morning in the kitchen",
+     "outfit": "wearing an oversized shirt with nothing underneath, sleeves rolled up",
+     "location": "in a sunlit kitchen, coffee steam rising",
+     "mood": "leaning on the counter, playful over-the-shoulder glance"},
+    {"vibe": "tending the garden",
+     "outfit": "wearing a fitted tank top and denim overalls, unclipped on one side",
+     "location": "kneeling in a sunlit flower garden, wide-brimmed hat",
+     "mood": "dirt on her hands, easy candid smile"},
+    {"vibe": "a walk with the dog",
+     "outfit": "wearing a cropped hoodie and bike shorts",
+     "location": "on a tree-lined park path, dog leash in hand",
+     "mood": "laughing mid-stride, windswept hair"},
+    {"vibe": "the farmers market",
+     "outfit": "wearing a fitted tank top and a flowing midi skirt",
+     "location": "at an outdoor farmers market, stalls of flowers and fruit",
+     "mood": "holding a bouquet, warm relaxed smile"},
+    {"vibe": "out of the surf",
+     "outfit": "wearing a wet bikini, surfboard under one arm",
+     "location": "walking out of the ocean at a surf beach, waves behind her",
+     "mood": "hair slicked back, confident stride, water dripping"},
+    {"vibe": "an afternoon on horseback",
+     "outfit": "wearing a fitted riding top and tight jeans",
+     "location": "at a sunlit ranch, a horse beside her",
+     "mood": "hand on the horse's mane, windblown hair, easy smile"},
+    {"vibe": "paint-stained studio",
+     "outfit": "wearing a paint-splattered oversized shirt, bare legs",
+     "location": "in a sunlit art studio, canvases leaning against the wall",
+     "mood": "paint-smudged fingers, focused creative energy"},
+    {"vibe": "dancing in the living room",
+     "outfit": "wearing an oversized t-shirt slipping off one shoulder",
+     "location": "in a sunlit living room, records scattered on the floor",
+     "mood": "mid-spin, hair in motion, carefree laugh"},
+    {"vibe": "roller skating on the boardwalk",
+     "outfit": "wearing a cropped tank top and high-waisted shorts, roller skates",
+     "location": "on a beachside boardwalk, ocean behind her",
+     "mood": "arms out for balance, sunlit windblown hair"},
+    {"vibe": "a picnic in the meadow",
+     "outfit": "wearing a fitted crop top and a flowy skirt",
+     "location": "on a blanket in a sunlit wildflower meadow",
+     "mood": "reclining on one elbow, relaxed sunlit smile"},
+    {"vibe": "a ridge trail at golden hour",
+     "outfit": "wearing a fitted hiking tank and trail shorts",
+     "location": "on a mountain ridge trail at golden hour, valley below",
+     "mood": "pausing to look back, windswept, easy confident smile"},
+    {"vibe": "laundry day",
+     "outfit": "wearing an oversized button-down, mostly unbuttoned",
+     "location": "in a sunlit bedroom, laundry basket on the bed",
+     "mood": "folding clothes, playful over-the-shoulder glance"},
+    {"vibe": "skateboarding downtown",
+     "outfit": "wearing a cropped tank top and baggy jeans",
+     "location": "in an empty downtown parking lot, graffiti wall behind her",
+     "mood": "mid-push on the skateboard, confident grin"},
 ]
 # "studio" deliberately excluded: it's ubiquitous photography jargon ("studio light",
 # "studio backdrop"), not a narrative setting -- including it meant almost every real
@@ -356,8 +418,15 @@ SUBJECTS = [
 # figure/styling nouns (hourglass, cleavage, waist, legs) and to a named photographic
 # genre (glamour/boudoir editorial) than to being told the subject is "sexy". Stays
 # inside NEGATIVE_HARD's line: suggestive and figure-forward, never undressed.
+#
+# "natural" (huge/round natural breasts and ass) was tried and dropped again on
+# explicit operator request, twice -- "avoid natural" here specifically, not the
+# unrelated "natural skin texture"/"natural light"/"natural curls" elsewhere in this
+# file (texture, lighting, hair -- a different word for a different thing). Body
+# shape wording is "round"/"perfectly round", no "natural" qualifier, everywhere
+# this pipeline describes breasts or ass.
 SEXY_CUE = ("smoking hot, seductive, sultry gaze, glamour photography, "
-            "curvy hourglass figure, huge natural breasts, curvy natural ass, "
+            "curvy hourglass figure, huge perfectly round breasts, perfectly round ass, "
             "deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, "
             "glossy lips, flawless makeup")
 # Suppressing the OPPOSITE of SEXY_CUE, which none of the other negatives covered:
@@ -619,9 +688,9 @@ CAMERA_MODIFIERS = [
     # None of the above ever actually asked for full-body framing -- "medium shot",
     # "three-quarter view" etc. read as waist-up in practice, so the whole mix skewed
     # portrait/closeup regardless of which reference prompt got picked.
-    "full body shot, standing pose, wide framing",
-    "full length shot, head to toe, natural stance",
-    "full body portrait, standing, wide angle",
+    "full body shot, caught mid-motion, wide framing",
+    "full length shot, head to toe, candid moment",
+    "full body portrait, mid-stride, wide angle",
 ]
 
 
