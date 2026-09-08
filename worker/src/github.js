@@ -112,24 +112,28 @@ export async function mutateJsonFile(env, path, mutate, message) {
 }
 
 /**
- * +1 to a checkpoint's score and +1 to that specific SD prompt's own score under it,
- * in model_leaderboard.json -- what the Telegram 👍 Good button records. spec is the
- * canonical "model_id:version_id" key (same as posted.json/model_stats); name is the
- * checkpoint's display name; prompt is the exact per-image SD prompt being rated.
+ * delta to a checkpoint's score and the same delta to that specific SD prompt's own
+ * score under it, in model_leaderboard.json -- what the Telegram 👍 Good (+1) and
+ * 👎 Not good (-1) buttons record. spec is the canonical "model_id:version_id" key
+ * (same as posted.json/model_stats); name is the checkpoint's display name; prompt
+ * is the exact per-image SD prompt being rated. A model/prompt that has only ever
+ * been rated bad ends up with a negative score, on purpose -- the leaderboard is a
+ * net score, not a good-only tally, so a consistently-bad combo actually sorts to
+ * the bottom instead of just sitting at 0 forever like an unrated one.
  */
-export async function recordGoodRating(env, spec, name, prompt) {
+export async function recordRating(env, spec, name, prompt, delta) {
   return mutateJsonFile(env, "model_leaderboard.json", (state) => {
     state.models = state.models || {};
     const model = state.models[spec] || (state.models[spec] = {
       name: name || spec, score: 0, prompts: {},
     });
     if (name) model.name = name; // keep the latest name; checkpoints get renamed
-    model.score += 1;
+    model.score += delta;
     if (prompt) {
       const p = model.prompts[prompt] || (model.prompts[prompt] = { score: 0 });
-      p.score += 1;
+      p.score += delta;
     }
-  }, `telegram: +1 good (${name || spec})`);
+  }, `telegram: ${delta > 0 ? "+1 good" : "-1 bad"} (${name || spec})`);
 }
 
 /** Read model_leaderboard.json as-is, or {models: {}} if it has never been written. */

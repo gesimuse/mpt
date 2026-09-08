@@ -123,9 +123,10 @@ def _image_keyboard(ts, index):
     image (send_image's model_name/image_prompt), not of whether the post got used --
     a photo can be a bad TikTok fit (wrong vibe, Skip) while still being exactly what
     that model+prompt combo reliably renders (Good), and the two must not be
-    conflated. The Worker adds a Good press to model_leaderboard.json (model score +1,
-    that prompt's own score +1 under it) and ignores Bad past removing the message --
-    there is no "bad" ledger, only what got a point and what did not."""
+    conflated. The Worker writes both to model_leaderboard.json: Good is +1 to the
+    model's score and to that prompt's own score under it, Bad is -1 to both -- a net
+    score, so a combo that keeps getting rated bad actually sorts below an unrated
+    one instead of both reading as 0."""
     return {"inline_keyboard": [[
         {"text": "🎬 Make video", "callback_data": _callback("vid", ts, index)},
     ], [

@@ -8,7 +8,7 @@
  */
 import {
   dispatchWorkflow, mutatePostedJson, hostOnPages, recordUnknownChat,
-  recordGoodRating, readLeaderboard,
+  recordRating, readLeaderboard,
 } from "./github.js";
 import { answer, deleteMessage, getFileUrl, api, redact } from "./telegram.js";
 
@@ -169,10 +169,11 @@ async function onResolve(env, cq, ts, index, verdict) {
 /**
  * 👍 Good / 👎 Not good: a rating of the CHECKPOINT + SD PROMPT that produced this
  * image, separate from Done/Skip's "was the post itself worth using" verdict (see
- * telegram._image_keyboard's docstring). Only Good writes anything -- there is no
- * "bad" ledger, model_leaderboard.json only ever counts what earned a point. Both
- * remove the message, same as Done/Skip: rating it is what "mark as good or not"
- * means to press.
+ * telegram._image_keyboard's docstring). Both write to model_leaderboard.json now --
+ * Good is +1, Not good is -1, same model+prompt keys, so the score is a genuine net
+ * rating instead of a good-only tally that can't tell "never rated" from "rated bad
+ * every time" apart (both used to read as 0). Both remove the message, same as
+ * Done/Skip: rating it is what "mark as good or not" means to press.
  */
 async function onRate(env, cq, ts, index, verdict) {
   let spec = null, name = null, prompt = null, found = false;
@@ -189,19 +190,18 @@ async function onRate(env, cq, ts, index, verdict) {
     await answer(env, cq.id, "That batch is no longer in posted.json.", true);
     return;
   }
-  if (verdict === "good") {
-    if (spec) {
-      await recordGoodRating(env, spec, name, prompt);
-    } else {
-      // Older batches (before model_spec was recorded) or a manually-uploaded
-      // photo have nothing to credit. Still remove the message -- "mark as good or
-      // not" should never get stuck on a button that can't do its job.
-      await answer(env, cq.id, "No model recorded for this image; not counted.", true);
-      await deleteMessage(env, cq.message.chat.id, cq.message.message_id);
-      return;
-    }
+  if (spec) {
+    await recordRating(env, spec, name, prompt, verdict === "good" ? 1 : -1);
+  } else {
+    // Older batches (before model_spec was recorded) or a manually-uploaded photo
+    // have nothing to credit or debit. Still remove the message -- "mark as good or
+    // not" should never get stuck on a button that can't do its job.
+    await answer(env, cq.id, "No model recorded for this image; not counted.", true);
+    await deleteMessage(env, cq.message.chat.id, cq.message.message_id);
+    return;
   }
-  await answer(env, cq.id, verdict === "good" ? "+1 to that model and prompt." : "Noted.");
+  await answer(env, cq.id,
+    verdict === "good" ? "+1 to that model and prompt." : "-1 to that model and prompt.");
   await deleteMessage(env, cq.message.chat.id, cq.message.message_id);
 }
 
