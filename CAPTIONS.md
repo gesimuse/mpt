@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-09T10:09:15 — aibeauty
+
+```
+Nights like these belong to me.
+
+Created with AI.
+
+#artificialintelligenceart #digitaldreams #dancehallvibes #nightlifeaesthetic #electronicmood
+```
+
 ## 2026-09-08T20:03:11 — aibeautyvideo
 
 ```
@@ -88,14 +98,4 @@ curves, no apologies
 Created with AI.
 
 #aiart #digitalart #bodypositivity #fitnessmotivation #waifuart
-```
-
-## 2026-09-08T04:18:30 — aibeautyvideo
-
-```
-Body Language Says It All
-
-Created with AI.
-
-#generativeart #artificialintelligence #confidentaesthetic #modelvibes #fashionforwardart
 ```
