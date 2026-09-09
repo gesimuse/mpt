@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-09T16:09:00 — aibeauty
+
+```
+lost in the spin
+
+Created with AI.
+
+#aiart #artgeneration #ceramiclove #potterystudio #handbuilt
+```
+
 ## 2026-09-09T14:18:20 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ When the city smells sweet at night
 Created with AI.
 
 #generativeart #digitalbrushstrokes #citynightsinpictures #moodlamp #femaleformations
-```
-
-## 2026-09-08T13:52:36 — aibeauty
-
-```
-Leaving it all behind
-
-Created with AI.
-
-#aiart #generativeart #adventurouspirit #freedomvibes #blurredlines
 ```
