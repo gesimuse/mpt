@@ -4257,6 +4257,26 @@
         }
       },
       "owner_verdict": "skipped"
+    },
+    {
+      "niche": "aibeautyvideo",
+      "topic": "video 20260909-101805",
+      "title": "Spinning into the spotlight like nobody's watching",
+      "tiktok": true,
+      "tiktok_via": "inbox_video",
+      "tiktok_post_id": "v_inbox_url~v2.7683478155160356886",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_fail_reason": null,
+      "tiktok_caption": "Spinning into the spotlight like nobody's watching\n\nCreated with AI.\n\n#aiart #generativewatercolor #abstractexpressionism #digitaldance #neurorendering",
+      "video_url": "https://gesimuse.github.io/mpt/media/1788949171-final.mp4",
+      "ts": "2026-09-09T10:20:45",
+      "motionforge_source_url": "https://gesimuse.github.io/mpt/media/1788888685-sd_7.jpg",
+      "telegram_message_ids": {
+        "https://gesimuse.github.io/mpt/media/1788949171-final.mp4": {
+          "chat_id": "-1004314616972",
+          "message_id": 39
+        }
+      }
     }
   ],
   "model_stats": {

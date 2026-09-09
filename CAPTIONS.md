@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-09T10:20:45 — aibeautyvideo
+
+```
+Spinning into the spotlight like nobody's watching
+
+Created with AI.
+
+#aiart #generativewatercolor #abstractexpressionism #digitaldance #neurorendering
+```
+
 ## 2026-09-09T10:09:15 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Soft light, softer smile.
 Created with AI.
 
 #aiart #aigenerated #aiphotography #confident
-```
-
-## 2026-09-08T04:23:50 — aibeautyvideo
-
-```
-curves, no apologies
-
-Created with AI.
-
-#aiart #digitalart #bodypositivity #fitnessmotivation #waifuart
 ```
