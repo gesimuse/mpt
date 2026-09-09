@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-09T18:08:39 — aibeautyvideo
+
+```
+Feeling a little too confident in my own skin
+
+Created with AI.
+
+#artificialintimacy #genaiart #surrealismvibes #bodylove #digitalflirt
+```
+
 ## 2026-09-09T17:31:16 — aibeautyvideo
 
 ```
@@ -88,14 +98,4 @@ Feeling myself
 Created with AI.
 
 #digitalart #gallery_of_excellence #sensual #selflove #confidenceportrait
-```
-
-## 2026-09-08T17:34:25 — aibeauty
-
-```
-freedom found
-
-Created with AI.
-
-#aiart #stylizedphotography #catamaranvibes #islandlifeadventures #sunsetlove
 ```

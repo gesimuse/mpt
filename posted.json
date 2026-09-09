@@ -4676,6 +4676,26 @@
           "message_id": 40
         }
       }
+    },
+    {
+      "niche": "aibeautyvideo",
+      "topic": "video 20260909-180512",
+      "title": "Feeling a little too confident in my own skin",
+      "tiktok": true,
+      "tiktok_via": "inbox_video",
+      "tiktok_post_id": "v_inbox_url~v2.7683598714501826582",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_fail_reason": null,
+      "tiktok_caption": "Feeling a little too confident in my own skin\n\nCreated with AI.\n\n#artificialintimacy #genaiart #surrealismvibes #bodylove #digitalflirt",
+      "video_url": "https://gesimuse.github.io/mpt/media/1788977241-final.mp4",
+      "ts": "2026-09-09T18:08:39",
+      "motionforge_source_url": "https://gesimuse.github.io/mpt/media/1788969842-sd_7.jpg",
+      "telegram_message_ids": {
+        "https://gesimuse.github.io/mpt/media/1788977241-final.mp4": {
+          "chat_id": "-1004314616972",
+          "message_id": 41
+        }
+      }
     }
   ],
   "model_stats": {
