@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-09T12:39:40 — aibeauty
+
+```
+When the muse is messy
+
+Created with AI.
+
+#digitalart #artoftheday #surrealart #mixmedia #aiartstyle
+```
+
 ## 2026-09-09T10:20:45 — aibeautyvideo
 
 ```
@@ -88,14 +98,4 @@ Last night was a wet kiss
 Created with AI.
 
 #rainydays #artificialintelligence #generativeart #romanticmood #aiart
-```
-
-## 2026-09-08T08:26:17 — aibeauty
-
-```
-Soft light, softer smile.
-
-Created with AI.
-
-#aiart #aigenerated #aiphotography #confident
 ```
