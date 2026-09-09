@@ -4582,7 +4582,7 @@
         "https://gesimuse.github.io/mpt/media/1788974570-sd_6.jpg",
         "https://gesimuse.github.io/mpt/media/1788974606-sd_7.jpg",
         "https://gesimuse.github.io/mpt/media/1788974642-sd_8.jpg",
-        "https://gesimuse.github.io/mpt/media/1788974681-sd_9.jpg"
+        null
       ],
       "image_prompts": [
         "stunningly beautiful adult woman, moroccan woman in her late twenties, dark hair, warm amber skin, soft round face, freckled cheeks, bright eyes, dewy makeup, smoking hot, seductive, sultry gaze, glamour photography, curvy hourglass figure, huge perfectly round breasts, perfectly round ass, deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, glossy lips, flawless makeup, wearing a vintage slip dress, at an outdoor flea market, racks of clothes, holding up a find, candid delighted laugh, three-quarter view, soft studio lighting, woman,pastel pink hair,portrait,reality,highres,realistic,photo_ (medium),mid_shot,front view,cinematic_angle,skinny,adult,kind_smile,raw photo,8k",
@@ -4594,7 +4594,7 @@
         "stunningly beautiful adult woman, moroccan woman in her late twenties, dark hair, warm amber skin, soft round face, freckled cheeks, bright eyes, dewy makeup, smoking hot, seductive, sultry gaze, glamour photography, curvy hourglass figure, huge perfectly round breasts, perfectly round ass, deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, glossy lips, flawless makeup, wearing a vintage slip dress, at an outdoor flea market, racks of clothes, holding up a find, candid delighted laugh, medium shot, gentle rim lighting, woman,pastel pink hair,portrait,reality,highres,realistic,photo_ (medium),mid_shot,front view,cinematic_angle,skinny,adult,kind_smile,raw photo,8k",
         "stunningly beautiful adult woman, moroccan woman in her late twenties, dark hair, warm amber skin, soft round face, freckled cheeks, bright eyes, dewy makeup, smoking hot, seductive, sultry gaze, glamour photography, curvy hourglass figure, huge perfectly round breasts, perfectly round ass, deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, glossy lips, flawless makeup, wearing a vintage slip dress, at an outdoor flea market, racks of clothes, holding up a find, candid delighted laugh, wide shot, natural window light, woman,pastel pink hair,portrait,reality,highres,realistic,photo_ (medium),mid_shot,front view,cinematic_angle,skinny,adult,kind_smile,raw photo,8k",
         "stunningly beautiful adult woman, moroccan woman in her late twenties, dark hair, warm amber skin, soft round face, freckled cheeks, bright eyes, dewy makeup, smoking hot, seductive, sultry gaze, glamour photography, curvy hourglass figure, huge perfectly round breasts, perfectly round ass, deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, glossy lips, flawless makeup, wearing a vintage slip dress, at an outdoor flea market, racks of clothes, holding up a find, candid delighted laugh, full length shot, head to toe, candid moment, woman,pastel pink hair,portrait,reality,highres,realistic,photo_ (medium),mid_shot,front view,cinematic_angle,skinny,adult,kind_smile,raw photo,8k",
-        "stunningly beautiful adult woman, moroccan woman in her late twenties, dark hair, warm amber skin, soft round face, freckled cheeks, bright eyes, dewy makeup, smoking hot, seductive, sultry gaze, glamour photography, curvy hourglass figure, huge perfectly round breasts, perfectly round ass, deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, glossy lips, flawless makeup, wearing a vintage slip dress, at an outdoor flea market, racks of clothes, holding up a find, candid delighted laugh, slight high angle, soft backlighting, woman,pastel pink hair,portrait,reality,highres,realistic,photo_ (medium),mid_shot,front view,cinematic_angle,skinny,adult,kind_smile,raw photo,8k"
+        null
       ],
       "model_spec": "139300:236963",
       "model_name": "Realistic-Digital-Genius",
@@ -4610,7 +4610,7 @@
         "She leans her head back, exposing her throat, her hair sliding across her shoulder, and then looks down the lens with a sly smile.",
         "She shifts her weight from one hip to the other, slowly lowering her chest slightly while maintaining her sultry gaze, her hair sweeping across her cheek.",
         "Turn head to gaze directly at the camera, hands casually resting on hips, and slowly sway hips to one side.",
-        "She pivots on one heel, body swaying ever so slightly, as she turns to reveal her full-length beauty."
+        null
       ],
       "ts": "2026-09-09T17:26:23",
       "telegram_message_ids": {
@@ -4654,7 +4654,8 @@
           "chat_id": "-1004449497323",
           "message_id": 518
         }
-      }
+      },
+      "owner_verdict": "skipped"
     }
   ],
   "model_stats": {
