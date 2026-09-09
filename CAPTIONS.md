@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-09T14:18:20 — aibeauty
+
+```
+secrets before the spotlight
+
+Created with AI.
+
+#aiart #digitalphotography #beforethehunt #behindthesceneslife #modelmode
+```
+
 ## 2026-09-09T12:39:40 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Leaving it all behind
 Created with AI.
 
 #aiart #generativeart #adventurouspirit #freedomvibes #blurredlines
-```
-
-## 2026-09-08T12:25:52 — aibeauty
-
-```
-Last night was a wet kiss
-
-Created with AI.
-
-#rainydays #artificialintelligence #generativeart #romanticmood #aiart
 ```
