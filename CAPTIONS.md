@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-09T17:26:23 — aibeauty
+
+```
+Found a little slice of heaven in the market today
+
+Created with AI.
+
+#aiart #artificialevolved #trashytreasures #fleamarketfinds #vintagevibes
+```
+
 ## 2026-09-09T16:09:00 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ When mornings are made for someone special
 Created with AI.
 
 #aiart #neuralnetworkart #bedroommood #breakfastinbed #ahhahappy
-```
-
-## 2026-09-08T13:58:01 — aibeautyvideo
-
-```
-When the city smells sweet at night
-
-Created with AI.
-
-#generativeart #digitalbrushstrokes #citynightsinpictures #moodlamp #femaleformations
 ```
