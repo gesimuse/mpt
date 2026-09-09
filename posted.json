@@ -4696,6 +4696,26 @@
           "message_id": 41
         }
       }
+    },
+    {
+      "niche": "aibeautyvideo",
+      "topic": "video 20260909-181222",
+      "title": "Getting comfortable with myself",
+      "tiktok": true,
+      "tiktok_via": "inbox_video",
+      "tiktok_post_id": "v_inbox_url~v2.7683600316889679894",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_fail_reason": null,
+      "tiktok_caption": "Getting comfortable with myself\n\nCreated with AI.\n\n#artificialcreativity #generativeart #flirtyvibes #selfloveart #digitalportrait",
+      "video_url": "https://gesimuse.github.io/mpt/media/1788977654-final.mp4",
+      "ts": "2026-09-09T18:15:24",
+      "motionforge_source_url": "https://gesimuse.github.io/mpt/media/1788969922-sd_9.jpg",
+      "telegram_message_ids": {
+        "https://gesimuse.github.io/mpt/media/1788977654-final.mp4": {
+          "chat_id": "-1004314616972",
+          "message_id": 42
+        }
+      }
     }
   ],
   "model_stats": {
