@@ -99,7 +99,20 @@ jobs:
         # publish (TikTok rejected a real draft with frame_rate_check_failed on
         # motionforge's raw output) -- confirmed NOT preinstalled on this runner
         # despite it being on GitHub's documented ubuntu-latest software list.
-        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends ffmpeg
+        #
+        # The google-chrome apt source is pre-baked onto GitHub's runner image for
+        # their own tooling -- nothing in this workflow uses Chrome. A live run
+        # failed here 3 times in a row with "Hash Sum mismatch" fetching THAT repo's
+        # Packages.gz (its Release file had just been regenerated; the CDN edge this
+        # runner hit hadn't caught up yet), which fails `apt-get update` entirely and
+        # takes ffmpeg's install down with it even though ffmpeg itself has nothing
+        # to do with Chrome. Removing the source before update means that repo's own
+        # CDN propagation lag can never block us again -- more reliable than retrying
+        # and hoping it resolved between attempts.
+        run: |
+          sudo rm -f /etc/apt/sources.list.d/*google*
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg
 
       - name: Run autopilot (video niche only)
         env:
