@@ -273,13 +273,21 @@ def publish_video_draft(video_path, niche_id, video_url=None, caption=None, titl
     r = requests.post("https://open.tiktokapis.com/v2/post/publish/content/init/",
                       headers=headers, json=body, timeout=60)
     if not r.ok:
-        # Fall back rather than raise: this endpoint accepting media_type=VIDEO is the
-        # documented shape, but a draft that reaches the inbox without a caption is
-        # still far better than a generated mp4 that goes nowhere. Logged loudly so a
-        # persistent fallback shows up in CI instead of quietly becoming the norm.
-        log(f"::warning::content/init rejected the video ({r.status_code} "
-            f"{r.text[:200]}); falling back to inbox/video/init, which cannot "
-            f"carry a caption")
+        # Fall back rather than raise: a draft that reaches the inbox without a
+        # caption is still far better than a generated mp4 that goes nowhere.
+        #
+        # media_type=VIDEO under post_mode=MEDIA_UPLOAD was never actually TikTok's
+        # documented shape for this endpoint (their own Content Posting API reference
+        # only shows PHOTO here; video drafts are documented as going through
+        # /v2/post/publish/inbox/video/init/ instead, which has no post_info field at
+        # all) -- it evidently worked anyway for a while, until TikTok visibly
+        # tightened validation: every video run since 2026-09-10 hits this exact
+        # invalid_params rejection, not sporadically. No longer logged as a ::warning::
+        # -- that's for a real surprise, and this is now the expected, every-time
+        # outcome of the still attempt (kept because a caption is worth trying for,
+        # and costs nothing but one extra request when it fails).
+        log(f"content/init rejected the video ({r.status_code} {r.text[:200]}); "
+            f"falling back to inbox/video/init, which cannot carry a caption")
         r = requests.post(
             "https://open.tiktokapis.com/v2/post/publish/inbox/video/init/",
             headers=headers,
