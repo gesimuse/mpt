@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-10T20:05:32 — aibeautyvideo
+
+```
+Own every step of your journey
+
+Created with AI.
+
+#deepdavisilution #aivibe #exploratoryart #confidencegirl #movementart
+```
+
 ## 2026-09-10T18:25:16 — aibeautyvideo
 
 ```
@@ -88,14 +98,4 @@ Getting comfortable with myself
 Created with AI.
 
 #artificialcreativity #generativeart #flirtyvibes #selfloveart #digitalportrait
-```
-
-## 2026-09-09T18:08:39 — aibeautyvideo
-
-```
-Feeling a little too confident in my own skin
-
-Created with AI.
-
-#artificialintimacy #genaiart #surrealismvibes #bodylove #digitalflirt
 ```
