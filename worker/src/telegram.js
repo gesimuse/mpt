@@ -20,12 +20,27 @@ export function redact(env, value) {
   return text;
 }
 
-export function api(env, method, payload) {
-  return fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/${method}`, {
+export async function api(env, method, payload) {
+  const r = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/${method}`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(payload),
   });
+  // Every Telegram call here used to be fire-and-forget: a rejected deleteMessage
+  // (wrong admin rights, message already gone, whatever the real reason) failed
+  // with zero signal anywhere -- no thrown error, no log line, the state write it
+  // was paired with (a +1, an owner_verdict) still succeeded, and the ONLY visible
+  // symptom was "the message just didn't disappear", reported live as "buttons
+  // aren't working" with nothing in `wrangler tail` to diagnose it from. Logging
+  // here, not throwing: callers that already handle a failed response themselves
+  // (getFileUrl's own body.ok check) keep doing that; this only adds the log every
+  // other call site was missing, without changing any return value or control flow.
+  if (!r.ok) {
+    let bodyText = "";
+    try { bodyText = (await r.clone().text()).slice(0, 300); } catch { /* best effort */ }
+    console.error(`telegram ${method} failed: ${r.status} ${redact(env, bodyText)}`);
+  }
+  return r;
 }
 
 /**

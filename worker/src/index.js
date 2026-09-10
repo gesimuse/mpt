@@ -384,17 +384,25 @@ async function onReply(env, msg) {
     await api(env, "sendMessage", {
       chat_id: msg.chat.id,
       reply_to_message_id: msg.message_id,
-      text: "Reply to one of the photo posts to use your text as its motion prompt.",
+      text: "Reply to one of the photo posts to use your text as its motion prompt.\n"
+        + "Prefix with \"kaggle:\" to use the long Kaggle backend instead of the "
+        + "default 5s one, e.g. \"kaggle: she turns and smiles\".",
     });
     return;
   }
   const { ts, index } = parseCallback(data);
   const fake = { id: null, message: target };
+  // "kaggle: <prompt>" (case-insensitive) is the reply-side equivalent of pressing
+  // "Make video (Kaggle, long)" instead of "Make video" -- there is no button to press
+  // in a reply, so the prefix IS the button choice. Stripped before use as the prompt.
+  const kaggleMatch = /^\s*kaggle\s*[:,-]\s*/i.exec(msg.text || "");
+  const useKaggle = Boolean(kaggleMatch);
+  const prompt = useKaggle ? msg.text.slice(kaggleMatch[0].length) : msg.text;
   // answerCallbackQuery needs a real id; there is none here, so acknowledge in chat.
-  await onMakeVideoFromReply(env, fake, ts, index, msg.text, msg.chat.id);
+  await onMakeVideoFromReply(env, fake, ts, index, prompt, msg.chat.id, useKaggle);
 }
 
-async function onMakeVideoFromReply(env, fake, ts, index, prompt, chatId) {
+async function onMakeVideoFromReply(env, fake, ts, index, prompt, chatId, useKaggle = false) {
   try {
     let url = null, hadEntry = false;
     await mutatePostedJson(env, (state) => {
@@ -417,15 +425,24 @@ async function onMakeVideoFromReply(env, fake, ts, index, prompt, chatId) {
         return;
       }
     }
-    await dispatchWorkflow(env, {
-      image_url: url, motion_prompt: prompt,
-      length_s: env.VIDEO_LENGTH_S || "5.0", steps: env.VIDEO_STEPS || "4",
-    });
+    if (useKaggle) {
+      await dispatchWorkflow(env, {
+        image_url: url, motion_prompt: prompt,
+        video_length: env.KAGGLE_VIDEO_LENGTH || "161",
+        resolution: env.KAGGLE_VIDEO_RESOLUTION || "512x896",
+      }, "kaggle_video.yml");
+    } else {
+      await dispatchWorkflow(env, {
+        image_url: url, motion_prompt: prompt,
+        length_s: env.VIDEO_LENGTH_S || "5.0", steps: env.VIDEO_STEPS || "4",
+      });
+    }
     // Same rule as the button: a reply makes a video and LEAVES the image, so the
     // next reply can try a different prompt on the same still.
-    await noteAttempt(env, fake.message, prompt);
-    await api(env, "sendMessage",
-      { chat_id: chatId, text: `Sent to video generation:\n${prompt}` });
+    await noteAttempt(env, fake.message, useKaggle ? `[kaggle] ${prompt}` : prompt);
+    await api(env, "sendMessage", { chat_id: chatId, text: useKaggle
+      ? `Sent to Kaggle video generation (slow, 20-40+ min):\n${prompt}`
+      : `Sent to video generation:\n${prompt}` });
   } catch (err) {
     await api(env, "sendMessage",
       { chat_id: chatId, text: `Failed: ${redact(env, err).slice(0, 300)}` });

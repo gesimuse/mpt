@@ -8,14 +8,15 @@ What it handles:
 
 | Button / action | What happens |
 | --- | --- |
-| 🎬 Make video | Dispatches `autopilot_video.yml` with that image's URL and motion prompt, notes the attempt in the caption, and **leaves the image in place** — one still is worth several prompts |
+| 🎬 Make video | Dispatches `autopilot_video.yml` (HF ZeroGPU, ~5s clip) with that image's URL and motion prompt, notes the attempt in the caption, and **leaves the image in place** — one still is worth several prompts |
+| 🎬 Make video (Kaggle, long) | Dispatches `kaggle_video.yml` (Wan2GP on a Kaggle T4, no ZeroGPU quota, longer clip — `KAGGLE_VIDEO_LENGTH`/`KAGGLE_VIDEO_RESOLUTION`) with the same image and motion prompt. Slow (20-40+ min); same "leaves the image in place" rule |
 | ✅ Done | Finished with it: removes the image from the channel and from `posted.json`, and records `owner_verdict: posted` |
 | 🗑 Skip | Didn't want it: same removal, but records `owner_verdict: skipped` |
 | 🔄 Retry post | Dispatches the video workflow with `retry_video_url`, republishing the same mp4 without regenerating |
 | 👍 Good | Rates the checkpoint + SD prompt that produced this image (not the post itself — see Done/Skip above): +1 to that model's score and +1 to that exact prompt's score under it in `model_leaderboard.json`, then removes the message |
 | 👎 Not good | Same removal as Good, but -1 to that model's score and that prompt's score in `model_leaderboard.json` — a net score, not a good-only tally |
 | `/leaderboard` | Replies with the top models by score and, under each, its top 3 prompts by their own score, read straight from `model_leaderboard.json` |
-| Reply to a photo | Uses your text as the motion prompt for that image, then makes the video |
+| Reply to a photo | Uses your text as the motion prompt for that image, then makes the video (ZeroGPU by default). Prefix with `kaggle:` (e.g. `kaggle: she turns and smiles`) to route that reply to the Kaggle backend instead — there's no button inside a reply, so the prefix is the button choice |
 | Send a photo | Hosts it on `gh-pages` and registers it in `posted.json`, so it can be animated like any generated image |
 | ✅ Approve → post to Fanvue | *(Fanvue queue only)* Downloads that message's own photo straight from Telegram (this image was never hosted anywhere else — see below) and posts it to Fanvue via `fanvue.js`, then deletes the message — only on a confirmed successful post |
 | 🗑 Disapprove | *(Fanvue queue only)* Deletes the message, no Fanvue call |

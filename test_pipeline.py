@@ -4255,6 +4255,21 @@ class TelegramWorkerContractTest(unittest.TestCase):
         self.assertIn("video_length", onkv)
         self.assertIn("resolution", onkv)
 
+    def test_a_reply_can_also_route_to_kaggle(self):
+        """There is no button to press inside a reply, so a "kaggle:" text prefix is
+        the only way to pick the Kaggle backend from a reply -- it must strip the
+        prefix before using the rest as the motion prompt, and pass the Kaggle-shaped
+        dispatch (workflow file + video_length/resolution), not length_s/steps."""
+        index = (self.SRC / "index.js").read_text()
+        on_reply = index[index.index("async function onReply"):
+                         index.index("async function onMakeVideoFromReply")]
+        self.assertIn("kaggle", on_reply.lower())
+        make_from_reply = index[index.index("async function onMakeVideoFromReply"):
+                                index.index("async function onPhoto")]
+        self.assertIn('"kaggle_video.yml"', make_from_reply)
+        self.assertIn("video_length", make_from_reply)
+        self.assertIn("useKaggle", make_from_reply)
+
     def test_worker_parses_the_fanvue_actions(self):
         """fvpost/fvskip carry no ts|index (see telegram.py's _fanvue_keyboard
         docstring -- the image was never hosted anywhere to look up), so they're bare
