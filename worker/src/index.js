@@ -171,6 +171,26 @@ async function onKaggleVideo(env, cq, ts, index) {
   await noteAttempt(env, cq.message, `[kaggle] ${prompt}`);
 }
 
+/**
+ * Telegram refuses to delete messages older than ~48h even for a channel admin with
+ * can_delete_messages -- confirmed empirically: a message sent and deleted right away
+ * works, one from the backlog (which by design can sit for days, see
+ * rehostFromTelegram's docstring above) comes back 400 "message can't be deleted".
+ * The state write this pairs with (owner_verdict, the rating, the Fanvue post) already
+ * landed either way, so on that failure the best available substitute is stripping the
+ * buttons and saying so in the caption -- the button can't be pressed twice and the
+ * channel shows it was handled, even though the message itself can't go away.
+ */
+async function removeMessage(env, message, label) {
+  const r = await deleteMessage(env, message.chat.id, message.message_id);
+  if (r.ok) return;
+  await api(env, "editMessageCaption", {
+    chat_id: message.chat.id, message_id: message.message_id,
+    caption: `${(message.caption || "").slice(0, 900)}\n\n${label}`,
+    reply_markup: { inline_keyboard: [] },
+  });
+}
+
 /** Append a line recording this attempt, leaving the keyboard in place. */
 async function noteAttempt(env, message, prompt) {
   const existing = message.caption || "";
@@ -212,7 +232,7 @@ async function onResolve(env, cq, ts, index, verdict) {
     // would throw away the feedback the button just produced.
   }, `telegram: ${verdict === "posted" ? "done with" : "skip"} image`);
   await answer(env, cq.id, verdict === "posted" ? "Done." : "Skipped.");
-  await deleteMessage(env, cq.message.chat.id, cq.message.message_id);
+  await removeMessage(env, cq.message, verdict === "posted" ? "✅ Done" : "🗑 Skipped");
 }
 
 /**
@@ -246,12 +266,12 @@ async function onRate(env, cq, ts, index, verdict) {
     // have nothing to credit or debit. Still remove the message -- "mark as good or
     // not" should never get stuck on a button that can't do its job.
     await answer(env, cq.id, "No model recorded for this image; not counted.", true);
-    await deleteMessage(env, cq.message.chat.id, cq.message.message_id);
+    await removeMessage(env, cq.message, "⚠️ Not counted (no model recorded)");
     return;
   }
   await answer(env, cq.id,
     verdict === "good" ? "+1 to that model and prompt." : "-1 to that model and prompt.");
-  await deleteMessage(env, cq.message.chat.id, cq.message.message_id);
+  await removeMessage(env, cq.message, verdict === "good" ? "👍 +1 recorded" : "👎 -1 recorded");
 }
 
 /**
@@ -275,13 +295,13 @@ async function onFanvuePost(env, cq) {
   const bytes = await (await fetch(fileUrl)).arrayBuffer();
   await fanvue.postImage(env, bytes, cq.message.caption || "");
   await answer(env, cq.id, "Posted to Fanvue.");
-  await deleteMessage(env, cq.message.chat.id, cq.message.message_id);
+  await removeMessage(env, cq.message, "💜 Posted to Fanvue");
 }
 
 /** 🗑 Disapprove: just removes the candidate, no Fanvue call. */
 async function onFanvueSkip(env, cq) {
   await answer(env, cq.id, "Disapproved.");
-  await deleteMessage(env, cq.message.chat.id, cq.message.message_id);
+  await removeMessage(env, cq.message, "🗑 Disapproved");
 }
 
 /**
