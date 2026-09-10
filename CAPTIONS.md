@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-10T10:12:51 — aibeautyvideo
+
+```
+Own it like you mean it
+
+Created with AI.
+
+#aiart #botlove #teaserTuesday #midriffmotivation #confidentvibes
+```
+
 ## 2026-09-10T10:07:30 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Spinning into the spotlight like nobody's watching
 Created with AI.
 
 #aiart #generativewatercolor #abstractexpressionism #digitaldance #neurorendering
-```
-
-## 2026-09-09T10:09:15 — aibeauty
-
-```
-Nights like these belong to me.
-
-Created with AI.
-
-#artificialintelligenceart #digitaldreams #dancehallvibes #nightlifeaesthetic #electronicmood
 ```
