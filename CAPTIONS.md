@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-10T10:07:30 — aibeauty
+
+```
+leaves of desire
+
+Created with AI.
+
+#generativeart #succesfullygrown #autumnvibes #woodlandwonder #autumnleaves
+```
+
 ## 2026-09-09T18:15:24 — aibeautyvideo
 
 ```
@@ -88,14 +98,4 @@ Nights like these belong to me.
 Created with AI.
 
 #artificialintelligenceart #digitaldreams #dancehallvibes #nightlifeaesthetic #electronicmood
-```
-
-## 2026-09-08T20:03:11 — aibeautyvideo
-
-```
-Feeling myself today
-
-Created with AI.
-
-#artificialintelligence #generativeart #sultrymood #confidenceativibes #bodypositivity
 ```
