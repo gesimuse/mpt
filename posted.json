@@ -5020,6 +5020,26 @@
           "message_id": 562
         }
       }
+    },
+    {
+      "niche": "aibeautyvideo",
+      "topic": "video 20260910-144542",
+      "title": "feeling myself",
+      "tiktok": true,
+      "tiktok_via": "inbox_video",
+      "tiktok_post_id": "v_inbox_url~v2.7683918432277956610",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_fail_reason": null,
+      "tiktok_caption": "feeling myself\n\nCreated with AI.\n\n#faceaim #portraitmode #curvygirlsrock #girlpowervibes #artificialbeauty",
+      "video_url": "https://gesimuse.github.io/mpt/media/1789051658-final.mp4",
+      "ts": "2026-09-10T14:49:00",
+      "motionforge_source_url": "https://gesimuse.github.io/mpt/media/1788881416-sd_1.jpg",
+      "telegram_message_ids": {
+        "https://gesimuse.github.io/mpt/media/1789051658-final.mp4": {
+          "chat_id": "-1004314616972",
+          "message_id": 44
+        }
+      }
     }
   ],
   "model_stats": {

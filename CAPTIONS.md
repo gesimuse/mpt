@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-10T14:49:00 — aibeautyvideo
+
+```
+feeling myself
+
+Created with AI.
+
+#faceaim #portraitmode #curvygirlsrock #girlpowervibes #artificialbeauty
+```
+
 ## 2026-09-10T14:43:24 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ lost in the spin
 Created with AI.
 
 #aiart #artgeneration #ceramiclove #potterystudio #handbuilt
-```
-
-## 2026-09-09T14:18:20 — aibeauty
-
-```
-secrets before the spotlight
-
-Created with AI.
-
-#aiart #digitalphotography #beforethehunt #behindthesceneslife #modelmode
 ```
