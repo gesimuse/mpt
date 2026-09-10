@@ -353,7 +353,7 @@ class ImageSlideshowTest(unittest.TestCase):
              {"prompt": "portrait, working checkpoint", "negative_prompt": ""}),
         ]
 
-        def fake_decide(niche_arg, state=None):
+        def fake_decide(niche_arg, state=None, leaderboard=None):
             return decisions.pop(0)
 
         def fake_generate_batch(prompts, workdir, civitai_model=None, **kw):
@@ -1463,6 +1463,35 @@ class ModelPreferenceTest(unittest.TestCase):
     def test_record_model_result_does_nothing_without_state(self):
         imageslides._record_model_result(None, "1:1", "X", generated=6, approved=4)  # must not raise
 
+    def test_leaderboard_score_below_cutoff_hard_excludes(self):
+        """On explicit operator request: a model the owner's own Telegram votes have
+        pushed below MODEL_LEADERBOARD_EXCLUDE_BELOW gets weight 0.0 -- a true
+        exclusion, not just a strong deprioritization the way a bad QA pass rate is."""
+        leaderboard = {"models": {"5:9": {"name": "Bad One", "score": -21}}}
+        weights = imageslides._model_weights(None, leaderboard)
+        self.assertEqual(weights[5], 0.0)
+
+    def test_leaderboard_score_at_or_above_cutoff_is_not_excluded(self):
+        leaderboard = {"models": {"5:9": {"name": "Fine", "score": -20},
+                                  "6:9": {"name": "Also fine", "score": 50}}}
+        weights = imageslides._model_weights(None, leaderboard)
+        self.assertNotIn(5, weights)
+        self.assertNotIn(6, weights)
+
+    def test_leaderboard_exclusion_overrides_a_good_qa_pass_rate(self):
+        """QA pass rate and "does the owner actually like this" are different
+        signals -- a checkpoint passing every automated check can still be something
+        the owner keeps voting bad on, and that judgment has to win."""
+        state = {"model_stats": {"5:9": {"name": "X", "used": 10, "passed": 10}}}
+        leaderboard = {"models": {"5:9": {"name": "X", "score": -25}}}
+        weights = imageslides._model_weights(state, leaderboard)
+        self.assertEqual(weights[5], 0.0)
+
+    def test_no_leaderboard_means_no_exclusions(self):
+        self.assertEqual(imageslides._model_weights(None, None), {})
+        self.assertEqual(imageslides._model_weights(None, {}), {})
+        self.assertEqual(imageslides._model_weights(None, {"models": {}}), {})
+
 
 class CivitaiWeightedSelectionTest(unittest.TestCase):
     """civitai.decide_reference()'s own end of the preference loop: it doesn't know
@@ -1517,6 +1546,38 @@ class CivitaiWeightedSelectionTest(unittest.TestCase):
              mock.patch.object(civitai, "harvest_from_model", fake_harvest):
             resolved, _ = civitai.decide_reference("q", weights={1: 100.0})
         self.assertEqual(resolved["name"], "Working")
+
+    def test_zero_weight_is_a_true_exclusion_not_just_deprioritized(self):
+        """imageslides._model_weights hands down exactly 0.0 for a checkpoint the
+        owner's leaderboard votes excluded -- civitai.py has to actually drop it, not
+        just make it unlikely, or enough draws would eventually still pick it."""
+        items = [self._candidate(1, "Excluded"), self._candidate(2, "Fine")]
+
+        def fake_harvest(model_id, version_id):
+            return [{"prompt": "portrait of a woman", "negative_prompt": "", "reactions": 1}]
+
+        with mock.patch.object(civitai, "search_models", lambda q, **kw: items), \
+             mock.patch.object(civitai, "MIN_SEARCH_DOWNLOADS", 1000), \
+             mock.patch.object(civitai, "harvest_from_model", fake_harvest):
+            picks = [civitai.decide_reference("q", weights={1: 0.0, 2: 1.0})[0]["name"]
+                    for _ in range(30)]
+        self.assertNotIn("Excluded", picks)
+
+    def test_all_candidates_excluded_raises_instead_of_crashing(self):
+        """Every qualifying candidate at weight 0.0 must not reach random.choices with
+        an all-zero pool (it raises ValueError on that) -- civitai.py's own normal
+        "nothing qualified" error is the right failure here, listing why."""
+        items = [self._candidate(1, "A"), self._candidate(2, "B")]
+
+        def fake_harvest(model_id, version_id):
+            return [{"prompt": "portrait of a woman", "negative_prompt": "", "reactions": 1}]
+
+        with mock.patch.object(civitai, "search_models", lambda q, **kw: items), \
+             mock.patch.object(civitai, "MIN_SEARCH_DOWNLOADS", 1000), \
+             mock.patch.object(civitai, "harvest_from_model", fake_harvest):
+            with self.assertRaises(RuntimeError) as ctx:
+                civitai.decide_reference("q", weights={1: 0.0, 2: 0.0})
+        self.assertIn("excluded", str(ctx.exception))
 
 
 class AdoptedSettingsTest(unittest.TestCase):
@@ -1931,6 +1992,21 @@ class RunNicheTest(unittest.TestCase):
         patcher.start()
         self.addCleanup(patcher.stop)
 
+    def test_load_leaderboard_defaults_to_empty_when_the_file_does_not_exist(self):
+        """No votes cast yet is a normal, common state (a fresh setup, or simply no
+        Good/Bad presses so far) -- must not raise, and must match imageslides.
+        _model_weights' own "missing -> no exclusions" handling."""
+        with tempfile.TemporaryDirectory() as tmp, \
+             mock.patch.object(autopilot, "LEADERBOARD_FILE", Path(tmp) / "model_leaderboard.json"):
+            self.assertEqual(autopilot.load_leaderboard(), {"models": {}})
+
+    def test_load_leaderboard_reads_the_committed_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "model_leaderboard.json"
+            path.write_text(json.dumps({"models": {"5:9": {"name": "X", "score": -25}}}))
+            with mock.patch.object(autopilot, "LEADERBOARD_FILE", path):
+                self.assertEqual(autopilot.load_leaderboard()["models"]["5:9"]["score"], -25)
+
     def test_skipped_without_tiktok_credentials(self):
         with mock.patch.object(tiktok, "enabled", lambda niche_id: False):
             # must not raise, and must not touch imageslides at all
@@ -1942,7 +2018,7 @@ class RunNicheTest(unittest.TestCase):
         fake_images = [Path(f"/tmp/i{i}.png") for i in range(5)]
         state = {"topics": {}, "uploads": []}
 
-        def fake_generate(n, state=None, model_info=None):
+        def fake_generate(n, state=None, model_info=None, leaderboard=None):
             # generate() writes into model_info in place -- see its docstring for why
             # that's a side-output param rather than a 5th tuple element.
             if model_info is not None:
@@ -1973,10 +2049,39 @@ class RunNicheTest(unittest.TestCase):
         self.assertEqual(entry["model_spec"], "123:456")
         self.assertEqual(entry["model_name"], "AbsoluteReality")
 
+    def test_run_niche_loads_and_threads_the_leaderboard_into_generate(self):
+        """The only untested link between autopilot.load_leaderboard() (its own unit
+        test) and imageslides._model_weights actually excluding a model (also its own
+        unit test) -- this confirms run_niche wires the two together for real."""
+        fake_images = [Path(f"/tmp/i{i}.png") for i in range(5)]
+        seen = {}
+
+        def spy_generate(n, state=None, model_info=None, leaderboard=None):
+            seen["leaderboard"] = leaderboard
+            return fake_images, None, None, ["a prompt"] * len(fake_images)
+
+        with mock.patch.object(autopilot, "DRY_RUN", False), \
+             mock.patch.object(tiktok, "enabled", lambda niche_id: True), \
+             mock.patch.object(imageslides, "generate", spy_generate), \
+             mock.patch.object(tiktok, "host_file", lambda p: f"https://pages/media/{Path(p).name}"), \
+             mock.patch.object(tiktok, "publish_photos_draft",
+                               lambda imgs, niche_id, image_urls=None, caption=None, title=None: "publish1"), \
+             mock.patch.object(tiktok, "check_publish_status",
+                               lambda pid, niche_id: ("SEND_TO_USER_INBOX", None)), \
+             mock.patch.object(autopilot.os, "remove", lambda p: None), \
+             mock.patch.object(autopilot, "save_state", lambda s: None), \
+             tempfile.TemporaryDirectory() as tmp:
+            leaderboard_path = Path(tmp) / "model_leaderboard.json"
+            leaderboard_path.write_text(json.dumps({"models": {"5:9": {"score": -30}}}))
+            with mock.patch.object(autopilot, "ROOT", Path(tmp)), \
+                 mock.patch.object(autopilot, "LEADERBOARD_FILE", leaderboard_path):
+                autopilot.run_niche(self.AIBEAUTY, {"topics": {}, "uploads": []})
+        self.assertEqual(seen["leaderboard"]["models"]["5:9"]["score"], -30)
+
     def _fanvue_env(self, state, fanvue_enabled, fanvue_variant, post_fanvue_batch=None):
         fake_images = [Path(f"/tmp/i{i}.png") for i in range(5)]
 
-        def fake_generate(n, state=None, model_info=None):
+        def fake_generate(n, state=None, model_info=None, leaderboard=None):
             if model_info is not None:
                 model_info["spec"], model_info["name"] = "123:456", "AbsoluteReality"
                 model_info["resolved"] = {"model_id": 123, "version_id": 456}
@@ -2054,7 +2159,7 @@ class RunNicheTest(unittest.TestCase):
         state = {"topics": {}, "uploads": []}
         with mock.patch.object(autopilot, "DRY_RUN", False), \
              mock.patch.object(tiktok, "enabled", lambda niche_id: True), \
-             mock.patch.object(imageslides, "generate", lambda n, state=None, model_info=None: (fake_images, None, None, [None] * len(fake_images))), \
+             mock.patch.object(imageslides, "generate", lambda n, state=None, model_info=None, leaderboard=None: (fake_images, None, None, [None] * len(fake_images))), \
              mock.patch.object(tiktok, "host_file", lambda p: f"https://pages/media/{Path(p).name}"), \
              mock.patch.object(tiktok, "publish_photos_draft",
                                lambda imgs, niche_id, image_urls=None, caption=None, title=None: "publish1"), \
@@ -2072,7 +2177,7 @@ class RunNicheTest(unittest.TestCase):
     def test_dry_run_writes_files_and_never_queues_a_draft(self):
         fake_images = [Path(f"/tmp/i{i}.png") for i in range(5)]
         with mock.patch.object(autopilot, "DRY_RUN", True), \
-             mock.patch.object(imageslides, "generate", lambda n, state=None, model_info=None: (fake_images, None, None, [None] * len(fake_images))), \
+             mock.patch.object(imageslides, "generate", lambda n, state=None, model_info=None, leaderboard=None: (fake_images, None, None, [None] * len(fake_images))), \
              mock.patch.object(tiktok, "publish_photos_draft",
                                mock.Mock(side_effect=AssertionError("must not push"))), \
              mock.patch.object(autopilot.shutil, "copy", lambda a, b: None), \
@@ -2087,7 +2192,7 @@ class RunNicheTest(unittest.TestCase):
         with mock.patch.object(autopilot, "DRY_RUN", True), \
              mock.patch.object(kaggle_imagegen, "available", lambda: True), \
              mock.patch.object(kaggle_imagegen, "generate",
-                               lambda n, state=None, model_info=None: (fake_images, "kaggle vibe", "latina-dark",
+                               lambda n, state=None, model_info=None, leaderboard=None: (fake_images, "kaggle vibe", "latina-dark",
                                                        [None] * len(fake_images))), \
              mock.patch.object(imageslides, "generate",
                                mock.Mock(side_effect=AssertionError("must not run"))), \
@@ -2109,7 +2214,7 @@ class RunNicheTest(unittest.TestCase):
                                mock.Mock(side_effect=RuntimeError("kernel did not "
                                                                   "reach a terminal state"))), \
              mock.patch.object(imageslides, "generate",
-                               lambda n, state=None, model_info=None: (fake_images, None, None,
+                               lambda n, state=None, model_info=None, leaderboard=None: (fake_images, None, None,
                                                        [None] * len(fake_images))), \
              mock.patch.object(autopilot.shutil, "copy", lambda a, b: None), \
              tempfile.TemporaryDirectory() as tmp:
@@ -2125,7 +2230,7 @@ class RunNicheTest(unittest.TestCase):
              mock.patch.object(kaggle_imagegen, "generate",
                                mock.Mock(side_effect=AssertionError("must not run"))), \
              mock.patch.object(imageslides, "generate",
-                               lambda n, state=None, model_info=None: (fake_images, None, None,
+                               lambda n, state=None, model_info=None, leaderboard=None: (fake_images, None, None,
                                                        [None] * len(fake_images))), \
              mock.patch.object(autopilot.shutil, "copy", lambda a, b: None), \
              tempfile.TemporaryDirectory() as tmp:
@@ -2186,7 +2291,7 @@ class RunNicheTest(unittest.TestCase):
         state = {"topics": {}, "uploads": [self._upload() for _ in range(3)]}
         calls = []
 
-        def fake_generate(n, state=None, model_info=None):
+        def fake_generate(n, state=None, model_info=None, leaderboard=None):
             calls.append(1)
             return [Path(f"/tmp/i{len(calls)}.png")], None, None, [None]
 

@@ -803,14 +803,31 @@ MIN_SAMPLES_TO_TRUST = 3
 # "no more likely than an unknown".
 MIN_WEIGHT_MULTIPLIER = 0.15
 MAX_WEIGHT_MULTIPLIER = 3.0
+# Below this net score in model_leaderboard.json (the account owner's own Telegram
+# 👍/👎 votes -- see telegram.py's Good/Bad buttons and worker/src/github.js's
+# recordRating), a checkpoint is hard-excluded from selection: weight 0.0, not just
+# deprioritized. An explicit operator threshold, not derived from anything -- there is
+# no "right" number here, just where the owner decided a checkpoint has proven itself
+# not worth generating from anymore.
+MODEL_LEADERBOARD_EXCLUDE_BELOW = -20
 
 
-def _model_weights(state):
-    """{model_id: float} from state["model_stats"] (used/passed counts per "model_id:
-    version_id" spec, recorded by generate() after each round's QA) -- fed to
-    civitai.decide_reference() to nudge future runs toward checkpoints with a good
-    pass rate and away from ones with a bad one. None/missing state -> {}, which
-    civitai.py already treats as "no preference, plain shuffle"."""
+def _model_weights(state, leaderboard=None):
+    """{model_id: float} from two independent signals, both keyed by model_id:
+
+    1. state["model_stats"] (used/passed counts per "model_id:version_id" spec,
+       recorded by generate() after each round's QA) -- soft weighting toward
+       checkpoints with a good automated pass rate.
+    2. leaderboard (model_leaderboard.json's parsed content, the account owner's own
+       Telegram 👍/👎 votes -- see MODEL_LEADERBOARD_EXCLUDE_BELOW) -- hard exclusion
+       (weight 0.0) for a checkpoint whose net score has fallen below the cutoff,
+       OVERRIDING whatever its QA pass rate says. QA pass rate and "does the owner
+       actually like what this renders" are different signals; a checkpoint can pass
+       every automated anatomy/age check and still be something the owner keeps
+       voting bad on stylistically -- that owner judgment wins.
+
+    Fed to civitai.decide_reference() as `weights`. None/missing state or leaderboard
+    -> {}, which civitai.py already treats as "no preference, plain shuffle"."""
     stats = (state or {}).get("model_stats") or {}
     weights = {}
     for spec, s in stats.items():
@@ -825,6 +842,12 @@ def _model_weights(state):
         pass_rate = s.get("passed", 0) / used
         weights[model_id] = (MIN_WEIGHT_MULTIPLIER
                              + pass_rate * (MAX_WEIGHT_MULTIPLIER - MIN_WEIGHT_MULTIPLIER))
+    for spec, m in ((leaderboard or {}).get("models") or {}).items():
+        if m.get("score", 0) < MODEL_LEADERBOARD_EXCLUDE_BELOW:
+            try:
+                weights[int(spec.split(":", 1)[0])] = 0.0
+            except ValueError:
+                continue
     return weights
 
 
@@ -908,7 +931,7 @@ def _record_theme_result(state, vibe, generated, approved):
     entry["passed"] += approved
 
 
-def decide_reference(niche, state=None):
+def decide_reference(niche, state=None, leaderboard=None):
     """Search CivitAI for a checkpoint with a real, on-subject showcase prompt, and
     commit to it for this whole run: one model, one reference photo, every slide in
     the batch is a variation of it, not a grab bag of unrelated faces.
@@ -920,9 +943,10 @@ def decide_reference(niche, state=None):
     highest for it. Rotating the query is what actually varies the THEME run to run,
     not just the exact photo within one theme.
 
-    state, when given, supplies model_stats -- past QA pass rates -- as soft odds
-    (see _model_weights()); without it, selection is a plain shuffle, same as before
-    this existed.
+    state, when given, supplies model_stats -- past QA pass rates -- as soft odds;
+    leaderboard, when given, supplies model_leaderboard.json's parsed content for the
+    owner's own hard exclusions (see _model_weights() for both). Neither given ->
+    plain shuffle, same as before either existed.
 
     civitai.py's search_candidates()/decide_reference() stay subject-agnostic; the
     niche's gender/portrait rules and preference weights are passed in rather than
@@ -932,7 +956,7 @@ def decide_reference(niche, state=None):
     query = random.choice(queries)
     resolved, reference = civitai.decide_reference(
         query, prompt_filter=lambda p: _matches_subject(p, niche),
-        weights=_model_weights(state))
+        weights=_model_weights(state, leaderboard))
     log(f"decided on {resolved['name']!r} v{resolved['version_id']} (query: {query!r}), "
         f"prompt: {reference['prompt'][:100]}")
     return resolved, reference
@@ -1158,10 +1182,15 @@ def _adopted_settings(reference):
     return out
 
 
-def generate(niche, count=None, workdir=None, max_rounds=2, state=None, model_info=None):
+def generate(niche, count=None, workdir=None, max_rounds=2, state=None, model_info=None,
+            leaderboard=None):
     """Decide on a CivitAI checkpoint + reference prompt, generate `count` camera
     variations of it, keep what passes supervisor.py review, and repeat with a fresh
     round if the batch still falls short of min_images.
+
+    leaderboard, when given, is model_leaderboard.json's parsed content -- passed
+    straight through to decide_reference() for the owner's own hard checkpoint
+    exclusions (see _model_weights()).
 
     model_info, when given a dict, gets {"spec": "<model_id>:<version_id>", "name":
     ...} written into it for the round that actually produced the returned images --
@@ -1243,7 +1272,7 @@ def generate(niche, count=None, workdir=None, max_rounds=2, state=None, model_in
     # CivitAI search, not a hand-written scene/style list. If CivitAI can't be reached
     # at all, decide_reference() raises and the run fails loudly here, rather than
     # silently shipping generic images.
-    resolved, reference = decide_reference(niche, state=state)
+    resolved, reference = decide_reference(niche, state=state, leaderboard=leaderboard)
 
     for round_num in range(1, max_rounds + 1):
         civitai_spec = f"{resolved['model_id']}:{resolved['version_id']}"
@@ -1304,7 +1333,7 @@ def generate(niche, count=None, workdir=None, max_rounds=2, state=None, model_in
         if not newly_approved and round_num < max_rounds:
             log("nothing approved this round; re-deciding a fresh checkpoint+prompt")
             sdgen.unload_all()
-            resolved, reference = decide_reference(niche, state=state)
+            resolved, reference = decide_reference(niche, state=state, leaderboard=leaderboard)
 
     if len(approved) < min_images:
         # Every image we DID successfully generate was rejected because the

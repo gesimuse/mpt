@@ -314,8 +314,10 @@ def decide_reference(query, prompt_filter=None, pool_size=8, top_n_prompts=5, we
     weights, an optional {model_id: float} map, lets a caller nudge the odds toward
     checkpoints with a good track record without ruling out the rest -- a plain
     shuffle (all weights equal) when not given. civitai.py doesn't know what "good"
-    means (that's imageslides.py's QA-pass-rate history); it only turns numbers it's
-    handed into biased odds.
+    means (that's imageslides.py's QA-pass-rate history, or its leaderboard-based
+    hard exclusion below); it only turns numbers it's handed into biased odds. The
+    one exception: a weight of exactly 0.0 is a true exclusion, not just a strong
+    deprioritization -- that candidate is dropped before sampling, never picked.
 
     prompt_filter(prompt_text) -> bool lets a caller apply its own rules (subject,
     gender, whatever a niche cares about) without this module needing to know about
@@ -338,6 +340,18 @@ def decide_reference(query, prompt_filter=None, pool_size=8, top_n_prompts=5, we
             tried.append(f"{name}: no usable on-subject prompt")
             continue
         qualifying.append((model_id, name, version, prompts))
+
+    # A weight of exactly 0.0 (imageslides._model_weights' hard exclusion, for a
+    # checkpoint the owner's own Telegram votes have pushed below the leaderboard
+    # cutoff) drops the candidate here rather than just deprioritizing it. Two
+    # reasons: "skip" was the actual request -- an excluded checkpoint should never
+    # get picked, not just picked last -- and leaving it in would eventually strand
+    # the sampling loop below drawing among an all-zero remainder, which random.
+    # choices can't do (it requires a positive total weight) and would crash on.
+    excluded = [name for model_id, name, *_ in qualifying if weights.get(model_id, 1.0) == 0.0]
+    if excluded:
+        tried.extend(f"{name}: excluded (leaderboard score below cutoff)" for name in excluded)
+    qualifying = [c for c in qualifying if weights.get(c[0], 1.0) != 0.0]
 
     # Weighted sampling without replacement gives a full visit order, same shape as
     # the shuffle it replaces (every candidate still gets a turn if earlier ones fail

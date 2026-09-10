@@ -207,7 +207,7 @@ def _generate_batch_on_kaggle(resolved, prompts, negatives, adopted, workdir):
     return paths
 
 
-def generate(niche, count=None, workdir=None, state=None, model_info=None):
+def generate(niche, count=None, workdir=None, state=None, model_info=None, leaderboard=None):
     """One Kaggle round: decide a CivitAI checkpoint + reference prompt (same
     logic imageslides.generate() uses), generate `count` camera variations on
     Kaggle's GPU, keep what passes supervisor.py review. Returns (image_paths,
@@ -218,7 +218,8 @@ def generate(niche, count=None, workdir=None, state=None, model_info=None):
     model_info, when given a dict, gets {"spec", "name"} written into it for the
     checkpoint this round used -- same contract as imageslides.generate()'s own
     model_info param, see there for why it's a side-output rather than a 5th tuple
-    element."""
+    element. leaderboard is passed straight through to imageslides.decide_reference()
+    for the owner's own hard checkpoint exclusions."""
     if not available():
         raise RuntimeError("Kaggle credentials not configured "
                            "(KAGGLE_USERNAME + KAGGLE_API_TOKEN/KAGGLE_KEY)")
@@ -229,7 +230,7 @@ def generate(niche, count=None, workdir=None, state=None, model_info=None):
     min_images = int(niche.get("min_images", 3))
     max_images = int(niche.get("max_images", niche.get("images_per_video", 5)))
 
-    resolved, reference = imageslides.decide_reference(niche, state=state)
+    resolved, reference = imageslides.decide_reference(niche, state=state, leaderboard=leaderboard)
     civitai_spec = f"{resolved['model_id']}:{resolved['version_id']}"
     prefix, vibe, look = imageslides._build_prefix(niche, reference, state=state)
     base_negative = ", ".join(

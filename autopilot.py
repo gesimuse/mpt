@@ -51,6 +51,7 @@ if _env.exists():
             os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
 
 STATE_FILE = ROOT / "posted.json"
+LEADERBOARD_FILE = ROOT / "model_leaderboard.json"
 # DRY_RUN generates and QAs everything but queues nothing, leaving the images in
 # ./out for review.
 DRY_RUN = os.environ.get("DRY_RUN", "").strip().lower() in ("1", "true", "yes")
@@ -114,6 +115,18 @@ def save_state(state):
     STATE_FILE.write_text(json.dumps(state, indent=2))
 
 
+def load_leaderboard():
+    """model_leaderboard.json's current content -- the account owner's own Telegram
+    👍/👎 votes (worker/src/github.js's recordRating writes it, never this process).
+    Read-only here: this file is committed by the Worker, not by autopilot.py, so
+    there is no matching save_leaderboard(). {"models": {}} when the file doesn't
+    exist yet (no votes cast), matching imageslides._model_weights' own "missing ->
+    no exclusions" handling."""
+    if LEADERBOARD_FILE.exists():
+        return json.loads(LEADERBOARD_FILE.read_text())
+    return {"models": {}}
+
+
 def write_pending_captions(state, keep=10):
     """A phone-readable list of captions for whatever is still sitting as an inbox
     draft -- every upload here is a draft, there is no auto-published path to skip."""
@@ -172,6 +185,10 @@ def run_niche(niche, state):
                 f"the cap of {MAX_PENDING_DRAFTS}")
             videos_this_run = remaining
     used = state["topics"].setdefault(niche["id"], [])
+    # Loaded once per run_niche call, not per batch inside the loop below -- votes
+    # cast mid-run by a still-running job wouldn't be reflected until the NEXT
+    # scheduled run either way (this is a fresh checkout each run, not a live poll).
+    leaderboard = load_leaderboard()
     for _ in range(videos_this_run):
         stamp = time.strftime("%Y%m%d-%H%M%S")
         # Kaggle's own GPU generates the same images much faster than the local
@@ -188,7 +205,7 @@ def run_niche(niche, state):
         if kaggle_imagegen.available():
             try:
                 images, vibe, look, image_prompts = kaggle_imagegen.generate(
-                    niche, state=state, model_info=model_info)
+                    niche, state=state, model_info=model_info, leaderboard=leaderboard)
                 log(f"[{niche['id']}] generated on Kaggle's GPU ({len(images)} images)")
             except Exception as e:
                 log(f"[{niche['id']}] Kaggle image gen failed "
@@ -196,7 +213,7 @@ def run_niche(niche, state):
         if images is None:
             model_info = {}
             images, vibe, look, image_prompts = imageslides.generate(
-                niche, state=state, model_info=model_info)
+                niche, state=state, model_info=model_info, leaderboard=leaderboard)
         caption = imageslides.image_caption(niche, vibe=vibe, state=state)
         log(f"[{niche['id']}] caption (pre-filled on the draft; also saved to "
             f"CAPTIONS.md as a fallback):\n{caption}")
