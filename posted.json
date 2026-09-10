@@ -5228,6 +5228,26 @@
           "message_id": 582
         }
       }
+    },
+    {
+      "niche": "aibeautyvideo",
+      "topic": "video 20260910-182201",
+      "title": "When the music takes over",
+      "tiktok": true,
+      "tiktok_via": "inbox_video",
+      "tiktok_post_id": "v_inbox_url~v2.7683973908231899158",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_fail_reason": null,
+      "tiktok_caption": "When the music takes over\n\nCreated with AI.\n\n#aiart #digitalart #sultry #bouncemusic #funkyvibes",
+      "video_url": "https://gesimuse.github.io/mpt/media/1789064634-final.mp4",
+      "ts": "2026-09-10T18:25:16",
+      "motionforge_source_url": "https://gesimuse.github.io/mpt/media/1789034499-sd_6.jpg",
+      "telegram_message_ids": {
+        "https://gesimuse.github.io/mpt/media/1789064634-final.mp4": {
+          "chat_id": "-1004314616972",
+          "message_id": 45
+        }
+      }
     }
   ],
   "model_stats": {

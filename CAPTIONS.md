@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-10T18:25:16 — aibeautyvideo
+
+```
+When the music takes over
+
+Created with AI.
+
+#aiart #digitalart #sultry #bouncemusic #funkyvibes
+```
+
 ## 2026-09-10T17:49:28 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Feeling a little too confident in my own skin
 Created with AI.
 
 #artificialintimacy #genaiart #surrealismvibes #bodylove #digitalflirt
-```
-
-## 2026-09-09T17:31:16 — aibeautyvideo
-
-```
-i'm only holding on for the high five vibes
-
-Created with AI.
-
-#aiart #digitalleisure #alicestyle #naughtynights #flirtmode
 ```
