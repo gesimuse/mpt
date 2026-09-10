@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-10T22:06:02 — aibeautyvideo
+
+```
+when life gives you curves
+
+Created with AI.
+
+#aiart #artificialintelligenceart #confidenceootd #bodyposivity #realwomen
+```
+
 ## 2026-09-10T20:05:32 — aibeautyvideo
 
 ```
@@ -88,14 +98,4 @@ leaves of desire
 Created with AI.
 
 #generativeart #succesfullygrown #autumnvibes #woodlandwonder #autumnleaves
-```
-
-## 2026-09-09T18:15:24 — aibeautyvideo
-
-```
-Getting comfortable with myself
-
-Created with AI.
-
-#artificialcreativity #generativeart #flirtyvibes #selfloveart #digitalportrait
 ```

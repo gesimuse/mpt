@@ -5268,6 +5268,26 @@
           "message_id": 46
         }
       }
+    },
+    {
+      "niche": "aibeautyvideo",
+      "topic": "video 20260910-204954",
+      "title": "when life gives you curves",
+      "tiktok": true,
+      "tiktok_via": "inbox_video",
+      "tiktok_post_id": "v_inbox_url~v2.7684030576147499030",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_fail_reason": null,
+      "tiktok_caption": "when life gives you curves\n\nCreated with AI.\n\n#aiart #artificialintelligenceart #confidenceootd #bodyposivity #realwomen",
+      "video_url": "https://gesimuse.github.io/mpt/media/1789077886-final.mp4",
+      "ts": "2026-09-10T22:06:02",
+      "motionforge_source_url": "https://gesimuse.github.io/mpt/media/1788870134-sd_5.jpg",
+      "telegram_message_ids": {
+        "https://gesimuse.github.io/mpt/media/1789077886-final.mp4": {
+          "chat_id": "-1004314616972",
+          "message_id": 47
+        }
+      }
     }
   ],
   "model_stats": {
