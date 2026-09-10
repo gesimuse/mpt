@@ -1,0 +1,148 @@
+name: MPT Kaggle Video (Wan2GP prototype)
+# No cron -- fired by hand, either from a Telegram button (worker/src/index.js's
+# onKaggleVideo) or manually via workflow_dispatch. Separate workflow from
+# autopilot_video.yml (the HF ZeroGPU path) on purpose: this is a second, slower,
+# self-hosted-on-Kaggle attempt at a longer/independent video source, not a
+# fallback under the ZeroGPU ladder -- see autopilot.py's _run_video_niche
+# (VIDEO_BACKEND=kaggle branch) and kaggle/video_pipeline.py's own docstring for
+# why this is a different bet than the removed LTX-on-Kaggle attempt (31a738f).
+#
+# Real cost, not hypothetical: a live 81-frame (5s) test took ~22 minutes of actual
+# Kaggle GPU time for generation alone, plus cloning Wan2GP and downloading its
+# model weights fresh every run (no cache between separate kernel pushes). Longer
+# clips and the weekly-shared Kaggle GPU-hours quota (~30h/week, split with the
+# aibeauty image path) are real tradeoffs -- this is not a free multiplier on the
+# ZeroGPU path, it is a slower, quota-limited, separately-dispatched alternative.
+on:
+  workflow_dispatch:
+    inputs:
+      image_url:
+        description: "Source image URL (from gh-pages media/). Leave blank to auto-pick the most recent unanimated aibeauty image."
+        required: false
+        type: string
+      motion_prompt:
+        description: "Motion prompt"
+        required: false
+        type: string
+      video_length:
+        description: "Frames, at Wan2GP's 16fps default (161 ~= 10s, 81 ~= 5s). Roughly linear in generation time -- doubling this roughly doubles the Kaggle GPU minutes spent."
+        required: false
+        default: "161"
+        type: string
+      resolution:
+        description: "WIDTHxHEIGHT, passed straight to Wan2GP"
+        required: false
+        default: "512x896"
+        type: string
+
+concurrency:
+  # Same group as autopilot.yml/autopilot_video.yml -- all three write
+  # posted.json/CAPTIONS.md; see autopilot_video.yml's own comment on why they
+  # share one group instead of racing.
+  group: autopilot
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    # A cold Kaggle round (kernel queue wait + Wan2GP install + model download +
+    # generation, no caching between runs) measured ~25-30 min end to end for a 5s
+    # clip in testing; a 10s default and Kaggle's own queue variance both eat into
+    # that. Generous on purpose -- this workflow is never on the critical path of
+    # anything else, unlike autopilot_video.yml's tight 30min stall guard.
+    timeout-minutes: 120
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        # kaggle_videogen.py shells out to the `kaggle` CLI (push/poll/output) and
+        # uses requests nowhere directly, but imageslides.image_caption (still
+        # called for the TikTok caption) doesn't need anything beyond the stdlib
+        # here -- ffmpeg below handles the actual video work.
+        run: pip install kaggle requests
+
+      - name: Install Ollama and pull the caption model
+        # Same fallback text backend as autopilot_video.yml -- see that workflow's
+        # own comment. HF's router is tried first; this is the safety net.
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          nohup ollama serve > /tmp/ollama.log 2>&1 &
+          for i in {1..30}; do
+            curl -sf http://localhost:11434/api/tags > /dev/null && break
+            sleep 1
+          done
+          ollama pull llama3.2:3b
+
+      - name: Install ffmpeg
+        # Wan2GP's raw output is 16fps, same as the ZeroGPU Spaces' -- TikTok
+        # rejected that before (frame_rate_check_failed), fixed by videogen.py's
+        # _normalize_for_tiktok, which this workflow's run also calls. Same
+        # google-chrome-apt-source fix as autopilot_video.yml's own ffmpeg step.
+        run: |
+          sudo rm -f /etc/apt/sources.list.d/*google*
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg
+
+      - name: Run autopilot (video niche only, Kaggle backend)
+        env:
+          NICHES: aibeautyvideo
+          VIDEO_BACKEND: kaggle
+          VIDEO_IMAGE_URL: ${{ inputs.image_url }}
+          VIDEO_PROMPT: ${{ inputs.motion_prompt }}
+          VIDEO_LENGTH_FRAMES: ${{ inputs.video_length }}
+          VIDEO_RESOLUTION: ${{ inputs.resolution }}
+          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+          # Caption backend, same reasoning as autopilot_video.yml's own HF_TOKEN(S).
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_TOKENS: ${{ secrets.HF_TOKENS }}
+          TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
+          TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
+          TIKTOK_REFRESH_TOKEN_AIBEAUTY: ${{ secrets.TIKTOK_REFRESH_TOKEN_AIBEAUTY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_VIDEO_CHAT_ID: ${{ secrets.TELEGRAM_VIDEO_CHAT_ID }}
+          PAGES_BASE_URL: https://gesimuse.github.io/mpt
+        run: python autopilot.py
+
+      # Same retry-by-merge pattern as autopilot.yml/autopilot_video.yml's own
+      # "Persist state" step -- see either for why this retries and fails loudly
+      # instead of a one-shot swallow.
+      - name: Persist state (keepalive)
+        if: always()
+        run: |
+          git config user.name "autopilot-bot"
+          git config user.email "actions@github.com"
+          if git diff --quiet -- posted.json CAPTIONS.md; then
+            echo "nothing to persist"
+            exit 0
+          fi
+          cp posted.json "$RUNNER_TEMP/ours.json"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin ${{ github.ref_name }}
+            git reset --hard origin/${{ github.ref_name }}
+            python3 scripts/merge_state.py "$RUNNER_TEMP/ours.json" posted.json posted.json
+            python3 -c "import autopilot, json; autopilot.write_pending_captions(json.load(open('posted.json')))"
+            git add posted.json CAPTIONS.md
+            if git diff --cached --quiet; then
+              echo "remote already has everything from this run"
+              exit 0
+            fi
+            git commit -m "chore: kaggle-video run $(date -u +%F_%H:%M)"
+            if git push; then
+              echo "persisted on attempt $attempt"
+              exit 0
+            fi
+            echo "push rejected (remote moved again), retrying..."
+            sleep $((attempt * 5))
+          done
+          echo "::error::failed to persist posted.json/CAPTIONS.md after 5 attempts -- state from this run was NOT saved to main"
+          exit 1

@@ -123,6 +123,54 @@ async function onMakeVideo(env, cq, ts, index, promptOverride) {
   await noteAttempt(env, cq.message, prompt);
 }
 
+/**
+ * 🎬 Make video (Kaggle, long) -- same image/prompt lookup as onMakeVideo, but
+ * dispatches kaggle_video.yml instead of autopilot_video.yml (see that workflow's
+ * own header comment for why this is a separate, slower, quota-limited path rather
+ * than folded into the same button). KAGGLE_VIDEO_LENGTH/KAGGLE_VIDEO_RESOLUTION are
+ * plain Worker vars, not secrets -- change the default length/resolution with a
+ * redeploy, no code change needed.
+ */
+async function onKaggleVideo(env, cq, ts, index) {
+  let url = null, prompt = null, found = null;
+  await mutatePostedJson(env, (state) => {
+    found = findImage(state, ts, index);
+    url = found.url;
+    prompt = (found.entry?.motion_prompts || [])[index]
+      || (found.entry?.image_prompts || [])[index] || "";
+    return false;
+  }, "");
+  if (!url) {
+    await answer(env, cq.id, found?.entry
+      ? "Already marked done or skipped - nothing to generate from."
+      : "That batch is no longer in posted.json.", true);
+    return;
+  }
+  if (!(await isLive(url))) {
+    await answer(env, cq.id, "Image had expired - restoring it first...");
+    try {
+      url = await rehostFromTelegram(env, cq.message, ts, index);
+    } catch (err) {
+      await answer(env, cq.id, `Could not restore it: ${redact(env, err).slice(0, 120)}`, true);
+      return;
+    }
+    if (!url) {
+      await answer(env, cq.id, "That image's file is gone and cannot be restored.", true);
+      return;
+    }
+  }
+  await dispatchWorkflow(env, {
+    image_url: url,
+    motion_prompt: prompt,
+    video_length: env.KAGGLE_VIDEO_LENGTH || "161",
+    resolution: env.KAGGLE_VIDEO_RESOLUTION || "512x896",
+  }, "kaggle_video.yml");
+  await answer(env, cq.id, "Sent to Kaggle video generation -- this one is slow "
+    + "(real GPU round trip, expect 20-40+ minutes), it'll land in the video "
+    + "channel when done.");
+  await noteAttempt(env, cq.message, `[kaggle] ${prompt}`);
+}
+
 /** Append a line recording this attempt, leaving the keyboard in place. */
 async function noteAttempt(env, message, prompt) {
   const existing = message.caption || "";
@@ -279,6 +327,7 @@ async function onCallback(env, cq) {
   const { action, ts, index } = parseCallback(cq.data);
   try {
     if (action === "vid") return await onMakeVideo(env, cq, ts, index);
+    if (action === "kagvid") return await onKaggleVideo(env, cq, ts, index);
     if (action === "done") return await onResolve(env, cq, ts, index, "posted");
     if (action === "skip") return await onResolve(env, cq, ts, index, "skipped");
     if (action === "retry") return await onRetry(env, cq, ts);

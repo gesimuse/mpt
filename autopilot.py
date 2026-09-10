@@ -34,6 +34,7 @@ from pathlib import Path
 
 import imageslides
 import kaggle_imagegen
+import kaggle_videogen
 import motion_writer
 import telegram
 import tiktok
@@ -469,9 +470,31 @@ def _run_video_niche(niche, state):
     stamp = time.strftime("%Y%m%d-%H%M%S")
     prompt = (os.environ.get("VIDEO_PROMPT", "").strip()
               or niche.get("motionforge_prompt", "").strip())
-    length_s = os.environ.get("VIDEO_LENGTH_S", "").strip() or niche.get("motionforge_length_s", "5.0")
-    steps = os.environ.get("VIDEO_STEPS", "").strip() or niche.get("motionforge_steps", "4")
-    video_path = videogen.generate(image_url, prompt, length_s=length_s, steps=steps)
+    # VIDEO_BACKEND=kaggle is the Wan2GP prototype (kaggle_videogen.py, kaggle_video.
+    # yml) -- a second attempt at a self-hosted Kaggle-T4 fallback, separate from the
+    # HF ZeroGPU ladder below. See kaggle/video_pipeline.py's docstring for why this
+    # one is a different bet than the removed LTX attempt. Kept as an explicit,
+    # separately-dispatched path rather than a silent fallback under the ZeroGPU
+    # ladder: it is 10-20x slower end to end (a real Kaggle GPU round trip, no
+    # cached weights between runs) and burns Kaggle's shared weekly GPU-hours
+    # quota, so it should only ever run when asked for by name, not opportunistically.
+    if os.environ.get("VIDEO_BACKEND", "").strip().lower() == "kaggle":
+        video_length = int(os.environ.get("VIDEO_LENGTH_FRAMES", "").strip() or
+                           niche.get("motionforge_video_length", 161))
+        resolution = (os.environ.get("VIDEO_RESOLUTION", "").strip() or
+                     niche.get("motionforge_resolution", "512x896"))
+        raw_path = kaggle_videogen.generate_from_url(
+            image_url, prompt, video_length=video_length, resolution=resolution)
+        # Same fix videogen.generate() applies to every ZeroGPU Space's output --
+        # TikTok rejected a real draft with frame_rate_check_failed on raw 16fps
+        # output before (videogen.py's own _normalize_for_tiktok docstring), and
+        # Wan2GP's raw output is the same 16fps, so it needs the identical re-encode.
+        video_path = str(Path(tempfile.mkdtemp(prefix="kaggle_video_")) / "final.mp4")
+        videogen._normalize_for_tiktok(Path(raw_path), Path(video_path))
+    else:
+        length_s = os.environ.get("VIDEO_LENGTH_S", "").strip() or niche.get("motionforge_length_s", "5.0")
+        steps = os.environ.get("VIDEO_STEPS", "").strip() or niche.get("motionforge_steps", "4")
+        video_path = videogen.generate(image_url, prompt, length_s=length_s, steps=steps)
     caption = imageslides.image_caption(niche, vibe=prompt or None, state=state)
     log(f"[{niche['id']}] caption (pre-filled on the draft):\n{caption}")
 

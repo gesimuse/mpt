@@ -16,9 +16,9 @@ function headers(env) {
   };
 }
 
-export async function dispatchWorkflow(env, inputs) {
+export async function dispatchWorkflow(env, inputs, workflowFile) {
   const url = `${API}/repos/${env.GITHUB_OWNER}/${env.GITHUB_REPO}`
-    + `/actions/workflows/${env.VIDEO_WORKFLOW}/dispatches`;
+    + `/actions/workflows/${workflowFile || env.VIDEO_WORKFLOW}/dispatches`;
   const r = await fetch(url, {
     method: "POST",
     headers: { ...headers(env), "content-type": "application/json" },

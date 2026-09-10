@@ -134,7 +134,8 @@ def video_chat_id():
 
 
 def _image_keyboard(ts, index):
-    """Four actions, and the important one is what "Make video" does NOT do.
+    """Five actions (Make video now has two variants -- ZeroGPU and Kaggle), and the
+    important one is what "Make video" does NOT do.
 
     Making a video leaves the image in the channel with its buttons intact, because
     one still is worth several attempts -- a different motion prompt on the same photo
@@ -157,6 +158,11 @@ def _image_keyboard(ts, index):
     one instead of both reading as 0."""
     return {"inline_keyboard": [[
         {"text": "🎬 Make video", "callback_data": _callback("vid", ts, index)},
+        # Wan2GP on Kaggle's own T4 -- a slower (real GPU round trip, 20-40+ min),
+        # quota-limited second path, not a replacement for the ZeroGPU button above.
+        # See worker/src/index.js's onKaggleVideo and kaggle_video.yml's own header
+        # comment for the full reasoning.
+        {"text": "🎬 Make video (Kaggle, long)", "callback_data": _callback("kagvid", ts, index)},
     ], [
         {"text": "✅ Done", "callback_data": _callback("done", ts, index)},
         {"text": "🗑 Skip", "callback_data": _callback("skip", ts, index)},

@@ -3612,6 +3612,61 @@ class AutopilotVideoNicheTest(unittest.TestCase):
         self.assertEqual(video_up["video_url"], "https://pages/media/vid.mp4")
         self.assertTrue(video_up["tiktok"])
 
+    def test_kaggle_backend_calls_kaggle_videogen_and_normalizes_frame_rate(self):
+        """VIDEO_BACKEND=kaggle routes through kaggle_videogen.generate_from_url
+        instead of videogen.generate() -- everything downstream (hosting, TikTok
+        publish, Telegram, state) must be the exact same code path either way, only
+        the video-producing call differs. Wan2GP's raw output is 16fps, same as the
+        ZeroGPU Spaces', so it needs the identical _normalize_for_tiktok re-encode
+        videogen.generate() already applies internally for its own callers."""
+        state = {"topics": {}, "uploads": [
+            self._photo_upload(["https://pages/media/a.jpg"]),
+        ]}
+        calls = {}
+
+        def fake_generate_from_url(image_url, prompt, video_length=81,
+                                   resolution="512x896", seed=-1, dest=None):
+            calls["kaggle_gen"] = {"image_url": image_url, "prompt": prompt,
+                                   "video_length": video_length, "resolution": resolution}
+            return "/tmp/raw_wan2gp_output.mp4"
+
+        def fake_normalize(src, dest):
+            calls["normalize"] = {"src": str(src), "dest": str(dest)}
+            Path(dest).write_bytes(b"fake normalized mp4")
+
+        def fake_publish(video_path, niche_id, video_url=None, caption=None, token_niche=None, **kw):
+            calls["publish"] = {"video_path": video_path}
+            return "pv_1"
+
+        def fake_host_file(p):
+            calls["hosted_path"] = str(p)
+            return "https://pages/media/vid.mp4"
+
+        env = {**self.ENV_WITH_TOKEN, "VIDEO_BACKEND": "kaggle",
+              "VIDEO_LENGTH_FRAMES": "161", "VIDEO_RESOLUTION": "768x1344"}
+        with mock.patch.dict(os.environ, env, clear=True), \
+             mock.patch.object(autopilot, "DRY_RUN", False), \
+             mock.patch.object(autopilot.kaggle_videogen, "generate_from_url",
+                              fake_generate_from_url), \
+             mock.patch.object(autopilot.videogen, "_normalize_for_tiktok", fake_normalize), \
+             mock.patch.object(autopilot.videogen, "generate",
+                              mock.Mock(side_effect=AssertionError("must not run"))), \
+             mock.patch.object(autopilot.tiktok, "host_file", fake_host_file), \
+             mock.patch.object(autopilot.tiktok, "publish_video_draft", fake_publish), \
+             mock.patch.object(autopilot.tiktok, "check_publish_status",
+                              lambda pid, niche_id, token_niche=None: ("SEND_TO_USER_INBOX", None)), \
+             mock.patch.object(autopilot, "save_state", lambda s: None), \
+             mock.patch.object(autopilot, "write_pending_captions", lambda s: None), \
+             mock.patch.object(autopilot.os, "remove", lambda p: None):
+            autopilot.run_niche(self.VIDEO_NICHE, state)
+
+        self.assertEqual(calls["kaggle_gen"]["image_url"], "https://pages/media/a.jpg")
+        self.assertEqual(calls["kaggle_gen"]["video_length"], 161)
+        self.assertEqual(calls["kaggle_gen"]["resolution"], "768x1344")
+        self.assertEqual(calls["normalize"]["src"], "/tmp/raw_wan2gp_output.mp4")
+        # The NORMALIZED (30fps) path gets hosted/published, never the raw 16fps one.
+        self.assertEqual(calls["hosted_path"], calls["normalize"]["dest"])
+
     def test_video_image_url_env_override_beats_auto_pick(self):
         """push_video.py fires workflow_dispatch with the picked image_url as an
         input; the workflow surfaces it as VIDEO_IMAGE_URL. That must override the
@@ -3974,7 +4029,7 @@ class TelegramTest(unittest.TestCase):
         self.assertIn("turn and look back", first["caption"])
         rows = first["reply_markup"]["inline_keyboard"]
         actions = [b["callback_data"].split("|")[0] for row in rows for b in row]
-        self.assertEqual(actions, ["vid", "done", "skip", "good", "bad"])
+        self.assertEqual(actions, ["vid", "kagvid", "done", "skip", "good", "bad"])
         second = captured["calls"][1][1]
         self.assertTrue(second["reply_markup"]["inline_keyboard"][0][0]
                        ["callback_data"].endswith("|1"))
@@ -4184,9 +4239,21 @@ class TelegramWorkerContractTest(unittest.TestCase):
     def test_worker_parses_the_callback_format_python_emits(self):
         index = (self.SRC / "index.js").read_text()
         self.assertIn('.split("|")', index)
-        for action in ("vid", "skip", "retry"):
+        for action in ("vid", "kagvid", "skip", "retry"):
             self.assertIn(f'"{action}"', index)
             self.assertIn(action, telegram._callback(action, "ts", 0))
+
+    def test_worker_dispatches_kaggle_video_to_its_own_workflow_file(self):
+        """onKaggleVideo must pass "kaggle_video.yml" explicitly to dispatchWorkflow
+        -- that function's default (env.VIDEO_WORKFLOW) is autopilot_video.yml, the
+        ZeroGPU path. Getting this wrong would silently send Kaggle-shaped inputs
+        (video_length/resolution) to the wrong workflow, which doesn't declare them."""
+        index = (self.SRC / "index.js").read_text()
+        onkv = index[index.index("async function onKaggleVideo"):
+                     index.index("\nasync function", index.index("async function onKaggleVideo") + 1)]
+        self.assertIn('"kaggle_video.yml"', onkv)
+        self.assertIn("video_length", onkv)
+        self.assertIn("resolution", onkv)
 
     def test_worker_parses_the_fanvue_actions(self):
         """fvpost/fvskip carry no ts|index (see telegram.py's _fanvue_keyboard
