@@ -4842,7 +4842,7 @@
       "tiktok_status": "SEND_TO_USER_INBOX",
       "tiktok_caption": "A little extra never hurt.\n\nCreated with AI.\n\n#aiart #aigenerated #aiphotography #confident",
       "image_urls": [
-        "https://gesimuse.github.io/mpt/media/1789043290-sd_0.jpg",
+        null,
         "https://gesimuse.github.io/mpt/media/1789043329-sd_1.jpg",
         "https://gesimuse.github.io/mpt/media/1789043368-sd_2.jpg",
         "https://gesimuse.github.io/mpt/media/1789043404-sd_3.jpg",
@@ -4854,7 +4854,7 @@
         "https://gesimuse.github.io/mpt/media/1789043779-sd_9.jpg"
       ],
       "image_prompts": [
-        "stunningly beautiful adult woman, curvy redhead woman in her late twenties, long wavy copper hair, cute feminine face, small nose, almond shaped eyes, minimal makeup, smoking hot, seductive, sultry gaze, glamour photography, curvy hourglass figure, huge perfectly round breasts, perfectly round ass, deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, glossy lips, flawless makeup, hair slicked back, confident stride, water dripping, candid smartphone photography, amateur composition, 24mm smartphone lens, f/2.0, hand-held camera shake, slight motion blur, slightly overexposed highlights, unfiltered aesthetic, raw photo, 4k, full body portrait, mid-stride, wide angle, 2. A female pilot (ethnicity: Caucasian, age: early 40s) in the cockpit of a commercial airliner (model: modern, advanced). She's dressed in a crisp, navy blue uniform (fabric: wool blend) with golden stripes and badges denoting her rank. Her hairstyle is a sleek, short bob, and her makeup is professional and understated. She's confidently navigating the controls (detail: high-tech), looking out of the cockpit window at a breathtaking sunrise, reflecting a sense of calm expertise.",
+        null,
         "stunningly beautiful adult woman, curvy redhead woman in her late twenties, long wavy copper hair, cute feminine face, small nose, almond shaped eyes, minimal makeup, smoking hot, seductive, sultry gaze, glamour photography, curvy hourglass figure, huge perfectly round breasts, perfectly round ass, deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, glossy lips, flawless makeup, hair slicked back, confident stride, water dripping, candid smartphone photography, amateur composition, 24mm smartphone lens, f/2.0, hand-held camera shake, slight motion blur, slightly overexposed highlights, unfiltered aesthetic, raw photo, 4k, medium shot, gentle rim lighting, 2. A female pilot (ethnicity: Caucasian, age: early 40s) in the cockpit of a commercial airliner (model: modern, advanced). She's dressed in a crisp, navy blue uniform (fabric: wool blend) with golden stripes and badges denoting her rank. Her hairstyle is a sleek, short bob, and her makeup is professional and understated. She's confidently navigating the controls (detail: high-tech), looking out of the cockpit window at a breathtaking sunrise, reflecting a sense of calm expertise.",
         "stunningly beautiful adult woman, curvy redhead woman in her late twenties, long wavy copper hair, cute feminine face, small nose, almond shaped eyes, minimal makeup, smoking hot, seductive, sultry gaze, glamour photography, curvy hourglass figure, huge perfectly round breasts, perfectly round ass, deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, glossy lips, flawless makeup, hair slicked back, confident stride, water dripping, candid smartphone photography, amateur composition, 24mm smartphone lens, f/2.0, hand-held camera shake, slight motion blur, slightly overexposed highlights, unfiltered aesthetic, raw photo, 4k, close-up shot, shallow depth of field, 2. A female pilot (ethnicity: Caucasian, age: early 40s) in the cockpit of a commercial airliner (model: modern, advanced). She's dressed in a crisp, navy blue uniform (fabric: wool blend) with golden stripes and badges denoting her rank. Her hairstyle is a sleek, short bob, and her makeup is professional and understated. She's confidently navigating the controls (detail: high-tech), looking out of the cockpit window at a breathtaking sunrise, reflecting a sense of calm expertise.",
         "stunningly beautiful adult woman, curvy redhead woman in her late twenties, long wavy copper hair, cute feminine face, small nose, almond shaped eyes, minimal makeup, smoking hot, seductive, sultry gaze, glamour photography, curvy hourglass figure, huge perfectly round breasts, perfectly round ass, deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, glossy lips, flawless makeup, hair slicked back, confident stride, water dripping, candid smartphone photography, amateur composition, 24mm smartphone lens, f/2.0, hand-held camera shake, slight motion blur, slightly overexposed highlights, unfiltered aesthetic, raw photo, 4k, slight high angle, soft backlighting, 2. A female pilot (ethnicity: Caucasian, age: early 40s) in the cockpit of a commercial airliner (model: modern, advanced). She's dressed in a crisp, navy blue uniform (fabric: wool blend) with golden stripes and badges denoting her rank. Her hairstyle is a sleek, short bob, and her makeup is professional and understated. She's confidently navigating the controls (detail: high-tech), looking out of the cockpit window at a breathtaking sunrise, reflecting a sense of calm expertise.",
@@ -4870,7 +4870,7 @@
       "vibe": "out of the surf",
       "look": "curvy-redhead",
       "motion_prompts": [
-        "She turns her back to the camera, slowly arches her spine, and then looks over her shoulder with a sultry gaze, water dripping down her cheek.",
+        null,
         "She begins to pivot, turning her hips and torso towards the camera while smoothing her hands down her sides.",
         "She slowly starts walking backwards, her gaze fixed on the distance outside the cockpit window, her weight shifting through her hips and her long hair swaying with each step, the camera held steady.",
         "She slowly arches her back, hips forward, and torso weight shifting, trousers creasing, water droplets running down her smooth skin as she turns to gaze back over her shoulder.",
@@ -4923,7 +4923,8 @@
           "chat_id": "-1004449497323",
           "message_id": 548
         }
-      }
+      },
+      "owner_verdict": "skipped"
     }
   ],
   "model_stats": {
