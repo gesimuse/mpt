@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-10T15:16:28 — aibeauty
+
+```
+Where the sun dips, I find my thrill.
+
+Created with AI.
+
+#digitalart #surrealsm #water #underwaterart #oceanvibes
+```
+
 ## 2026-09-10T14:49:00 — aibeautyvideo
 
 ```
@@ -88,14 +98,4 @@ Found a little slice of heaven in the market today
 Created with AI.
 
 #aiart #artificialevolved #trashytreasures #fleamarketfinds #vintagevibes
-```
-
-## 2026-09-09T16:09:00 — aibeauty
-
-```
-lost in the spin
-
-Created with AI.
-
-#aiart #artgeneration #ceramiclove #potterystudio #handbuilt
 ```
