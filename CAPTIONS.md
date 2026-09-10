@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-10T12:38:40 — aibeauty
+
+```
+A little extra never hurt.
+
+Created with AI.
+
+#aiart #aigenerated #aiphotography #confident
+```
+
 ## 2026-09-10T10:12:51 — aibeautyvideo
 
 ```
@@ -88,14 +98,4 @@ When the muse is messy
 Created with AI.
 
 #digitalart #artoftheday #surrealart #mixmedia #aiartstyle
-```
-
-## 2026-09-09T10:20:45 — aibeautyvideo
-
-```
-Spinning into the spotlight like nobody's watching
-
-Created with AI.
-
-#aiart #generativewatercolor #abstractexpressionism #digitaldance #neurorendering
 ```
