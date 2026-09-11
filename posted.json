@@ -5289,6 +5289,26 @@
           "message_id": 47
         }
       }
+    },
+    {
+      "niche": "aibeautyvideo",
+      "topic": "video 20260911-043309",
+      "title": "Body rolls on",
+      "tiktok": true,
+      "tiktok_via": "inbox_video",
+      "tiktok_post_id": "v_inbox_url~v2.7684147046949013507",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_fail_reason": null,
+      "tiktok_caption": "Body rolls on\n\nCreated with AI.\n\n#digitalart #generativeart #neonretrofuturism #technobabe #lowpoly",
+      "video_url": "https://gesimuse.github.io/mpt/media/1789105242-final.mp4",
+      "ts": "2026-09-11T05:43:44",
+      "motionforge_source_url": "https://gesimuse.github.io/mpt/media/1788870099-sd_4.jpg",
+      "telegram_message_ids": {
+        "https://gesimuse.github.io/mpt/media/1789105242-final.mp4": {
+          "chat_id": "-1004314616972",
+          "message_id": 48
+        }
+      }
     }
   ],
   "model_stats": {
