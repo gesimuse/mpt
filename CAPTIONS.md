@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-11T12:29:59 — aibeauty
+
+```
+Swept up in the spin
+
+Created with AI.
+
+#digitalart #generativeart #handbuilt #aiart #ceramics
+```
+
 ## 2026-09-11T11:48:38 — aibeautyvideo
 
 ```
@@ -88,14 +98,4 @@ Where the sun dips, I find my thrill.
 Created with AI.
 
 #digitalart #surrealsm #water #underwaterart #oceanvibes
-```
-
-## 2026-09-10T14:49:00 — aibeautyvideo
-
-```
-feeling myself
-
-Created with AI.
-
-#faceaim #portraitmode #curvygirlsrock #girlpowervibes #artificialbeauty
 ```
