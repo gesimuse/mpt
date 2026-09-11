@@ -5330,7 +5330,7 @@
         "https://gesimuse.github.io/mpt/media/1789122672-sd_6.jpg",
         "https://gesimuse.github.io/mpt/media/1789122707-sd_7.jpg",
         "https://gesimuse.github.io/mpt/media/1789122743-sd_8.jpg",
-        "https://gesimuse.github.io/mpt/media/1789122778-sd_9.jpg"
+        null
       ],
       "image_prompts": [
         "stunningly beautiful adult woman, sicilian woman in her early thirties, thick black hair, dark eyes, sharp cheekbones, full lips, striking eyes, bold makeup, smoking hot, seductive, sultry gaze, glamour photography, curvy hourglass figure, huge perfectly round breasts, perfectly round ass, deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, glossy lips, flawless makeup, wearing a wrap bikini top and a sarong skirt, on the deck of a catamaran at sunset, wind in her hair, leaning against the rail, easy smile, candid smartphone photography, amateur composition, 24mm smartphone lens, f/2.0, hand-held camera shake, slight motion blur, slightly overexposed highlights, unfiltered aesthetic, raw photo, 4k, full body shot, caught mid-motion, wide framing, a 30yo, 30 years old mongolian woman\nhighly detailed mid shot portrait photo, sharp focus on eyes, cinematic lighting",
@@ -5342,7 +5342,7 @@
         "stunningly beautiful adult woman, sicilian woman in her early thirties, thick black hair, dark eyes, sharp cheekbones, full lips, striking eyes, bold makeup, smoking hot, seductive, sultry gaze, glamour photography, curvy hourglass figure, huge perfectly round breasts, perfectly round ass, deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, glossy lips, flawless makeup, wearing a wrap bikini top and a sarong skirt, on the deck of a catamaran at sunset, wind in her hair, leaning against the rail, easy smile, candid smartphone photography, amateur composition, 24mm smartphone lens, f/2.0, hand-held camera shake, slight motion blur, slightly overexposed highlights, unfiltered aesthetic, raw photo, 4k, medium shot, gentle rim lighting, a 30yo, 30 years old mongolian woman\nhighly detailed mid shot portrait photo, sharp focus on eyes, cinematic lighting",
         "stunningly beautiful adult woman, sicilian woman in her early thirties, thick black hair, dark eyes, sharp cheekbones, full lips, striking eyes, bold makeup, smoking hot, seductive, sultry gaze, glamour photography, curvy hourglass figure, huge perfectly round breasts, perfectly round ass, deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, glossy lips, flawless makeup, wearing a wrap bikini top and a sarong skirt, on the deck of a catamaran at sunset, wind in her hair, leaning against the rail, easy smile, candid smartphone photography, amateur composition, 24mm smartphone lens, f/2.0, hand-held camera shake, slight motion blur, slightly overexposed highlights, unfiltered aesthetic, raw photo, 4k, close-up shot, shallow depth of field, a 30yo, 30 years old mongolian woman\nhighly detailed mid shot portrait photo, sharp focus on eyes, cinematic lighting",
         "stunningly beautiful adult woman, sicilian woman in her early thirties, thick black hair, dark eyes, sharp cheekbones, full lips, striking eyes, bold makeup, smoking hot, seductive, sultry gaze, glamour photography, curvy hourglass figure, huge perfectly round breasts, perfectly round ass, deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, glossy lips, flawless makeup, wearing a wrap bikini top and a sarong skirt, on the deck of a catamaran at sunset, wind in her hair, leaning against the rail, easy smile, candid smartphone photography, amateur composition, 24mm smartphone lens, f/2.0, hand-held camera shake, slight motion blur, slightly overexposed highlights, unfiltered aesthetic, raw photo, 4k, eye-level shot, diffused overcast light, a 30yo, 30 years old mongolian woman\nhighly detailed mid shot portrait photo, sharp focus on eyes, cinematic lighting",
-        "stunningly beautiful adult woman, sicilian woman in her early thirties, thick black hair, dark eyes, sharp cheekbones, full lips, striking eyes, bold makeup, smoking hot, seductive, sultry gaze, glamour photography, curvy hourglass figure, huge perfectly round breasts, perfectly round ass, deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, glossy lips, flawless makeup, wearing a wrap bikini top and a sarong skirt, on the deck of a catamaran at sunset, wind in her hair, leaning against the rail, easy smile, candid smartphone photography, amateur composition, 24mm smartphone lens, f/2.0, hand-held camera shake, slight motion blur, slightly overexposed highlights, unfiltered aesthetic, raw photo, 4k, profile view, moody side lighting, a 30yo, 30 years old mongolian woman\nhighly detailed mid shot portrait photo, sharp focus on eyes, cinematic lighting"
+        null
       ],
       "model_spec": "89548:95334",
       "model_name": "HydraMix",
@@ -5358,7 +5358,7 @@
         "She leans in and slowly rolls her hips to one side, letting her smile start, then turns her upper body towards the camera.",
         "She turns her head, following the curve of her waist with one hand, and her hips roll forward ever so slightly.",
         "She turns her head, hips still, and looks back over her shoulder, revealing the curve of her back and the sarong's wrap.",
-        "She turns slowly to face the camera, her hips twisting and her sarong skirt fluttering behind her, as the wind in her hair whips it across her face."
+        null
       ],
       "ts": "2026-09-11T10:34:48",
       "telegram_message_ids": {
@@ -5402,7 +5402,8 @@
           "chat_id": "-1004449497323",
           "message_id": 604
         }
-      }
+      },
+      "owner_verdict": "skipped"
     }
   ],
   "model_stats": {
