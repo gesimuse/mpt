@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-11T10:34:48 — aibeauty
+
+```
+chasing the horizon
+
+Created with AI.
+
+#travelart #seascapeart #sunsetvibes #dreamydestinations #sailorlife
+```
+
 ## 2026-09-11T05:43:44 — aibeautyvideo
 
 ```
@@ -88,14 +98,4 @@ A little extra never hurt.
 Created with AI.
 
 #aiart #aigenerated #aiphotography #confident
-```
-
-## 2026-09-10T10:12:51 — aibeautyvideo
-
-```
-Own it like you mean it
-
-Created with AI.
-
-#aiart #botlove #teaserTuesday #midriffmotivation #confidentvibes
 ```
