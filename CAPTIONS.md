@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-11T11:43:50 — aibeautyvideo
+
+```
+when the night calls for a new adventure
+
+Created with AI.
+
+#aiart #mutedcolors #moodyimages #summer_vibes #nightscapephotography
+```
+
 ## 2026-09-11T10:34:48 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ I lose myself best when the music's loud
 Created with AI.
 
 #generativeart #digitaldailleur #nightsout #partyanimal #housemusicvibes
-```
-
-## 2026-09-10T12:38:40 — aibeauty
-
-```
-A little extra never hurt.
-
-Created with AI.
-
-#aiart #aigenerated #aiphotography #confident
 ```
