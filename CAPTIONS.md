@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-11T11:48:38 — aibeautyvideo
+
+```
+Some days just look like this.
+
+Created with AI.
+
+#aiart #aivideo #wan22 #confident
+```
+
 ## 2026-09-11T11:43:50 — aibeautyvideo
 
 ```
@@ -88,14 +98,4 @@ feeling myself
 Created with AI.
 
 #faceaim #portraitmode #curvygirlsrock #girlpowervibes #artificialbeauty
-```
-
-## 2026-09-10T14:43:24 — aibeauty
-
-```
-I lose myself best when the music's loud
-
-Created with AI.
-
-#generativeart #digitaldailleur #nightsout #partyanimal #housemusicvibes
 ```
