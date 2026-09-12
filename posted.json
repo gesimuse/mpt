@@ -5589,7 +5589,7 @@
         "She rises from her crouch, her flannel riding up her waist as she arches her back, hips shifting as she walks closer to the fire.",
         "She slowly turns her hips and shoulders, exposing her back to the camera, before gazing over her shoulder with a sultry expression.",
         "She turns her upper body slowly to the right, bending her hips and weight shifting onto one leg as her gaze lingers on the fire, hair swaying with the movement.",
-        "She pivots slowly, turning her upper body toward the camera, as her hair falls across her back, and her flannel shirt gapes slightly, revealing her décolletage.",
+        "She pivots slowly, turning her upper body toward the camera, as her hair falls across her back, and her flannel shirt gapes slightly, revealing her d\u00e9colletage.",
         "She begins with her hands running up her thighs and settles on her hips, then tips her chin down and looks up, holding her gaze a beat longer than the camera lingers on her face.",
         "She turns halfway toward the tent, one hand trailing down the curve of her waist, as the glow of the campfire subtly shifts behind her.",
         "She slowly turns, arching her back, and looks around at the camera with a deep, sultry gaze, her hair gently swaying towards the fire."
@@ -6048,6 +6048,26 @@
         "https://gesimuse.github.io/mpt/media/1789213982-sd_9.jpg": {
           "chat_id": "-1004449497323",
           "message_id": 670
+        }
+      }
+    },
+    {
+      "niche": "aibeautyvideo",
+      "topic": "video 20260912-120111",
+      "title": "Main character energy.",
+      "tiktok": true,
+      "tiktok_via": "inbox_video",
+      "tiktok_post_id": "v_inbox_url~v2.7684618144002082838",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_fail_reason": null,
+      "tiktok_caption": "Main character energy.\n\nCreated with AI.\n\n#aiart #aivideo #wan22 #confident",
+      "video_url": "https://gesimuse.github.io/mpt/media/1789214584-final.mp4",
+      "ts": "2026-09-12T12:04:14",
+      "motionforge_source_url": "https://gesimuse.github.io/mpt/media/1789213743-sd_2.jpg",
+      "telegram_message_ids": {
+        "https://gesimuse.github.io/mpt/media/1789214584-final.mp4": {
+          "chat_id": "-1004314616972",
+          "message_id": 53
         }
       }
     }

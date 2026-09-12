@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-12T12:04:14 — aibeautyvideo
+
+```
+Main character energy.
+
+Created with AI.
+
+#aiart #aivideo #wan22 #confident
+```
+
 ## 2026-09-12T11:54:36 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Some days just look like this.
 Created with AI.
 
 #aiart #aivideo #wan22 #confident
-```
-
-## 2026-09-11T11:43:50 — aibeautyvideo
-
-```
-when the night calls for a new adventure
-
-Created with AI.
-
-#aiart #mutedcolors #moodyimages #summer_vibes #nightscapephotography
 ```
