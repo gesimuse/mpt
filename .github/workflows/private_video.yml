@@ -1,0 +1,90 @@
+name: MPT Private Video (Telegram -> Kaggle -> Telegram)
+# The private flow: a photo the owner sends into the Telegram channel by hand is
+# animated on Kaggle and the mp4 comes back to the videos channel, with no copy of
+# either created anywhere else. See private_video.py's module docstring for the full
+# guarantee, and for the two things it explicitly cannot promise (Kaggle holds the
+# image during the run; this run's INPUTS below are visible in the public Actions UI).
+#
+# Deliberately separate from kaggle_video.yml rather than a flag on it. That workflow
+# runs autopilot.py, which hosts the mp4 on gh-pages, queues a TikTok draft and
+# commits posted.json/CAPTIONS.md -- correct for the account's own generated content,
+# and exactly what must not happen here. Keeping them apart means the publishing code
+# is never reached, instead of being reached and asked to behave.
+#
+# Note what this job does NOT have, all of it on purpose:
+#   * no `permissions: contents: write` -- it cannot push to any branch
+#   * no TikTok secrets -- it cannot post, even by mistake
+#   * no "Persist state" step and no artifact upload -- nothing outlives the runner
+on:
+  workflow_dispatch:
+    inputs:
+      telegram_file_id:
+        description: "Telegram file_id of the photo to animate (useless without the bot token)"
+        required: true
+        type: string
+      motion_prompt:
+        description: "What the photo should do"
+        required: true
+        type: string
+      video_length:
+        description: "Frames at Wan2GP's 16fps (81 ~= 5s)"
+        required: false
+        default: "81"
+        type: string
+      steps:
+        description: "Denoising steps (num_inference_steps)"
+        required: false
+        default: "8"
+        type: string
+      resolution:
+        description: "WIDTHxHEIGHT, passed straight to Wan2GP"
+        required: false
+        default: "512x896"
+        type: string
+
+concurrency:
+  # Same group as the other three: a Kaggle round uses the same weekly GPU-hours
+  # quota, and Wan2GP's kernel slug is shared, so two of these at once would fight
+  # over the same notebook.
+  group: autopilot
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    # Same ceiling as kaggle_video.yml: a cold Kaggle round clones Wan2GP and
+    # downloads model weights before generating anything.
+    timeout-minutes: 120
+    # No `permissions:` block at all -- the default read-only token cannot write to
+    # the repo, which is the point.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        # Deliberately short: no ffmpeg (nothing is re-encoded for TikTok, because
+        # nothing goes to TikTok) and no Ollama (no caption is written -- the video
+        # is delivered with its own prompt as the caption). motion_writer's timeline
+        # rewrite uses HF_TOKEN when one is set and falls back to a static template
+        # otherwise, so a missing text backend costs formatting, not the run.
+        # pillow only to downscale the still before it travels inside the Kaggle
+        # kernel's source -- see private_video._shrink.
+        run: pip install kaggle requests pillow
+
+      - name: Animate and deliver
+        env:
+          TELEGRAM_FILE_ID: ${{ inputs.telegram_file_id }}
+          MOTION_PROMPT: ${{ inputs.motion_prompt }}
+          VIDEO_LENGTH_FRAMES: ${{ inputs.video_length }}
+          VIDEO_STEPS: ${{ inputs.steps }}
+          VIDEO_RESOLUTION: ${{ inputs.resolution }}
+          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_VIDEO_CHAT_ID: ${{ secrets.TELEGRAM_VIDEO_CHAT_ID }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: python private_video.py

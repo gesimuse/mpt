@@ -226,6 +226,24 @@ def send_video(video_url, ts, caption=None, failed=False, chat_id=None):
     })["message_id"]
 
 
+def send_video_file(video_path, caption=None, chat_id=None):
+    """A generated clip uploaded as RAW BYTES to the videos channel.
+
+    send_video() above takes a URL, which means the mp4 has to be hosted publicly
+    first -- true for the TikTok path, where gh-pages hosting is required by
+    PULL_FROM_URL anyway. The private path (private_video.py) has no hosted copy and
+    must never create one, so the file is uploaded here directly, the same way
+    send_fanvue_photo uploads an image that must not touch GitHub.
+
+    Sent as a document, not a video, for the same reason send_video is: Telegram
+    re-encodes videos for streaming, and this is the only copy of the file that will
+    exist anywhere once the runner is torn down."""
+    return _call_multipart("sendDocument", {
+        "chat_id": chat_id or video_chat_id(),
+        "caption": (caption or "")[:1024],
+    }, "document", video_path)["message_id"]
+
+
 def fanvue_chat_id():
     """The Fanvue review queue's own channel, or the photos one when unset -- same
     fallback shape as video_chat_id(), so a single-channel setup keeps working."""

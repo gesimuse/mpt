@@ -75,7 +75,14 @@ def main() -> None:
     write_status("start", False)
     try:
         payload = json.loads(base64.b64decode(PAYLOAD_B64).decode())
-        image_url = payload["image_url"]
+        # Exactly one of the two. image_b64 is the PRIVATE path (private_video.py):
+        # the still travels inside this kernel's own source rather than being hosted
+        # anywhere first, because the whole point of that flow is that no public copy
+        # of the image is ever created -- see private_video.py's module docstring.
+        # image_url is the original flow, where the still is already on gh-pages
+        # because TikTok's PULL_FROM_URL needs it there regardless.
+        image_url = payload.get("image_url")
+        image_b64 = payload.get("image_b64")
         prompt = payload["prompt"]
         video_length = int(payload.get("video_length", 81))  # ~5.06s @ 16fps, Wan's default
         resolution = payload.get("resolution", "512x896")
@@ -135,9 +142,16 @@ def main() -> None:
             [sys.executable, "-m", "pip", "uninstall", "-y", "-q", "torchao"],
             check=True)
 
-        log(f"downloading input image from {image_url[:80]}...")
         img_path = WORK / "input.jpg"
-        urllib.request.urlretrieve(image_url, img_path)
+        if image_b64:
+            img_path.write_bytes(base64.b64decode(image_b64))
+            log(f"input image came inline with the payload "
+                f"({img_path.stat().st_size // 1024}KB, nothing fetched)")
+        elif image_url:
+            log(f"downloading input image from {image_url[:80]}...")
+            urllib.request.urlretrieve(image_url, img_path)
+        else:
+            raise ValueError("payload has neither image_url nor image_b64")
 
         OUT_DIR.mkdir(parents=True, exist_ok=True)
         settings = {
@@ -151,7 +165,12 @@ def main() -> None:
         }
         settings_path = WORK / "task.json"
         settings_path.write_text(json.dumps(settings))
-        log(f"task: {json.dumps(settings)[:300]}")
+        # Deliberately NOT the settings themselves: on failure this log is fetched
+        # back by kaggle_videogen and quoted into a GitHub Actions log, which is
+        # PUBLIC on this repo. The prompt and the image path are the run's content;
+        # the shape below is all that is needed to diagnose a bad task.
+        log(f"task: {video_length} frames at {resolution}, {steps} steps, "
+            f"seed {seed}, prompt {len(prompt)} chars")
 
         log("running wgp.py --process (this downloads the model on a cold run, "
             "expect several minutes before generation even starts)...")

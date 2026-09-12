@@ -16,6 +16,7 @@ removed LTX attempt was held to.
 
 Needs env: KAGGLE_USERNAME, KAGGLE_API_TOKEN (or KAGGLE_KEY -- aliased the same as
 kaggle_imagegen.py)."""
+import base64
 import json
 import os
 import shutil
@@ -85,14 +86,38 @@ def generate_from_url(image_url, prompt, video_length=81, resolution="512x896",
     generate() has; this is a single, real, expensive Kaggle round, and the caller
     (once this is wired into a ladder) is expected to treat a failure as "fall
     through to whatever comes next", the same shape as every other rung."""
+    return _generate({"image_url": image_url}, prompt, video_length, resolution,
+                     steps, seed, dest)
+
+
+def generate_from_image(image_path, prompt, video_length=81, resolution="512x896",
+                        steps=8, seed=-1, dest=None):
+    """Same round, with the still travelling INSIDE the kernel's payload instead of
+    being fetched from a URL.
+
+    This is what private_video.py uses, and the difference is the entire point of
+    that flow: generate_from_url needs the image to be publicly fetchable, which on
+    this repo means committing it to the public gh-pages branch first. Here the bytes
+    go straight into the (private) kernel source, so no copy of the image is ever
+    published anywhere. Kaggle itself still receives and stores it -- see
+    scrub_kernel() for what can be done about that, and private_video.py's docstring
+    for what cannot."""
+    data = base64.b64encode(Path(image_path).read_bytes()).decode()
+    log(f"image travels inline ({len(data) // 1024}KB base64), nothing is hosted")
+    return _generate({"image_b64": data}, prompt, video_length, resolution,
+                     steps, seed, dest)
+
+
+def _generate(source, prompt, video_length, resolution, steps, seed, dest):
+    """One Kaggle round. `source` is {"image_url": ...} or {"image_b64": ...}."""
     if not available():
         raise RuntimeError("Kaggle credentials not configured "
                            "(KAGGLE_USERNAME + KAGGLE_API_TOKEN/KAGGLE_KEY)")
     username = os.environ["KAGGLE_USERNAME"].strip()
     env = _kaggle_env()
 
-    payload = {"image_url": image_url, "prompt": prompt, "video_length": video_length,
-              "resolution": resolution, "steps": steps, "seed": seed}
+    payload = {"prompt": prompt, "video_length": video_length,
+              "resolution": resolution, "steps": steps, "seed": seed, **source}
     env["VIDEOGEN_PAYLOAD_JSON"] = json.dumps(payload)
 
     log("preparing kernel...")
@@ -144,3 +169,50 @@ def generate_from_url(image_url, prompt, video_length=81, resolution="512x896",
     shutil.copy(src, dest)
     log(f"wrote {dest} ({dest.stat().st_size} bytes)")
     return dest
+
+
+def scrub_kernel():
+    """Overwrite the kernel with a no-op version, so its stored source no longer
+    carries the still and its stored output no longer carries the video.
+
+    Needed because Kaggle has no delete: the CLI exposes list/files/init/push/pull/
+    output/status and nothing else, so the only way to stop the last run's content
+    sitting in the account is to replace it. Pushing a version with an empty script
+    and no payload does that for the CURRENT source and, once it runs, for the
+    output files.
+
+    What this does NOT do, and what no API call here can: Kaggle keeps the kernel's
+    VERSION HISTORY, so earlier versions -- including the one that carried the image
+    -- remain visible to the account owner in the Kaggle UI. The notebook is private,
+    so that is the owner and nobody else, and deleting it outright is a manual action
+    on Kaggle's own site (notebook Settings -> Delete). Said plainly here rather than
+    left for someone to discover after trusting the word "scrub".
+
+    Best-effort by design: a failure here must never turn a delivered video into a
+    failed run, so the caller logs and moves on."""
+    username = os.environ["KAGGLE_USERNAME"].strip()
+    env = _kaggle_env()
+    build = ROOT / "kernel_build_videogen"
+    build.mkdir(exist_ok=True)
+    (build / "video_pipeline.py").write_text(
+        "# Scrubbed after a private run: this kernel's previous source carried an\n"
+        "# image and its output carried a video. Both are replaced by this no-op.\n"
+        "print('scrubbed')\n")
+    (build / "kernel-metadata.json").write_text(json.dumps({
+        "id": f"{username}/{KERNEL_SLUG}",
+        "title": "MPT Video Gen Worker",
+        "code_file": "video_pipeline.py",
+        "language": "python",
+        "kernel_type": "script",
+        "is_private": "true",
+        # No GPU: this version exists only to overwrite, and a scrub must not spend
+        # any of the same weekly GPU quota the real run needs.
+        "enable_gpu": "false",
+        "enable_internet": "false",
+        "dataset_sources": [],
+        "competition_sources": [],
+        "kernel_sources": [],
+    }, indent=2))
+    subprocess.run(["kaggle", "kernels", "push", "-p", str(build)],
+                   cwd=str(ROOT), env=env, check=True, capture_output=True, text=True)
+    log("pushed a no-op version over the kernel (source and, once it runs, output)")
