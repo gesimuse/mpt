@@ -5591,7 +5591,7 @@
         "She rises from her crouch, her flannel riding up her waist as she arches her back, hips shifting as she walks closer to the fire.",
         "She slowly turns her hips and shoulders, exposing her back to the camera, before gazing over her shoulder with a sultry expression.",
         "She turns her upper body slowly to the right, bending her hips and weight shifting onto one leg as her gaze lingers on the fire, hair swaying with the movement.",
-        "She pivots slowly, turning her upper body toward the camera, as her hair falls across her back, and her flannel shirt gapes slightly, revealing her d\u00e9colletage.",
+        "She pivots slowly, turning her upper body toward the camera, as her hair falls across her back, and her flannel shirt gapes slightly, revealing her décolletage.",
         "She begins with her hands running up her thighs and settles on her hips, then tips her chin down and looks up, holding her gaze a beat longer than the camera lingers on her face.",
         "She turns halfway toward the tent, one hand trailing down the curve of her waist, as the glow of the campfire subtly shifts behind her.",
         "She slowly turns, arching her back, and looks around at the camera with a deep, sultry gaze, her hair gently swaying towards the fire."
@@ -6258,6 +6258,25 @@
           "message_id": 693
         }
       }
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "telegram upload 1789227180068",
+      "title": "Uploaded via Telegram",
+      "tiktok": true,
+      "tiktok_via": "telegram_manual_upload",
+      "image_urls": [
+        "https://gesimuse.github.io/mpt/media/telegram-1789227178482.jpg"
+      ],
+      "image_prompts": [
+        null
+      ],
+      "motion_prompts": [
+        null
+      ],
+      "vibe": null,
+      "look": null,
+      "ts": "2026-09-12T15:32:59"
     }
   ],
   "model_stats": {
