@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-12T14:22:40 — aibeauty
+
+```
+The view from my new obsession, tonight and every night
+
+Created with AI.
+
+#surrealista #neuralart #citylightsatnight #tokyostyle #urbanromance
+```
+
 ## 2026-09-12T13:31:28 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ under the right stars every night
 Created with AI.
 
 #aiart #astroart #campinglife #stargazing #nightscapepainting
-```
-
-## 2026-09-11T12:29:59 — aibeauty
-
-```
-Swept up in the spin
-
-Created with AI.
-
-#digitalart #generativeart #handbuilt #aiart #ceramics
 ```
