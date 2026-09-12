@@ -80,6 +80,13 @@ def main() -> None:
         video_length = int(payload.get("video_length", 81))  # ~5.06s @ 16fps, Wan's default
         resolution = payload.get("resolution", "512x896")
         seed = int(payload.get("seed", -1))
+        # The model json ships num_inference_steps=4 (Lightning is distilled to 4).
+        # 8 is this repo's own setting on the ZeroGPU path too (niches.json's
+        # motionforge_steps), and the two paths producing visibly different quality
+        # from the same still for no stated reason is worse than the extra minutes:
+        # generation time is roughly linear in steps, so this is ~2x the GPU time of
+        # the distilled default for one clip.
+        steps = int(payload.get("steps", 8))
 
         # Same Kaggle-base-image gotcha the image kernel hit: transformers imports
         # TensorFlow unconditionally for one CLIP loader path we never use.
@@ -139,6 +146,7 @@ def main() -> None:
             "image_start": str(img_path),
             "video_length": video_length,
             "resolution": resolution,
+            "num_inference_steps": steps,
             "seed": seed,
         }
         settings_path = WORK / "task.json"

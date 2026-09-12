@@ -9,7 +9,7 @@ What it handles:
 | Button / action | What happens |
 | --- | --- |
 | 🎬 Make video | Dispatches `autopilot_video.yml` (HF ZeroGPU, ~5s clip) with that image's URL and motion prompt, notes the attempt in the caption, and **leaves the image in place** — one still is worth several prompts |
-| 🎬 Make video (Kaggle, long) | Dispatches `kaggle_video.yml` (Wan2GP on a Kaggle T4, no ZeroGPU quota, longer clip — `KAGGLE_VIDEO_LENGTH`/`KAGGLE_VIDEO_RESOLUTION`) with the same image and motion prompt. Slow (20-40+ min); same "leaves the image in place" rule |
+| 🎬 Make video (Kaggle, long) | Dispatches `kaggle_video.yml` (Wan2GP on a Kaggle T4, no ZeroGPU quota) with the same image and motion prompt, at `KAGGLE_VIDEO_LENGTH` frames / `KAGGLE_VIDEO_STEPS` steps / `KAGGLE_VIDEO_RESOLUTION` — 81 frames ≈ 5s at Wan2GP's 16fps and 8 steps, the same clip length and step count the ZeroGPU path uses. Slow (20-40+ min); same "leaves the image in place" rule |
 | ✅ Done | Finished with it: removes the image from the channel and from `posted.json`, and records `owner_verdict: posted` |
 | 🗑 Skip | Didn't want it: same removal, but records `owner_verdict: skipped` |
 | 🔄 Retry post | Dispatches the video workflow with `retry_video_url`, republishing the same mp4 without regenerating |

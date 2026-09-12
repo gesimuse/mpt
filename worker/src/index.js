@@ -113,12 +113,7 @@ async function onMakeVideo(env, cq, ts, index, promptOverride) {
       return;
     }
   }
-  await dispatchWorkflow(env, {
-    image_url: url,
-    motion_prompt: prompt,
-    length_s: env.VIDEO_LENGTH_S || "5.0",
-    steps: env.VIDEO_STEPS || "4",
-  });
+  await dispatchVideo(env, url, prompt, false);
   await answer(env, cq.id, "Sent to video generation.");
   // Deliberately NOT markDone: the image stays in the channel with its buttons, so a
   // different motion prompt can be tried on the same still. One photo is worth several
@@ -163,12 +158,7 @@ async function onKaggleVideo(env, cq, ts, index) {
       return;
     }
   }
-  await dispatchWorkflow(env, {
-    image_url: url,
-    motion_prompt: prompt,
-    video_length: env.KAGGLE_VIDEO_LENGTH || "161",
-    resolution: env.KAGGLE_VIDEO_RESOLUTION || "512x896",
-  }, "kaggle_video.yml");
+  await dispatchVideo(env, url, prompt, true);
   await answer(env, cq.id, "Sent to Kaggle video generation -- this one is slow "
     + "(real GPU round trip, expect 20-40+ minutes), it'll land in the video "
     + "channel when done.");
@@ -410,7 +400,8 @@ function dispatchVideo(env, url, prompt, useKaggle) {
   if (useKaggle) {
     return dispatchWorkflow(env, {
       image_url: url, motion_prompt: prompt,
-      video_length: env.KAGGLE_VIDEO_LENGTH || "161",
+      video_length: env.KAGGLE_VIDEO_LENGTH || "81",
+      steps: env.KAGGLE_VIDEO_STEPS || "8",
       resolution: env.KAGGLE_VIDEO_RESOLUTION || "512x896",
     }, "kaggle_video.yml");
   }

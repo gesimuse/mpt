@@ -363,6 +363,23 @@ def _pick_source_image_url(niche, state):
     return None
 
 
+def _video_source_prompt(state, image_url):
+    """The SD prompt that generated the still being animated, if state still has it.
+
+    Only used to give motion_writer.timeline something to keep CONSISTENT across its
+    per-second lines (shot type, lighting, setting) -- the video model already has
+    the photo itself, so a miss here costs nothing and is not worth logging."""
+    for u in reversed(state.get("uploads", [])):
+        urls = u.get("image_urls") or []
+        if image_url in urls:
+            prompts = u.get("image_prompts") or []
+            i = urls.index(image_url)
+            if i < len(prompts) and prompts[i]:
+                return prompts[i]
+            return None
+    return None
+
+
 def _publish_video(niche, state, token_niche, video_url, caption, topic, extra_fields):
     """Publish an already-hosted mp4 URL to TikTok and record the outcome in state --
     shared by both a fresh generation and a retry of one already generated, so a
@@ -479,12 +496,32 @@ def _run_video_niche(niche, state):
     # cached weights between runs) and burns Kaggle's shared weekly GPU-hours
     # quota, so it should only ever run when asked for by name, not opportunistically.
     if os.environ.get("VIDEO_BACKEND", "").strip().lower() == "kaggle":
+        # 81 frames at Wan2GP's 16fps is ~5.06s -- the same clip length the ZeroGPU
+        # path produces (niches.json's motionforge_length_s), rather than the 10s
+        # this used to default to. Two backends handing back clips of different
+        # lengths from the same button made the output channel unreadable, and
+        # generation time is roughly linear in frames, so the shorter clip is also
+        # what buys back the minutes the step count below spends.
         video_length = int(os.environ.get("VIDEO_LENGTH_FRAMES", "").strip() or
-                           niche.get("motionforge_video_length", 161))
+                           niche.get("motionforge_video_length", 81))
         resolution = (os.environ.get("VIDEO_RESOLUTION", "").strip() or
                      niche.get("motionforge_resolution", "512x896"))
+        # Same motionforge_steps the ZeroGPU branch below reads: 8, against the
+        # Lightning checkpoint's own distilled default of 4.
+        steps = int(os.environ.get("VIDEO_STEPS", "").strip() or
+                    niche.get("motionforge_steps", 8))
+        # Wan2GP's docs recommend a second-by-second timeline prompt for exactly the
+        # checkpoint this path runs (see motion_writer.timeline's own comment). The
+        # prompt arrives here as one sentence -- what the ZeroGPU Spaces want -- so
+        # it is rewritten into that format here, at the only place that knows which
+        # backend is about to read it. Never fatal: timeline() falls back to a static
+        # template rather than costing a whole Kaggle round.
+        prompt = motion_writer.timeline(prompt, seconds=round(video_length / 16),
+                                        image_prompt=_video_source_prompt(state, image_url))
+        log(f"[{niche['id']}] kaggle prompt ({video_length} frames, {steps} steps):\n{prompt}")
         raw_path = kaggle_videogen.generate_from_url(
-            image_url, prompt, video_length=video_length, resolution=resolution)
+            image_url, prompt, video_length=video_length, resolution=resolution,
+            steps=steps)
         # Same fix videogen.generate() applies to every ZeroGPU Space's output --
         # TikTok rejected a real draft with frame_rate_check_failed on raw 16fps
         # output before (videogen.py's own _normalize_for_tiktok docstring), and

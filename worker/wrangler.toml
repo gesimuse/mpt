@@ -29,6 +29,20 @@ ALLOWED_CHAT_ID = "-1004449497323,-1004314616972"
 # Raise it here if quality matters more than volume; it is one line and a redeploy.
 VIDEO_STEPS = "8"
 VIDEO_LENGTH_S = "5.0"
+# The Kaggle (Wan2GP) path's equivalents, applied to every kaggle_video.yml dispatch
+# this bot makes -- the button and a "kaggle:" reply both go through them.
+#
+# 81 frames at Wan2GP's 16fps is ~5.06s: the SAME clip length the ZeroGPU path above
+# produces, not the 10s (161) this used to send. Two backends returning different
+# lengths from the same photo made the video channel unreadable, and generation time
+# is roughly linear in frames.
+#
+# STEPS is num_inference_steps. The i2v_2_2_Enhanced_Lightning_v2 checkpoint ships a
+# distilled default of 4; 8 is what VIDEO_STEPS above already asks the ZeroGPU path
+# for, and matching them is the point. Also roughly linear in generation time, so the
+# halved frame count above is what pays for it -- expect the same 20-40 min round.
+KAGGLE_VIDEO_LENGTH = "81"
+KAGGLE_VIDEO_STEPS = "8"
 # Fanvue post visibility. See worker/src/fanvue.js for why this whole integration is
 # unverified -- Fanvue's creator API is currently waitlisted, no live account to test
 # against yet. FANVUE_API_TOKEN is a SECRET (wrangler secret put FANVUE_API_TOKEN),

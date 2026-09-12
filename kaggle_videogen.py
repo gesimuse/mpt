@@ -78,7 +78,7 @@ def _kernel_log_tail(out_root, n_chars=4000):
 
 
 def generate_from_url(image_url, prompt, video_length=81, resolution="512x896",
-                      seed=-1, dest=None):
+                      steps=8, seed=-1, dest=None):
     """Push one kernel bearing an already-hosted image URL and a prompt, poll it,
     and copy the resulting mp4 to `dest` (or a temp path if not given). Returns the
     local Path. Raises on any failure -- no multi-round retry the way imageslides.
@@ -92,7 +92,7 @@ def generate_from_url(image_url, prompt, video_length=81, resolution="512x896",
     env = _kaggle_env()
 
     payload = {"image_url": image_url, "prompt": prompt, "video_length": video_length,
-              "resolution": resolution, "seed": seed}
+              "resolution": resolution, "steps": steps, "seed": seed}
     env["VIDEOGEN_PAYLOAD_JSON"] = json.dumps(payload)
 
     log("preparing kernel...")
