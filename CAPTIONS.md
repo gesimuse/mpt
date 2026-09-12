@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-12T09:44:22 — aibeauty
+
+```
+Knockout looks from behind the gloves
+
+Created with AI.
+
+#aiart #generativeart #boxerlife #femalefitness #gymmotivation
+```
+
 ## 2026-09-12T08:02:33 — aibeautyvideo
 
 ```
@@ -88,14 +98,4 @@ chasing the horizon
 Created with AI.
 
 #travelart #seascapeart #sunsetvibes #dreamydestinations #sailorlife
-```
-
-## 2026-09-11T05:43:44 — aibeautyvideo
-
-```
-Body rolls on
-
-Created with AI.
-
-#digitalart #generativeart #neonretrofuturism #technobabe #lowpoly
 ```
