@@ -25,14 +25,9 @@ on:
         required: false
         type: string
       video_length:
-        description: "Frames, at Wan2GP's 16fps default (81 ~= 5s, 161 ~= 10s). Roughly linear in generation time -- doubling this roughly doubles the Kaggle GPU minutes spent."
+        description: "Frames, at Wan2GP's 16fps default (161 ~= 10s, 81 ~= 5s). Roughly linear in generation time -- doubling this roughly doubles the Kaggle GPU minutes spent."
         required: false
-        default: "81"
-        type: string
-      steps:
-        description: "Denoising steps (num_inference_steps). The Lightning checkpoint is distilled to 4; 8 matches what the ZeroGPU path uses. Roughly linear in generation time."
-        required: false
-        default: "8"
+        default: "161"
         type: string
       resolution:
         description: "WIDTHxHEIGHT, passed straight to Wan2GP"
@@ -103,7 +98,6 @@ jobs:
           VIDEO_IMAGE_URL: ${{ inputs.image_url }}
           VIDEO_PROMPT: ${{ inputs.motion_prompt }}
           VIDEO_LENGTH_FRAMES: ${{ inputs.video_length }}
-          VIDEO_STEPS: ${{ inputs.steps }}
           VIDEO_RESOLUTION: ${{ inputs.resolution }}
           KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
           KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}

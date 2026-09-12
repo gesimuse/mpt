@@ -9,17 +9,15 @@ What it handles:
 | Button / action | What happens |
 | --- | --- |
 | 🎬 Make video | Dispatches `autopilot_video.yml` (HF ZeroGPU, ~5s clip) with that image's URL and motion prompt, notes the attempt in the caption, and **leaves the image in place** — one still is worth several prompts |
-| 🎬 Make video (Kaggle, long) | Dispatches `kaggle_video.yml` (Wan2GP on a Kaggle T4, no ZeroGPU quota) with the same image and motion prompt, at `KAGGLE_VIDEO_LENGTH` frames / `KAGGLE_VIDEO_STEPS` steps / `KAGGLE_VIDEO_RESOLUTION` — 81 frames ≈ 5s at Wan2GP's 16fps and 8 steps, the same clip length and step count the ZeroGPU path uses. Slow (20-40+ min); same "leaves the image in place" rule |
+| 🎬 Make video (Kaggle, long) | Dispatches `kaggle_video.yml` (Wan2GP on a Kaggle T4, no ZeroGPU quota, longer clip — `KAGGLE_VIDEO_LENGTH`/`KAGGLE_VIDEO_RESOLUTION`) with the same image and motion prompt. Slow (20-40+ min); same "leaves the image in place" rule |
 | ✅ Done | Finished with it: removes the image from the channel and from `posted.json`, and records `owner_verdict: posted` |
 | 🗑 Skip | Didn't want it: same removal, but records `owner_verdict: skipped` |
 | 🔄 Retry post | Dispatches the video workflow with `retry_video_url`, republishing the same mp4 without regenerating |
 | 👍 Good | Rates the checkpoint + SD prompt that produced this image (not the post itself — see Done/Skip above): +1 to that model's score and +1 to that exact prompt's score under it in `model_leaderboard.json`, then removes the message |
 | 👎 Not good | Same removal as Good, but -1 to that model's score and that prompt's score in `model_leaderboard.json` — a net score, not a good-only tally |
 | `/leaderboard` | Replies with the top models by score and, under each, its top 3 prompts by their own score, read straight from `model_leaderboard.json` |
-| Reply to a **generated** photo | Uses your text as the motion prompt for that image, then makes the video (ZeroGPU by default). Prefix with `kaggle:` (e.g. `kaggle: she turns and smiles`) to route that reply to the Kaggle backend instead — there's no button inside a reply, so the prefix is the button choice |
-| Send a photo **with a caption** | The private path: dispatches `private_video.yml` with the photo's Telegram `file_id` and the caption as the prompt. Nothing is hosted, nothing is written to `posted.json`, TikTok is never called; the mp4 comes back into the videos channel as a direct upload. See `private_video.py` for the guarantee and its two stated limits |
-| Send a photo with no caption | Says so, and nothing else happens — no copy is made. Reply to it with a prompt to start the private run |
-| Reply to a **hand-sent** photo | Same private run, using that photo. No stored state is needed: the reply carries the original message, and its photo, with it |
+| Reply to a photo | Uses your text as the motion prompt for that image, then makes the video (ZeroGPU by default). Prefix with `kaggle:` (e.g. `kaggle: she turns and smiles`) to route that reply to the Kaggle backend instead — there's no button inside a reply, so the prefix is the button choice |
+| Send a photo | Hosts it on `gh-pages` and registers it in `posted.json`, so it can be animated like any generated image |
 | ✅ Approve → post to Fanvue | *(Fanvue queue only)* Downloads that message's own photo straight from Telegram (this image was never hosted anywhere else — see below) and posts it to Fanvue via `fanvue.js`, then deletes the message — only on a confirmed successful post |
 | 🗑 Disapprove | *(Fanvue queue only)* Deletes the message, no Fanvue call |
 | 📮 Post to Fanvue | *(on a generated video)* One click, posts the already gh-pages-hosted mp4 to Fanvue via `fanvue.js`; does not delete the video message |

@@ -6,8 +6,7 @@ docstring for why this is a different bet than the LTX one that got removed in
 Inputs (env):
   KAGGLE_USERNAME        required -- owner of the kernel
   VIDEOGEN_PAYLOAD_JSON  required -- JSON: {"image_url": str, "prompt": str,
-                         "video_length": int, "resolution": str, "steps": int,
-                         "seed": int} (see
+                         "video_length": int, "resolution": str, "seed": int} (see
                          kaggle_videogen.py's _generate_on_kaggle)
 """
 import base64
