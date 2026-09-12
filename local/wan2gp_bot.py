@@ -151,17 +151,44 @@ def _config():
 # Telegram
 # --------------------------------------------------------------------------------
 
-def tg(method, timeout=60, files=None, **params):
+def tg(method, http_timeout=60, files=None, **params):
+    """`http_timeout` is this HTTP request's own deadline; a Telegram `timeout=`
+    (getUpdates' long-poll) is just another parameter and goes through **params.
+
+    They were one argument at first, which broke immediately in two ways: the
+    startup call asks Telegram for timeout=0 (return whatever is pending, now) and
+    requests rejects a 0 HTTP timeout outright, while the poll loop's long-poll would
+    have had an HTTP deadline exactly as long as the poll it is waiting on. The HTTP
+    deadline has to outlast the long-poll, so the two cannot be the same number."""
     url = f"{API}/bot{CONF['token']}/{method}"
     try:
-        r = (requests.post(url, data=params, files=files, timeout=timeout) if files
-             else requests.post(url, json=params, timeout=timeout))
+        r = (requests.post(url, data=params, files=files, timeout=http_timeout) if files
+             else requests.post(url, json=params, timeout=http_timeout))
     except requests.RequestException as e:
         raise RuntimeError(f"telegram {method} unreachable: {_redact(e)[:200]}") from None
     body = r.json()
     if not body.get("ok"):
         raise RuntimeError(f"telegram {method} rejected: {_redact(body)[:300]}")
     return body["result"]
+
+
+def tg_retry(method, attempts=5, **kw):
+    """A Telegram call that survives a blip.
+
+    The poll loop already retries; startup did not, and a single transient
+    SSLEOFError on the very first getUpdates was enough to kill the daemon before it
+    reached the loop -- which from the channel is indistinguishable from never having
+    been started. Under systemd this would restart anyway; run by hand it just dies,
+    and that is exactly when someone is watching for it to work."""
+    for attempt in range(1, attempts + 1):
+        try:
+            return tg(method, **kw)
+        except Exception as e:
+            if attempt == attempts:
+                raise
+            wait = min(30, 2 ** attempt)
+            log(f"{method} failed ({_redact(e)[:120]}); retry {attempt}/{attempts - 1} in {wait}s")
+            time.sleep(wait)
 
 
 def say(chat_id, text, reply_to=None):
@@ -194,12 +221,12 @@ def send_video(chat_id, path, caption):
     getting the file is what matters, the inline player is a nicety."""
     with open(path, "rb") as f:
         try:
-            return tg("sendVideo", timeout=300, files={"video": f},
+            return tg("sendVideo", http_timeout=300, files={"video": f},
                       chat_id=chat_id, caption=caption[:1024], supports_streaming=True)
         except RuntimeError as e:
             log(f"sendVideo refused ({e}); sending as a document instead")
     with open(path, "rb") as f:
-        return tg("sendDocument", timeout=300, files={"document": f},
+        return tg("sendDocument", http_timeout=300, files={"document": f},
                   chat_id=chat_id, caption=caption[:1024])
 
 
@@ -459,7 +486,7 @@ def job_from(post):
 def main():
     global CONF
     CONF = _config()
-    me = tg("getMe")
+    me = tg_retry("getMe")
     log(f"bot @{me.get('username')} | photos from {CONF['src_chat']} | "
         f"videos to {CONF['out_chat']}")
     if not (CONF["wan_dir"] / "wgp.py").exists():
@@ -475,7 +502,7 @@ def main():
     if not offset:
         # First start: skip whatever is already sitting in the backlog rather than
         # generating a video for every photo posted before this daemon existed.
-        pending = tg("getUpdates", timeout=0, offset=-1)
+        pending = tg_retry("getUpdates", timeout=0, offset=-1)
         offset = (pending[-1]["update_id"] + 1) if pending else 0
         _save_offset(offset)
         log("first start: ignoring anything posted before now")
@@ -483,7 +510,9 @@ def main():
     log("waiting for photos")
     while True:
         try:
-            updates = tg("getUpdates", timeout=70, offset=offset,
+            # 60s long-poll, 90s HTTP deadline: the request must outlive the poll
+            # it is waiting on, or every idle minute looks like a network failure.
+            updates = tg("getUpdates", http_timeout=90, timeout=60, offset=offset,
                          allowed_updates=["channel_post", "message"])
         except Exception as e:
             log(f"poll failed ({_redact(e)[:200]}); retrying in 10s")

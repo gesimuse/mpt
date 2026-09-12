@@ -86,6 +86,84 @@ is also why it must run under `~/apps/Wan2GP/.venv/bin/python` — torch and mmg
 there. The runtime is loaded lazily on the first photo, not at startup, so the bot comes
 up and answers in Telegram even if something is wrong with the runtime.
 
+## Operating it by hand
+
+Everything below is the whole job — there is no other moving part.
+
+**Start** (the Wan2GP web UI must be stopped first — same runtime, same RAM):
+
+```bash
+pkill -f "wgp.py --profile"                                   # stop the UI if it is up
+cd ~/apps/mpt
+~/apps/Wan2GP/.venv/bin/python local/wan2gp_bot.py            # foreground, Ctrl-C to stop
+```
+
+Backgrounded instead, with a log to read afterwards:
+
+```bash
+nohup ~/apps/Wan2GP/.venv/bin/python local/wan2gp_bot.py > /tmp/wan2gp-bot.log 2>&1 &
+tail -f /tmp/wan2gp-bot.log
+```
+
+A healthy start looks like exactly this:
+
+```
+[wan2gp-bot] bot @mpt_local_bot | photos from -1004449497323 | videos to -1004314616972
+[wan2gp-bot] first start: ignoring anything posted before now
+[wan2gp-bot] waiting for photos
+```
+
+**Stop**, and go back to the web UI:
+
+```bash
+pkill -f "local/wan2gp_bot.py"
+cd ~/apps/Wan2GP && .venv/bin/python wgp.py --profile 4 --attention sdpa
+```
+
+**Is it running?**
+
+```bash
+pgrep -af "local/wan2gp_bot.py" || echo "not running"
+free -g                     # during a job the runtime holds ~26GB of the 30
+nvidia-smi                  # and the GPU while it is actually denoising
+```
+
+### Setting up a bot yourself (what was done here, repeatable)
+
+1. **@BotFather → `/newbot`**, pick a name and a username ending in `bot`. It replies
+   with a token.
+2. **Add the bot to both channels as an admin.** Channel → *Administrators* → *Add
+   Admin* → search the username. A channel has no plain "add member" for bots, and a
+   non-admin bot receives no posts at all — this is the step that silently breaks
+   everything if skipped.
+3. **`LOCAL_BOT_TOKEN=` in `.env`**, nothing else (the rest of the block is filled in).
+4. Verify before starting anything, substituting your own token and ids:
+
+   ```bash
+   T=<token>
+   curl -s "https://api.telegram.org/bot$T/getMe"
+   curl -s "https://api.telegram.org/bot$T/getChatMember?chat_id=-1004449497323&user_id=<bot id>"
+   ```
+
+   `getMe` gives the bot id used in the second call. `getChatMember` must say
+   `"status":"administrator"` with `"can_post_messages":true` for BOTH channels. While
+   the bot is not a member, Telegram answers `Bad Request: chat not found` — that
+   message means "not in the channel", not "wrong id".
+
+### When something is wrong
+
+| Symptom | What it is |
+| --- | --- |
+| `409 Conflict` on getUpdates | The token has a webhook. You used the mpt bot's token; this needs its own bot. |
+| `Bad Request: chat not found` | The bot is not in that channel yet. Add it as an admin. |
+| Photo posted, bot says nothing | Bot not admin, not running, or the photo is in a chat other than `LOCAL_SRC_CHAT_ID`. |
+| The reply says the job failed | The message carries the real reason — RAM, a bad setting, a stuck model. |
+| Killed with no message at all | Out of memory: the web UI is probably still running alongside it. |
+
+Chat ids, if they ever change: post anything in the channel and read it back with
+`getUpdates` on a bot that has no webhook, or use the mpt bot's existing
+`telegram_chats.json` mechanism.
+
 ## Run it as a service
 
 So it comes back after a reboot without remembering to start it:
