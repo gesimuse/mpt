@@ -306,6 +306,10 @@ def to_timeline(motion, seconds):
 
 MODEL_TYPE = "i2v_2_2_Enhanced_Lightning_v2"
 
+# Seconds between progress lines in the log. Long enough that a 5-minute job leaves a
+# handful of lines rather than hundreds.
+PROGRESS_EVERY = 30
+
 SESSION = None
 SESSION_LOCK = threading.Lock()
 
@@ -368,6 +372,25 @@ def generate(image_path, prompt, out_dir):
         f"{settings.get('resolution')}")
     started = time.time()
     job = session().submit_task(settings)
+    # Consume the job's progress events rather than just blocking on result(): with
+    # console_output off (wgp.py prints a line per step, which drowns a journal) the
+    # log would otherwise say nothing at all between "generating" and the delivery,
+    # for the several minutes a clip takes -- indistinguishable from a hang. Throttled
+    # to one line every PROGRESS_EVERY seconds, so it stays a heartbeat, not a flood.
+    last = 0.0
+    try:
+        for event in job.events.iter(timeout=0.5):
+            if event.kind != "progress" or time.time() - last < PROGRESS_EVERY:
+                continue
+            last = time.time()
+            p = event.data
+            step, total = getattr(p, "current_step", None), getattr(p, "total_steps", None)
+            log(f"  {getattr(p, 'phase', '')} {step}/{total}"
+                if step else f"  {getattr(p, 'phase', '')}")
+    except Exception as e:
+        # Progress is a nicety; a failure to read it must never fail the generation
+        # that is still running perfectly well behind it.
+        log(f"progress stream stopped early ({type(e).__name__})")
     result = job.result(timeout=CONF["timeout"])
     took = int(time.time() - started)
     if not result.success or not result.generated_files:
@@ -408,8 +431,12 @@ def run_job(job):
         send_video(CONF["out_chat"], video,
                    f"🖥 local run · {CONF['frames']}f · {CONF['steps']} steps · "
                    f"{took // 60}m{took % 60:02d}s\n\n{prompt}")
-        say(job["chat_id"], f"✅ Done in {took // 60}m{took % 60:02d}s — it's in the "
-            "videos channel.", reply_to=job["message_id"])
+        # No "done" message back in the photos channel on purpose. One photo used to
+        # draw two replies -- an acknowledgement and a completion -- and the video
+        # arriving in the videos channel already IS the completion. The single ack
+        # exists only to say the daemon heard you; a failure still speaks up below,
+        # because that is the one outcome the other channel cannot show.
+        log(f"delivered to the videos channel in {took // 60}m{took % 60:02d}s")
     except Exception as e:
         log(f"job failed: {_redact(e)[:400]}")
         say(job["chat_id"], f"❌ Generation failed:\n{_redact(e)[:1000]}",

@@ -49,6 +49,14 @@ including photos sent while it was down.
 | Photo, no caption | It says so. Reply to the photo with a prompt to start. |
 | Reply to a photo | That text becomes the prompt for that photo. Repeat for another take. |
 
+**One reply per photo**, and only the acknowledgement — "🖥 Queued for the local GPU."
+There is no completion message: the video arriving in MPT Videos is the completion, and
+a second reply saying so was just noise. A *failure* still replies, because that is the
+one outcome the videos channel cannot show you.
+
+Expect roughly **8 minutes** per clip at 81 frames / 8 steps / 832x480 on this GPU
+(measured), plus a few seconds of runtime load on the first job after a restart.
+
 Several photos in a row queue up and run one at a time — one GPU, and Wan 2.2 14B on
 16 GB with 30 GB of host RAM has no room for a second process. Each queued photo is
 told how many jobs are ahead of it.
