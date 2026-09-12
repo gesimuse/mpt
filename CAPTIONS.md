@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-12T08:02:33 — aibeautyvideo
+
+```
+Leaving it all behind
+
+Created with AI.
+
+#digitalart #futuristicvibes #moodyportraits #aiart #newdigitalwave
+```
+
 ## 2026-09-12T06:55:05 — aibeautyvideo
 
 ```
@@ -88,14 +98,4 @@ Body rolls on
 Created with AI.
 
 #digitalart #generativeart #neonretrofuturism #technobabe #lowpoly
-```
-
-## 2026-09-10T22:06:02 — aibeautyvideo
-
-```
-when life gives you curves
-
-Created with AI.
-
-#aiart #artificialintelligenceart #confidenceootd #bodyposivity #realwomen
 ```

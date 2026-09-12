@@ -5841,6 +5841,26 @@
           "message_id": 51
         }
       }
+    },
+    {
+      "niche": "aibeautyvideo",
+      "topic": "video 20260912-065726",
+      "title": "Leaving it all behind",
+      "tiktok": true,
+      "tiktok_via": "inbox_video",
+      "tiktok_post_id": "v_inbox_url~v2.7684555919803779094",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_fail_reason": null,
+      "tiktok_caption": "Leaving it all behind\n\nCreated with AI.\n\n#digitalart #futuristicvibes #moodyportraits #aiart #newdigitalwave",
+      "video_url": "https://gesimuse.github.io/mpt/media/1789200077-final.mp4",
+      "ts": "2026-09-12T08:02:33",
+      "motionforge_source_url": "https://gesimuse.github.io/mpt/media/upload-1787841488983.png",
+      "telegram_message_ids": {
+        "https://gesimuse.github.io/mpt/media/1789200077-final.mp4": {
+          "chat_id": "-1004314616972",
+          "message_id": 52
+        }
+      }
     }
   ],
   "model_stats": {
