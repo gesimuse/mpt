@@ -438,14 +438,14 @@
       "tiktok_status": "SEND_TO_USER_INBOX",
       "tiktok_caption": "Last call for what's left of me\n\nCreated with AI.\n\n#digitalart #neuralimpressions #lostinnights #surrealism #artificialdreams #generativeart",
       "image_urls": [
-        "https://gesimuse.github.io/mpt/media/1788259666-sd_0.jpg",
+        null,
         "https://gesimuse.github.io/mpt/media/1788259692-sd_1.jpg",
         "https://gesimuse.github.io/mpt/media/1788259724-sd_2.jpg",
         "https://gesimuse.github.io/mpt/media/1788259751-sd_3.jpg",
         "https://gesimuse.github.io/mpt/media/1788259780-sd_4.jpg"
       ],
       "image_prompts": [
-        "beautiful adult woman, polish woman in her mid twenties, blonde hair, pale skin, blue eyes, in a dim jazz bar, brass and low amber light, seductive, sexy, alluring, round breasts, round ass, beautiful, chin on hand, unhurried, watching the room, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, close-up shot, shallow depth of field, a portrait of beautiful High-waisted jeans, graphic t-shirt, ankle boots, leather jacket, sunglasses",
+        null,
         "beautiful adult woman, polish woman in her mid twenties, blonde hair, pale skin, blue eyes, in a dim jazz bar, brass and low amber light, seductive, sexy, alluring, round breasts, round ass, beautiful, chin on hand, unhurried, watching the room, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, full length shot, head to toe, natural stance, a portrait of beautiful High-waisted jeans, graphic t-shirt, ankle boots, leather jacket, sunglasses",
         "beautiful adult woman, polish woman in her mid twenties, blonde hair, pale skin, blue eyes, in a dim jazz bar, brass and low amber light, seductive, sexy, alluring, round breasts, round ass, beautiful, chin on hand, unhurried, watching the room, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, candid framing, natural daylight, a portrait of beautiful High-waisted jeans, graphic t-shirt, ankle boots, leather jacket, sunglasses",
         "beautiful adult woman, polish woman in her mid twenties, blonde hair, pale skin, blue eyes, in a dim jazz bar, brass and low amber light, seductive, sexy, alluring, round breasts, round ass, beautiful, chin on hand, unhurried, watching the room, photorealistic photograph, natural skin texture, visible skin pores, fine facial detail, shot on 85mm lens, subtle film grain, over-the-shoulder framing, warm ambient light, a portrait of beautiful High-waisted jeans, graphic t-shirt, ankle boots, leather jacket, sunglasses",
@@ -454,7 +454,7 @@
       "vibe": "the last table in the bar",
       "look": "polish",
       "motion_prompts": [
-        "She starts to rotate her body, weight shifting through her hips as she turns away from the camera, chin dipping towards her shoulder.",
+        null,
         "She slowly pivots her hips, weight moving onto one leg, as she looks over her shoulder, sunglasses glinting in the dim light, a fold of her leather jacket rustling.",
         "She glides slowly around her axis, hips leading, then turns back to face the camera, eyes locked on the viewer.",
         "She rotates her upper body to her right, shifting weight onto her right hip, hands resting on her waist, her lips barely parting as she takes in the room.",
@@ -479,7 +479,8 @@
           "chat_id": "-1004449497323",
           "message_id": 44
         }
-      }
+      },
+      "owner_verdict": "posted"
     },
     {
       "niche": "aibeauty",
