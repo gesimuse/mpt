@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-12T11:54:36 — aibeauty
+
+```
+petals and permits
+
+Created with AI.
+
+#aiart #flowersofinstagram #stilllifephotography #arrangementinspiration #bohostyle
+```
+
 ## 2026-09-12T09:44:22 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ when the night calls for a new adventure
 Created with AI.
 
 #aiart #mutedcolors #moodyimages #summer_vibes #nightscapephotography
-```
-
-## 2026-09-11T10:34:48 — aibeauty
-
-```
-chasing the horizon
-
-Created with AI.
-
-#travelart #seascapeart #sunsetvibes #dreamydestinations #sailorlife
 ```
