@@ -77,10 +77,14 @@ async function isLive(url) {
 }
 
 async function onMakeVideo(env, cq, ts, index, promptOverride) {
-  let url = null, prompt = promptOverride || null;
+  let url = null, prompt = promptOverride || null, found = null;
   // Read-only use of the mutate helper: returning false means no PUT is made.
   await mutatePostedJson(env, (state) => {
-    const found = findImage(state, ts, index);
+    // Hoisted, not `const` inside this callback: the !url branch below reads
+    // found.entry to tell "done/skipped" from "no such batch", and a callback-scoped
+    // binding made that branch throw ReferenceError -- so the one case it exists to
+    // explain surfaced as a generic "Failed:" instead.
+    found = findImage(state, ts, index);
     url = found.url;
     if (!prompt) {
       prompt = (found.entry?.motion_prompts || [])[index]
@@ -89,7 +93,7 @@ async function onMakeVideo(env, cq, ts, index, promptOverride) {
     return false;
   }, "");
   if (!url) {
-    await answer(env, cq.id, found.entry
+    await answer(env, cq.id, found?.entry
       ? "Already marked done or skipped - nothing to generate from."
       : "That batch is no longer in posted.json.", true);
     return;
@@ -391,20 +395,53 @@ async function onLeaderboard(env, chatId) {
   await api(env, "sendMessage", { chat_id: chatId, text: lines.join("\n").slice(0, 4096) });
 }
 
+/**
+ * "kaggle: <prompt>" (case-insensitive) is the reply-side equivalent of pressing
+ * "Make video (Kaggle, long)" instead of "Make video" -- there is no button to press
+ * in a reply, so the prefix IS the button choice. Stripped before use as the prompt.
+ */
+function splitBackend(text) {
+  const m = /^\s*kaggle\s*[:,-]\s*/i.exec(text || "");
+  return { useKaggle: Boolean(m), prompt: m ? text.slice(m[0].length) : (text || "") };
+}
+
+/** One dispatch, either backend, from one already-hosted image URL. */
+function dispatchVideo(env, url, prompt, useKaggle) {
+  if (useKaggle) {
+    return dispatchWorkflow(env, {
+      image_url: url, motion_prompt: prompt,
+      video_length: env.KAGGLE_VIDEO_LENGTH || "161",
+      resolution: env.KAGGLE_VIDEO_RESOLUTION || "512x896",
+    }, "kaggle_video.yml");
+  }
+  return dispatchWorkflow(env, {
+    image_url: url, motion_prompt: prompt,
+    length_s: env.VIDEO_LENGTH_S || "5.0", steps: env.VIDEO_STEPS || "4",
+  });
+}
+
 /** A reply to a photo message = "use my text as the motion prompt for that image". */
 async function onReply(env, msg) {
   const target = msg.reply_to_message;
+  const { useKaggle, prompt } = splitBackend(msg.text);
   // Any button on the message will do: the photo keyboard's first row is Make video,
   // but reading only [0][0] would break the moment the layout changes again.
   const data = (target?.reply_markup?.inline_keyboard || [])
     .flat().map((b) => b.callback_data).find(Boolean);
   if (!data) {
-    // Never silent. A reply to something with no buttons is a user asking for
-    // something and getting nothing back, which is indistinguishable from broken.
+    // A photo with no buttons is a photo the owner dropped into the channel by hand:
+    // it was never hosted on gh-pages and has no posted.json entry, so there is
+    // nothing for a callback to reference. Register it now and animate it -- "send a
+    // picture, reply with a prompt" is the whole point, and it must not depend on
+    // having pressed a button first.
+    if (target?.photo?.length) return await onPromptRawPhoto(env, msg, target, prompt, useKaggle);
+    // Never silent. A reply to something with no buttons and no photo is a user
+    // asking for something and getting nothing back, which is indistinguishable
+    // from broken.
     await api(env, "sendMessage", {
       chat_id: msg.chat.id,
       reply_to_message_id: msg.message_id,
-      text: "Reply to one of the photo posts to use your text as its motion prompt.\n"
+      text: "Reply to a photo to use your text as its motion prompt.\n"
         + "Prefix with \"kaggle:\" to use the long Kaggle backend instead of the "
         + "default 5s one, e.g. \"kaggle: she turns and smiles\".",
     });
@@ -412,14 +449,48 @@ async function onReply(env, msg) {
   }
   const { ts, index } = parseCallback(data);
   const fake = { id: null, message: target };
-  // "kaggle: <prompt>" (case-insensitive) is the reply-side equivalent of pressing
-  // "Make video (Kaggle, long)" instead of "Make video" -- there is no button to press
-  // in a reply, so the prefix IS the button choice. Stripped before use as the prompt.
-  const kaggleMatch = /^\s*kaggle\s*[:,-]\s*/i.exec(msg.text || "");
-  const useKaggle = Boolean(kaggleMatch);
-  const prompt = useKaggle ? msg.text.slice(kaggleMatch[0].length) : msg.text;
   // answerCallbackQuery needs a real id; there is none here, so acknowledge in chat.
   await onMakeVideoFromReply(env, fake, ts, index, prompt, msg.chat.id, useKaggle);
+}
+
+/**
+ * A prompt replied onto a raw, hand-sent photo: host it, register it, dispatch it.
+ *
+ * Registering rather than dispatching straight off Telegram's own file URL is not
+ * incidental: that URL embeds the bot token and becomes a workflow input in PUBLIC
+ * Actions logs (same reason rehostFromTelegram exists), and the posted.json entry is
+ * what makes the Make video / Done / Skip buttons on the confirmation work afterwards
+ * -- including a second, different prompt on the same still.
+ */
+async function onPromptRawPhoto(env, msg, target, prompt, useKaggle) {
+  try {
+    // Already registered by onPhoto when the picture landed, or by an earlier prompt
+    // on it -- reuse that copy rather than hosting the same bytes again per prompt.
+    let url = null, ts = null;
+    await mutatePostedJson(env, (state) => {
+      const prior = (state.uploads || []).find((u) =>
+        u.telegram_message_id === target.message_id
+        && String(u.telegram_chat_id) === String(target.chat?.id)
+        && (u.image_urls || [])[0]);
+      if (prior) { url = prior.image_urls[0]; ts = prior.ts; }
+      return false; // read-only
+    }, "");
+    if (url && !(await isLive(url))) url = null; // pruned off gh-pages; re-host below
+    if (!url) ({ url, ts } = await registerPhoto(env, target));
+    await dispatchVideo(env, url, prompt, useKaggle);
+    await api(env, "sendPhoto", {
+      chat_id: msg.chat.id, photo: url,
+      caption: (useKaggle
+        ? `Sent to Kaggle video generation (slow, 20-40+ min):\n${prompt}`
+        : `Sent to video generation:\n${prompt}`).slice(0, 900)
+        + "\n\nReply here with another prompt to try a different motion on this photo.",
+      reply_markup: uploadKeyboard(ts),
+    });
+  } catch (err) {
+    await api(env, "sendMessage", { chat_id: msg.chat.id,
+      reply_to_message_id: msg.message_id,
+      text: `Failed: ${redact(env, err).slice(0, 300)}` });
+  }
 }
 
 async function onMakeVideoFromReply(env, fake, ts, index, prompt, chatId, useKaggle = false) {
@@ -445,18 +516,7 @@ async function onMakeVideoFromReply(env, fake, ts, index, prompt, chatId, useKag
         return;
       }
     }
-    if (useKaggle) {
-      await dispatchWorkflow(env, {
-        image_url: url, motion_prompt: prompt,
-        video_length: env.KAGGLE_VIDEO_LENGTH || "161",
-        resolution: env.KAGGLE_VIDEO_RESOLUTION || "512x896",
-      }, "kaggle_video.yml");
-    } else {
-      await dispatchWorkflow(env, {
-        image_url: url, motion_prompt: prompt,
-        length_s: env.VIDEO_LENGTH_S || "5.0", steps: env.VIDEO_STEPS || "4",
-      });
-    }
+    await dispatchVideo(env, url, prompt, useKaggle);
     // Same rule as the button: a reply makes a video and LEAVES the image, so the
     // next reply can try a different prompt on the same still.
     await noteAttempt(env, fake.message, useKaggle ? `[kaggle] ${prompt}` : prompt);
@@ -469,37 +529,64 @@ async function onMakeVideoFromReply(env, fake, ts, index, prompt, chatId, useKag
   }
 }
 
+/**
+ * Copy a photo out of Telegram onto gh-pages and give it a posted.json entry, so it
+ * is an ordinary source image from that point on. Returns its URL and batch ts.
+ */
+async function registerPhoto(env, msg) {
+  // photo[] is ascending by resolution; the last is the largest Telegram kept.
+  const largest = msg.photo[msg.photo.length - 1];
+  const fileUrl = await getFileUrl(env, largest.file_id);
+  const bytes = new Uint8Array(await (await fetch(fileUrl)).arrayBuffer());
+  let bin = "";
+  for (const b of bytes) bin += String.fromCharCode(b);
+  const name = `media/telegram-${Date.now()}.jpg`;
+  const url = await hostOnPages(env, name, btoa(bin));
+  const ts = new Date().toISOString().slice(0, 19);
+  await mutatePostedJson(env, (state) => {
+    // Same shape autopilot writes, so recentBatches/_pick_source_image_url treat it
+    // as an ordinary photo with no special-casing.
+    state.uploads.push({
+      niche: "aibeauty", topic: `telegram upload ${Date.now()}`,
+      title: "Uploaded via Telegram", tiktok: true,
+      tiktok_via: "telegram_manual_upload",
+      image_urls: [url], image_prompts: [null], motion_prompts: [null],
+      vibe: null, look: null, ts,
+      // Which channel message this copy came from, so a prompt replied onto that
+      // same hand-sent photo later reuses this upload instead of hosting a second
+      // identical file and a second entry for every prompt tried on it.
+      telegram_chat_id: msg.chat?.id ?? null,
+      telegram_message_id: msg.message_id ?? null,
+    });
+  }, "telegram: register uploaded image");
+  return { url, ts };
+}
+
+/**
+ * Buttons on a registered upload. Both video backends, same pair as the generated
+ * photos carry (telegram.py's _image_keyboard): a hand-sent picture is worth the
+ * long Kaggle path exactly as often as a generated one, and the reply prefix should
+ * not be the only way to reach it.
+ */
+function uploadKeyboard(ts) {
+  return { inline_keyboard: [
+    [{ text: "🎬 Make video", callback_data: `vid|${ts}|0` }],
+    [{ text: "🎬 Make video (Kaggle, long)", callback_data: `kagvid|${ts}|0` }],
+    [{ text: "✅ Done", callback_data: `done|${ts}|0` },
+     { text: "🗑 Skip", callback_data: `skip|${ts}|0` }],
+  ] };
+}
+
 /** A photo sent to the bot gets hosted and registered, so it can be animated too. */
 async function onPhoto(env, msg) {
   try {
-    // photo[] is ascending by resolution; the last is the largest Telegram kept.
-    const largest = msg.photo[msg.photo.length - 1];
-    const fileUrl = await getFileUrl(env, largest.file_id);
-    const bytes = new Uint8Array(await (await fetch(fileUrl)).arrayBuffer());
-    let bin = "";
-    for (const b of bytes) bin += String.fromCharCode(b);
-    const name = `media/telegram-${Date.now()}.jpg`;
-    const url = await hostOnPages(env, name, btoa(bin));
-    const ts = new Date().toISOString().slice(0, 19);
-    await mutatePostedJson(env, (state) => {
-      // Same shape autopilot writes, so recentBatches/_pick_source_image_url treat it
-      // as an ordinary photo with no special-casing.
-      state.uploads.push({
-        niche: "aibeauty", topic: `telegram upload ${Date.now()}`,
-        title: "Uploaded via Telegram", tiktok: true,
-        tiktok_via: "telegram_manual_upload",
-        image_urls: [url], image_prompts: [null], motion_prompts: [null],
-        vibe: null, look: null, ts,
-      });
-    }, "telegram: register uploaded image");
+    const { url, ts } = await registerPhoto(env, msg);
     await api(env, "sendPhoto", {
       chat_id: msg.chat.id, photo: url,
-      caption: "Uploaded and registered.\n\nReply to this message to set a motion prompt.",
-      reply_markup: { inline_keyboard: [
-        [{ text: "🎬 Make video", callback_data: `vid|${ts}|0` }],
-        [{ text: "✅ Done", callback_data: `done|${ts}|0` },
-         { text: "🗑 Skip", callback_data: `skip|${ts}|0` }],
-      ] },
+      caption: "Uploaded and registered.\n\nReply to this message (or to your own "
+        + "photo above) with a motion prompt. Prefix it with \"kaggle:\" for the "
+        + "long Kaggle backend, e.g. \"kaggle: she turns and smiles\".",
+      reply_markup: uploadKeyboard(ts),
     });
   } catch (err) {
     await api(env, "sendMessage",
@@ -568,7 +655,12 @@ export default {
       else if (post?.text?.trim().split(/[@\s]/)[0] === "/leaderboard") {
         await onLeaderboard(env, post.chat.id);
       } else if (post?.reply_to_message && post.text) await onReply(env, post);
-      else if (post?.photo) await onPhoto(env, post);
+      // Photos the BOT itself posted carry an inline keyboard (every send_photo in
+      // telegram.py and in this file attaches one) and must never be re-ingested:
+      // in a channel that is a loop -- register, post a card, ingest the card.
+      else if (post?.photo && !post.reply_markup && !post.from?.is_bot) {
+        await onPhoto(env, post);
+      }
     } catch (err) {
       console.error("update failed", redact(env, err));
     }
