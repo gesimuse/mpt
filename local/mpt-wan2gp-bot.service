@@ -1,0 +1,20 @@
+[Unit]
+# Telegram -> local Wan2GP -> Telegram. See local/README.md.
+Description=MPT local Wan2GP Telegram bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/apps/mpt
+ExecStart=/usr/bin/python3 %h/apps/mpt/local/wan2gp_bot.py
+# The daemon is a long-poll loop that should simply always be up while the machine
+# is: a dropped connection, a Telegram blip or an unhandled error must not leave it
+# silently dead, which from the channel looks identical to "nobody is home".
+Restart=always
+RestartSec=10
+# The bot token comes from the repo's own .env (read by the script), so nothing
+# secret is duplicated into this unit file.
+
+[Install]
+WantedBy=default.target
