@@ -24,12 +24,17 @@ its own bot and shares no code or state with them.
    ```
    LOCAL_BOT_TOKEN=123456:AA...
    ```
-   The chat ids are reused from the existing `TELEGRAM_CHAT_ID` / `TELEGRAM_VIDEO_CHAT_ID`,
-   so there is nothing else to configure.
-4. **Run it:**
+   That is the only value you have to supply. The rest of the block is already in
+   `.env`: `LOCAL_SRC_CHAT_ID` / `LOCAL_OUT_CHAT_ID` are the same MPT and MPT Videos
+   channels the cloud flow uses, and the frames/steps match the Motion Forge settings
+   in `niches.json` (81 frames ≈ 5s at 16fps, 8 steps).
+4. **Stop the Wan2GP web UI** if it is running, then start the bot with Wan2GP's own
+   python:
    ```bash
-   python local/wan2gp_bot.py
+   pkill -f "wgp.py --profile"          # only if the UI is up
+   ~/apps/Wan2GP/.venv/bin/python local/wan2gp_bot.py
    ```
+   Everything else — both chat ids, frames, steps, resolution — is already in `.env`.
 
 On first start it ignores everything already in the channel, so old photos don't all
 generate at once. From then on, its position is remembered in
@@ -69,6 +74,18 @@ your words:
 
 Set `LOCAL_TIMELINE=0` in `.env` to send exactly what you typed, with no template.
 
+## The UI and the bot cannot both run
+
+They are the same runtime and the same RAM. Wan 2.2 14B under profile 4 holds ~26 GB
+of this machine's 30 GB, so only one of them fits: stop the UI to run the bot, stop the
+bot to use the UI.
+
+The bot loads that runtime **in-process** (`shared/api.py`) instead of shelling out per
+job, so the model is loaded once and every clip after the first skips it entirely. That
+is also why it must run under `~/apps/Wan2GP/.venv/bin/python` — torch and mmgp live
+there. The runtime is loaded lazily on the first photo, not at startup, so the bot comes
+up and answers in Telegram even if something is wrong with the runtime.
+
 ## Run it as a service
 
 So it comes back after a reboot without remembering to start it:
@@ -96,8 +113,10 @@ Defaults suit this machine; override any of them in `.env`.
 | `LOCAL_RESOLUTION` | from the saved UI settings | e.g. `832x480`, `512x896` |
 | `WAN2GP_PROFILE` | `4` | memory profile; `5` is the low-RAM failsafe |
 | `WAN2GP_ATTENTION` | `sdpa` | no nvcc here, so no SageAttention |
-| `WAN2GP_TIMEOUT` | `5400` | seconds before a stuck generation is killed |
+| `WAN2GP_TIMEOUT` | `5400` | seconds before a stuck generation is abandoned |
 | `LOCAL_TIMELINE` | `1` | `0` sends the prompt verbatim |
+| `LOCAL_KEEP_OUTPUTS` | `0` | `1` also leaves each clip in Wan2GP's `outputs/` |
+| `LOCAL_VERBOSE` | `0` | `1` prints wgp.py's own per-step progress |
 
 Everything else — guidance phases, flow shift, switch threshold, LoRAs — comes from
 `~/apps/Wan2GP/settings/i2v_2_2_Enhanced_Lightning_v2_settings.json`, the file the
@@ -110,6 +129,7 @@ job, so a clip from Telegram matches one made by hand.
   public username, invite link only), so only members see them — but Telegram's servers
   hold the photo and the video and can technically read them. That is inherent to using
   Telegram as the interface; nothing in this program changes it.
+- The web UI has to be stopped while the bot runs, and vice versa (see above).
 - Only while this computer is on and awake. Photos sent while it is off are picked up
   on the next start, not lost.
 - Generation is minutes, not seconds. The bot answers when the job is queued, and again

@@ -5,9 +5,13 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
+# The Wan2GP web UI is the same runtime and the same ~26GB of RAM -- running both
+# would OOM. Enable this service only when the UI is not in use.
 Type=simple
 WorkingDirectory=%h/apps/mpt
-ExecStart=/usr/bin/python3 %h/apps/mpt/local/wan2gp_bot.py
+# Wan2GP's own venv: the bot loads that runtime in-process (shared/api.py), so it
+# needs the interpreter that has torch and mmgp, not the system one.
+ExecStart=%h/apps/Wan2GP/.venv/bin/python %h/apps/mpt/local/wan2gp_bot.py
 # The daemon is a long-poll loop that should simply always be up while the machine
 # is: a dropped connection, a Telegram blip or an unhandled error must not leave it
 # silently dead, which from the channel looks identical to "nobody is home".

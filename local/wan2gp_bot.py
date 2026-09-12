@@ -35,14 +35,16 @@ Setup:
   1. @BotFather -> /newbot -> a SECOND bot, separate from the mpt one.
   2. Add it to both channels as an admin (it needs to read channel posts and post).
   3. Put its token in .env as LOCAL_BOT_TOKEN.
-  4. Run: python local/wan2gp_bot.py   (see local/README.md for the systemd unit)
+  4. Run it with WAN2GP'S OWN python, since it loads that runtime in-process:
+         ~/apps/Wan2GP/.venv/bin/python local/wan2gp_bot.py
+     Stop the Wan2GP web UI first -- same runtime, same 30GB of RAM, only one fits.
+     See local/README.md for the systemd unit.
 
 Env (all optional except the token; defaults suit this machine):
   LOCAL_BOT_TOKEN      required -- the SECOND bot, never the mpt one
   LOCAL_SRC_CHAT_ID    where photos come from   (default: TELEGRAM_CHAT_ID)
   LOCAL_OUT_CHAT_ID    where videos go          (default: TELEGRAM_VIDEO_CHAT_ID)
   WAN2GP_DIR           default ~/apps/Wan2GP
-  WAN2GP_PYTHON        default <WAN2GP_DIR>/.venv/bin/python
   WAN2GP_PROFILE       default 4      (memory profile; 5 is the low-RAM failsafe)
   WAN2GP_ATTENTION     default sdpa   (no nvcc here, so no SageAttention)
   LOCAL_VIDEO_FRAMES   default 81     (~5s at Wan2GP's 16fps)
@@ -50,13 +52,15 @@ Env (all optional except the token; defaults suit this machine):
   LOCAL_RESOLUTION     default: whatever the saved Wan2GP settings file uses
   LOCAL_TIMELINE       default 1  (wrap the prompt in Wan2GP's per-second template;
                        set 0 to send exactly what you typed)
+  LOCAL_KEEP_OUTPUTS   default 0  (1 also leaves each clip in Wan2GP's outputs/)
+  LOCAL_VERBOSE        default 0  (1 prints wgp.py's own per-step progress)
+  WAN2GP_TIMEOUT       default 5400 seconds before a stuck generation is abandoned
 """
 import json
 import os
 import queue
 import re
 import shutil
-import subprocess
 import sys
 import tempfile
 import threading
@@ -126,7 +130,6 @@ def _config():
         "out_chat": str(env.get("LOCAL_OUT_CHAT_ID") or env.get("TELEGRAM_VIDEO_CHAT_ID")
                         or env.get("TELEGRAM_CHAT_ID") or "").strip(),
         "wan_dir": wan_dir,
-        "python": Path(env.get("WAN2GP_PYTHON") or wan_dir / ".venv/bin/python").expanduser(),
         "profile": env.get("WAN2GP_PROFILE", "4"),
         "attention": env.get("WAN2GP_ATTENTION", "sdpa"),
         "frames": int(env.get("LOCAL_VIDEO_FRAMES", "81")),
@@ -134,6 +137,13 @@ def _config():
         "resolution": (env.get("LOCAL_RESOLUTION") or "").strip(),
         "timeline": env.get("LOCAL_TIMELINE", "1") not in ("0", "false", "no"),
         "timeout": int(env.get("WAN2GP_TIMEOUT", "5400")),
+        # Wan2GP writes every clip into its own outputs/ folder as well. Off by
+        # default: the video belongs in Telegram, and a folder quietly filling with
+        # every clip ever generated is the kind of leftover this flow exists to avoid.
+        "keep_outputs": env.get("LOCAL_KEEP_OUTPUTS", "0") not in ("0", "false", "no"),
+        # wgp.py is extremely chatty (a progress line per step). Off keeps the
+        # journal readable; on is what you want when a generation misbehaves.
+        "verbose": env.get("LOCAL_VERBOSE", "0") not in ("0", "false", "no"),
     }
 
 
@@ -249,10 +259,53 @@ def to_timeline(motion, seconds):
 
 
 # --------------------------------------------------------------------------------
-# Wan2GP
+# Wan2GP, in-process
 # --------------------------------------------------------------------------------
+#
+# shared/api.py, not `wgp.py --process` as a subprocess. The difference is not
+# tidiness, it is whether this runs at all on this machine: Wan 2.2 14B holds ~26GB
+# of the 30GB of host RAM under profile 4, so a second runtime does not fit, and a
+# subprocess per job would reload those weights from disk for every single clip --
+# minutes of wall clock, repeated, for no reason. `init()` keeps one runtime alive
+# for the life of the daemon, so only the FIRST job pays the load.
+#
+# The consequence to know about: this daemon and the Wan2GP web UI cannot both be
+# running. They are the same runtime and the same RAM. Stop the UI to run the bot,
+# stop the bot to use the UI.
+#
+# It also means this script must run under Wan2GP's own venv (torch, mmgp and the
+# rest live there), which is what local/README.md and the systemd unit both use:
+#     ~/apps/Wan2GP/.venv/bin/python local/wan2gp_bot.py
 
 MODEL_TYPE = "i2v_2_2_Enhanced_Lightning_v2"
+
+SESSION = None
+SESSION_LOCK = threading.Lock()
+
+
+def session():
+    """The one live Wan2GP runtime, created on first use.
+
+    Created lazily rather than at startup so the daemon comes up, answers Telegram
+    and reports problems in the channel even if the runtime cannot initialise -- a
+    bot that dies silently on boot is the failure mode this whole design is trying
+    to avoid."""
+    global SESSION
+    with SESSION_LOCK:
+        if SESSION is None:
+            sys.path.insert(0, str(CONF["wan_dir"]))
+            from shared.api import init
+            log(f"loading the Wan2GP runtime from {CONF['wan_dir']} "
+                f"(profile {CONF['profile']}, {CONF['attention']}) -- first job only")
+            started = time.time()
+            SESSION = init(
+                root=CONF["wan_dir"],
+                cli_args=["--profile", str(CONF["profile"]),
+                          "--attention", CONF["attention"]],
+                console_output=CONF["verbose"],
+            )
+            log(f"runtime ready in {int(time.time() - started)}s")
+    return SESSION
 
 
 def _base_settings():
@@ -270,7 +323,7 @@ def _base_settings():
 
 
 def generate(image_path, prompt, out_dir):
-    """Run one clip through wgp.py's headless CLI. Returns the mp4 path."""
+    """One clip. Returns (path, seconds taken)."""
     settings = _base_settings()
     settings.update({
         "model_type": MODEL_TYPE,
@@ -284,28 +337,32 @@ def generate(image_path, prompt, out_dir):
     })
     if CONF["resolution"]:
         settings["resolution"] = CONF["resolution"]
-    task = Path(out_dir) / "task.json"
-    task.write_text(json.dumps(settings))
-
-    cmd = [str(CONF["python"]), "wgp.py", "--process", str(task),
-           "--output-dir", str(out_dir),
-           "--profile", str(CONF["profile"]), "--attention", CONF["attention"]]
     log(f"generating: {CONF['frames']} frames, {CONF['steps']} steps, "
-        f"{settings.get('resolution')}, profile {CONF['profile']}")
+        f"{settings.get('resolution')}")
     started = time.time()
-    r = subprocess.run(cmd, cwd=str(CONF["wan_dir"]), capture_output=True, text=True,
-                       timeout=CONF["timeout"])
+    job = session().submit_task(settings)
+    result = job.result(timeout=CONF["timeout"])
     took = int(time.time() - started)
-    if r.returncode != 0:
-        # The tail only: wgp.py's full stdout is thousands of progress lines.
-        raise RuntimeError(f"wgp.py exited {r.returncode} after {took}s\n"
-                           f"{(r.stderr or r.stdout or '')[-800:]}")
-    videos = sorted(Path(out_dir).glob("*.mp4"), key=lambda p: p.stat().st_mtime)
-    if not videos:
-        raise RuntimeError(f"wgp.py exited 0 after {took}s but wrote no mp4\n"
-                           f"{(r.stdout or '')[-800:]}")
-    log(f"generated in {took // 60}m{took % 60:02d}s: {videos[-1].name}")
-    return videos[-1], took
+    if not result.success or not result.generated_files:
+        reasons = "; ".join(getattr(e, "message", str(e)) for e in result.errors) \
+            or "no file produced and no error reported"
+        raise RuntimeError(f"generation failed after {took}s: {reasons[:600]}")
+    produced = Path(result.generated_files[-1])
+    # WanGP writes into its own configured output folder; the copy into the job's
+    # temp dir is what makes the cleanup in run_job() the single place that decides
+    # how long a clip lives on disk.
+    final = Path(out_dir) / produced.name
+    if produced.resolve() != final.resolve():
+        shutil.copy(produced, final)
+        if CONF["keep_outputs"]:
+            log(f"kept Wan2GP's own copy at {produced}")
+        else:
+            try:
+                produced.unlink()
+            except OSError as e:
+                log(f"could not remove {produced} ({type(e).__name__})")
+    log(f"generated in {took // 60}m{took % 60:02d}s: {final.name}")
+    return final, took
 
 
 # --------------------------------------------------------------------------------
@@ -405,8 +462,11 @@ def main():
     me = tg("getMe")
     log(f"bot @{me.get('username')} | photos from {CONF['src_chat']} | "
         f"videos to {CONF['out_chat']}")
-    if not CONF["python"].exists():
-        sys.exit(f"no Wan2GP python at {CONF['python']} -- set WAN2GP_PYTHON")
+    if not (CONF["wan_dir"] / "wgp.py").exists():
+        sys.exit(f"no Wan2GP at {CONF['wan_dir']} -- set WAN2GP_DIR")
+    if "shared.api" not in sys.modules and not (CONF["wan_dir"] / "shared/api.py").exists():
+        sys.exit(f"{CONF['wan_dir']}/shared/api.py is missing -- this needs a Wan2GP "
+                 "recent enough to expose the in-process API")
 
     jobs = queue.Queue()
     threading.Thread(target=worker, args=(jobs,), daemon=True).start()
