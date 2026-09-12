@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-12T13:31:28 — aibeauty
+
+```
+kickboxing beauty, no such thing
+
+Created with AI.
+
+#artificialintelligence #aiart #combatfitness #fitnessmotivation #kickboxingchick
+```
+
 ## 2026-09-12T12:04:14 — aibeautyvideo
 
 ```
@@ -88,14 +98,4 @@ Swept up in the spin
 Created with AI.
 
 #digitalart #generativeart #handbuilt #aiart #ceramics
-```
-
-## 2026-09-11T11:48:38 — aibeautyvideo
-
-```
-Some days just look like this.
-
-Created with AI.
-
-#aiart #aivideo #wan22 #confident
 ```
