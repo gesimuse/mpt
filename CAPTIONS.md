@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-13T18:26:14 — aibeautyvideo
+
+```
+the way she turns heads
+
+Created with AI.
+
+#aiart #digitalart #longinglooks #fleetingmoments #sensualtones
+```
+
 ## 2026-09-13T13:01:41 — aibeauty
 
 ```
@@ -38,14 +48,4 @@ kickboxing beauty, no such thing
 Created with AI.
 
 #artificialintelligence #aiart #combatfitness #fitnessmotivation #kickboxingchick
-```
-
-## 2026-09-12T12:04:14 — aibeautyvideo
-
-```
-Main character energy.
-
-Created with AI.
-
-#aiart #aivideo #wan22 #confident
 ```

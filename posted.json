@@ -6492,6 +6492,26 @@
           "message_id": 721
         }
       }
+    },
+    {
+      "niche": "aibeautyvideo",
+      "topic": "video 20260913-182309",
+      "title": "the way she turns heads",
+      "tiktok": true,
+      "tiktok_via": "inbox_video",
+      "tiktok_post_id": "v_inbox_url~v2.7685087747547383811",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_fail_reason": null,
+      "tiktok_caption": "the way she turns heads\n\nCreated with AI.\n\n#aiart #digitalart #longinglooks #fleetingmoments #sensualtones",
+      "video_url": "https://gesimuse.github.io/mpt/media/1789323905-final.mp4",
+      "ts": "2026-09-13T18:26:14",
+      "motionforge_source_url": "https://gesimuse.github.io/mpt/media/1789304302-sd_7.jpg",
+      "telegram_message_ids": {
+        "https://gesimuse.github.io/mpt/media/1789323905-final.mp4": {
+          "chat_id": "-1004314616972",
+          "message_id": 58
+        }
+      }
     }
   ],
   "model_stats": {
