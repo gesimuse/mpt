@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-13T13:01:41 — aibeauty
+
+```
+Leaving the ordinary behind me
+
+Created with AI.
+
+#aiart #artificialimagination #lowfi #prettysadgirls #moodboard
+```
+
 ## 2026-09-13T10:31:29 — aibeauty
 
 ```
@@ -38,14 +48,4 @@ Main character energy.
 Created with AI.
 
 #aiart #aivideo #wan22 #confident
-```
-
-## 2026-09-12T11:54:36 — aibeauty
-
-```
-petals and permits
-
-Created with AI.
-
-#aiart #flowersofinstagram #stilllifephotography #arrangementinspiration #bohostyle
 ```
