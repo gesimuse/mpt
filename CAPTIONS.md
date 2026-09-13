@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-13T18:32:01 — aibeautyvideo
+
+```
+Feeling myself, no apologies
+
+Created with AI.
+
+#artificialbeauty #sultryself #generativeart #aiartofself #selfloveaesthetic
+```
+
 ## 2026-09-13T18:26:14 — aibeautyvideo
 
 ```
@@ -38,14 +48,4 @@ The view from my new obsession, tonight and every night
 Created with AI.
 
 #surrealista #neuralart #citylightsatnight #tokyostyle #urbanromance
-```
-
-## 2026-09-12T13:31:28 — aibeauty
-
-```
-kickboxing beauty, no such thing
-
-Created with AI.
-
-#artificialintelligence #aiart #combatfitness #fitnessmotivation #kickboxingchick
 ```
