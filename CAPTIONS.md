@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-14T17:48:32 — aibeautyvideo
+
+```
+when the dress gets the best of me
+
+Created with AI.
+
+#deepvibes #empirewaist #digitalfemininity #neuralartistry #fashionforward
+```
+
 ## 2026-09-14T17:43:25 — aibeauty
 
 ```
