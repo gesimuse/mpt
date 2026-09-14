@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-14T15:00:24 — aibeauty
+
+```
+Hooked on kneading life away
+
+Created with AI.
+
+#foodieart #homecook #ruralvibes #breadwinnerlife #rusticbliss
+```
+
 ## 2026-09-13T18:32:01 — aibeautyvideo
 
 ```
@@ -38,14 +48,4 @@ the night I lost control
 Created with AI.
 
 #synthwaveart #neonlights #arcadevibes #midnightsessions #retrogames
-```
-
-## 2026-09-12T14:22:40 — aibeauty
-
-```
-The view from my new obsession, tonight and every night
-
-Created with AI.
-
-#surrealista #neuralart #citylightsatnight #tokyostyle #urbanromance
 ```
