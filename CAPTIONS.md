@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-15T14:52:20 — aibeauty
+
+```
+when the heat gets reckless
+
+Created with AI.
+
+#digitalart #adobeart #heatwavevibes #desertdreams #generativeart
+```
+
 ## 2026-09-15T13:33:25 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ the way she turns heads
 Created with AI.
 
 #aiart #digitalart #longinglooks #fleetingmoments #sensualtones
-```
-
-## 2026-09-13T13:01:41 — aibeauty
-
-```
-Leaving the ordinary behind me
-
-Created with AI.
-
-#aiart #artificialimagination #lowfi #prettysadgirls #moodboard
 ```
