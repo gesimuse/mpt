@@ -5602,7 +5602,7 @@
         "She rises from her crouch, her flannel riding up her waist as she arches her back, hips shifting as she walks closer to the fire.",
         "She slowly turns her hips and shoulders, exposing her back to the camera, before gazing over her shoulder with a sultry expression.",
         "She turns her upper body slowly to the right, bending her hips and weight shifting onto one leg as her gaze lingers on the fire, hair swaying with the movement.",
-        "She pivots slowly, turning her upper body toward the camera, as her hair falls across her back, and her flannel shirt gapes slightly, revealing her décolletage.",
+        "She pivots slowly, turning her upper body toward the camera, as her hair falls across her back, and her flannel shirt gapes slightly, revealing her d\u00e9colletage.",
         "She begins with her hands running up her thighs and settles on her hips, then tips her chin down and looks up, holding her gaze a beat longer than the camera lingers on her face.",
         "She turns halfway toward the tent, one hand trailing down the curve of her waist, as the glow of the campfire subtly shifts behind her.",
         "She slowly turns, arching her back, and looks around at the camera with a deep, sultry gaze, her hair gently swaying towards the fire."
@@ -7400,6 +7400,26 @@
         }
       },
       "owner_verdict": "skipped"
+    },
+    {
+      "niche": "aibeautyvideo",
+      "topic": "video 20260915-182525",
+      "title": "Own every step",
+      "tiktok": true,
+      "tiktok_via": "inbox_video",
+      "tiktok_post_id": "v_inbox_url~v2.7685829958127765526",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_fail_reason": null,
+      "tiktok_caption": "Own every step\n\nCreated with AI.\n\n#aiart #genreart #confidentwomen #moodyportraits #fashionillustration",
+      "video_url": "https://gesimuse.github.io/mpt/media/1789496812-final.mp4",
+      "ts": "2026-09-15T18:28:03",
+      "motionforge_source_url": "https://gesimuse.github.io/mpt/media/1789483597-sd_3.jpg",
+      "telegram_message_ids": {
+        "https://gesimuse.github.io/mpt/media/1789496812-final.mp4": {
+          "chat_id": "-1004314616972",
+          "message_id": 61
+        }
+      }
     }
   ],
   "model_stats": {

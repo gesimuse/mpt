@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-15T18:28:03 — aibeautyvideo
+
+```
+Own every step
+
+Created with AI.
+
+#aiart #genreart #confidentwomen #moodyportraits #fashionillustration
+```
+
 ## 2026-09-15T18:23:40 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Morning after however you want it
 Created with AI.
 
 #neuralnewyork #watercolors #dawnpatrol #atmosphericart #sunriseflair
-```
-
-## 2026-09-14T15:00:24 — aibeauty
-
-```
-Hooked on kneading life away
-
-Created with AI.
-
-#foodieart #homecook #ruralvibes #breadwinnerlife #rusticbliss
 ```
