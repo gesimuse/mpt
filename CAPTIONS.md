@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-15T18:23:40 — aibeauty
+
+```
+smoldering in the haze
+
+Created with AI.
+
+#neonfuture #softfocus #digitaldreaming #aicinematography #moodylandscapes
+```
+
 ## 2026-09-15T15:49:33 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Hooked on kneading life away
 Created with AI.
 
 #foodieart #homecook #ruralvibes #breadwinnerlife #rusticbliss
-```
-
-## 2026-09-13T18:32:01 — aibeautyvideo
-
-```
-Feeling myself, no apologies
-
-Created with AI.
-
-#artificialbeauty #sultryself #generativeart #aiartofself #selfloveaesthetic
 ```
