@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-15T13:33:25 — aibeauty
+
+```
+life on the edge of the map
+
+Created with AI.
+
+#aiart #surrealart #cityswoon #enneagramseven
+```
+
 ## 2026-09-15T11:04:53 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Leaving the ordinary behind me
 Created with AI.
 
 #aiart #artificialimagination #lowfi #prettysadgirls #moodboard
-```
-
-## 2026-09-13T10:31:29 — aibeauty
-
-```
-the night I lost control
-
-Created with AI.
-
-#synthwaveart #neonlights #arcadevibes #midnightsessions #retrogames
 ```
