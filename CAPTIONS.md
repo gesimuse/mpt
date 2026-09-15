@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-15T15:49:33 — aibeauty
+
+```
+The morning after, just me and my fresh sheets
+
+Created with AI.
+
+#digitalart #neuralnetwork #relaxationmode #bedroomaesthetic #bedlinenlove
+```
+
 ## 2026-09-15T14:52:20 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Feeling myself, no apologies
 Created with AI.
 
 #artificialbeauty #sultryself #generativeart #aiartofself #selfloveaesthetic
-```
-
-## 2026-09-13T18:26:14 — aibeautyvideo
-
-```
-the way she turns heads
-
-Created with AI.
-
-#aiart #digitalart #longinglooks #fleetingmoments #sensualtones
 ```
