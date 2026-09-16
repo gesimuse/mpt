@@ -7420,6 +7420,26 @@
           "message_id": 61
         }
       }
+    },
+    {
+      "niche": "aibeautyvideo",
+      "topic": "video 20260916-043345",
+      "title": "Savoring the little things",
+      "tiktok": true,
+      "tiktok_via": "inbox_video",
+      "tiktok_post_id": "v_inbox_url~v2.7685985957648205846",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_fail_reason": null,
+      "tiktok_caption": "Savoring the little things\n\nCreated with AI.\n\n#womenempowerment #bodypositivity #artificialintelligenceart #confidentwomen #bohostyle",
+      "video_url": "https://gesimuse.github.io/mpt/media/1789533315-final.mp4",
+      "ts": "2026-09-16T04:36:23",
+      "motionforge_source_url": "https://gesimuse.github.io/mpt/media/1789483844-sd_9.jpg",
+      "telegram_message_ids": {
+        "https://gesimuse.github.io/mpt/media/1789533315-final.mp4": {
+          "chat_id": "-1004314616972",
+          "message_id": 62
+        }
+      }
     }
   ],
   "model_stats": {
