@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-16T15:43:30 — aibeauty
+
+```
+last call for last chances
+
+Created with AI.
+
+#aiart #modernart #afterdark #neonvibes #barlight
+```
+
 ## 2026-09-16T14:28:30 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ when the heat gets reckless
 Created with AI.
 
 #digitalart #adobeart #heatwavevibes #desertdreams #generativeart
-```
-
-## 2026-09-15T13:33:25 — aibeauty
-
-```
-life on the edge of the map
-
-Created with AI.
-
-#aiart #surrealart #cityswoon #enneagramseven
 ```
