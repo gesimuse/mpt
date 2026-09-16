@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-16T17:55:04 — aibeauty
+
+```
+Fire in my soul, water at my back
+
+Created with AI.
+
+#aiart #generativeart #dawnmoods #waterdance #quietmirrors
+```
+
 ## 2026-09-16T15:43:30 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ The morning after, just me and my fresh sheets
 Created with AI.
 
 #digitalart #neuralnetwork #relaxationmode #bedroomaesthetic #bedlinenlove
-```
-
-## 2026-09-15T14:52:20 — aibeauty
-
-```
-when the heat gets reckless
-
-Created with AI.
-
-#digitalart #adobeart #heatwavevibes #desertdreams #generativeart
 ```
