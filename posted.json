@@ -7440,6 +7440,26 @@
           "message_id": 62
         }
       }
+    },
+    {
+      "niche": "aibeautyvideo",
+      "topic": "video 20260916-043737",
+      "title": "When the bounce is everything",
+      "tiktok": true,
+      "tiktok_via": "inbox_video",
+      "tiktok_post_id": "v_inbox_url~v2.7685986636165056534",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_fail_reason": null,
+      "tiktok_caption": "When the bounce is everything\n\nCreated with AI.\n\n#artificialintelligenceart #AIgeneratedart #playfulgraphics #bouncingbeats",
+      "video_url": "https://gesimuse.github.io/mpt/media/1789533546-final.mp4",
+      "ts": "2026-09-16T04:40:20",
+      "motionforge_source_url": "https://gesimuse.github.io/mpt/media/1789483719-sd_6.jpg",
+      "telegram_message_ids": {
+        "https://gesimuse.github.io/mpt/media/1789533546-final.mp4": {
+          "chat_id": "-1004314616972",
+          "message_id": 63
+        }
+      }
     }
   ],
   "model_stats": {
