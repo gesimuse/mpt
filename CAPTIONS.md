@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-16T10:48:36 — aibeauty
+
+```
+Thrift store treasures and worn-out hearts
+
+Created with AI.
+
+#digitalart #aiartcommunity #fleamarketvibes #opsurfstyle #vintagefashionescapism
+```
+
 ## 2026-09-16T04:40:20 — aibeautyvideo
 
 ```
@@ -88,14 +98,4 @@ lost in the secret places of my soul
 Created with AI.
 
 #digitaldreaming #virtualvoyage #bambooforest #artificialparadise #minimalistart
-```
-
-## 2026-09-14T17:48:32 — aibeautyvideo
-
-```
-when the dress gets the best of me
-
-Created with AI.
-
-#deepvibes #empirewaist #digitalfemininity #neuralartistry #fashionforward
 ```
