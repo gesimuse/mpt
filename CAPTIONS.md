@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-16T14:28:30 — aibeauty
+
+```
+lost in the lines
+
+Created with AI.
+
+#aiart #artofdragging #minimalism #sketchbookvibes #citysketcher
+```
+
 ## 2026-09-16T12:49:14 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ life on the edge of the map
 Created with AI.
 
 #aiart #surrealart #cityswoon #enneagramseven
-```
-
-## 2026-09-15T11:04:53 — aibeauty
-
-```
-lost in the spin
-
-Created with AI.
-
-#aiart #artificialintelligence #handbuiltwithlove #ceramicvibes #studiointhemidnight
 ```
