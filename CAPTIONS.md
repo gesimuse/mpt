@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-17T12:54:29 — aibeauty
+
+```
+Main character energy.
+
+Created with AI.
+
+#aiart #aigenerated #aiphotography #confident
+```
+
 ## 2026-09-17T10:20:35 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Own every step
 Created with AI.
 
 #aiart #genreart #confidentwomen #moodyportraits #fashionillustration
-```
-
-## 2026-09-15T18:23:40 — aibeauty
-
-```
-smoldering in the haze
-
-Created with AI.
-
-#neonfuture #softfocus #digitaldreaming #aicinematography #moodylandscapes
 ```
