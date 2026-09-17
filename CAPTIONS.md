@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-17T17:56:32 — aibeauty
+
+```
+Fading fast in the cold, dark light
+
+Created with AI.
+
+#artificialintelligence #generativeart #mountainlove #wintervibes #frostandcold
+```
+
 ## 2026-09-17T15:51:52 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Thrift store treasures and worn-out hearts
 Created with AI.
 
 #digitalart #aiartcommunity #fleamarketvibes #opsurfstyle #vintagefashionescapism
-```
-
-## 2026-09-16T04:40:20 — aibeautyvideo
-
-```
-When the bounce is everything
-
-Created with AI.
-
-#artificialintelligenceart #AIgeneratedart #playfulgraphics #bouncingbeats
 ```
