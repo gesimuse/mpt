@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-17T15:51:52 — aibeauty
+
+```
+stormy nights get all the drama
+
+Created with AI.
+
+#aiart #aiimagery #mixedmediaart #summerstormvibes #moodyphotography
+```
+
 ## 2026-09-17T15:04:23 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ When the bounce is everything
 Created with AI.
 
 #artificialintelligenceart #AIgeneratedart #playfulgraphics #bouncingbeats
-```
-
-## 2026-09-16T04:36:23 — aibeautyvideo
-
-```
-Savoring the little things
-
-Created with AI.
-
-#womenempowerment #bodypositivity #artificialintelligenceart #confidentwomen #bohostyle
 ```
