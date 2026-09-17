@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-17T15:04:23 — aibeauty
+
+```
+souls on fire, tangling the sea
+
+Created with AI.
+
+#aiart #sailorsunset #catamaranlife #mermaidvibes #seabreeze
+```
+
 ## 2026-09-17T12:54:29 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Savoring the little things
 Created with AI.
 
 #womenempowerment #bodypositivity #artificialintelligenceart #confidentwomen #bohostyle
-```
-
-## 2026-09-15T18:28:03 — aibeautyvideo
-
-```
-Own every step
-
-Created with AI.
-
-#aiart #genreart #confidentwomen #moodyportraits #fashionillustration
 ```
