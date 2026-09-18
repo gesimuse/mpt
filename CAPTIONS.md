@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-18T15:17:37 — aibeauty
+
+```
+Getting lost in the haze
+
+Created with AI.
+
+#aiart #GeneratedImagery #ambientvibes #whisperingwoods #lostsomewhereinstyle
+```
+
 ## 2026-09-18T13:50:22 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Fire in my soul, water at my back
 Created with AI.
 
 #aiart #generativeart #dawnmoods #waterdance #quietmirrors
-```
-
-## 2026-09-16T15:43:30 — aibeauty
-
-```
-last call for last chances
-
-Created with AI.
-
-#aiart #modernart #afterdark #neonvibes #barlight
 ```
