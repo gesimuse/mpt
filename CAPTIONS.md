@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-18T12:49:28 — aibeauty
+
+```
+messy nights and better mornings
+
+Created with AI.
+
+#dall #aiart #darkart #grungevibes #mystudio
+```
+
 ## 2026-09-18T10:25:19 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ lost in the lines
 Created with AI.
 
 #aiart #artofdragging #minimalism #sketchbookvibes #citysketcher
-```
-
-## 2026-09-16T12:49:14 — aibeauty
-
-```
-about to take on the day (and crush it too)
-
-Created with AI.
-
-#aiart #digitallife #postworkoutfeelings #fitnessmotivation #sweatsquad
 ```
