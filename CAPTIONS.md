@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-19T11:03:46 — aibeauty
+
+```
+when the storm moves in, so does the mystery
+
+Created with AI.
+
+#aiart #neuralromance #summerstorm #atmosphericart #weatherlove
+```
+
 ## 2026-09-18T17:23:57 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Main character energy.
 Created with AI.
 
 #aiart #aigenerated #aiphotography #confident
-```
-
-## 2026-09-17T10:20:35 — aibeauty
-
-```
-saturday vibes only
-
-Created with AI.
-
-#aiart #cpgenerated #saturdaymarketvibes #farmersmarketlove #marketmoments
 ```
