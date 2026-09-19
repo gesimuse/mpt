@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-19T13:24:30 — aibeauty
+
+```
+Just here for the lighting.
+
+Created with AI.
+
+#aiart #aigenerated #aiphotography #confident
+```
+
 ## 2026-09-19T12:38:29 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ stormy nights get all the drama
 Created with AI.
 
 #aiart #aiimagery #mixedmediaart #summerstormvibes #moodyphotography
-```
-
-## 2026-09-17T15:04:23 — aibeauty
-
-```
-souls on fire, tangling the sea
-
-Created with AI.
-
-#aiart #sailorsunset #catamaranlife #mermaidvibes #seabreeze
 ```
