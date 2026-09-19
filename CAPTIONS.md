@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-19T14:39:15 — aibeauty
+
+```
+when the city stops shining and the stars take over
+
+Created with AI.
+
+#artificialintelligenceart #astroart #philosophystarlight #nightskyart #astrography
+```
+
 ## 2026-09-19T13:24:30 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Fading fast in the cold, dark light
 Created with AI.
 
 #artificialintelligence #generativeart #mountainlove #wintervibes #frostandcold
-```
-
-## 2026-09-17T15:51:52 — aibeauty
-
-```
-stormy nights get all the drama
-
-Created with AI.
-
-#aiart #aiimagery #mixedmediaart #summerstormvibes #moodyphotography
 ```
