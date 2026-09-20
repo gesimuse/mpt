@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-20T15:30:51 — aibeauty
+
+```
+sleepy Sundays are my love language
+
+Created with AI.
+
+#aiart #generativeart #relaxationmode #sundayvibes #selfcareessentials
+```
+
 ## 2026-09-20T14:13:43 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Layovers are my love language
 Created with AI.
 
 #aiart #digitalart #airportaesthetics #traveltryst #instaart
-```
-
-## 2026-09-18T15:17:37 — aibeauty
-
-```
-Getting lost in the haze
-
-Created with AI.
-
-#aiart #GeneratedImagery #ambientvibes #whisperingwoods #lostsomewhereinstyle
 ```
