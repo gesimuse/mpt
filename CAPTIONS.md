@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-20T14:13:43 — aibeauty
+
+```
+magic happens after dark
+
+Created with AI.
+
+#aiart #fantasyart #campingvibes #stargazing #gottobeinthemountains
+```
+
 ## 2026-09-20T12:40:28 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Getting lost in the haze
 Created with AI.
 
 #aiart #GeneratedImagery #ambientvibes #whisperingwoods #lostsomewhereinstyle
-```
-
-## 2026-09-18T13:50:22 — aibeauty
-
-```
-Freedom's just a pedal stroke away
-
-Created with AI.
-
-#aiart #digitalart #cyclingcommunity #hillsofeden #offroadadventures
 ```
