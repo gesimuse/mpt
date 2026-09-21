@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-21T17:19:43 — aibeauty
+
+```
+vibes on a different coast
+
+Created with AI.
+
+#aiart #syntheticsunset #beachvibes #summerstateofmind #digitalbliss
+```
+
 ## 2026-09-21T16:52:52 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ sunrise doesn't have to be just a moment, make it a movement
 Created with AI.
 
 #aiart #generativeart #yogainspiration #morningmotivation #meditationmood
-```
-
-## 2026-09-19T14:39:15 — aibeauty
-
-```
-when the city stops shining and the stars take over
-
-Created with AI.
-
-#artificialintelligenceart #astroart #philosophystarlight #nightskyart #astrography
 ```
