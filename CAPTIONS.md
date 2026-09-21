@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-21T18:59:47 — aibeauty
+
+```
+ripe for the taking
+
+Created with AI.
+
+#aiart #generativeart #grapesofdesire #vineyardvibes #europeancharm
+```
+
 ## 2026-09-21T17:19:43 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Slip into the unknown
 Created with AI.
 
 #aiart #digitaldreaming #bamboofantasy #forestwhispers
-```
-
-## 2026-09-19T16:46:24 — aibeauty
-
-```
-sunrise doesn't have to be just a moment, make it a movement
-
-Created with AI.
-
-#aiart #generativeart #yogainspiration #morningmotivation #meditationmood
 ```
