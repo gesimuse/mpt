@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-21T16:52:52 — aibeauty
+
+```
+The ocean has its secrets, and I'm still listening.
+
+Created with AI.
+
+#aiart #digitaldreams #seasummers #saltwaterinfused #goblue
+```
+
 ## 2026-09-21T14:33:17 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ when the city stops shining and the stars take over
 Created with AI.
 
 #artificialintelligenceart #astroart #philosophystarlight #nightskyart #astrography
-```
-
-## 2026-09-19T13:24:30 — aibeauty
-
-```
-Just here for the lighting.
-
-Created with AI.
-
-#aiart #aigenerated #aiphotography #confident
 ```
