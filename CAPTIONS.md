@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-21T14:33:17 — aibeauty
+
+```
+The morning is my happy place
+
+Created with AI.
+
+#aiart #digitalart #morningmotivation #cozykitchen #artificialbeauty
+```
+
 ## 2026-09-21T11:05:50 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Just here for the lighting.
 Created with AI.
 
 #aiart #aigenerated #aiphotography #confident
-```
-
-## 2026-09-19T12:38:29 — aibeauty
-
-```
-Warm days and warmer moods
-
-Created with AI.
-
-#aiart #digitalart #farmersmarketvibes #marketfresh #summervibes
 ```
