@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-22T16:34:46 — aibeauty
+
+```
+Midnights were made for secrets
+
+Created with AI.
+
+#neuralgeneratedart #lowpolyaesthetics #arcadeglow #retroarcadevibes #lateatnightcafe
+```
+
 ## 2026-09-22T12:50:55 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ sleepy Sundays are my love language
 Created with AI.
 
 #aiart #generativeart #relaxationmode #sundayvibes #selfcareessentials
-```
-
-## 2026-09-20T14:13:43 — aibeauty
-
-```
-magic happens after dark
-
-Created with AI.
-
-#aiart #fantasyart #campingvibes #stargazing #gottobeinthemountains
 ```
