@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-22T17:56:50 — aibeauty
+
+```
+Petals and persuasion
+
+Created with AI.
+
+#flowerarranging #malegrooming #gentlemansgrooming
+```
+
 ## 2026-09-22T16:34:46 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Sundays are my jam
 Created with AI.
 
 #farmersmarketfinds #summervibes #agtechart #digitalartoffshoots
-```
-
-## 2026-09-20T15:30:51 — aibeauty
-
-```
-sleepy Sundays are my love language
-
-Created with AI.
-
-#aiart #generativeart #relaxationmode #sundayvibes #selfcareessentials
 ```
