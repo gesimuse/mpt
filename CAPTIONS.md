@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-23T10:21:29 — aibeauty
+
+```
+Nightlife, on my terms
+
+Created with AI.
+
+#aiart #artificialinteligenceart #citynights #neonvibes #urbankisses
+```
+
 ## 2026-09-22T17:56:50 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ wheels on fire tonight
 Created with AI.
 
 #artificialintelligenceart #generatedart #boardwalkvibes #rollercoastermood #summerlove
-```
-
-## 2026-09-20T17:26:26 — aibeauty
-
-```
-Sundays are my jam
-
-Created with AI.
-
-#farmersmarketfinds #summervibes #agtechart #digitalartoffshoots
 ```
