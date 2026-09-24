@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-24T10:26:41 — aibeauty
+
+```
+Burning off what's left of my inhibitions
+
+Created with AI.
+
+#aiart #digitalart #pilatesmotivation #movementinspired #femininefitness
+```
+
 ## 2026-09-23T18:11:48 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ ripe for the taking
 Created with AI.
 
 #aiart #generativeart #grapesofdesire #vineyardvibes #europeancharm
-```
-
-## 2026-09-21T17:19:43 — aibeauty
-
-```
-vibes on a different coast
-
-Created with AI.
-
-#aiart #syntheticsunset #beachvibes #summerstateofmind #digitalbliss
 ```
