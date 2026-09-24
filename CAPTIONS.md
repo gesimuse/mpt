@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-24T16:36:41 — aibeauty
+
+```
+tonight feels like forever
+
+Created with AI.
+
+#synthwave #indiemusic #tinygigs #lowlightaesthetic #digitalartistry
+```
+
 ## 2026-09-24T14:47:36 — aibeauty
 
 ```
@@ -84,16 +94,6 @@ Created with AI.
 
 ```
 This is your sign to go outside.
-
-Created with AI.
-
-#aiart #aigenerated #aiphotography #confident
-```
-
-## 2026-09-22T10:39:18 — aibeauty
-
-```
-Ask me nothing, I won't tell.
 
 Created with AI.
 
