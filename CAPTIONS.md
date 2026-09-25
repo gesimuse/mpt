@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-25T15:21:43 — aibeauty
+
+```
+Feeling myself, no apologies.
+
+Created with AI.
+
+#aiart #aigenerated #aiphotography #confident
+```
+
 ## 2026-09-25T13:17:50 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ summer in my soul
 Created with AI.
 
 #aiart #generativeart #farmersmarketvibes #locallove #marketmagic
-```
-
-## 2026-09-23T10:21:29 — aibeauty
-
-```
-Nightlife, on my terms
-
-Created with AI.
-
-#aiart #artificialinteligenceart #citynights #neonvibes #urbankisses
 ```
