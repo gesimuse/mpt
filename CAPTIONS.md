@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-25T10:44:35 — aibeauty
+
+```
+Sunset on my terms
+
+Created with AI.
+
+#aiart #futurism #westernvibes #riderlife #wildwomentravel
+```
+
 ## 2026-09-24T18:11:38 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Petals and persuasion
 Created with AI.
 
 #flowerarranging #malegrooming #gentlemansgrooming
-```
-
-## 2026-09-22T16:34:46 — aibeauty
-
-```
-Midnights were made for secrets
-
-Created with AI.
-
-#neuralgeneratedart #lowpolyaesthetics #arcadeglow #retroarcadevibes #lateatnightcafe
 ```
