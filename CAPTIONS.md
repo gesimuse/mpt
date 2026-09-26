@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-26T10:35:35 — aibeauty
+
+```
+tonight's city view has me feeling so alive
+
+Created with AI.
+
+#aiart #mixedmedia #citylightsatnight #neonlover #urbanromance
+```
+
 ## 2026-09-25T18:14:28 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Waking up to a world that's just as sweet as my coffee
 Created with AI.
 
 #digitalart #aiart #kitchenvibes #morningmotivation #coffeeculture
-```
-
-## 2026-09-23T15:42:44 — aibeauty
-
-```
-getting lost in the ride
-
-Created with AI.
-
-#deepdream #dgimage #trainlife #cruisingsolitude #vaguelyromantic
 ```
