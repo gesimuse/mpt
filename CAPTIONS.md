@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-26T14:23:27 — aibeauty
+
+```
+my jam is live
+
+Created with AI.
+
+#aiart #neuralinkart #indiemusic #giglife #liveafterdark
+```
+
 ## 2026-09-26T13:31:28 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Studio secrets
 Created with AI.
 
 #aiart #artstyle #creativespace #mixofarts #modernsurreal
-```
-
-## 2026-09-24T10:26:41 — aibeauty
-
-```
-Burning off what's left of my inhibitions
-
-Created with AI.
-
-#aiart #digitalart #pilatesmotivation #movementinspired #femininefitness
 ```
