@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-26T17:17:35 — aibeauty
+
+```
+when the world outside gets too real, find your own paradise
+
+Created with AI.
+
+#layeredportrait #aiart #meadowvibes #greenery #summerloveaffair
+```
+
 ## 2026-09-26T14:23:27 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ tonight feels like forever
 Created with AI.
 
 #synthwave #indiemusic #tinygigs #lowlightaesthetic #digitalartistry
-```
-
-## 2026-09-24T14:47:36 — aibeauty
-
-```
-Studio secrets
-
-Created with AI.
-
-#aiart #artstyle #creativespace #mixofarts #modernsurreal
 ```
