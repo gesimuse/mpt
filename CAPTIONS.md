@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-27T13:52:46 — aibeauty
+
+```
+secrets in the shadows
+
+Created with AI.
+
+#digitalart #distanceandwander #lowpolyart #planetrotter
+```
+
 ## 2026-09-27T10:53:38 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ golden secrets hide here
 Created with AI.
 
 #aiart #imaginaryfolk #autumnvibes #woodlandwhispers #fantasyrealm
-```
-
-## 2026-09-25T10:44:35 — aibeauty
-
-```
-Sunset on my terms
-
-Created with AI.
-
-#aiart #futurism #westernvibes #riderlife #wildwomentravel
 ```
