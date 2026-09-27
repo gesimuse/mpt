@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-27T14:58:37 — aibeauty
+
+```
+leaves me breathless every time
+
+Created with AI.
+
+#neuralart #artificialintelligence #autumnvibes #foragingforlove #fallfoliage
+```
+
 ## 2026-09-27T13:52:46 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Feeling myself, no apologies.
 Created with AI.
 
 #aiart #aigenerated #aiphotography #confident
-```
-
-## 2026-09-25T13:17:50 — aibeauty
-
-```
-golden secrets hide here
-
-Created with AI.
-
-#aiart #imaginaryfolk #autumnvibes #woodlandwhispers #fantasyrealm
 ```
