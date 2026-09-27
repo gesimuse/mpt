@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-27T15:55:46 — aibeauty
+
+```
+Secrets reveal themselves in mist
+
+Created with AI.
+
+#aiart #moodygrams #dreamlike #softfocus #vaporous
+```
+
 ## 2026-09-27T14:58:37 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Secrets brewed in the morning
 Created with AI.
 
 #neuralart #womenwhocode #kitchenvibes #breakfastgoals
-```
-
-## 2026-09-25T15:21:43 — aibeauty
-
-```
-Feeling myself, no apologies.
-
-Created with AI.
-
-#aiart #aigenerated #aiphotography #confident
 ```
