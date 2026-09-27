@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-27T18:48:24 — aibeauty
+
+```
+wheels on my soul
+
+Created with AI.
+
+#aiart #neuralink #citydreamin #scootergirl #urbanadventures
+```
+
 ## 2026-09-27T15:55:46 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ tonight's city view has me feeling so alive
 Created with AI.
 
 #aiart #mixedmedia #citylightsatnight #neonlover #urbanromance
-```
-
-## 2026-09-25T18:14:28 — aibeauty
-
-```
-Secrets brewed in the morning
-
-Created with AI.
-
-#neuralart #womenwhocode #kitchenvibes #breakfastgoals
 ```
