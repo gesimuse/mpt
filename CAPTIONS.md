@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-28T20:34:41 — aibeauty
+
+```
+Secrets are made backstage
+
+Created with AI.
+
+#aiart #generativeart #moodboardvibes #darkfashionista #artofportraits
+```
+
 ## 2026-09-28T18:45:51 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Kneading the day away
 Created with AI.
 
 #artificiallyperfect #kitchenvibes #ruralliving
-```
-
-## 2026-09-26T17:17:35 — aibeauty
-
-```
-when the world outside gets too real, find your own paradise
-
-Created with AI.
-
-#layeredportrait #aiart #meadowvibes #greenery #summerloveaffair
 ```
