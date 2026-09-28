@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-28T17:56:51 — aibeauty
+
+```
+Sizzling in the shadows
+
+Created with AI.
+
+#digitalart #aiart #desertdreams #heatwaveaesthetic #visualpoetry
+```
+
 ## 2026-09-28T15:56:51 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ my jam is live
 Created with AI.
 
 #aiart #neuralinkart #indiemusic #giglife #liveafterdark
-```
-
-## 2026-09-26T13:31:28 — aibeauty
-
-```
-secrets whispered in the dark
-
-Created with AI.
-
-#aiart #neuralink #dreamcatcher #ctftime #vapormusic
 ```
