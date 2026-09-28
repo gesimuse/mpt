@@ -150,7 +150,8 @@
       "aibeauty-20260927-154128",
       "aibeauty-20260927-174655",
       "aibeauty-20260928-153454",
-      "aibeauty-20260928-174028"
+      "aibeauty-20260928-174028",
+      "aibeauty-20260928-183815"
     ]
   },
   "uploads": [
@@ -12803,6 +12804,50 @@
           "message_id": 1383
         }
       }
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260928-183815",
+      "title": "Just here for the lighting.",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7690658868778813462",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "Just here for the lighting.\n\nCreated with AI.\n\n#aiart #aigenerated #aiphotography #confident",
+      "image_urls": [
+        "https://gesimuse.github.io/mpt/media/1790621031-sd_1.jpg",
+        "https://gesimuse.github.io/mpt/media/1790621069-sd_3.jpg",
+        "https://gesimuse.github.io/mpt/media/1790621105-sd_5.jpg"
+      ],
+      "image_prompts": [
+        "stunningly beautiful adult woman, argentinian woman in her early thirties, chestnut hair, fair olive skin, delicate features, button nose, wide doe eyes, soft natural makeup, smoking hot, seductive, sultry gaze, glamour photography, curvy hourglass figure, huge perfectly round breasts, perfectly round ass, deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, glossy lips, flawless makeup, on a sand volleyball court, net and ocean behind her, mid-jump for the ball, sand kicking up, eye-level shot, diffused overcast light, score_9, score_8_up, score_7_up, photo \\(medium\\), score_9, score_8_up, solo, photo (medium), cinematic film still, reflections, dreamy, soft focus, 1woman, (30yo), (elegant, slender, long flowing hair, wearing a silk dress, tattoos), natural smile, delicate makeup, RAW photo, hyper detailed photorealistic 8k, (accurate cinematic lighting), photorealistic detail, (selective focus:0.7), soft lighting, ultra detailed, 4k,epic, raw, dslr photo, color graded, realistic eyes with pupil and iris, intricate details, smile, looking at viewer",
+        "stunningly beautiful adult woman, argentinian woman in her early thirties, chestnut hair, fair olive skin, delicate features, button nose, wide doe eyes, soft natural makeup, smoking hot, seductive, sultry gaze, glamour photography, curvy hourglass figure, huge perfectly round breasts, perfectly round ass, deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, glossy lips, flawless makeup, on a sand volleyball court, net and ocean behind her, mid-jump for the ball, sand kicking up, three-quarter view, soft studio lighting, score_9, score_8_up, score_7_up, photo \\(medium\\), score_9, score_8_up, solo, photo (medium), cinematic film still, reflections, dreamy, soft focus, 1woman, (30yo), (elegant, slender, long flowing hair, wearing a silk dress, tattoos), natural smile, delicate makeup, RAW photo, hyper detailed photorealistic 8k, (accurate cinematic lighting), photorealistic detail, (selective focus:0.7), soft lighting, ultra detailed, 4k,epic, raw, dslr photo, color graded, realistic eyes with pupil and iris, intricate details, smile, looking at viewer",
+        "stunningly beautiful adult woman, argentinian woman in her early thirties, chestnut hair, fair olive skin, delicate features, button nose, wide doe eyes, soft natural makeup, smoking hot, seductive, sultry gaze, glamour photography, curvy hourglass figure, huge perfectly round breasts, perfectly round ass, deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, glossy lips, flawless makeup, on a sand volleyball court, net and ocean behind her, mid-jump for the ball, sand kicking up, medium shot, gentle rim lighting, score_9, score_8_up, score_7_up, photo \\(medium\\), score_9, score_8_up, solo, photo (medium), cinematic film still, reflections, dreamy, soft focus, 1woman, (30yo), (elegant, slender, long flowing hair, wearing a silk dress, tattoos), natural smile, delicate makeup, RAW photo, hyper detailed photorealistic 8k, (accurate cinematic lighting), photorealistic detail, (selective focus:0.7), soft lighting, ultra detailed, 4k,epic, raw, dslr photo, color graded, realistic eyes with pupil and iris, intricate details, smile, looking at viewer"
+      ],
+      "model_spec": "659428:2113674",
+      "model_name": "Photorealistic All-Purpose, Porn and Gay-Friendly XL Model",
+      "vibe": "beach volleyball",
+      "look": "argentinian",
+      "motion_prompts": [
+        "She lowers one hip, weight shifting onto it, as her gaze drifts upward, lingering a beat, then swivels back to face the net.",
+        "She pivots on her heel, slowly shifting her weight onto one leg as her body arches and she looks back over her shoulder.",
+        "She turns slowly to the side, one hip leading, and looks straight down at the net, her weight shifting onto one thigh as she exhales. A strand of hair falls across her cheek."
+      ],
+      "ts": "2026-09-28T18:45:51",
+      "telegram_message_ids": {
+        "https://gesimuse.github.io/mpt/media/1790621031-sd_1.jpg": {
+          "chat_id": "-1004449497323",
+          "message_id": 1384
+        },
+        "https://gesimuse.github.io/mpt/media/1790621069-sd_3.jpg": {
+          "chat_id": "-1004449497323",
+          "message_id": 1385
+        },
+        "https://gesimuse.github.io/mpt/media/1790621105-sd_5.jpg": {
+          "chat_id": "-1004449497323",
+          "message_id": 1386
+        }
+      }
     }
   ],
   "model_stats": {
@@ -12868,8 +12913,8 @@
     },
     "659428:2113674": {
       "name": "Photorealistic All-Purpose, Porn and Gay-Friendly XL Model",
-      "used": 27,
-      "passed": 27
+      "used": 30,
+      "passed": 30
     },
     "8067:10248": {
       "name": "Movie Diffusion v1.2",
@@ -13130,6 +13175,10 @@
     "sunday coffee on the balcony": {
       "used": 20,
       "passed": 20
+    },
+    "beach volleyball": {
+      "used": 3,
+      "passed": 3
     }
   }
 }

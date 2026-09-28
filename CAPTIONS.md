@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-28T18:45:51 — aibeauty
+
+```
+Just here for the lighting.
+
+Created with AI.
+
+#aiart #aigenerated #aiphotography #confident
+```
+
 ## 2026-09-28T17:56:51 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ when the world outside gets too real, find your own paradise
 Created with AI.
 
 #layeredportrait #aiart #meadowvibes #greenery #summerloveaffair
-```
-
-## 2026-09-26T14:23:27 — aibeauty
-
-```
-my jam is live
-
-Created with AI.
-
-#aiart #neuralinkart #indiemusic #giglife #liveafterdark
 ```
