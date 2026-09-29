@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-29T16:08:03 — aibeauty
+
+```
+when the view is worth the view
+
+Created with AI.
+
+#aiart #generativeart #rooftopviews #summervocab #nightlife
+```
+
 ## 2026-09-29T14:25:57 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ leaves me breathless every time
 Created with AI.
 
 #neuralart #artificialintelligence #autumnvibes #foragingforlove #fallfoliage
-```
-
-## 2026-09-27T13:52:46 — aibeauty
-
-```
-secrets in the shadows
-
-Created with AI.
-
-#digitalart #distanceandwander #lowpolyart #planetrotter
 ```
