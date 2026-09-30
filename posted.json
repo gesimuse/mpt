@@ -157,7 +157,8 @@
       "aibeauty-20260929-140906",
       "aibeauty-20260929-154921",
       "aibeauty-20260929-184651",
-      "aibeauty-20260930-111510"
+      "aibeauty-20260930-111510",
+      "aibeauty-20260930-135016"
     ]
   },
   "uploads": [
@@ -13342,6 +13343,50 @@
           "message_id": 1438
         }
       }
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "image slideshow 20260930-135016",
+      "title": "Party's calling me, I'm answers",
+      "tiktok": true,
+      "tiktok_via": "inbox",
+      "tiktok_post_id": "p_inbox_url~v2.7691327215698675734",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_caption": "Party's calling me, I'm answers\n\nCreated with AI.\n\n#sophisticatedvibes #nightlifeaesthetic #technicolorfiction #digitaldreams",
+      "image_urls": [
+        "https://gesimuse.github.io/mpt/media/1790776563-sd_5.jpg",
+        "https://gesimuse.github.io/mpt/media/1790776639-sd_7.jpg",
+        "https://gesimuse.github.io/mpt/media/1790776707-sd_8.jpg"
+      ],
+      "image_prompts": [
+        "stunningly beautiful adult woman, nigerian woman in her late twenties, natural afro, deep brown skin, cute feminine face, small nose, almond shaped eyes, minimal makeup, smoking hot, seductive, sultry gaze, glamour photography, curvy hourglass figure, huge perfectly round breasts, perfectly round ass, deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, glossy lips, flawless makeup, backstage in a dressing room, mirror lights, flirty smile, caught mid-laugh, slight high angle, soft backlighting, score_9,score_8_up,score_7_up, photo \\(medium\\), photorealism, portrait photo of a beautiful 25 yo blonde american female model, hyperdetailed, hottest woman on earth prize winner, light makeup, hyperrealism, skin details, cinematic shot, love in the eyes, she is hot and she knows it, loving viewer, charming, flirting, naughty smile, warm color tone, elegant dress, fashion photoshoot, hyperdetailed photography, skin details, chiseled jawline, epic, dslr photo, determined look, realistic eyes with iris and pupillooking at viewer",
+        "stunningly beautiful adult woman, nigerian woman in her late twenties, natural afro, deep brown skin, cute feminine face, small nose, almond shaped eyes, minimal makeup, smoking hot, seductive, sultry gaze, glamour photography, curvy hourglass figure, huge perfectly round breasts, perfectly round ass, deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, glossy lips, flawless makeup, backstage in a dressing room, mirror lights, flirty smile, caught mid-laugh, profile view, moody side lighting, score_9,score_8_up,score_7_up, photo \\(medium\\), photorealism, portrait photo of a beautiful 25 yo blonde american female model, hyperdetailed, hottest woman on earth prize winner, light makeup, hyperrealism, skin details, cinematic shot, love in the eyes, she is hot and she knows it, loving viewer, charming, flirting, naughty smile, warm color tone, elegant dress, fashion photoshoot, hyperdetailed photography, skin details, chiseled jawline, epic, dslr photo, determined look, realistic eyes with iris and pupillooking at viewer",
+        "stunningly beautiful adult woman, nigerian woman in her late twenties, natural afro, deep brown skin, cute feminine face, small nose, almond shaped eyes, minimal makeup, smoking hot, seductive, sultry gaze, glamour photography, curvy hourglass figure, huge perfectly round breasts, perfectly round ass, deep cleavage, narrow waist, wide hips, thick thighs, long toned legs, glossy lips, flawless makeup, backstage in a dressing room, mirror lights, flirty smile, caught mid-laugh, three-quarter view, soft studio lighting, score_9,score_8_up,score_7_up, photo \\(medium\\), photorealism, portrait photo of a beautiful 25 yo blonde american female model, hyperdetailed, hottest woman on earth prize winner, light makeup, hyperrealism, skin details, cinematic shot, love in the eyes, she is hot and she knows it, loving viewer, charming, flirting, naughty smile, warm color tone, elegant dress, fashion photoshoot, hyperdetailed photography, skin details, chiseled jawline, epic, dslr photo, determined look, realistic eyes with iris and pupillooking at viewer"
+      ],
+      "model_spec": "659428:2113674",
+      "model_name": "Photorealistic All-Purpose, Porn and Gay-Friendly XL Model",
+      "vibe": "getting ready for a night out",
+      "look": "nigerian",
+      "motion_prompts": [
+        "Let her rise to her toes, hands splayed on her hips, then slowly exhale, her body lengthening while her hips shift backward, releasing the tension.",
+        "Slowly arching her spine, she sways her hips, weight shifting through them as her upper body remains mostly still, a gentle shimmer on the mirror lights catching her locs.",
+        "She slowly rises up from the pose, body lengthening as she straightens, chest expanding with a deep breath, gaze still locked on the viewer."
+      ],
+      "ts": "2026-09-30T13:59:28",
+      "telegram_message_ids": {
+        "https://gesimuse.github.io/mpt/media/1790776563-sd_5.jpg": {
+          "chat_id": "-1004449497323",
+          "message_id": 1439
+        },
+        "https://gesimuse.github.io/mpt/media/1790776639-sd_7.jpg": {
+          "chat_id": "-1004449497323",
+          "message_id": 1440
+        },
+        "https://gesimuse.github.io/mpt/media/1790776707-sd_8.jpg": {
+          "chat_id": "-1004449497323",
+          "message_id": 1441
+        }
+      }
     }
   ],
   "model_stats": {
@@ -13407,8 +13452,8 @@
     },
     "659428:2113674": {
       "name": "Photorealistic All-Purpose, Porn and Gay-Friendly XL Model",
-      "used": 38,
-      "passed": 38
+      "used": 41,
+      "passed": 41
     },
     "8067:10248": {
       "name": "Movie Diffusion v1.2",
@@ -13471,8 +13516,8 @@
       "passed": 28
     },
     "getting ready for a night out": {
-      "used": 31,
-      "passed": 31
+      "used": 34,
+      "passed": 34
     },
     "backstage before a shoot": {
       "used": 30,
