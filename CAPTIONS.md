@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-09-30T11:30:38 — aibeauty
+
+```
+Coffee, calm, morning after.
+
+Created with AI.
+
+#aiart #digitalart #velvromood #softcoredarkness #romantic
+```
+
 ## 2026-09-29T19:32:48 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ wheels on my soul
 Created with AI.
 
 #aiart #neuralink #citydreamin #scootergirl #urbanadventures
-```
-
-## 2026-09-27T15:55:46 — aibeauty
-
-```
-Secrets reveal themselves in mist
-
-Created with AI.
-
-#aiart #moodygrams #dreamlike #softfocus #vaporous
 ```
