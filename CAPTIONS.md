@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-10-01T15:15:21 — aibeauty
+
+```
+Watching the clock tick slower
+
+Created with AI.
+
+#generativeart #artracing #fitnessmotivation #gymselfie #boxingbeauty
+```
+
 ## 2026-10-01T12:25:05 — aibeauty
 
 ```
@@ -48,34 +58,4 @@ Party's calling me, I'm answers
 Created with AI.
 
 #sophisticatedvibes #nightlifeaesthetic #technicolorfiction #digitaldreams
-```
-
-## 2026-09-30T11:30:38 — aibeauty
-
-```
-Coffee, calm, morning after.
-
-Created with AI.
-
-#aiart #digitalart #velvromood #softcoredarkness #romantic
-```
-
-## 2026-09-29T19:32:48 — aibeauty
-
-```
-Sunrise has a way of making everything seem possible
-
-Created with AI.
-
-#aiart #waterscape #dawnmood #goldenhourvibes #lakesidecaptures
-```
-
-## 2026-09-29T16:08:03 — aibeauty
-
-```
-when the view is worth the view
-
-Created with AI.
-
-#aiart #generativeart #rooftopviews #summervocab #nightlife
 ```
