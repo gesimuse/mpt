@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-10-01T11:38:50 — aibeautyvideo
+
+```
+when the weight of the world hits your hips
+
+Created with AI.
+
+#digitalart #contemporaryart #painterlyPortraits
+```
+
 ## 2026-09-30T17:11:56 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Secrets are made backstage
 Created with AI.
 
 #aiart #generativeart #moodboardvibes #darkfashionista #artofportraits
-```
-
-## 2026-09-28T18:45:51 — aibeauty
-
-```
-Just here for the lighting.
-
-Created with AI.
-
-#aiart #aigenerated #aiphotography #confident
 ```

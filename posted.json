@@ -13575,6 +13575,26 @@
           "message_id": 1461
         }
       }
+    },
+    {
+      "niche": "aibeautyvideo",
+      "topic": "video 20261001-113615",
+      "title": "when the weight of the world hits your hips",
+      "tiktok": true,
+      "tiktok_via": "inbox_video",
+      "tiktok_post_id": "v_inbox_url~v2.7691662178763507714",
+      "tiktok_status": "SEND_TO_USER_INBOX",
+      "tiktok_fail_reason": null,
+      "tiktok_caption": "when the weight of the world hits your hips\n\nCreated with AI.\n\n#digitalart #contemporaryart #painterlyPortraits",
+      "video_url": "https://gesimuse.github.io/mpt/media/1790854659-final.mp4",
+      "ts": "2026-10-01T11:38:50",
+      "motionforge_source_url": "https://gesimuse.github.io/mpt/media/1790787935-sd_7.jpg",
+      "telegram_message_ids": {
+        "https://gesimuse.github.io/mpt/media/1790854659-final.mp4": {
+          "chat_id": "-1004314616972",
+          "message_id": 65
+        }
+      }
     }
   ],
   "model_stats": {
