@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-10-01T12:25:05 — aibeauty
+
+```
+the coffee shop's my happy place
+
+Created with AI.
+
+#aiart #digitalart #coffeevibes #latteartlover #caffeinefuel
+```
+
 ## 2026-10-01T11:38:50 — aibeautyvideo
 
 ```
@@ -68,34 +78,4 @@ when the view is worth the view
 Created with AI.
 
 #aiart #generativeart #rooftopviews #summervocab #nightlife
-```
-
-## 2026-09-29T14:25:57 — aibeauty
-
-```
-frosty mornings make me reckless
-
-Created with AI.
-
-#aiart #generativeart #mountainmood #winterwonderland #capturingserenity
-```
-
-## 2026-09-29T11:50:57 — aibeauty
-
-```
-magic happens after dark when the world gets quieter
-
-Created with AI.
-
-#aiart #digitalart #stargazingartist #campingvibes #galaxygirls
-```
-
-## 2026-09-28T20:34:41 — aibeauty
-
-```
-Secrets are made backstage
-
-Created with AI.
-
-#aiart #generativeart #moodboardvibes #darkfashionista #artofportraits
 ```
