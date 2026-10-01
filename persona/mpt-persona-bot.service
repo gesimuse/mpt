@@ -1,0 +1,17 @@
+[Unit]
+# The persona studio daemon. See persona/README.md.
+Description=MPT persona studio Telegram bot
+After=network-online.target
+Wants=network-online.target
+# Same runtime and RAM as the local Wan2GP bot: never both at once.
+Conflicts=mpt-wan2gp-bot.service
+
+[Service]
+Type=simple
+WorkingDirectory=%h/apps/mpt
+ExecStart=%h/apps/Wan2GP/.venv/bin/python -m persona.bot
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target

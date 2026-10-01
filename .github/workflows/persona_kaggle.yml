@@ -1,0 +1,42 @@
+name: Persona daily batch (Kaggle)
+# Renders the active persona's social-lane scenes on Kaggle's T4 and posts them to
+# the persona review channel. Social lane only -- the Fanvue lane never leaves the
+# laptop. Her data comes from the private Kaggle dataset the laptop syncs
+# (/sync in the bot); nothing about her is stored in this public repo.
+#
+# Needs secrets: KAGGLE_USERNAME, KAGGLE_API_TOKEN, PERSONA_BOT_TOKEN,
+# PERSONA_CHAT_ID, HF_TOKEN (scene writing), and the repo variable PERSONA_SLUG.
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+    inputs:
+      n:
+        description: "Scenes to render"
+        default: "3"
+        type: string
+
+concurrency:
+  group: persona-kaggle
+  cancel-in-progress: false
+
+jobs:
+  render:
+    if: vars.PERSONA_SLUG != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install kaggle requests numpy
+      - name: Render on Kaggle and post for review
+        env:
+          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+          PERSONA_BOT_TOKEN: ${{ secrets.PERSONA_BOT_TOKEN }}
+          PERSONA_CHAT_ID: ${{ secrets.PERSONA_CHAT_ID }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_TOKENS: ${{ secrets.HF_TOKENS }}
+        run: python -m persona.actions "${{ vars.PERSONA_SLUG }}" "${{ inputs.n || '3' }}"

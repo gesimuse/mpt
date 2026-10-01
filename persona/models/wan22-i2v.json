@@ -1,0 +1,14 @@
+{
+  "id": "wan22-i2v",
+  "name": "Wan 2.2 I2V Enhanced Lightning v2 14B",
+  "hf": "Wan-AI/Wan2.2-I2V-A14B",
+  "kind": "video",
+  "roles": ["video"],
+  "lanes": ["social", "fanvue"],
+  "license": "apache-2.0",
+  "commercial": true,
+  "kaggle_ok": true,
+  "wan2gp_model_type": "i2v_2_2_Enhanced_Lightning_v2",
+  "settings": {"video_length": 81, "num_inference_steps": 8, "resolution": "480x832", "image_prompt_type": "S"},
+  "notes": "Same checkpoint as local/wan2gp_bot.py and the Kaggle video path. About 8 minutes per 5s clip on the A4500."
+}

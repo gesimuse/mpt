@@ -1,0 +1,18 @@
+{
+  "id": "qwen21-uncensored",
+  "name": "Qwen-Image 2.1 7B Uncensored (abenzerps)",
+  "hf": "abenzerps/Qwen-Image-2.1-Uncensored-GGUF",
+  "kind": "image",
+  "roles": ["cast", "edit", "fanvue_edit"],
+  "lanes": ["fanvue"],
+  "local_only": true,
+  "license": "qwen-research",
+  "commercial": false,
+  "kaggle_ok": false,
+  "max_refs": 10,
+  "wan2gp_model_type": "qwen_image_21_7B_uncensored",
+  "finetune": "qwen_image_21_7B_uncensored.json",
+  "profile": "profiles/qwen21/Pruna v0.1 8 Steps.json",
+  "settings": {"image_mode": 1, "resolution": "896x1152"},
+  "notes": "Community re-upload, no added filter. Fanvue lane only, never on Kaggle (its terms forbid explicit output). Same research licence as the base."
+}

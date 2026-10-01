@@ -1,0 +1,188 @@
+"""Render social-lane scenes on Kaggle's T4 instead of the laptop.
+
+  sync(char)   uploads bible.json, refs/, storyline.jsonl and votes.json as the
+               PRIVATE dataset <KAGGLE_USERNAME>/mpt-persona-<slug>. Social-lane
+               data only: items, outboxes and anything from the Fanvue lane stay
+               on this machine.
+  run(char)    writes the scenes here (LLM needs HF_TOKEN, which a pushed kernel
+               cannot have), pushes persona/kaggle_kernel.py with them, polls,
+               downloads the output and imports the items into her local store,
+               keeping their ids so the Telegram buttons work on them.
+
+Only models with kaggle_ok and not local_only are allowed (registry.check), so the
+uncensored model and the Fanvue lane can never be selected here.
+
+Uses the `kaggle` CLI (pip install kaggle) and KAGGLE_USERNAME + KAGGLE_API_TOKEN,
+the same credentials as kaggle_imagegen.py / kaggle_videogen.py.
+"""
+import base64
+import io
+import json
+import os
+import shutil
+import subprocess
+import tarfile
+import tempfile
+import time
+from pathlib import Path
+
+from . import config, registry, scenes
+
+ACCELERATOR = config.env("KAGGLE_ACCELERATOR", "NvidiaTeslaT4")
+POLL_TIMEOUT = int(config.env("PERSONA_KAGGLE_TIMEOUT", "7200"))
+
+
+def log(msg):
+    print(f"[persona.kaggle] {msg}", flush=True)
+
+
+def _env():
+    env = os.environ.copy()
+    if "KAGGLE_KEY" not in env and env.get("KAGGLE_API_TOKEN"):
+        env["KAGGLE_KEY"] = env["KAGGLE_API_TOKEN"]
+    if not env.get("KAGGLE_USERNAME") or not env.get("KAGGLE_KEY"):
+        raise RuntimeError("set KAGGLE_USERNAME and KAGGLE_API_TOKEN")
+    if not shutil.which("kaggle"):
+        raise RuntimeError("the kaggle CLI is not installed (pip install kaggle)")
+    return env
+
+
+def _kaggle(*args, env, check=True):
+    r = subprocess.run(["kaggle", *args], env=env, capture_output=True, text=True)
+    out = (r.stdout or "") + (r.stderr or "")
+    if check and r.returncode != 0:
+        raise RuntimeError(f"kaggle {' '.join(args[:2])} failed: {out[-600:]}")
+    return out
+
+
+def dataset_id(char_or_slug):
+    slug = getattr(char_or_slug, "slug", char_or_slug)
+    return f"{os.environ['KAGGLE_USERNAME'].strip()}/mpt-persona-{slug}"
+
+
+def sync(char):
+    env = _env()
+    ds = dataset_id(char)
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        shutil.copyfile(char.dir / "bible.json", tmp / "bible.json")
+        for name in ("storyline.jsonl", "votes.json"):
+            if (char.dir / name).exists():
+                shutil.copyfile(char.dir / name, tmp / name)
+        # Flat files, not a refs/ folder: Kaggle zips subfolders of a dataset, and a
+        # zip inside a download is one more thing to unpack differently in each place.
+        for ref in char.refs():
+            shutil.copyfile(ref, tmp / f"refs__{ref.name}")
+        (tmp / "dataset-metadata.json").write_text(json.dumps(
+            {"title": f"mpt-persona-{char.slug}", "id": ds, "licenses": [{"name": "other"}]}))
+        status = _kaggle("datasets", "status", ds, env=env, check=False).lower()
+        if "404" not in status and "not found" not in status:
+            _kaggle("datasets", "version", "-p", str(tmp), "-m", time.strftime("%Y-%m-%d %H:%M"), env=env)
+        else:
+            # `datasets create` makes it private unless --public is passed.
+            _kaggle("datasets", "create", "-p", str(tmp), env=env)
+    # A new version takes a moment to process; a kernel pushed before it is ready
+    # mounts the previous one.
+    for _ in range(30):
+        if "ready" in _kaggle("datasets", "status", ds, env=env, check=False).lower():
+            break
+        time.sleep(10)
+    return f"synced {char.name} to private dataset {ds}"
+
+
+def restore_layout(char_dir):
+    """Undo sync()'s flattening: refs__<name> files back into refs/<name>."""
+    char_dir = Path(char_dir)
+    (char_dir / "refs").mkdir(parents=True, exist_ok=True)
+    for f in char_dir.glob("refs__*"):
+        f.rename(char_dir / "refs" / f.name[len("refs__"):])
+    (char_dir / "dataset-metadata.json").unlink(missing_ok=True)
+
+
+def _package_b64():
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w:gz") as tar:
+        tar.add(config.PACKAGE, arcname="persona",
+                filter=lambda ti: None if "__pycache__" in ti.name else ti)
+        tar.add(config.REPO / "llm.py", arcname="llm.py")
+    return base64.b64encode(buf.getvalue()).decode()
+
+
+def _wan2gp_commit():
+    wan = Path(config.env("WAN2GP_DIR") or Path.home() / "apps/Wan2GP").expanduser()
+    r = subprocess.run(["git", "rev-parse", "HEAD"], cwd=wan, capture_output=True, text=True)
+    return r.stdout.strip() if r.returncode == 0 else ""
+
+
+def run(char, n=3, hint="", do_sync=True):
+    env = _env()
+    settings = config.load_settings()
+    model = registry.for_role("edit", settings=settings, lane="social", kaggle=True)
+    scene_list = scenes.write(char, lane="social", hint=hint, n=n)
+    if do_sync:
+        log(sync(char))
+    slug = kernel_id(char)
+    payload = {"slug": char.slug, "scenes": scene_list, "roles": {**settings["roles"], "edit": model["id"]},
+               "wan2gp_commit": _wan2gp_commit(), "face_min": config.env("PERSONA_FACE_MIN", "0.45"),
+               "min_age": config.env("PERSONA_MIN_AGE", "21")}
+    src = (config.PACKAGE / "kaggle_kernel.py").read_text()
+    src = src.replace("__PAYLOAD_B64__", base64.b64encode(json.dumps(payload).encode()).decode(), 1)
+    src = src.replace("__PACKAGE_B64__", _package_b64(), 1)
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        (tmp / "persona_render.py").write_text(src)
+        (tmp / "kernel-metadata.json").write_text(json.dumps({
+            "id": slug, "title": f"mpt-persona-render-{char.slug}", "code_file": "persona_render.py",
+            "language": "python", "kernel_type": "script", "is_private": "true", "enable_gpu": "true",
+            "enable_internet": "true", "dataset_sources": [dataset_id(char)], "competition_sources": [],
+            "kernel_sources": []}))
+        log(f"pushing {slug} ({ACCELERATOR})...")
+        _kaggle("kernels", "push", "-p", str(tmp), "--accelerator", ACCELERATOR, env=env)
+
+    deadline = time.time() + POLL_TIMEOUT
+    while time.time() < deadline:
+        out = _kaggle("kernels", "status", slug, env=env, check=False)
+        if "COMPLETE" in out or "ERROR" in out:
+            break
+        time.sleep(30)
+    else:
+        raise RuntimeError(f"Kaggle kernel did not finish within {POLL_TIMEOUT}s")
+
+    return import_output(char)
+
+
+def kernel_id(char):
+    return f"{os.environ['KAGGLE_USERNAME'].strip()}/mpt-persona-render-{char.slug}"
+
+
+def import_output(char):
+    """Download the render kernel's latest output and add its items to her local
+    store, keeping their ids. Safe to repeat: an already-imported item is only
+    refreshed. The bot calls this when a button names an item it does not have,
+    which is what happens to batches the GitHub Actions cron rendered."""
+    env = _env()
+    slug = kernel_id(char)
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        _kaggle("kernels", "output", slug, "-p", str(tmp), env=env)
+        status_file = tmp / "status.json"
+        if not status_file.exists():
+            logs = next(tmp.glob("*.log"), None)
+            tail = logs.read_text(errors="replace")[-1500:] if logs else "no log"
+            raise RuntimeError(f"kernel wrote no status.json (killed?). Log tail:\n{tail}")
+        status = json.loads(status_file.read_text())
+        if not status.get("ok"):
+            raise RuntimeError(f"kernel failed at {status.get('stage')}: {status.get('error')}\n"
+                               f"{status.get('traceback', '')[-1500:]}")
+        items = []
+        for meta_file in sorted((tmp / "out" / "items").glob("*.json")):
+            item = json.loads(meta_file.read_text())
+            if item.get("path"):
+                dest = char.dir / "items" / item["path"]
+                shutil.copyfile(meta_file.parent / item["path"], dest)
+                item["path"] = str(dest)
+            item["rendered_on"] = "kaggle"
+            known = char.item(item["id"]) or {}
+            items.append(char.update_item(item["id"], **{**item, **{k: known[k] for k in ("done", "status", "message")
+                                                                     if k in known}}))
+        return items

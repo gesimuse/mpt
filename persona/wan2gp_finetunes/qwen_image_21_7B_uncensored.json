@@ -1,0 +1,18 @@
+{
+    "model": {
+        "name": "Qwen Image 2.1 7B Uncensored (abenzerps)",
+        "architecture": "qwen_image_21_7B",
+        "group": "qwen_image_2",
+        "description": "Community re-upload of Qwen-Image 2.1 with no added content filter (abenzerps/Qwen-Image-2.1-Uncensored-GGUF). Installed by mpt's persona/engine.py. Qwen Research License: non-commercial.",
+        "URLs": [
+            "https://huggingface.co/abenzerps/Qwen-Image-2.1-Uncensored-GGUF/resolve/main/qwen-image-2.1-UC-int8_convrot.safetensors"
+        ]
+    },
+    "image_mode": 1,
+    "custom_settings": {"qwen21_kv_cache": "Disabled", "rgba": "Disabled"},
+    "prompt": "",
+    "negative_prompt": " ",
+    "num_inference_steps": 40,
+    "guidance_scale": 4.0,
+    "batch_size": 1
+}
