@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-10-02T18:41:37 — aibeauty
+
+```
+getting my hands dirty in the best way
+
+Created with AI.
+
+#generativeart #summervibes #botanicallove #interactiveart #digitalgardening
+```
+
 ## 2026-10-02T16:54:13 — aibeauty
 
 ```
@@ -48,14 +58,4 @@ the coffee shop's my happy place
 Created with AI.
 
 #aiart #digitalart #coffeevibes #latteartlover #caffeinefuel
-```
-
-## 2026-10-01T11:38:50 — aibeautyvideo
-
-```
-when the weight of the world hits your hips
-
-Created with AI.
-
-#digitalart #contemporaryart #painterlyPortraits
 ```
