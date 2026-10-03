@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-10-03T15:25:11 — aibeauty
+
+```
+Midnight secrets whispered to the game
+
+Created with AI.
+
+#neonlit #blurryeyes #synthwaveaesthetic #rpg
+```
+
 ## 2026-10-03T14:49:17 — aibeauty
 
 ```
@@ -68,14 +78,4 @@ Watching the clock tick slower
 Created with AI.
 
 #generativeart #artracing #fitnessmotivation #gymselfie #boxingbeauty
-```
-
-## 2026-10-01T12:25:05 — aibeauty
-
-```
-the coffee shop's my happy place
-
-Created with AI.
-
-#aiart #digitalart #coffeevibes #latteartlover #caffeinefuel
 ```
