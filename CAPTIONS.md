@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-10-03T12:59:26 — aibeauty
+
+```
+Burn it off
+
+Created with AI.
+
+#generativeart #digitalart #artificialintelligence #gymvibes #sweatyselfies
+```
+
 ## 2026-10-02T18:41:37 — aibeauty
 
 ```
