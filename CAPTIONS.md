@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-10-04T16:01:48 — aibeauty
+
+```
+secrets worth leaving the light on for
+
+Created with AI.
+
+#citynightvibes #neonlit #digitalart #photorealism #cityscape
+```
+
 ## 2026-10-04T15:03:03 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Sunset nights can get messy
 Created with AI.
 
 #generativeart #sunsetlove #catamaranlife #sailingadventures #sailorslife
-```
-
-## 2026-10-02T14:11:13 — aibeauty
-
-```
-about to melt into the perfect shape
-
-Created with AI.
-
-#aiart #digitalart #pilateslove #fitnessmotivation #bodypositive
 ```
