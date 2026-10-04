@@ -66,7 +66,7 @@ def sync(char):
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)
         shutil.copyfile(char.dir / "bible.json", tmp / "bible.json")
-        for name in ("storyline.jsonl", "votes.json"):
+        for name in ("storyline.jsonl", "votes.json", "posted.json"):
             if (char.dir / name).exists():
                 shutil.copyfile(char.dir / name, tmp / name)
         # Flat files, not a refs/ folder: Kaggle zips subfolders of a dataset, and a
@@ -75,8 +75,10 @@ def sync(char):
             shutil.copyfile(ref, tmp / f"refs__{ref.name}")
         (tmp / "dataset-metadata.json").write_text(json.dumps(
             {"title": f"mpt-persona-{char.slug}", "id": ds, "licenses": [{"name": "other"}]}))
-        status = _kaggle("datasets", "status", ds, env=env, check=False).lower()
-        if "404" not in status and "not found" not in status:
+        # A dataset that does not exist answers `status` with 403, same as one we
+        # cannot read, so ask for our own list instead.
+        mine = _kaggle("datasets", "list", "--mine", "-s", f"mpt-persona-{char.slug}", env=env, check=False)
+        if ds in mine:
             _kaggle("datasets", "version", "-p", str(tmp), "-m", time.strftime("%Y-%m-%d %H:%M"), env=env)
         else:
             # `datasets create` makes it private unless --public is passed.
@@ -114,20 +116,26 @@ def _wan2gp_commit():
     return r.stdout.strip() if r.returncode == 0 else ""
 
 
-def run(char, n=3, hint="", do_sync=True):
+def push(char, scene_list, videos=0, date=""):
+    """Push the render kernel for these scenes (and `videos` clips of the first
+    passing images). Returns immediately; the kernel runs on Kaggle."""
     env = _env()
     settings = config.load_settings()
     model = registry.for_role("edit", settings=settings, lane="social", kaggle=True)
-    scene_list = scenes.write(char, lane="social", hint=hint, n=n)
-    if do_sync:
-        log(sync(char))
+    registry.for_role("video", settings=settings, lane="social", kaggle=True)
     slug = kernel_id(char)
     payload = {"slug": char.slug, "scenes": scene_list, "roles": {**settings["roles"], "edit": model["id"]},
                "wan2gp_commit": _wan2gp_commit(), "face_min": config.env("PERSONA_FACE_MIN", "0.45"),
-               "min_age": config.env("PERSONA_MIN_AGE", "21")}
+               "min_age": config.env("PERSONA_MIN_AGE", "21"), "videos": int(videos), "date": date}
     src = (config.PACKAGE / "kaggle_kernel.py").read_text()
-    src = src.replace("__PAYLOAD_B64__", base64.b64encode(json.dumps(payload).encode()).decode(), 1)
-    src = src.replace("__PACKAGE_B64__", _package_b64(), 1)
+    # Replace the assignment lines, not the first occurrence: the template's own
+    # docstring names both placeholders too.
+    for name, value in (("PAYLOAD_B64", base64.b64encode(json.dumps(payload).encode()).decode()),
+                        ("PACKAGE_B64", _package_b64())):
+        line = f'{name} = "__{name}__"'
+        if line not in src:
+            raise RuntimeError(f"kaggle_kernel.py has no {line!r}")
+        src = src.replace(line, f'{name} = "{value}"')
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)
         (tmp / "persona_render.py").write_text(src)
@@ -136,19 +144,38 @@ def run(char, n=3, hint="", do_sync=True):
             "language": "python", "kernel_type": "script", "is_private": "true", "enable_gpu": "true",
             "enable_internet": "true", "dataset_sources": [dataset_id(char)], "competition_sources": [],
             "kernel_sources": []}))
-        log(f"pushing {slug} ({ACCELERATOR})...")
+        log(f"pushing {slug} ({ACCELERATOR}), {len(scene_list)} scenes, {videos} videos...")
         _kaggle("kernels", "push", "-p", str(tmp), "--accelerator", ACCELERATOR, env=env)
 
+
+def wait(char):
+    env = _env()
     deadline = time.time() + POLL_TIMEOUT
     while time.time() < deadline:
-        out = _kaggle("kernels", "status", slug, env=env, check=False)
+        out = _kaggle("kernels", "status", kernel_id(char), env=env, check=False)
         if "COMPLETE" in out or "ERROR" in out:
-            break
+            return out
         time.sleep(30)
-    else:
-        raise RuntimeError(f"Kaggle kernel did not finish within {POLL_TIMEOUT}s")
+    raise RuntimeError(f"Kaggle kernel did not finish within {POLL_TIMEOUT}s")
 
+
+def run(char, n=3, hint="", do_sync=True, videos=0):
+    """Laptop/CLI path: write scenes, sync, push, wait, import."""
+    scene_list = scenes.write(char, lane="social", hint=hint, n=n)
+    if do_sync:
+        log(sync(char))
+    push(char, scene_list, videos=videos)
+    wait(char)
     return import_output(char)
+
+
+def download_output(char, dest):
+    """The kernel's latest COMPLETED output into dest. Returns its status.json dict
+    (or None if there is none)."""
+    env = _env()
+    _kaggle("kernels", "output", kernel_id(char), "-p", str(dest), env=env)
+    status = Path(dest) / "status.json"
+    return json.loads(status.read_text()) if status.exists() else None
 
 
 def kernel_id(char):

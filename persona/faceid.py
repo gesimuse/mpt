@@ -107,3 +107,25 @@ def check(path, ref_emb):
         if sim < min_sim:
             return False, {**info, "reason": f"off-model (similarity {sim:.2f} < {min_sim})"}
     return True, info
+
+
+def head_crop(src, dest, scale=1.8):
+    """A square crop around her face, `scale` x the detected face box, so a reference
+    carries identity and hair but none of her clothing. Full refs passed to scenes
+    made every outfit the colour of the ref t-shirt. Returns dest, or src unchanged
+    if no face is found (or the checker cannot load)."""
+    import cv2
+    if _app() is None:
+        return src
+    img = cv2.imread(str(src))
+    f = _main_face(_app().get(img)) if img is not None else None
+    if f is None:
+        return src
+    x1, y1, x2, y2 = f.bbox
+    cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
+    half = max(x2 - x1, y2 - y1) * scale / 2
+    h, w = img.shape[:2]
+    l, t = int(max(0, cx - half)), int(max(0, cy - half * 1.1))
+    r, b = int(min(w, cx + half)), int(min(h, cy + half * 0.75))
+    cv2.imwrite(str(dest), img[t:b, l:r], [cv2.IMWRITE_JPEG_QUALITY, 95])
+    return dest

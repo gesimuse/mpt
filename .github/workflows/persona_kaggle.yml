@@ -1,42 +1,72 @@
-name: Persona daily batch (Kaggle)
-# Renders the active persona's social-lane scenes on Kaggle's T4 and posts them to
-# the persona review channel. Social lane only -- the Fanvue lane never leaves the
-# laptop. Her data comes from the private Kaggle dataset the laptop syncs
-# (/sync in the bot); nothing about her is stored in this public repo.
+name: Persona schedule (Kaggle)
+# The laptop-free persona schedule (persona/actions.py). One Kaggle render a day,
+# five posting slots into the review channel, votes collected at every run.
+# Social lane only -- the Fanvue lane never leaves the laptop. Her data lives in a
+# private Kaggle dataset, never in this public repo.
 #
-# Needs secrets: KAGGLE_USERNAME, KAGGLE_API_TOKEN, PERSONA_BOT_TOKEN,
-# PERSONA_CHAT_ID, HF_TOKEN (scene writing), and the repo variable PERSONA_SLUG.
+# Times are UTC (Romania is UTC+3 in summer, UTC+2 in winter):
+#   02:30 render           ~05:30 local, done by ~08:00
+#   06/09/12/15/18 post    ~09/12/15/18/21 local
+#
+# Secrets: KAGGLE_USERNAME, KAGGLE_API_TOKEN, HF_TOKEN(S), PERSONA_BOT_TOKEN,
+# PERSONA_CHAT_ID. Variables: PERSONA_SLUG (empty = schedule off),
+# PERSONA_CLOUD_IMAGES, PERSONA_CLOUD_VIDEOS, PERSONA_CLOUD_VOTES.
 on:
   schedule:
-    - cron: "0 6 * * *"
+    - cron: "30 2 * * *"
+    - cron: "0 6,9,12,15,18 * * *"
   workflow_dispatch:
     inputs:
-      n:
-        description: "Scenes to render"
-        default: "3"
+      action:
+        description: "render or post"
+        default: post
+        type: choice
+        options: [render, post]
+      slot:
+        description: "post slot 0-4 (4 posts everything left)"
+        default: "4"
         type: string
 
 concurrency:
-  group: persona-kaggle
+  group: persona-schedule
   cancel-in-progress: false
 
+env:
+  KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+  KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+  PERSONA_BOT_TOKEN: ${{ secrets.PERSONA_BOT_TOKEN }}
+  PERSONA_CHAT_ID: ${{ secrets.PERSONA_CHAT_ID }}
+  HF_TOKEN: ${{ secrets.HF_TOKEN }}
+  HF_TOKENS: ${{ secrets.HF_TOKENS }}
+  PERSONA_CLOUD_IMAGES: ${{ vars.PERSONA_CLOUD_IMAGES || '8' }}
+  PERSONA_CLOUD_VIDEOS: ${{ vars.PERSONA_CLOUD_VIDEOS || '2' }}
+  PERSONA_CLOUD_VOTES: ${{ vars.PERSONA_CLOUD_VOTES || '1' }}
+
 jobs:
-  render:
+  run:
     if: vars.PERSONA_SLUG != ''
     runs-on: ubuntu-latest
-    timeout-minutes: 150
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install kaggle requests numpy
-      - name: Render on Kaggle and post for review
-        env:
-          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
-          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
-          PERSONA_BOT_TOKEN: ${{ secrets.PERSONA_BOT_TOKEN }}
-          PERSONA_CHAT_ID: ${{ secrets.PERSONA_CHAT_ID }}
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
-          HF_TOKENS: ${{ secrets.HF_TOKENS }}
-        run: python -m persona.actions "${{ vars.PERSONA_SLUG }}" "${{ inputs.n || '3' }}"
+      - run: pip install kaggle requests
+      - name: Render (daily) or post (slot)
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            ACTION="${{ inputs.action }}"; SLOT="${{ inputs.slot }}"
+          elif [ "${{ github.event.schedule }}" = "30 2 * * *" ]; then
+            ACTION=render
+          else
+            ACTION=post
+            # Cron can start late; slot = which of 06/09/12/15/18 UTC this run belongs to.
+            H=$(date -u +%-H)
+            SLOT=$(( H < 9 ? 0 : H < 12 ? 1 : H < 15 ? 2 : H < 18 ? 3 : 4 ))
+          fi
+          if [ "$ACTION" = render ]; then
+            python -m persona.actions render "${{ vars.PERSONA_SLUG }}"
+          else
+            python -m persona.actions post "${{ vars.PERSONA_SLUG }}" "$SLOT" 5
+          fi

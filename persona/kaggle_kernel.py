@@ -1,7 +1,8 @@
 """Kaggle kernel: render pre-written social-lane scenes of a persona on a T4.
 
 Template, filled in by persona/kaggle.py at push time:
-  __PAYLOAD_B64__   {"slug", "scenes", "roles", "wan2gp_commit", "face_min", "min_age"}
+  __PAYLOAD_B64__   {"slug", "scenes", "roles", "wan2gp_commit", "face_min", "min_age",
+                     "videos", "date"}
   __PACKAGE_B64__   the persona/ package as a tar.gz, so the kernel runs the exact
                     same studio/engine code as the laptop
 The persona herself (bible, refs, storyline) comes from the private dataset
@@ -54,7 +55,13 @@ def main():
         CODE.mkdir(parents=True, exist_ok=True)
         with tarfile.open(fileobj=io.BytesIO(base64.b64decode(PACKAGE_B64)), mode="r:gz") as tar:
             tar.extractall(CODE)
-        dataset = next(Path("/kaggle/input").glob("mpt-persona-*"))
+        # The mount path has changed between Kaggle images (/kaggle/input/<slug> vs
+        # deeper owner/slug layouts), so find her bible wherever it landed.
+        found = sorted(Path("/kaggle/input").rglob("bible.json"))
+        if not found:
+            tree = [str(p) for p in Path("/kaggle/input").rglob("*")][:40]
+            raise RuntimeError(f"no bible.json under /kaggle/input; saw {tree}")
+        dataset = found[0].parent
         char_dir = HOME / payload["slug"]
         shutil.copytree(dataset, char_dir)
         sys.path.insert(0, str(CODE))
@@ -92,9 +99,29 @@ def main():
                 shutil.copyfile(item["path"], dest)
                 item["path"] = dest.name
             (out / f"{item['id']}.json").write_text(json.dumps(item, ensure_ascii=False))
-            results.append({"id": item["id"], "ok": item.get("ok"), "reason": item.get("reason")})
+            results.append({"id": item["id"], "ok": item.get("ok"), "reason": item.get("reason"), "kind": "image"})
             log(f"item {item['id']}: {'ok' if item.get('ok') else item.get('reason')}")
-        write_status("done", True, {"items": results})
+        # Videos of the first passing images. The image model's weights are deleted
+        # first: Qwen 2.1 plus Wan 2.2 14B do not both fit Kaggle's disk.
+        n_videos = int(payload.get("videos", 0))
+        if n_videos:
+            for f in list((WAN2GP_DIR / "ckpts").glob("qwen_image_21*")) + \
+                     list((WAN2GP_DIR / "ckpts").glob("Qwen3-VL*")):
+                shutil.rmtree(f, ignore_errors=True) if f.is_dir() else f.unlink(missing_ok=True)
+            write_status("video", False, {"items": results})
+            for r in [r for r in results if r["ok"]][:n_videos]:
+                try:
+                    vid = studio.animate(char, char.item(r["id"]))
+                except Exception as e:
+                    log(f"video of {r['id']} failed: {type(e).__name__}: {e}")
+                    continue
+                dest = out / Path(vid["path"]).name
+                shutil.copyfile(vid["path"], dest)
+                vid["path"] = dest.name
+                (out / f"{vid['id']}.json").write_text(json.dumps(vid, ensure_ascii=False))
+                results.append({"id": vid["id"], "ok": True, "reason": None, "kind": "video", "parent": r["id"]})
+                log(f"video {vid['id']} of {r['id']}")
+        write_status("done", True, {"items": results, "date": payload.get("date", "")})
     except Exception as e:
         write_status(stage, False, {"error": f"{type(e).__name__}: {e}", "traceback": traceback.format_exc()[-4000:]})
         raise

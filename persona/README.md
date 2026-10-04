@@ -89,15 +89,27 @@ text to animate it with that motion.
 Fine-tune her any time in `bible.json`: personality, places, styles, and the
 lane cues (`lanes.fanvue.cue` is yours to write; it never goes to a hosted LLM).
 
-## Kaggle
+## Cloud schedule (laptop closed)
 
-`/sync` pushes her bible, refs and storyline to a **private** Kaggle dataset.
-`/kaggle 3` renders social scenes on a Kaggle T4 and imports them.
-`.github/workflows/persona_kaggle.yml` does the same daily at 06:00 UTC once the
-repo variable `PERSONA_SLUG` and the secrets it lists are set. When you press a
-button on one of those results, the local bot pulls the batch in.
+`.github/workflows/persona_kaggle.yml` runs `persona/actions.py`:
 
-A cold Kaggle run installs Wan2GP and downloads the model every time (30+ min).
+* **02:30 UTC render:** applies pending 👍/👎, writes the day's scenes, syncs the
+  private Kaggle dataset `<KAGGLE_USERNAME>/mpt-persona-<slug>` and starts a T4
+  kernel: `PERSONA_CLOUD_IMAGES` (8) images plus `PERSONA_CLOUD_VIDEOS` (2) videos.
+  About 6 min per image and 25 min per video on the T4, plus ~15 min of install
+  and downloads: ~2 GPU-hours a day of Kaggle's ~30 h/week (shared with aibeauty).
+* **06/09/12/15/18 UTC post:** each slot posts its share into `PERSONA_CHAT_ID`
+  with 👍/👎, catches up on anything a late render missed, and collects votes.
+
+In cloud mode the dataset is the source of truth (votes, storyline, what was
+posted). Turn it on with the repo variable `PERSONA_SLUG`; empty turns it off.
+Stop the laptop bot while it runs (`systemctl --user disable --now
+mpt-persona-bot`): both would post, and both would read the same bot's updates.
+After creating or re-casting a persona on the laptop, `python -m persona.cli sync`
+uploads her (and point `PERSONA_SLUG` at her slug).
+
+`/kaggle 3` (bot) or `python -m persona.cli kaggle 3` still renders a one-off batch
+on Kaggle and imports it to the laptop.
 
 ## CLI
 
@@ -123,6 +135,6 @@ face check now also rejects any image where she appears more than once.
 * **Fanvue's API is waitlisted**, so `fanvue.py` is unverified against a live
   account (same as `worker/src/fanvue.js`). Until there's a token, 💜 fills
   `outbox/fanvue/`.
-* **The Kaggle render path has not been run end to end** (T4 + Qwen 2.1 untested).
+* Kaggle T4 renders images (tested 2026-10-04: ~5-7 min each, face match 0.88-0.90). Videos on the T4 inside the same kernel are not yet tested.
 * InsightFace's face models are research-licensed; `PERSONA_FACE_CHECK=0` turns
   the gate off, and that disables the age check too.

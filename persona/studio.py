@@ -90,6 +90,7 @@ class Studio:
             archive = char.dir / f"refs-archive-{time.strftime('%Y%m%d-%H%M%S')}"
             shutil.move(str(char.refs_dir), archive)
             char.refs_dir.mkdir()
+        shutil.rmtree(char.dir / "refs-heads", ignore_errors=True)
         for p in sorted(pending.glob("0[1-9]-*")):
             shutil.copyfile(p, char.refs_dir / p.name)
         # The source portrait goes last: it is the picked face, but its framing and
@@ -113,6 +114,10 @@ class Studio:
         stems = config.env("PERSONA_SCENE_REFS", "01-,02-").split(",")
         refs = [p for p in char.refs() if p.name.startswith(tuple(stems))] or char.refs()[:1]
         refs = refs[: max(1, model.get("max_refs", 1))]
+        heads = char.dir / "refs-heads"
+        heads.mkdir(exist_ok=True)
+        refs = [faceid.head_crop(p, heads / p.name) if not (heads / p.name).exists() else heads / p.name
+                for p in refs]
         ref_emb = faceid.reference_embedding(char.refs())
         for scene in (scene_list or scenes.write(char, lane=lane, hint=hint, n=n)):
             prompt = scenes.scene_prompt(char, scene, lane, len(refs))
