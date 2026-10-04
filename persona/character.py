@@ -195,6 +195,22 @@ class Character:
         lines = [json.loads(l) for l in path.read_text().splitlines() if l.strip()]
         return lines[-last:]
 
+    # ------------------------------------------------------------ recent scenes
+    def add_recent(self, scenes):
+        """Every scene ever planned, one line each, so the writer can be told what not
+        to repeat. Synced with the Kaggle dataset like the storyline."""
+        with open(self.dir / "recent_scenes.jsonl", "a") as f:
+            for sc in scenes:
+                f.write(json.dumps({"setting": sc.get("setting", ""), "outfit": sc.get("outfit", ""),
+                                    "action": sc.get("action", "")}, ensure_ascii=False) + "\n")
+
+    def recent_scenes(self, last=30):
+        path = self.dir / "recent_scenes.jsonl"
+        if not path.exists():
+            return []
+        rows = [json.loads(l) for l in path.read_text().splitlines() if l.strip()][-last:]
+        return [f"{r['setting']} / {r['outfit']} / {r['action']}" for r in rows]
+
     # -------------------------------------------------------------------- votes
     def _votes(self):
         path = self.dir / "votes.json"

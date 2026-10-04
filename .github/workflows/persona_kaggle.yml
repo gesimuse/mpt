@@ -7,6 +7,7 @@ name: Persona schedule (Kaggle)
 # Times are UTC (Romania is UTC+3 in summer, UTC+2 in winter):
 #   02:30 render           ~05:30 local, done by ~08:00
 #   06/09/12/15/18 post    ~09/12/15/18/21 local
+#   every 15 min   votes   apply 👍/👎 so buttons show ✓ and tomorrow's scenes follow them
 #
 # Secrets: KAGGLE_USERNAME, KAGGLE_API_TOKEN, HF_TOKEN(S), PERSONA_BOT_TOKEN,
 # PERSONA_CHAT_ID. Variables: PERSONA_SLUG (empty = schedule off),
@@ -15,17 +16,23 @@ on:
   schedule:
     - cron: "30 2 * * *"
     - cron: "0 6,9,12,15,18 * * *"
+    - cron: "*/15 * * * *"
   workflow_dispatch:
     inputs:
       action:
-        description: "render or post"
+        description: "render, post or votes"
         default: post
         type: choice
-        options: [render, post]
+        options: [render, post, votes]
       slot:
         description: "post slot 0-4 (4 posts everything left)"
         default: "4"
         type: string
+
+# models: read gives the free GitHub Models API (scene writing) to GITHUB_TOKEN.
+permissions:
+  contents: read
+  models: read
 
 concurrency:
   group: persona-schedule
@@ -36,6 +43,7 @@ env:
   KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
   PERSONA_BOT_TOKEN: ${{ secrets.PERSONA_BOT_TOKEN }}
   PERSONA_CHAT_ID: ${{ secrets.PERSONA_CHAT_ID }}
+  GITHUB_MODELS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   HF_TOKEN: ${{ secrets.HF_TOKEN }}
   HF_TOKENS: ${{ secrets.HF_TOKENS }}
   PERSONA_CLOUD_IMAGES: ${{ vars.PERSONA_CLOUD_IMAGES || '8' }}
@@ -59,6 +67,8 @@ jobs:
             ACTION="${{ inputs.action }}"; SLOT="${{ inputs.slot }}"
           elif [ "${{ github.event.schedule }}" = "30 2 * * *" ]; then
             ACTION=render
+          elif [ "${{ github.event.schedule }}" = "*/15 * * * *" ]; then
+            ACTION=votes
           else
             ACTION=post
             # Cron can start late; slot = which of 06/09/12/15/18 UTC this run belongs to.
@@ -67,6 +77,8 @@ jobs:
           fi
           if [ "$ACTION" = render ]; then
             python -m persona.actions render "${{ vars.PERSONA_SLUG }}"
+          elif [ "$ACTION" = votes ]; then
+            python -m persona.actions votes "${{ vars.PERSONA_SLUG }}"
           else
             python -m persona.actions post "${{ vars.PERSONA_SLUG }}" "$SLOT" 5
           fi

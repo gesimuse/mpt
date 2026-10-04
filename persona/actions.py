@@ -2,6 +2,7 @@
 
     python -m persona.actions render <slug>         once a day, early
     python -m persona.actions post   <slug> <k> <n> at each of n slots (k = 0..n-1)
+    python -m persona.actions votes  <slug>         every 15 min: apply 👍/👎 presses
 
 render: collect pending 👍/👎 presses, apply them to her votes and storyline, sync
         the private Kaggle dataset, write the day's scenes (LLM, HF_TOKEN), and
@@ -184,11 +185,38 @@ def post(slug, k, n_slots):
     log(kaggle.sync(char))
 
 
+def votes(slug):
+    """Every 15 min: apply pending 👍/👎 so the buttons show ✓ soon after a press,
+    and save them to the dataset only when something changed. Peeks first, so the
+    usual empty run downloads nothing."""
+    try:
+        pending = tg.call("getUpdates", timeout=0, allowed_updates=["callback_query"])
+    except Exception as e:
+        log(f"could not read updates: {e}")
+        return
+    if not any((u.get("callback_query") or {}).get("data", "").startswith("pv:") for u in pending):
+        log("no votes pending")
+        return
+    char = fetch(slug)
+    with tempfile.TemporaryDirectory() as tmp:
+        try:
+            _, items = _output_items(char, tmp)
+        except Exception as e:
+            log(f"no kernel output yet ({e})")
+            return
+        n = collect_votes(char, items)
+    log(f"votes applied: {n}")
+    if n:
+        log(kaggle.sync(char))
+
+
 def main():
     config.load_env()
     cmd, slug = sys.argv[1], sys.argv[2]
     if cmd == "render":
         render(slug)
+    elif cmd == "votes":
+        votes(slug)
     elif cmd == "post":
         post(slug, int(sys.argv[3]), int(sys.argv[4]))
     else:

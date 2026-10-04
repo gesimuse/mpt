@@ -66,7 +66,7 @@ def sync(char):
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)
         shutil.copyfile(char.dir / "bible.json", tmp / "bible.json")
-        for name in ("storyline.jsonl", "votes.json", "posted.json"):
+        for name in ("storyline.jsonl", "votes.json", "posted.json", "recent_scenes.jsonl"):
             if (char.dir / name).exists():
                 shutil.copyfile(char.dir / name, tmp / name)
         # Flat files, not a refs/ folder: Kaggle zips subfolders of a dataset, and a

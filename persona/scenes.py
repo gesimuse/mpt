@@ -30,20 +30,44 @@ def log(msg):
     print(f"[persona.scenes] {msg}", flush=True)
 
 
+GITHUB_MODELS_URL = "https://models.github.ai/inference/chat/completions"
+
+
+def _ask_github(prompt):
+    """GitHub Models: free inside Actions with the workflow's GITHUB_TOKEN
+    (permissions: models: read). A far stronger writer than the 8B fallback."""
+    import requests
+    token = config.env("GITHUB_MODELS_TOKEN")
+    if not token:
+        raise RuntimeError("no GITHUB_MODELS_TOKEN")
+    r = requests.post(GITHUB_MODELS_URL, timeout=120, headers={"Authorization": f"Bearer {token}"},
+                      json={"model": config.env("PERSONA_SCENE_MODEL", "openai/gpt-4.1"),
+                            "messages": [{"role": "user", "content": prompt}],
+                            "max_tokens": 2500, "temperature": 1.0})
+    r.raise_for_status()
+    return r.json()["choices"][0]["message"]["content"]
+
+
 def _ask(prompt, lane):
-    """llm.ask goes to HF's router first, then Ollama. In the Fanvue lane only
-    Ollama is used: its scenes are still SFW, but which posts are destined for
-    Fanvue is nobody else's business."""
+    """GitHub Models first (Actions), then llm.ask: HF's router, then Ollama. In the
+    Fanvue lane only Ollama is used: its scenes are still SFW, but which posts are
+    destined for Fanvue is nobody else's business."""
     import llm
     if lane == "fanvue" or config.flag("PERSONA_LOCAL_LLM_ONLY"):
         return llm._ask_ollama(prompt, max_tokens=900, temperature=0.9)
-    return llm.ask(prompt, max_tokens=900, temperature=0.9)
+    if config.env("GITHUB_MODELS_TOKEN"):
+        try:
+            return _ask_github(prompt)
+        except Exception as e:
+            log(f"GitHub Models failed ({type(e).__name__}: {str(e)[:150]}); falling back")
+    return llm.ask(prompt, max_tokens=1600, temperature=1.0)
 
 
 def _prompt(char, lane, hint, n):
     b = char.bible
     liked, disliked = char.leaning()
     story = "\n".join(f"- {s['beat']}" for s in char.story(8)) or "- (nothing yet, this is her first post)"
+    recent = "\n".join(f"- {r}" for r in char.recent_scenes(30)) or "- (none yet)"
     return f"""You plan photos for {b['name']}, a fictional social-media persona.
 Who she is: {b['age']}-year-old woman, {b.get('identity') or 'look not decided yet'}.
 Personality: {b['personality']}. Lives in {b['home_city']}.
@@ -68,9 +92,16 @@ shoulder, hip popped, lying on the bed, arched back, hair flip, sitting on the e
 of the pool, walking toward the camera. Moods: seductive, playful, confident, sultry.
 Never a stiff frontal tourist pose, never the same smile every time.
 
-Write {n} NEW scenes that continue her story (new day, small events, recurring places,
-sometimes somewhere new). Lean toward what people liked. Do not describe her face or
-hair; that is fixed.
+Write {n} NEW scenes. Every one must be a genuinely NEW situation: a different
+place, outfit, activity, time of day and camera angle from each other AND from the
+recent scenes listed below. Invent them yourself -- anywhere a glamorous young woman
+might plausibly be, at home or travelling, indoors or out, any season; surprise the
+reader. Use her usual places for at most one in four scenes. Keep
+it believable for her life and story. Lean toward what people liked. Do not describe
+her face or hair; that is fixed.
+
+Recent scenes -- do NOT repeat these settings or outfits:
+{recent}
 
 Return ONLY a JSON array of {n} objects with these keys:
 "setting" (where, specific), "outfit", "action" (what she is doing, pose),
@@ -143,7 +174,9 @@ def write(char, lane="social", hint="", n=1, chunk=4):
             except Exception as e:
                 log(f"LLM scene writing failed ({type(e).__name__}: {str(e)[:120]}), attempt {attempt + 1}")
         scenes += got or fallback(char, k, hint)
-    return scenes[:n]
+    scenes = scenes[:n]
+    char.add_recent(scenes)
+    return scenes
 
 
 # ------------------------------------------------------------------------ prompts
