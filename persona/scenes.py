@@ -85,7 +85,8 @@ def _parse(text, n):
     m = re.search(r"\[.*\]", text or "", re.S)
     if not m:
         raise ValueError("no JSON array in the answer")
-    scenes = json.loads(m.group(0))
+    raw = re.sub(r",\s*([\]}])", r"\1", m.group(0))
+    scenes = json.loads(raw)
     keys = ("setting", "outfit", "action", "shot", "light", "mood", "motion", "caption", "beat", "tags")
     good = []
     for s in scenes:
@@ -100,33 +101,49 @@ def _parse(text, n):
     return good[:n]
 
 
+POSES = ["looking back over her shoulder", "hip popped, one hand on her waist", "lying on her side, propped on an elbow",
+         "sitting on the edge, legs crossed", "walking toward the camera", "arching her back, hands in her hair",
+         "leaning against the wall, one knee bent", "mirror selfie, phone in hand, hip popped"]
+SEXY_SHOTS = ["full-body shot", "three-quarter body shot from a low angle", "mirror selfie", "half-body close shot",
+              "over-the-shoulder shot"]
+SEXY_MOODS = ["seductive", "playful", "confident", "sultry", "teasing smile"]
+
+
 def fallback(char, n, hint=""):
+    """No LLM: still a model shoot, never a tourist photo."""
     b = char.bible
     out = []
     for _ in range(n):
         place = random.choice(b["recurring_places"])
         style = random.choice(b["style"])
-        mood = random.choice(MOODS)
+        pose = random.choice(POSES)
         light = random.choice(TIMES)
         out.append({
-            "setting": f"{place} in {b['home_city']}" + (f", {hint}" if hint else ""),
-            "outfit": style, "action": "posing naturally, candid moment", "shot": random.choice(SHOTS),
-            "light": light, "mood": mood, "motion": "she turns toward the camera and smiles, hair moving slightly",
+            "setting": f"{place}" + (f", {hint}" if hint else ""),
+            "outfit": style, "action": pose, "shot": random.choice(SEXY_SHOTS),
+            "light": light, "mood": random.choice(SEXY_MOODS),
+            "motion": "she slowly shifts her pose and looks into the camera, hair moving softly",
             "caption": "", "beat": f"Spent some time at {place}.",
-            "tags": [place.split()[-1], style.split()[0], light.split(",")[0]],
+            "tags": [place.split()[-1], style.split()[-1], light.split(",")[0]],
         })
     return out
 
 
-def write(char, lane="social", hint="", n=1):
-    try:
-        scenes = _parse(_ask(_prompt(char, lane, hint, n), lane), n)
-        if len(scenes) < n:
-            scenes += fallback(char, n - len(scenes), hint)
-        return scenes
-    except Exception as e:
-        log(f"LLM scene writing failed ({type(e).__name__}: {str(e)[:150]}); using bible fallback")
-        return fallback(char, n, hint)
+def write(char, lane="social", hint="", n=1, chunk=4):
+    """In batches of `chunk`: an 8B model asked for eight JSON objects at once broke
+    the JSON on the first cloud run. Each batch retries once before falling back."""
+    scenes = []
+    while len(scenes) < n:
+        k = min(chunk, n - len(scenes))
+        got = None
+        for attempt in range(2):
+            try:
+                got = _parse(_ask(_prompt(char, lane, hint, k), lane), k)
+                break
+            except Exception as e:
+                log(f"LLM scene writing failed ({type(e).__name__}: {str(e)[:120]}), attempt {attempt + 1}")
+        scenes += got or fallback(char, k, hint)
+    return scenes[:n]
 
 
 # ------------------------------------------------------------------------ prompts
