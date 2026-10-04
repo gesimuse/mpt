@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-10-04T17:52:15 — aibeauty
+
+```
+a little sweet, a little sour
+
+Created with AI.
+
+#generativeart #farmfatale #autumnvibes #digitalorchard #cyberreserve
+```
+
 ## 2026-10-04T16:01:48 — aibeauty
 
 ```
@@ -88,14 +98,4 @@ Feeling the game from a whole new court.
 Created with AI.
 
 #aiart #generativeart #artificialintimacy #femininepower #stocksports
-```
-
-## 2026-10-02T16:04:21 — aibeauty
-
-```
-Sunset nights can get messy
-
-Created with AI.
-
-#generativeart #sunsetlove #catamaranlife #sailingadventures #sailorslife
 ```
