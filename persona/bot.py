@@ -6,7 +6,6 @@ Run with Wan2GP's python (it loads the runtime in-process):
 Stop local/wan2gp_bot.py and the Wan2GP web UI first: same runtime, same RAM.
 
 Commands, posted in the review channel (PERSONA_CHAT_ID):
-  /design [brief]        Claude designs 3 new persona concepts; ✨ one to create her
   /new <Name>            create a blank persona and make her active
   /switch <slug>         make another persona active
   /cast [n] [hint]       n candidate faces (default 8); ⭐ one to pick her
@@ -38,6 +37,7 @@ quality; set it to 1 when she is ready to go out.
 import json
 import os
 import queue
+import subprocess
 import sys
 import threading
 import time
@@ -106,6 +106,7 @@ class Bot:
         self.studio = Studio(self.engine)
         self.review = tg.chat("social")
         self.current = None
+        self.job_started = None
 
     # ---------------------------------------------------------------- job queue
     def enqueue(self, label, fn, *args, reply_to=None, chat_id=None):
@@ -117,34 +118,54 @@ class Bot:
     def worker(self):
         while True:
             label, fn, args, reply_to, chat_id = self.jobs.get()
-            self.current = label
+            self.current, self.job_started = label, time.time()
             log(f"start {label}")
+            # Keep the laptop awake while the GPU works. On 2026-10-01 it suspended
+            # mid-video and the job never came back: the CUDA context does not
+            # survive a suspend.
+            inhibit = None
+            try:
+                inhibit = subprocess.Popen(["systemd-inhibit", "--what=sleep:idle:handle-lid-switch",
+                                            "--who=mpt-persona", f"--why=rendering {label}", "--mode=block",
+                                            "sleep", "infinity"])
+            except Exception as e:
+                log(f"could not inhibit sleep ({e})")
             try:
                 fn(*args)
             except Exception as e:
                 log(f"{label} failed: {traceback.format_exc()[-1500:]}")
                 self.say(f"❌ {label} failed: {type(e).__name__}: {str(e)[:400]}", reply_to, chat_id)
             finally:
-                self.current = None
+                if inhibit:
+                    inhibit.terminate()
+                self.current, self.job_started = None, None
                 log(f"done {label}")
+
+    def watchdog(self):
+        """Exit (systemd restarts the service) when a job can no longer finish:
+        the process was frozen by a suspend while a job ran, or a job outlived
+        PERSONA_JOB_TIMEOUT minutes. A stuck GPU job otherwise blocks every later
+        slot silently, which is what happened over 2026-10-01..04."""
+        limit = int(config.env("PERSONA_JOB_TIMEOUT", "45")) * 60
+        last = time.time()
+        while True:
+            time.sleep(30)
+            now = time.time()
+            if self.current and now - last > 120:
+                log(f"woke from a {int(now - last)}s suspend during {self.current}; restarting")
+                self.say(f"⚠️ The laptop slept during {self.current}. Restarting the bot; the next slot runs normally.")
+                os._exit(1)
+            if self.current and self.job_started and now - self.job_started > limit:
+                log(f"{self.current} exceeded {limit // 60} min; restarting")
+                self.say(f"⚠️ {self.current} hung for {limit // 60} min. Restarting the bot.")
+                os._exit(1)
+            last = now
 
     def say(self, msg, reply_to=None, chat_id=None):
         try:
             return tg.text(chat_id or self.review, msg, reply_to=reply_to)
         except Exception as e:
             log(f"could not send message: {e}")
-
-    # -------------------------------------------------------------------- design
-    def job_design(self, brief, reply_to):
-        """Not a GPU job, so it runs on its own thread instead of waiting behind renders."""
-        from . import designer
-        try:
-            path, concepts = designer.design(brief)
-        except Exception as e:
-            return self.say(f"❌ design failed: {type(e).__name__}: {str(e)[:400]}", reply_to)
-        for i, c in enumerate(concepts):
-            tg.text(self.review, designer.summary(c),
-                    buttons=tg.kb([("✨ Create her", f"pd:{path.stem}:{i}")]))
 
     # ------------------------------------------------------------------- casting
     def job_cast(self, n, hint):
@@ -264,9 +285,6 @@ class Bot:
 
         if cmd in ("/help", "/start"):
             return self.say(__doc__.split("Commands,", 1)[1].split("While it is up", 1)[0].strip(), mid)
-        if cmd == "/design":
-            threading.Thread(target=self.job_design, args=(rest, mid), daemon=True).start()
-            return self.say("🧠 Asking Claude for 3 concepts…", mid)
         if cmd == "/new":
             if not rest:
                 return self.say("Usage: /new <Name>", mid)
@@ -365,15 +383,6 @@ class Bot:
                 tg.answer(cq["id"], "Picked. Building her master refs…")
                 tg.set_buttons(chat_id, msg["message_id"], tg.kb([("⭐ Picked", "noop")]))
                 self.enqueue("refs", self.job_refs, cid)
-                return
-            if data.startswith("pd:"):
-                from . import designer
-                _, name, idx = data.split(":", 2)
-                char = designer.create_from(designer.load(name)[int(idx)])
-                tg.answer(cq["id"], f"Created {char.name}. Casting her face…")
-                tg.set_buttons(chat_id, msg["message_id"], tg.kb([(f"✨ Created {char.slug}", "noop")]))
-                n = int(config.env("PERSONA_DESIGN_CAST", "6"))
-                self.enqueue("cast", self.job_cast, n, "")
                 return
             if data == "pr:lock":
                 refs = self.studio.lock_refs(character.active())
@@ -494,6 +503,7 @@ class Bot:
 
     def run(self):
         threading.Thread(target=self.worker, daemon=True).start()
+        threading.Thread(target=self.watchdog, daemon=True).start()
         offset = self.state.get("offset")
         if offset is None:
             # First start: skip whatever is already pending, like wan2gp_bot.py.

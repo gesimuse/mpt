@@ -3,8 +3,7 @@
 GPU commands need Wan2GP's python:
     ~/apps/Wan2GP/.venv/bin/python -m persona.cli cast 4
 
-  design [brief]            Claude designs 3 concepts (printed, saved under designs/)
-  create <design> <index>   make a designed concept a persona (and active)
+  import <bible.json>       create a persona from a full bible (new-persona skill)
   new <Name>                blank persona
   list | switch <slug>
   cast [n] [hint]           candidates into casting/
@@ -43,16 +42,10 @@ def main(argv=None):
         return
     cmd, args = argv[0], argv[1:]
 
-    if cmd == "design":
-        from . import designer
-        path, concepts = designer.design(" ".join(args))
-        for i, c in enumerate(concepts):
-            print(f"\n[{i}] " + designer.summary(c))
-        print(f"\nsaved {path.name}; create one with: python -m persona.cli create {path.stem} <index>")
-    elif cmd == "create":
-        from . import designer
-        char = designer.create_from(designer.load(args[0])[int(args[1])])
-        print(f"created {char.slug} at {char.dir}; next: cast")
+    if cmd == "import":
+        import json
+        char = character.import_bible(json.loads(open(args[0]).read()))
+        print(f"created {char.slug} at {char.dir} (active); next: cast")
     elif cmd == "new":
         char = character.create(" ".join(args))
         character.set_active(char.slug)

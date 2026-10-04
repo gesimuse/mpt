@@ -41,8 +41,9 @@ DEFAULT_BIBLE = {
         # Appended to every scene in that lane. The social lane has to stay safe for
         # TikTok and Instagram. The Fanvue lane's cue is yours to write; it never
         # leaves this machine except to Fanvue itself.
-        "social": {"cue": "tasteful, fully clothed, social-media safe",
-                   "negative": "nudity, see-through clothing, lingerie"},
+        "social": {"cue": "sexy and confident Instagram model look, glamorous makeup, styled hair, "
+                           "figure-flattering revealing outfit, no nudity",
+                   "negative": "nudity, nipples, genitals"},
         "fanvue": {"cue": "sensual boudoir photography, intimate and confident mood",
                    "negative": ""},
     },
@@ -219,3 +220,34 @@ class Character:
 
     def votes_summary(self):
         return self._votes()
+
+
+REQUIRED = ("name", "age", "identity", "personality", "home_city", "recurring_places", "style", "casting")
+
+
+def import_bible(data, slug=None):
+    """Create a persona from a complete bible (what the new-persona Claude Code skill
+    writes) and make her active. Missing optional keys come from DEFAULT_BIBLE."""
+    missing = [k for k in REQUIRED if not data.get(k)]
+    if missing:
+        raise CharacterError(f"bible is missing: {', '.join(missing)}")
+    if int(data["age"]) < 21:
+        raise CharacterError("age must be 21 or over")
+    taken = set(list_characters())
+    base = slug or slugify(data["name"])
+    slug, i = base, 2
+    while slug in taken:
+        slug, i = f"{base}-{i}", i + 1
+    char = create(data["name"], slug=slug)
+    bible = char.bible
+    for k, v in data.items():
+        # lanes/safety merge (a bible may set only the social cue); casting replaces,
+        # since a leftover default pool would cast a random trait.
+        if k in ("lanes", "safety") and isinstance(v, dict):
+            bible[k] = {**bible[k], **v}
+        else:
+            bible[k] = v
+    bible["safety"]["adult_anchor"] = f"an adult woman, {int(data['age'])} years old"
+    char.save_bible(bible)
+    set_active(char.slug)
+    return char

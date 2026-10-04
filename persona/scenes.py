@@ -57,9 +57,20 @@ People liked: {', '.join(liked) or 'no data yet'}.
 People did not like: {', '.join(disliked) or 'no data yet'}.
 {('Direction for this batch: ' + hint) if hint else ''}
 
-Write {n} NEW photo scenes that continue her story naturally (new day, small events,
-recurring places, sometimes somewhere new). Lean toward what people liked. Every
-scene must be safe for Instagram. Do not describe her face or hair; that is fixed.
+She is a glamorous, sexy Instagram model and every photo is a flattering shoot of HER,
+not a travel photo: she is the subject, filling most of the frame. Think of what top
+lifestyle/fashion models post: pool and beach in bikinis, hotel rooms, bedroom and
+bathroom mirror selfies, gym sets, rooftop golden hour, night out in a bodycon mini
+dress, yacht, balcony, car selfies. Outfits are figure-flattering and revealing
+(bikinis, crop tops, mini dresses, low-cut tops, lingerie-inspired tops, leggings),
+but there is NO nudity. Poses are confident, model-like and varied: over the
+shoulder, hip popped, lying on the bed, arched back, hair flip, sitting on the edge
+of the pool, walking toward the camera. Moods: seductive, playful, confident, sultry.
+Never a stiff frontal tourist pose, never the same smile every time.
+
+Write {n} NEW scenes that continue her story (new day, small events, recurring places,
+sometimes somewhere new). Lean toward what people liked. Do not describe her face or
+hair; that is fixed.
 
 Return ONLY a JSON array of {n} objects with these keys:
 "setting" (where, specific), "outfit", "action" (what she is doing, pose),
@@ -119,7 +130,8 @@ def write(char, lane="social", hint="", n=1):
 
 
 # ------------------------------------------------------------------------ prompts
-REALISM = "photorealistic, natural skin texture, real camera photo, sharp focus, no text, no watermark"
+REALISM = ("photorealistic Instagram model photo, professional photoshoot quality, flattering light, "
+           "natural skin texture, shallow depth of field, sharp focus, no text, no watermark")
 
 
 def scene_prompt(char, scene, lane, n_refs):

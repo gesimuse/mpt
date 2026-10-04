@@ -148,12 +148,12 @@ class Studio:
 
 
 TIMELINE_BEATS = [
-    "{motion}, the movement just beginning, camera static",
-    "{motion}, the movement carrying, weight shifting with it",
-    "the movement continues, unhurried, her eyes finding the lens",
-    "the movement reaches its fullest point, held there",
-    "she settles out of it, hair and fabric still moving",
-    "she holds the new pose, breathing, gaze on the lens",
+    "{motion}, slow and natural, camera static",
+    "{motion}, smooth and unhurried",
+    "she shifts her weight slightly, a subtle confident smile, eyes on the lens",
+    "a slow hair touch, gentle natural movement",
+    "she settles into the pose, fabric moving softly",
+    "she holds the pose, breathing, gaze on the lens, slow camera push-in",
 ]
 
 

@@ -5,7 +5,9 @@ __pycache__/
 !.env.example
 .DS_Store
 out/
-.claude/
+.claude/*
+# The new-persona skill is part of the persona studio, so it is versioned.
+!.claude/skills/
 # tiktok.py's local worktree of the gh-pages branch -- a checkout of a different
 # branch, never content that belongs in a main-branch commit.
 .gh-pages-worktree/

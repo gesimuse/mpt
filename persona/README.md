@@ -1,7 +1,7 @@
 # Persona studio
 
 One AI persona who stays the same person from post to post, with an ongoing story.
-Claude designs her, Qwen-Image casts her face, every later image is edited from her
+Claude Code designs her (the `new-persona` skill), Qwen-Image casts her face, every later image is edited from her
 master refs, Wan 2.2 animates the good ones, and Telegram is where you approve and
 publish.
 
@@ -11,7 +11,7 @@ Cloudflare Worker, or `local/wan2gp_bot.py`.
 ## How it fits together
 
 ```
-/design (Claude Opus 5.5) -> bible.json -> /cast (t2i) -> ⭐ pick -> master refs (edit) -> 🔒 lock
+new-persona skill -> bible.json -> cast (t2i) -> ⭐ pick -> master refs (edit) -> 🔒 lock
                                                                                      |
      storyline + votes -> scene writer (LLM) -> render from refs -> face + age gate -> Telegram review
                                                                                      |
@@ -59,7 +59,6 @@ non-commercial items.
 1. Make a bot with @BotFather, create a private channel, and add the bot as admin.
    Put both in `.env`: `PERSONA_BOT_TOKEN`, `PERSONA_CHAT_ID`. Optionally add a
    second private channel for the Fanvue lane: `PERSONA_FANVUE_CHAT_ID`.
-2. Add `ANTHROPIC_API_KEY` to `.env` for `/design`.
 3. Stop `local/wan2gp_bot.py` and the Wan2GP UI (same RAM), then start the bot:
    ```bash
    ~/apps/Wan2GP/.venv/bin/python -m persona.bot
@@ -70,13 +69,15 @@ non-commercial items.
 
 ## Making her
 
-| Step | In the channel |
-|---|---|
-| 1 | `/design curvy fitness girl from Barcelona, warm and funny`. Claude sends 3 concepts. |
-| 2 | ✨ **Create her** on one. Her bible is written and 6 casting candidates start. |
-| 3 | ⭐ **This is her** on the face you want. 4 master refs render (front, ¾, profile, full body). |
-| 4 | 🔒 **Lock refs**. She is now fixed. |
-| 5 | `/scene 3` (social), `/fanvue 2`, or `/slot` (2 scenes + a video). `PERSONA_SCHEDULE=09:00,12:00,…` posts a slot at each time. |
+In Claude Code, in this repo: **`/new-persona`** (or just ask for a new persona). The
+skill (`.claude/skills/new-persona/SKILL.md`) has Claude write her bible with you in
+chat, then cast faces, build master refs and lock them on the local GPU, showing every
+step for you to pick. She becomes the active persona; the bot's schedule posts her
+from the next slot. `/cast`, `/refs` and the ⭐/🔒 buttons still work in Telegram for
+re-casting.
+
+Day to day in the channel: `/scene 3` (social), `/fanvue 2`, `/slot` (one scheduled
+post now). `PERSONA_SCHEDULE=09:00,12:00,…` posts a slot at each time.
 
 While `PERSONA_PUBLISH=0` (the default) only 👍/👎/🎬 show: the evaluation phase.
 With it set to 1, the buttons on each result: 👍 adds the scene to her storyline and boosts its
@@ -123,6 +124,5 @@ face check now also rejects any image where she appears more than once.
   account (same as `worker/src/fanvue.js`). Until there's a token, 💜 fills
   `outbox/fanvue/`.
 * **The Kaggle render path has not been run end to end** (T4 + Qwen 2.1 untested).
-* `/design` has not been run against the API yet (no `ANTHROPIC_API_KEY` here).
 * InsightFace's face models are research-licensed; `PERSONA_FACE_CHECK=0` turns
   the gate off, and that disables the age check too.
