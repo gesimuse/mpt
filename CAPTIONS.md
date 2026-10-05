@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-10-05T12:37:48 — aibeauty
+
+```
+messy hair, nobody cares
+
+Created with AI.
+
+#aiart #digitalart #rainydays #moodyportraits #neuralaesthetic
+```
+
 ## 2026-10-04T17:52:15 — aibeauty
 
 ```
@@ -58,44 +68,4 @@ Midnight secrets whispered to the game
 Created with AI.
 
 #neonlit #blurryeyes #synthwaveaesthetic #rpg
-```
-
-## 2026-10-03T14:49:17 — aibeauty
-
-```
-Mountain nights leave me breathless
-
-Created with AI.
-
-#artificialphotography #slopesalone #winterwanderlust #skiutopia #digitaldreamscape
-```
-
-## 2026-10-03T12:59:26 — aibeauty
-
-```
-Burn it off
-
-Created with AI.
-
-#generativeart #digitalart #artificialintelligence #gymvibes #sweatyselfies
-```
-
-## 2026-10-02T18:41:37 — aibeauty
-
-```
-getting my hands dirty in the best way
-
-Created with AI.
-
-#generativeart #summervibes #botanicallove #interactiveart #digitalgardening
-```
-
-## 2026-10-02T16:54:13 — aibeauty
-
-```
-Feeling the game from a whole new court.
-
-Created with AI.
-
-#aiart #generativeart #artificialintimacy #femininepower #stocksports
 ```
