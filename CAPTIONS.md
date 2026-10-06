@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-10-06T17:32:48 — aibeauty
+
+```
+Wheels on fire in the city
+
+Created with AI.
+
+#citynights #scootergirl #urbanadventures #artificialvibes
+```
+
 ## 2026-10-06T15:08:44 — aibeauty
 
 ```
@@ -58,14 +68,4 @@ a little sweet, a little sour
 Created with AI.
 
 #generativeart #farmfatale #autumnvibes #digitalorchard #cyberreserve
-```
-
-## 2026-10-04T16:01:48 — aibeauty
-
-```
-secrets worth leaving the light on for
-
-Created with AI.
-
-#citynightvibes #neonlit #digitalart #photorealism #cityscape
 ```
