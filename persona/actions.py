@@ -147,7 +147,8 @@ def post(slug, k, n_slots):
     chat = tg.chat("social")
     with tempfile.TemporaryDirectory() as tmp:
         status, items = _output_items(char, tmp)
-        if not status or not status.get("ok") or status.get("date") != today():
+        any_date = config.flag("PERSONA_POST_ANY_DATE")   # post an older batch by hand
+        if not status or not status.get("ok") or (status.get("date") != today() and not any_date):
             log(f"today's render is not ready (status: {(status or {}).get('stage')}, "
                 f"date {(status or {}).get('date')}); nothing to post this slot")
             log(f"votes applied: {collect_votes(char, items)}")

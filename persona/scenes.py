@@ -104,7 +104,9 @@ Recent scenes -- do NOT repeat these settings or outfits:
 {recent}
 
 Return ONLY a JSON array of {n} objects with these keys:
-"setting" (where, specific), "outfit", "action" (what she is doing, pose),
+"setting" (where, specific), "outfit" (always with colours and materials, e.g. "emerald satin
+mini dress", "white string bikini" -- vary the colours), "action" (what she is doing, pose,
+with her hands somewhere simple and visible: on her hip, in her hair, holding a drink),
 "shot" (camera framing), "light", "mood", "motion" (one sentence: how she moves in a
 5-second video of this photo), "caption" (first-person social caption, max 20 words,
 1-2 emojis, no hashtags), "beat" (one past-tense sentence for her storyline),
@@ -204,6 +206,7 @@ def scene_prompt(char, scene, lane, n_refs):
         f"Setting: {scene['setting']}.",
         f"She wears {scene['outfit']}.",
         f"She is {scene['action']}, {scene['mood']}.",
+        "She is the only person in the photo, nobody else in the frame or background.",
         f"Lighting: {scene['light']}.",
         lane_cfg.get("cue", "") + ".",
         REALISM + ".",

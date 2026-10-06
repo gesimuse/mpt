@@ -13,6 +13,7 @@ Channels:
                           separate private channel if anyone else can see the first.
 """
 import json
+import time
 from pathlib import Path
 
 import requests
@@ -52,7 +53,21 @@ def redact(text):
     return text.replace(t, "<TOKEN>").replace(t.split(":", 1)[-1], "<TOKEN>")
 
 
-def call(method, http_timeout=60, files=None, **params):
+def call(method, http_timeout=60, files=None, attempts=3, **params):
+    """Retries network errors (an SSL EOF dropped one of the first cloud posts).
+    Uploads are retried too: the file objects are rewound before each try."""
+    for attempt in range(attempts):
+        try:
+            return _call_once(method, http_timeout, files, **params)
+        except TelegramError as e:
+            if "unreachable" not in str(e) or attempt == attempts - 1:
+                raise
+            for f in (files or {}).values():
+                f.seek(0)
+            time.sleep(3 * (attempt + 1))
+
+
+def _call_once(method, http_timeout=60, files=None, **params):
     url = f"{API}/bot{token()}/{method}"
     try:
         if files:
