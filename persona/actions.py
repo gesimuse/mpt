@@ -134,10 +134,12 @@ def collect_votes(char, items):
         if not data.startswith(("pv:up:", "pv:dn:")):
             continue
         _, act, item_id = data.split(":", 2)
-        item = items.get(item_id)
-        if not item or item_id in voted:
-            tg.answer(cq.get("id"), "Too old to count." if not item else "Already voted.")
+        if item_id in voted:
+            tg.answer(cq.get("id"), "Already voted.")
             continue
+        # A photo from an older batch (or made on the laptop) has no tags here; the
+        # vote is still recorded and shown, it just cannot steer tags.
+        item = items.get(item_id) or {"id": item_id, "kind": "image", "tags": []}
         char.vote(item, 1 if act == "up" else -1)
         if act == "up" and item.get("kind") == "image" and item.get("scene", {}).get("beat"):
             char.add_beat(item["scene"]["beat"], item_id)
