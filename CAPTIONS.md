@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-10-06T15:08:44 — aibeauty
+
+```
+Crush of the season
+
+Created with AI.
+
+#aiart #artificialintelligenceart #harvestvibes #winecountrylife #frenchcountryside
+```
+
 ## 2026-10-06T12:21:52 — aibeauty
 
 ```
@@ -58,14 +68,4 @@ secrets worth leaving the light on for
 Created with AI.
 
 #citynightvibes #neonlit #digitalart #photorealism #cityscape
-```
-
-## 2026-10-04T15:03:03 — aibeauty
-
-```
-when the view is always on my side
-
-Created with AI.
-
-#aiart #artificialimagination #livesofwomeninmotion #citylights #urbanromantics
 ```
