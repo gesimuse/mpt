@@ -137,3 +137,12 @@ def set_buttons(chat_id, message_id, buttons):
 
 def kb(*rows):
     return {"inline_keyboard": [[{"text": t, "callback_data": d} for t, d in row] for row in rows if row]}
+
+
+def download(file_id, dest):
+    """A file someone posted (or the bot posted) in a chat, by its file_id."""
+    info = call("getFile", file_id=file_id)
+    r = requests.get(f"{API}/file/bot{token()}/{info['file_path']}", timeout=120)
+    r.raise_for_status()
+    Path(dest).write_bytes(r.content)
+    return Path(dest)

@@ -7,7 +7,7 @@ name: Persona schedule (Kaggle)
 # Times are UTC (Romania is UTC+3 in summer, UTC+2 in winter):
 #   02:30 render           ~05:30 local, done by ~08:00
 #   06/09/12/15/18 post    ~09/12/15/18/21 local
-#   every 15 min   votes   apply 👍/👎 so buttons show ✓ and tomorrow's scenes follow them
+#   every 15 min   votes   apply 👍/👎, queue 🎬 taps and reply motion prompts, run the video kernel
 #
 # Secrets: KAGGLE_USERNAME, KAGGLE_API_TOKEN, HF_TOKEN(S), PERSONA_BOT_TOKEN,
 # PERSONA_CHAT_ID. Variables: PERSONA_SLUG (empty = schedule off),
@@ -47,7 +47,7 @@ env:
   HF_TOKEN: ${{ secrets.HF_TOKEN }}
   HF_TOKENS: ${{ secrets.HF_TOKENS }}
   PERSONA_CLOUD_IMAGES: ${{ vars.PERSONA_CLOUD_IMAGES || '8' }}
-  PERSONA_CLOUD_VIDEOS: ${{ vars.PERSONA_CLOUD_VIDEOS || '2' }}
+  PERSONA_CLOUD_VIDEOS: ${{ vars.PERSONA_CLOUD_VIDEOS || '0' }}
   PERSONA_CLOUD_VOTES: ${{ vars.PERSONA_CLOUD_VOTES || '1' }}
 
 jobs:

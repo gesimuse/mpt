@@ -59,25 +59,82 @@ def _posted(char):
     return json.loads(p.read_text()) if p.exists() else {"date": "", "ids": []}
 
 
+UPDATE_TYPES = ["callback_query", "channel_post", "message"]
+
+
+def _item_id_from(msg):
+    """The #id on the last line of a caption we posted."""
+    cap = (msg or {}).get("caption") or ""
+    last = cap.strip().splitlines()[-1] if cap.strip() else ""
+    return last[1:].strip() if last.startswith("#") else ""
+
+
+def _videos(char):
+    p = char.dir / "videos.json"
+    return json.loads(p.read_text()) if p.exists() else {"queue": [], "running": []}
+
+
+def _save_videos(char, v):
+    (char.dir / "videos.json").write_text(json.dumps(v))
+
+
+def _queue_video(char, item_id, msg, motion, items):
+    """A 🎬 tap or a reply: queue that photo for the next video job."""
+    photo = (msg.get("photo") or [None])[-1]
+    if not photo:
+        return "That is not a photo."
+    v = _videos(char)
+    for q in v["queue"]:
+        if q["item"] == item_id:
+            q["motion"] = motion or q.get("motion")
+            _save_videos(char, v)
+            return "Motion prompt updated." if motion else "Already queued."
+    item = items.get(item_id, {})
+    v["queue"].append({"id": f"{item_id}-{int(time.time())}", "item": item_id, "file_id": photo["file_id"],
+                       "chat": msg["chat"]["id"], "message_id": msg["message_id"],
+                       "motion": motion or item.get("scene", {}).get("motion") or "",
+                       "tags": item.get("tags", [])})
+    _save_videos(char, v)
+    return "🎬 Queued. The video comes as a reply here in ~40-60 min."
+
+
 def collect_votes(char, items):
-    """Apply pending 👍/👎 presses. `items` maps id -> item meta for everything this
-    run knows about (today's kernel output). Returns how many were applied."""
+    """Apply pending 👍/👎 presses, 🎬 taps and text replies (motion prompts) to
+    photos. `items` maps id -> item meta for what this run knows about (today's
+    render). Returns how many changes were made."""
     if not config.flag("PERSONA_CLOUD_VOTES", "1"):
         return 0
     try:
-        updates = tg.call("getUpdates", timeout=0, allowed_updates=["callback_query"])
+        updates = tg.call("getUpdates", timeout=0, allowed_updates=UPDATE_TYPES)
     except Exception as e:
-        log(f"could not read votes: {e}")
+        log(f"could not read updates: {e}")
         return 0
+    chat = str(tg.chat("social"))
     applied, voted = 0, set(_posted(char).get("voted", []))
     for u in updates:
+        post = u.get("channel_post") or u.get("message")
+        if post:
+            # A text reply to one of her photos = a video with that motion prompt.
+            parent = post.get("reply_to_message") or {}
+            item_id = _item_id_from(parent)
+            if str(post.get("chat", {}).get("id")) == chat and item_id and post.get("text") \
+                    and not post["text"].startswith("/"):
+                note = _queue_video(char, item_id, parent, post["text"].strip(), items)
+                tg.text(chat, note, reply_to=post["message_id"])
+                applied += 1
+            continue
         cq = u.get("callback_query") or {}
         data = cq.get("data", "")
+        msg = cq.get("message") or {}
+        if data.startswith("pv:vid:"):
+            item_id = data.split(":", 2)[2]
+            tg.answer(cq.get("id"), _queue_video(char, item_id, msg, None, items))
+            applied += 1
+            continue
         if not data.startswith(("pv:up:", "pv:dn:")):
             continue
         _, act, item_id = data.split(":", 2)
         item = items.get(item_id)
-        msg = cq.get("message") or {}
         if not item or item_id in voted:
             tg.answer(cq.get("id"), "Too old to count." if not item else "Already voted.")
             continue
@@ -88,16 +145,61 @@ def collect_votes(char, items):
         applied += 1
         tg.answer(cq.get("id"), "Noted 👍" if act == "up" else "Noted 👎")
         label = "✓ 👍" if act == "up" else "✓ 👎"
-        tg.set_buttons(msg.get("chat", {}).get("id"), msg.get("message_id"),
-                       tg.kb([(label, f"pv:{act}:{item_id}")]))
+        rows = [[(label, f"pv:{act}:{item_id}")]]
+        if item.get("kind") == "image":
+            rows[0].append(("🎬 Video", f"pv:vid:{item_id}"))
+        tg.set_buttons(msg.get("chat", {}).get("id"), msg.get("message_id"), tg.kb(*rows))
     if updates:
         # Confirm them all, so the next run does not see them again.
-        tg.call("getUpdates", timeout=0, offset=updates[-1]["update_id"] + 1, allowed_updates=["callback_query"])
+        tg.call("getUpdates", timeout=0, offset=updates[-1]["update_id"] + 1, allowed_updates=UPDATE_TYPES)
     if applied:
         state = _posted(char)
         state["voted"] = sorted(voted)[-500:]
         (char.dir / "posted.json").write_text(json.dumps(state))
     return applied
+
+
+def run_videos(char):
+    """Advance the on-demand video kernel: post a finished batch, then start the
+    next one from the queue. Returns True if anything changed."""
+    import base64
+    v = _videos(char)
+    vk = kaggle.video_kernel_id(char)
+    changed = False
+    if v["running"]:
+        st = kaggle.status(vk)
+        if "RUNNING" in st or "QUEUED" in st:
+            return False
+        with tempfile.TemporaryDirectory() as tmp:
+            status = kaggle.download_output(char, tmp, slug=vk) if ("COMPLETE" in st or "ERROR" in st) else None
+            done = {r.get("request"): r for r in (status or {}).get("items", [])}
+            same_batch = status and set(status.get("requests", [])) == {j["id"] for j in v["running"]}
+            for job in v["running"]:
+                r = done.get(job["id"]) if same_batch else None
+                if r and r.get("ok"):
+                    meta = json.loads((Path(tmp) / "out" / "items" / f"{r['id']}.json").read_text())
+                    tg.video(job["chat"], Path(tmp) / "out" / "items" / meta["path"],
+                             caption=f"🎬 {char.name}\n{(job.get('motion') or '')[:300]}",
+                             reply_to=job["message_id"])
+                else:
+                    reason = (r or {}).get("reason") or (status or {}).get("error") or "the video job failed"
+                    tg.text(job["chat"], f"❌ Video failed: {str(reason)[:300]}", reply_to=job["message_id"])
+        v["running"] = []
+        changed = True
+    if v["queue"] and not v["running"]:
+        batch = v["queue"][: int(config.env("PERSONA_VIDEO_BATCH", "3"))]
+        jobs = []
+        with tempfile.TemporaryDirectory() as tmp:
+            for q in batch:
+                img = tg.download(q["file_id"], Path(tmp) / f"{q['id']}.jpg")
+                jobs.append({"id": q["id"], "image_b64": base64.b64encode(img.read_bytes()).decode(),
+                             "motion": q.get("motion", ""), "tags": q.get("tags", [])})
+        kaggle.push_videos(char, jobs)
+        v["running"] = batch
+        v["queue"] = v["queue"][len(batch):]
+        changed = True
+    _save_videos(char, v)
+    return changed
 
 
 def _output_items(char, tmp):
@@ -121,7 +223,7 @@ def render(slug):
             items = {}
         log(f"votes applied: {collect_votes(char, items)}")
     n = int(config.env("PERSONA_CLOUD_IMAGES", "8"))
-    v = int(config.env("PERSONA_CLOUD_VIDEOS", "2"))
+    v = int(config.env("PERSONA_CLOUD_VIDEOS", "0"))
     scene_list = scenes.write(char, lane="social", n=n)
     log(kaggle.sync(char))
     kaggle.push(char, scene_list, videos=v, date=today())
@@ -134,12 +236,17 @@ def _caption(char, item):
     chk = item.get("check") or {}
     if "sim" in chk:
         lines.append(f"face {chk['sim']} · age≈{chk.get('age')}")
+    if item.get("kind") != "video":
+        lines.append("🎬 tap, or reply with how she should move")
     lines.append(f"#{item['id']}")
     return "\n".join(l for l in lines if l.strip() not in ("", "📝", "🎞"))
 
 
 def _buttons(item):
-    return tg.kb([("👍", f"pv:up:{item['id']}"), ("👎", f"pv:dn:{item['id']}")])
+    row = [("👍", f"pv:up:{item['id']}"), ("👎", f"pv:dn:{item['id']}")]
+    if item.get("kind") != "video":
+        row.append(("🎬 Video", f"pv:vid:{item['id']}"))
+    return tg.kb(row)
 
 
 def post(slug, k, n_slots):
@@ -187,27 +294,25 @@ def post(slug, k, n_slots):
 
 
 def votes(slug):
-    """Every 15 min: apply pending 👍/👎 so the buttons show ✓ soon after a press,
-    and save them to the dataset only when something changed. Peeks first, so the
-    usual empty run downloads nothing."""
+    """Every 15 min: apply 👍/👎, queue 🎬 taps and reply prompts, and move the
+    on-demand video kernel along. Skips all downloads when there is nothing to do."""
     try:
-        pending = tg.call("getUpdates", timeout=0, allowed_updates=["callback_query"])
+        pending = tg.call("getUpdates", timeout=0, allowed_updates=UPDATE_TYPES)
     except Exception as e:
         log(f"could not read updates: {e}")
         return
-    if not any((u.get("callback_query") or {}).get("data", "").startswith("pv:") for u in pending):
-        log("no votes pending")
-        return
     char = fetch(slug)
     with tempfile.TemporaryDirectory() as tmp:
-        try:
-            _, items = _output_items(char, tmp)
-        except Exception as e:
-            log(f"no kernel output yet ({e})")
-            return
-        n = collect_votes(char, items)
-    log(f"votes applied: {n}")
-    if n:
+        items = {}
+        if pending:
+            try:
+                _, items = _output_items(char, tmp)
+            except Exception as e:
+                log(f"no render output to match votes against ({e})")
+        n = collect_votes(char, items) if pending else 0
+    log(f"updates applied: {n}")
+    moved = run_videos(char)
+    if n or moved:
         log(kaggle.sync(char))
 
 

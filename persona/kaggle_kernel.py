@@ -93,6 +93,31 @@ def main():
         out = WORK / "out" / "items"
         out.mkdir(parents=True, exist_ok=True)
         results = []
+        if payload.get("mode") == "video":
+            # On-demand videos (🎬 / a reply with a motion prompt): the photo comes in
+            # the payload, straight from Telegram.
+            inp = WORK / "in"
+            inp.mkdir(exist_ok=True)
+            for job in payload["jobs"]:
+                src = inp / f"{job['id']}.jpg"
+                src.write_bytes(base64.b64decode(job["image_b64"]))
+                photo = char.new_item(kind="image", lane="social", path=str(src), model="telegram",
+                                      scene={"motion": job.get("motion") or ""}, tags=job.get("tags", []))
+                try:
+                    vid = studio.animate(char, photo, job.get("motion") or None)
+                except Exception as e:
+                    results.append({"request": job["id"], "ok": False, "reason": f"{type(e).__name__}: {e}"[:300]})
+                    log(f"video {job['id']} failed: {e}")
+                    continue
+                dest = out / Path(vid["path"]).name
+                shutil.copyfile(vid["path"], dest)
+                vid.update({"path": dest.name, "request": job["id"]})
+                (out / f"{vid['id']}.json").write_text(json.dumps(vid, ensure_ascii=False))
+                results.append({"request": job["id"], "id": vid["id"], "ok": True, "kind": "video"})
+                log(f"video {vid['id']} for request {job['id']}")
+            write_status("done", True, {"items": results, "mode": "video",
+                                        "requests": [j["id"] for j in payload["jobs"]]})
+            return
         for item in studio.render(char, lane="social", scene_list=payload["scenes"]):
             if item.get("path"):
                 dest = out / Path(item["path"]).name

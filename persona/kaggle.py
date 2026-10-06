@@ -60,7 +60,7 @@ def dataset_id(char_or_slug):
     return f"{os.environ['KAGGLE_USERNAME'].strip()}/mpt-persona-{slug}"
 
 
-STATE_FILES = ("storyline.jsonl", "votes.json", "posted.json", "recent_scenes.jsonl")
+STATE_FILES = ("storyline.jsonl", "votes.json", "posted.json", "recent_scenes.jsonl", "videos.json")
 
 
 def sync(char):
@@ -137,14 +137,33 @@ def _wan2gp_commit():
 def push(char, scene_list, videos=0, date=""):
     """Push the render kernel for these scenes (and `videos` clips of the first
     passing images). Returns immediately; the kernel runs on Kaggle."""
-    env = _env()
     settings = config.load_settings()
     model = registry.for_role("edit", settings=settings, lane="social", kaggle=True)
     registry.for_role("video", settings=settings, lane="social", kaggle=True)
-    slug = kernel_id(char)
-    payload = {"slug": char.slug, "scenes": scene_list, "roles": {**settings["roles"], "edit": model["id"]},
-               "wan2gp_commit": _wan2gp_commit(), "face_min": config.env("PERSONA_FACE_MIN", "0.45"),
-               "min_age": config.env("PERSONA_MIN_AGE", "21"), "videos": int(videos), "date": date}
+    _push(char, kernel_id(char), {"scenes": scene_list, "roles": {**settings["roles"], "edit": model["id"]},
+                                  "videos": int(videos), "date": date},
+          f"{len(scene_list)} scenes, {videos} videos")
+
+
+def video_kernel_id(char):
+    return f"{os.environ['KAGGLE_USERNAME'].strip()}/mpt-persona-video-{char.slug}"
+
+
+def push_videos(char, jobs):
+    """Push the on-demand video kernel: jobs are {id, image_b64, motion}. A
+    separate kernel from the daily render, so a 🎬 never waits for (or clobbers)
+    the render's output."""
+    settings = config.load_settings()
+    registry.for_role("video", settings=settings, lane="social", kaggle=True)
+    _push(char, video_kernel_id(char), {"mode": "video", "jobs": jobs, "roles": settings["roles"]},
+          f"{len(jobs)} videos on demand")
+
+
+def _push(char, slug, extra, what):
+    env = _env()
+    payload = {"slug": char.slug, "wan2gp_commit": _wan2gp_commit(),
+               "face_min": config.env("PERSONA_FACE_MIN", "0.45"),
+               "min_age": config.env("PERSONA_MIN_AGE", "21"), **extra}
     src = (config.PACKAGE / "kaggle_kernel.py").read_text()
     # Replace the assignment lines, not the first occurrence: the template's own
     # docstring names both placeholders too.
@@ -158,11 +177,11 @@ def push(char, scene_list, videos=0, date=""):
         tmp = Path(tmp)
         (tmp / "persona_render.py").write_text(src)
         (tmp / "kernel-metadata.json").write_text(json.dumps({
-            "id": slug, "title": f"mpt-persona-render-{char.slug}", "code_file": "persona_render.py",
+            "id": slug, "title": slug.split("/", 1)[1], "code_file": "persona_render.py",
             "language": "python", "kernel_type": "script", "is_private": "true", "enable_gpu": "true",
             "enable_internet": "true", "dataset_sources": [dataset_id(char)], "competition_sources": [],
             "kernel_sources": []}))
-        log(f"pushing {slug} ({ACCELERATOR}), {len(scene_list)} scenes, {videos} videos...")
+        log(f"pushing {slug} ({ACCELERATOR}), {what}...")
         _kaggle("kernels", "push", "-p", str(tmp), "--accelerator", ACCELERATOR, env=env)
 
 
@@ -187,11 +206,15 @@ def run(char, n=3, hint="", do_sync=True, videos=0):
     return import_output(char)
 
 
-def download_output(char, dest):
-    """The kernel's latest COMPLETED output into dest. Returns its status.json dict
-    (or None if there is none)."""
+def status(slug):
+    return _kaggle("kernels", "status", slug, env=_env(), check=False)
+
+
+def download_output(char, dest, slug=None):
+    """A kernel's latest COMPLETED output into dest (the daily render unless `slug`
+    is given). Returns its status.json dict, or None if there is none."""
     env = _env()
-    _kaggle("kernels", "output", kernel_id(char), "-p", str(dest), env=env)
+    _kaggle("kernels", "output", slug or kernel_id(char), "-p", str(dest), env=env)
     status = Path(dest) / "status.json"
     return json.loads(status.read_text()) if status.exists() else None
 
