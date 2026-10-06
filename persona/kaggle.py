@@ -60,13 +60,28 @@ def dataset_id(char_or_slug):
     return f"{os.environ['KAGGLE_USERNAME'].strip()}/mpt-persona-{slug}"
 
 
+STATE_FILES = ("storyline.jsonl", "votes.json", "posted.json", "recent_scenes.jsonl")
+
+
 def sync(char):
     env = _env()
     ds = dataset_id(char)
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)
+        # A new version replaces every file. In cloud mode the dataset holds the
+        # live votes/storyline/posted state, so a laptop sync must not wipe what
+        # it does not have locally: take those files from the current version.
+        if any(not (char.dir / n).exists() for n in STATE_FILES):
+            mine = _kaggle("datasets", "list", "--mine", "-s", f"mpt-persona-{char.slug}", env=env, check=False)
+            if ds in mine:
+                cur = tmp / "_current"
+                _kaggle("datasets", "download", ds, "--unzip", "-p", str(cur), env=env, check=False)
+                for n in STATE_FILES:
+                    if not (char.dir / n).exists() and (cur / n).exists():
+                        shutil.copyfile(cur / n, char.dir / n)
+                shutil.rmtree(cur, ignore_errors=True)
         shutil.copyfile(char.dir / "bible.json", tmp / "bible.json")
-        for name in ("storyline.jsonl", "votes.json", "posted.json", "recent_scenes.jsonl"):
+        for name in STATE_FILES:
             if (char.dir / name).exists():
                 shutil.copyfile(char.dir / name, tmp / name)
         # Flat files, not a refs/ folder: Kaggle zips subfolders of a dataset, and a
