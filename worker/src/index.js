@@ -398,6 +398,10 @@ async function onReply(env, msg) {
   // but reading only [0][0] would break the moment the layout changes again.
   const data = (target?.reply_markup?.inline_keyboard || [])
     .flat().map((b) => b.callback_data).find(Boolean);
+  // Persona posts (persona/actions.py) share the videos channel; their buttons start
+  // with "pv:" and a reply to them is a motion prompt for the persona bot, which
+  // answers it. Saying "That batch is no longer in posted.json" there was wrong.
+  if (data?.startsWith("pv:")) return;
   if (!data) {
     // Never silent. A reply to something with no buttons is a user asking for
     // something and getting nothing back, which is indistinguishable from broken.
