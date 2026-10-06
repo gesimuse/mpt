@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-10-06T12:21:52 — aibeauty
+
+```
+morning after nobody
+
+Created with AI.
+
+#aiart #digitalart #lazydays #morningvibes #relaxationmode
+```
+
 ## 2026-10-05T22:06:32 — aibeauty
 
 ```
@@ -58,14 +68,4 @@ when the view is always on my side
 Created with AI.
 
 #aiart #artificialimagination #livesofwomeninmotion #citylights #urbanromantics
-```
-
-## 2026-10-04T11:25:17 — aibeauty
-
-```
-Where the night gets loud and I get lost
-
-Created with AI.
-
-#aiart #artificialiridescence #indiemusic #smallvenues #livemusiclover
 ```
