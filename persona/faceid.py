@@ -79,10 +79,10 @@ def reference_embedding(ref_paths):
     return mean / np.linalg.norm(mean)
 
 
-def check(path, ref_emb):
+def check(path, ref_emb, min_sim=None):
     """Returns (ok, info). info carries similarity/age/reason for the caption."""
     min_age = float(config.env("PERSONA_MIN_AGE", "21"))
-    min_sim = float(config.env("PERSONA_FACE_MIN", "0.45"))
+    min_sim = float(config.env("PERSONA_FACE_MIN", "0.45")) if min_sim is None else min_sim
     if not enabled():
         return True, {"note": "face check off"}
     if _app() is None:

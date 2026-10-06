@@ -114,6 +114,62 @@ with her hands somewhere simple and visible: on her hip, in her hair, holding a 
 """
 
 
+# Head angle and expression, rotated across a batch so at most one in four looks
+# straight into the lens. Without this every image copied the refs: front-facing,
+# same closed-mouth smile.
+# Her face sheet: one portrait per head angle / expression, rendered once from her
+# master refs (studio.make_sheet) into refs/sheet/<stem>.jpg. Each scene is given
+# a gaze, and the sheet portrait for it rides along as its second reference, so a
+# profile scene is drawn from her real profile instead of a rotated front view.
+FACE_SHEET = [
+    ("profile-left", "head turned to her left in full side profile, neutral relaxed expression"),
+    ("profile-right", "head turned to her right in full side profile, lips slightly parted"),
+    ("three-quarter-left", "three-quarter view turned to her left, soft smile"),
+    ("three-quarter-right", "three-quarter view turned to her right, dreamy expression, eyes looking past the camera"),
+    ("over-shoulder", "body turned away, looking back over her shoulder at the camera, playful half-smile"),
+    ("looking-down", "head tilted down, eyes looking down, soft smile"),
+    ("looking-up", "chin raised, looking up and to the side, biting her lower lip"),
+    ("laughing", "laughing with her eyes closed and head tilted back, mouth open"),
+    ("big-smile", "big genuine smile at the camera, teeth showing, eyes crinkled"),
+    ("sultry", "looking straight into the camera, sultry and confident, no smile, lips slightly parted"),
+    ("kiss", "blowing a kiss toward the camera, lips puckered"),
+    ("shy", "eyes down, shy smile, a strand of hair across her face"),
+]
+
+# Head angle and expression, rotated across a batch so at most a few look straight
+# into the lens. Without this every image copied the refs: front-facing, same
+# closed-mouth smile. Each maps to the FACE_SHEET portrait used as its reference.
+GAZES = [
+    ("head turned in profile, looking off to the side, lips slightly parted", "profile-left"),
+    ("looking back over her shoulder at the camera, playful half-smile", "over-shoulder"),
+    ("looking down at her phone, absorbed, soft smile", "looking-down"),
+    ("laughing with her eyes closed, head tilted back", "laughing"),
+    ("three-quarter view, gazing out of frame, dreamy expression", "three-quarter-right"),
+    ("looking up and to the side, biting her lower lip", "looking-up"),
+    ("eyes down, shy smile, hair falling across her face", "shy"),
+    ("looking straight into the camera, sultry and confident, no smile", "sultry"),
+    ("big genuine smile at the camera, teeth showing", "big-smile"),
+    ("blowing a kiss toward the camera", "kiss"),
+    ("head turned in profile to the other side, calm expression", "profile-right"),
+    ("three-quarter view toward the camera, soft smile", "three-quarter-left"),
+]
+
+
+def assign_gazes(scenes):
+    start = random.randrange(len(GAZES))
+    for i, sc in enumerate(scenes):
+        sc["gaze"], sc["sheet"] = GAZES[(start + i * 5) % len(GAZES)]
+    return scenes
+
+
+def sheet_prompt(char, text):
+    b = char.bible
+    return (f"The same woman as in the reference photos, {b['safety']['adult_anchor']}. Keep her exact face, "
+            f"facial features, hair and skin tone. {b.get('identity', '')}. Head-and-shoulders portrait, "
+            f"{text}. She wears a plain white tank top. Plain light-grey studio background, soft even light. "
+            f"{REALISM}.")
+
+
 def _parse(text, n):
     m = re.search(r"\[.*\]", text or "", re.S)
     if not m:
@@ -176,7 +232,7 @@ def write(char, lane="social", hint="", n=1, chunk=4):
             except Exception as e:
                 log(f"LLM scene writing failed ({type(e).__name__}: {str(e)[:120]}), attempt {attempt + 1}")
         scenes += got or fallback(char, k, hint)
-    scenes = scenes[:n]
+    scenes = assign_gazes(scenes[:n])
     char.add_recent(scenes)
     return scenes
 
@@ -206,6 +262,9 @@ def scene_prompt(char, scene, lane, n_refs):
         f"Setting: {scene['setting']}.",
         f"She wears {scene['outfit']}.",
         f"She is {scene['action']}, {scene['mood']}.",
+        f"Her head and face: {scene['gaze']}." if scene.get("gaze") else "",
+        ("The reference photos only show who she is; her head angle, expression and pose follow this scene, "
+         "not the references." if n_refs else ""),
         "She is the only person in the photo, nobody else in the frame or background.",
         f"Lighting: {scene['light']}.",
         lane_cfg.get("cue", "") + ".",

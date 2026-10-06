@@ -10,6 +10,7 @@ Commands, posted in the review channel (PERSONA_CHAT_ID):
   /switch <slug>         make another persona active
   /cast [n] [hint]       n candidate faces (default 8); ⭐ one to pick her
   /refs                  re-render master refs from the picked candidate
+  /sheet                 her face sheet: 12 angles and expressions used per scene
   /scene [n] [hint]      n social-lane scenes (TikTok/Instagram-safe)
   /fanvue [n] [hint]     n Fanvue-lane scenes (local only, posts to the Fanvue channel)
   /slot                  one scheduled post now (scenes + a video)
@@ -205,6 +206,19 @@ class Bot:
         tg.text(self.review, "Lock these as her identity? Every future image is edited from them.",
                 buttons=tg.kb([("🔒 Lock refs", "pr:lock"), ("🔁 Redo", f"pr:redo:{cid}")]))
 
+    def job_sheet(self):
+        char = character.active()
+        self.say(f"🎭 Rendering {char.name}'s face sheet (12 angles and expressions)…")
+        good = []
+        for r in self.studio.make_sheet(char):
+            if r.get("error") or not r.get("ok"):
+                self.say(f"⚠️ {r['stem']}: {r.get('error') or r['check'].get('reason', '')}"[:300])
+                continue
+            good.append(r["path"])
+        for i in range(0, len(good), 10):
+            tg.album(self.review, good[i:i + 10], caption=f"{char.name} · face sheet" if i == 0 else "")
+        self.say(f"Face sheet: {len(good)}/12 kept. Scenes now pick the matching angle per pose.")
+
     # -------------------------------------------------------------------- scenes
     def job_scenes(self, lane, n, hint):
         char = character.active()
@@ -337,6 +351,8 @@ class Bot:
             if not cid:
                 return self.say("Pick a candidate first (/cast, then ⭐).", mid)
             return self.say(f"🖥 queued ({self.enqueue('refs', self.job_refs, cid, reply_to=mid)} waiting)", mid)
+        if cmd == "/sheet":
+            return self.say(f"🖥 queued ({self.enqueue('sheet', self.job_sheet, reply_to=mid)} waiting)", mid)
         if cmd in ("/scene", "/fanvue"):
             lane = "fanvue" if cmd == "/fanvue" else "social"
             n, hint = n_and_hint(1)
@@ -388,7 +404,8 @@ class Bot:
                 refs = self.studio.lock_refs(character.active())
                 tg.answer(cq["id"], "Locked.")
                 tg.set_buttons(chat_id, msg["message_id"], tg.kb([("🔒 Locked", "noop")]))
-                self.say(f"🔒 {len(refs)} master refs locked. /scene or /fanvue to start her story.")
+                self.say(f"🔒 {len(refs)} master refs locked. Rendering her face sheet next; then /scene.")
+                self.enqueue("sheet", self.job_sheet)
                 return
             if data.startswith("pr:redo"):
                 cid = data.split(":", 2)[2]

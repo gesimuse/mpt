@@ -81,6 +81,34 @@ class Studio:
             ok, info = faceid.check(path, anchor)
             yield {"stem": stem, "path": str(path), "ok": ok, "check": info}
 
+    def make_sheet(self, char, only=None):
+        """Her face sheet (scenes.FACE_SHEET) into refs/sheet/, rendered from her
+        front and three-quarter refs. Yields each result; a portrait whose face
+        drifts too far from her refs is not kept. `only` limits to some stems."""
+        if not char.has_refs():
+            raise ValueError("lock her master refs first")
+        model = self.model("edit", lane="social")
+        base = [p for p in char.refs() if p.name.startswith(("01-", "02-"))] or char.refs()[:1]
+        out = char.refs_dir / "sheet"
+        out.mkdir(exist_ok=True)
+        ref_emb = faceid.reference_embedding(char.refs())
+        for stem, text in scenes.FACE_SHEET:
+            if only and stem not in only:
+                continue
+            try:
+                path = self.engine.image(model, scenes.sheet_prompt(char, text), out, stem, refs=base,
+                                         negative=scenes.negative(char, "social"))
+            except Exception as e:
+                yield {"stem": stem, "error": str(e)[:300]}
+                continue
+            # Side views score lower against front-heavy refs, so profiles get a lower bar.
+            floor = 0.3 if "profile" in stem or stem == "over-shoulder" else None
+            ok, info = faceid.check(path, ref_emb, min_sim=floor)
+            if not ok:
+                path.unlink(missing_ok=True)
+            yield {"stem": stem, "path": str(path), "ok": ok, "check": info}
+        shutil.rmtree(char.dir / "refs-heads", ignore_errors=True)
+
     def lock_refs(self, char):
         """Promote refs-pending/ to refs/. The old set is archived, not deleted."""
         pending = char.dir / "casting" / "refs-pending"
@@ -111,15 +139,27 @@ class Studio:
         # Head refs only. Tested with all five: Qwen drew one woman per reference
         # (three of her at one cafe table), and the full-body ref's t-shirt and
         # jeans leaked into scene outfits. Face from refs, body from the bible text.
-        stems = config.env("PERSONA_SCENE_REFS", "01-,02-").split(",")
-        refs = [p for p in char.refs() if p.name.startswith(tuple(stems))] or char.refs()[:1]
-        refs = refs[: max(1, model.get("max_refs", 1))]
+        # Each scene gets her front ref plus the face-sheet portrait for its gaze
+        # (falling back to the three-quarter ref), cropped to the head.
         heads = char.dir / "refs-heads"
         heads.mkdir(exist_ok=True)
-        refs = [faceid.head_crop(p, heads / p.name) if not (heads / p.name).exists() else heads / p.name
-                for p in refs]
+
+        def head(p):
+            dest = heads / p.name
+            return dest if dest.exists() else faceid.head_crop(p, dest)
+
+        stems = config.env("PERSONA_SCENE_REFS", "01-,02-").split(",")
+        default_refs = [p for p in char.refs() if p.name.startswith(tuple(stems))] or char.refs()[:1]
+        front = [p for p in default_refs if p.name.startswith("01-")] or default_refs[:1]
+
+        def refs_for(scene):
+            sheet = char.refs_dir / "sheet" / f"{scene.get('sheet', '')}.jpg"
+            chosen = front + [sheet] if scene.get("sheet") and sheet.exists() else default_refs
+            return [head(p) for p in chosen[: max(1, model.get("max_refs", 1))]]
+
         ref_emb = faceid.reference_embedding(char.refs())
         for scene in (scene_list or scenes.write(char, lane=lane, hint=hint, n=n)):
+            refs = refs_for(scene)
             prompt = scenes.scene_prompt(char, scene, lane, len(refs))
             item = char.new_item(kind="image", lane=lane, model=model["id"], scene=scene, prompt=prompt,
                                  tags=scene.get("tags", []), caption=scene.get("caption", ""),

@@ -67,8 +67,7 @@ from the next slot. Say so.
 
 ## 3. Cast (GPU)
 
-The bot service holds the same GPU and RAM, so stop it first and restart it at the end
-(also on failure):
+The laptop bot service (if running) holds the same GPU and RAM, so stop it first:
 
 ```bash
 systemctl --user stop mpt-persona-bot
@@ -96,13 +95,28 @@ three-quarter below ~0.75), run `refs` again. When the user is happy:
 ~/apps/Wan2GP/.venv/bin/python -m persona.cli lock
 ```
 
-## 5. Test and hand back
+## 5. Face sheet
 
-Render two scenes so the user sees her in the wild, show them, then restart the bot:
+Twelve portraits of her at different head angles and expressions (profiles, over the
+shoulder, looking down/up, laughing, big smile, sultry, kiss, shy). Each scene uses
+the one matching its pose as a second reference, so she is not always front-facing
+with the same smile:
+
+```bash
+~/apps/Wan2GP/.venv/bin/python -m persona.cli sheet
+```
+
+About 1 min each. Show them; re-render a bad one with `sheet <stem>` (e.g.
+`sheet laughing kiss`). Rejected ones (face drifted) are not kept.
+
+## 6. Test and hand back
+
+Render two scenes so the user sees her in the wild, show them, sync her to the cloud
+dataset (the laptop-free schedule renders from it), then restart the bot if used:
 
 ```bash
 ~/apps/Wan2GP/.venv/bin/python -m persona.cli scene 2
-systemctl --user start mpt-persona-bot
+PATH=$HOME/.local/bin:$PATH ~/apps/Wan2GP/.venv/bin/python -m persona.cli sync
 ```
 
 To switch back to an earlier persona: `python -m persona.cli switch <slug>`

@@ -73,6 +73,8 @@ def sync(char):
         # zip inside a download is one more thing to unpack differently in each place.
         for ref in char.refs():
             shutil.copyfile(ref, tmp / f"refs__{ref.name}")
+        for ref in sorted((char.refs_dir / "sheet").glob("*.jpg")):
+            shutil.copyfile(ref, tmp / f"refs__sheet__{ref.name}")
         (tmp / "dataset-metadata.json").write_text(json.dumps(
             {"title": f"mpt-persona-{char.slug}", "id": ds, "licenses": [{"name": "other"}]}))
         # A dataset that does not exist answers `status` with 403, same as one we
@@ -96,8 +98,9 @@ def restore_layout(char_dir):
     """Undo sync()'s flattening: refs__<name> files back into refs/<name>."""
     char_dir = Path(char_dir)
     (char_dir / "refs").mkdir(parents=True, exist_ok=True)
+    (char_dir / "refs" / "sheet").mkdir(exist_ok=True)
     for f in char_dir.glob("refs__*"):
-        f.rename(char_dir / "refs" / f.name[len("refs__"):])
+        f.rename(char_dir / "refs" / f.name[len("refs__"):].replace("sheet__", "sheet/", 1))
     (char_dir / "dataset-metadata.json").unlink(missing_ok=True)
 
 

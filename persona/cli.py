@@ -10,6 +10,7 @@ GPU commands need Wan2GP's python:
   pick <candidate-id>       make a candidate her face
   refs                      render master refs from the pick into casting/refs-pending/
   lock                      promote pending refs to refs/
+  sheet [stem ...]          her face sheet: 12 angles/expressions into refs/sheet/
   scene [n] [hint]          social-lane scenes
   fanvue [n] [hint]         Fanvue-lane scenes
   video <item-id> [motion]
@@ -81,6 +82,9 @@ def main(argv=None):
     elif cmd == "lock":
         for p in _engine_studio().lock_refs(character.active()):
             print(p)
+    elif cmd == "sheet":
+        for r in _engine_studio().make_sheet(character.active(), only=args or None):
+            print(r.get("stem"), r.get("path") if r.get("ok") else (r.get("error") or r.get("check")))
     elif cmd in ("scene", "fanvue"):
         n, hint = _n_hint(args, 1)
         lane = "fanvue" if cmd == "fanvue" else "social"
