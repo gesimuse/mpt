@@ -130,6 +130,10 @@ def _package_b64():
 
 def _wan2gp_commit():
     wan = Path(config.env("WAN2GP_DIR") or Path.home() / "apps/Wan2GP").expanduser()
+    if not (wan / ".git").exists():
+        # On the Actions runner there is no local Wan2GP: pin to the commit the
+        # laptop last synced, or let the kernel take the latest.
+        return config.env("WAN2GP_COMMIT")
     r = subprocess.run(["git", "rev-parse", "HEAD"], cwd=wan, capture_output=True, text=True)
     return r.stdout.strip() if r.returncode == 0 else ""
 

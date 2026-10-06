@@ -313,8 +313,11 @@ def votes(slug):
                 log(f"no render output to match votes against ({e})")
         n = collect_votes(char, items) if pending else 0
     log(f"updates applied: {n}")
-    moved = run_videos(char)
-    if n or moved:
+    if n:
+        # Save first: the updates are already confirmed with Telegram, so a crash
+        # further down must not lose a vote or a 🎬 request.
+        log(kaggle.sync(char))
+    if run_videos(char):
         log(kaggle.sync(char))
 
 
