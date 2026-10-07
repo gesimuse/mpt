@@ -90,7 +90,9 @@ def main():
             subprocess.run([sys.executable, "-m", "pip", "install", "-q", "uv"], check=True)
             subprocess.run([sys.executable, "-m", "uv", "venv", "-q", "--python", sys.executable, str(qa_env)], check=True)
             qpip = [sys.executable, "-m", "uv", "pip", "install", "-q", "--python", str(qa_env / "bin" / "python")]
-            subprocess.run(qpip + ["torch==2.11.0", "--index-url", "https://download.pytorch.org/whl/cu128"], check=True)
+            # torchvision too: transformers' Qwen2-VL processor refuses to load without it.
+            subprocess.run(qpip + ["torch==2.11.0", "torchvision==0.26.0",
+                                   "--index-url", "https://download.pytorch.org/whl/cu128"], check=True)
             subprocess.run(qpip + ["transformers", "accelerate", "bitsandbytes", "pillow", "numpy"], check=True)
             os.environ.update({"PERSONA_QA_SUBPROCESS": "1", "PERSONA_QA_PYTHON": str(qa_env / "bin" / "python")})
         except Exception as e:
