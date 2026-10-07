@@ -20,6 +20,7 @@ Fields a file can carry:
   profile             a Wan2GP accelerator profile (path inside the Wan2GP dir),
                       merged under `settings`
   settings            Wan2GP settings overrides, applied last
+  slowdown            video only: playback slow-down after interpolation (1 = none)
 """
 import json
 

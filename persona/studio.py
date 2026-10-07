@@ -189,7 +189,7 @@ class Studio:
                             prompt=prompt, tags=item.get("tags", []), caption=item.get("caption", ""),
                             scene=item.get("scene", {}), commercial=bool(model.get("commercial")))
         path = self.engine.video(model, item["path"], prompt, char.dir / "items", vid["id"])
-        path = slow_down(path)
+        path = slow_down(path, model.get("slowdown"))
         return char.update_item(vid["id"], status="review", ok=True, path=str(path))
 
 
@@ -217,12 +217,13 @@ def calm_prompt(motion):
     return f"{motion}, slow subtle natural movement, realistic, camera static"
 
 
-def slow_down(path):
+def slow_down(path, factor=None):
     """Motion-interpolate the clip and play it PERSONA_VIDEO_SLOWDOWN times slower
     (default 1.6: Wan's 5s at 16fps becomes ~8s at 24fps, smoother and calmer).
     Falls back to the original if ffmpeg is missing or fails."""
     import subprocess
-    factor = float(config.env("PERSONA_VIDEO_SLOWDOWN", "1.6"))
+    # A model may set its own (the calm model is slow already); the env var wins.
+    factor = float(config.env("PERSONA_VIDEO_SLOWDOWN") or (factor if factor is not None else 1.6))
     if factor <= 1:
         return path
     out = path.with_name(path.stem + "-slow.mp4")

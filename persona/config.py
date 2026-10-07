@@ -68,7 +68,7 @@ DEFAULT_ROLES = {
     "cast": "qwen21",              # text-to-image, used only by /cast
     "edit": "qwen21",              # reference-guided image, every social-lane scene
     "fanvue_edit": "qwen21-uncensored",  # same job for the local-only Fanvue lane
-    "video": "wan22-i2v",          # image-to-video
+    "video": "wan22-i2v-calm",     # image-to-video (calm motion; wan22-i2v is the livelier one)
 }
 
 
