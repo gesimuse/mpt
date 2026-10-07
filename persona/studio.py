@@ -160,7 +160,7 @@ class Studio:
         ref_emb = faceid.reference_embedding(char.refs())
         for scene in (scene_list or scenes.write(char, lane=lane, hint=hint, n=n)):
             refs = refs_for(scene)
-            prompt = scenes.scene_prompt(char, scene, lane, len(refs))
+            prompt = scenes.scene_prompt(char, scene, lane, len(refs), style=model.get("prompt_style", "qwen"))
             item = char.new_item(kind="image", lane=lane, model=model["id"], scene=scene, prompt=prompt,
                                  tags=scene.get("tags", []), caption=scene.get("caption", ""),
                                  commercial=bool(model.get("commercial")))

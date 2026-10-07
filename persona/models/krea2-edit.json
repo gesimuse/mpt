@@ -20,5 +20,6 @@
     "image_mode": 1,
     "resolution": "896x1152"
   },
-  "notes": "Krea 2 with its identity-preserving edit LoRA, 8 steps, up to 2 references. Krea is known for photographic, less 'AI' looking output. Tested 2026-10-07 vs qwen21 on 3 scenes: more photographic and natural poses, but weaker identity (face match 0.62-0.66 vs 0.82-0.87), ~115s/image on the A4500."
+  "notes": "Krea 2 with its identity-preserving edit LoRA, 8 steps, up to 2 references. Krea is known for photographic, less 'AI' looking output. Tested 2026-10-07 vs qwen21 on 3 scenes: more photographic and natural poses, but weaker identity (face match 0.62-0.66 vs 0.82-0.87), ~115s/image on the A4500.",
+  "prompt_style": "instruct"
 }

@@ -52,6 +52,7 @@ env:
   PERSONA_CLOUD_IMAGES: ${{ vars.PERSONA_CLOUD_IMAGES || '10' }}
   PERSONA_CLOUD_VIDEOS: ${{ vars.PERSONA_CLOUD_VIDEOS || '0' }}
   PERSONA_CLOUD_VOTES: ${{ vars.PERSONA_CLOUD_VOTES || '1' }}
+  OLLAMA_TIMEOUT: "600"
 
 jobs:
   run:
@@ -64,6 +65,17 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install kaggle requests pillow
+      # The scene writer's free fallback: a local model on the runner. GitHub Models
+      # answers a bare "OK" for this account and HF's free credits run out, so
+      # without this the render had no LLM and repeated her bible's few places.
+      # Only the daily render needs it.
+      - name: Install Ollama (render only)
+        if: github.event.schedule == '35 2 * * *' || inputs.action == 'render'
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          nohup ollama serve > /tmp/ollama.log 2>&1 &
+          for i in {1..30}; do curl -sf http://localhost:11434/api/tags > /dev/null && break; sleep 1; done
+          ollama pull llama3.2:3b
       - name: Render (daily) or post (slot)
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then

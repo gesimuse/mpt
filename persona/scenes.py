@@ -63,7 +63,7 @@ def _ask(prompt, lane):
     return llm.ask(prompt, max_tokens=1600, temperature=1.0)
 
 
-def _prompt(char, lane, hint, n):
+def _prompt(char, lane, hint, n, places=None):
     b = char.bible
     liked, disliked = char.leaning()
     story = "\n".join(f"- {s['beat']}" for s in char.story(8)) or "- (nothing yet, this is her first post)"
@@ -102,6 +102,7 @@ her face or hair; that is fixed.
 
 Recent scenes -- do NOT repeat these settings or outfits:
 {recent}
+{("Use these places, one per scene, in this order: " + "; ".join(places)) if places else ""}
 
 Return ONLY a JSON array of {n} objects with these keys:
 "setting" (where, specific), "outfit" (always with colours and materials, e.g. "emerald satin
@@ -191,6 +192,88 @@ def _parse(text, n):
     return good[:n]
 
 
+# The idea bank. Every batch is seeded from it, so scenes stay new even when no
+# capable LLM is reachable (GitHub Models answering "OK", HF credits used up --
+# both happened on 2026-10-07 and every cloud scene fell back to her 7 bible
+# places, the "always the same pics" complaint). Each scene gets a place she has
+# not been to recently; the LLM, when present, writes around it.
+PLACES = [
+    "a rooftop pool in Dubai at sunset", "a white-sand beach in Tulum", "a yacht deck off the Amalfi coast",
+    "a luxury hotel suite with floor-to-ceiling windows", "a marble bathroom with a freestanding tub",
+    "a neon-lit Tokyo street at night", "a Parisian balcony overlooking rooftops", "a vineyard in Tuscany at golden hour",
+    "a ski chalet with a fireplace", "an outdoor hot tub surrounded by snow", "a desert road in Joshua Tree",
+    "a sunflower field", "a lavender field in Provence", "a rooftop bar in Manhattan", "a jazz club with red lights",
+    "a casino in Monaco", "a private jet cabin", "a vintage convertible on a coastal road", "a Santorini terrace",
+    "a Bali villa with an infinity pool", "a tropical waterfall pool", "a boho cafe with plants", "a bookstore loft",
+    "an art gallery with white walls", "a recording studio", "a pilates studio", "a boxing gym",
+    "a yoga deck by the ocean", "a tennis court", "a golf course at sunrise", "a horse ranch at sunset",
+    "a cherry blossom park in Kyoto", "an autumn forest path with orange leaves", "a rainy city street with umbrellas",
+    "a Christmas market at night", "a cozy cabin in the mountains", "a kitchen baking cookies",
+    "a bedroom with silk sheets and morning light", "a walk-in closet full of clothes", "a vanity mirror with bulbs",
+    "a laundromat at night", "a retro diner booth", "a rooftop picnic", "a hammock on the beach",
+    "a sailboat at sea", "a speedboat", "a beach bonfire at dusk", "a music festival at sunset", "a karaoke bar",
+    "a fashion week street", "a luxury car showroom", "a spa with candles", "a sauna", "a greenhouse with tropical plants",
+    "a flower market", "a farmers market", "a train window seat", "an airport lounge", "a hotel elevator mirror",
+    "a penthouse terrace at night", "a city skyline viewpoint", "a Greek island harbor", "a Moroccan riad courtyard",
+    "a Mexican hacienda", "an ice rink", "a bowling alley", "an arcade", "a cinema seat", "a rooftop at blue hour",
+    "a lake dock at sunrise", "a mountain viewpoint", "a beach club daybed", "a poolside cabana", "a wine cellar",
+    "a sushi bar counter", "a pizza place in Naples", "a coffee shop window seat", "a rainy window with city lights",
+]
+OUTFITS = [
+    "red string bikini", "black one-piece swimsuit with a high cut", "white crochet bikini", "leopard print bikini",
+    "emerald satin mini dress", "black bodycon mini dress", "red slip dress", "silver sequin party dress",
+    "baby blue sundress", "white linen shirt dress", "pink matching gym set", "black sports bra and leggings",
+    "olive green yoga set", "cropped white tank and low-rise jeans", "oversized boyfriend shirt", "cream knit sweater dress",
+    "black leather mini skirt and white crop top", "denim shorts and a tied plaid shirt", "lilac satin pajama set",
+    "black lace bralette under a blazer", "white tennis skirt and polo", "burgundy velvet off-shoulder top",
+    "beige trench coat over a slip dress", "cozy oversized hoodie and shorts", "pastel yellow bikini with a sarong",
+    "gold metallic mini dress", "chocolate brown ribbed knit set", "navy striped sailor top and white shorts",
+    "cherry red knit cardigan and mini skirt", "black halter jumpsuit", "white corset top and flared jeans",
+    "turquoise bikini and sun hat", "ski suit in bright white", "plaid mini skirt and fitted turtleneck",
+    "sheer black blouse over a bralette", "orange satin wrap dress", "hot pink mini dress", "teal swimsuit with cutouts",
+]
+TIMES = ["sunrise", "morning light", "midday sun", "golden hour", "blue hour", "night, warm lamps",
+         "neon night lights", "overcast soft light", "candlelight"]
+SIMPLE_ACTIONS = ["one hand on her hip", "one hand in her hair", "holding one drink", "leaning on a railing",
+                  "sitting with legs crossed", "lying on her side propped on an elbow", "walking toward the camera",
+                  "sitting on the edge, hands beside her", "stretching her arms above her head",
+                  "adjusting her sunglasses", "hands resting on her knees"]
+
+
+OUTFIT_KINDS = {
+    "swim": [o for o in OUTFITS if any(w in o for w in ("bikini", "swimsuit"))],
+    "sport": [o for o in OUTFITS if any(w in o for w in ("gym", "sports bra", "yoga", "tennis"))],
+    "night": [o for o in OUTFITS if any(w in o for w in ("mini dress", "slip dress", "sequin", "jumpsuit", "leather",
+                                                           "velvet", "wrap dress", "corset", "sheer", "satin"))],
+    "cozy": [o for o in OUTFITS if any(w in o for w in ("knit", "sweater", "hoodie", "pajama", "boyfriend", "cardigan",
+                                                          "turtleneck", "ski suit"))],
+}
+PLACE_KINDS = [
+    ("swim", ("pool", "beach", "yacht", "sailboat", "speedboat", "hot tub", "waterfall", "cabana", "daybed",
+              "hammock", "lake dock", "tub", "sauna")),
+    ("sport", ("gym", "pilates", "yoga", "tennis", "golf", "boxing", "ice rink")),
+    ("night", ("night", "bar", "club", "casino", "karaoke", "festival", "penthouse", "neon", "blue hour")),
+    ("cozy", ("chalet", "cabin", "fireplace", "bedroom", "kitchen", "laundromat", "rainy", "snow", "christmas",
+              "cinema", "closet", "pajama")),
+]
+
+
+def outfit_for(place):
+    """An outfit that belongs at the place: no bikinis in a coffee shop."""
+    low = place.lower()
+    for kind, words in PLACE_KINDS:
+        if any(w in low for w in words):
+            return random.choice(OUTFIT_KINDS[kind])
+    taken = {o for v in OUTFIT_KINDS.values() for o in v if "swim" in o or "bikini" in o}
+    return random.choice([o for o in OUTFITS if o not in taken and o not in OUTFIT_KINDS["sport"]])
+
+
+def fresh_place(char, taken=()):
+    recent = " ".join(char.recent_scenes(40)).lower()
+    pool = [p for p in PLACES if p.lower() not in recent and p not in taken]
+    return random.choice(pool or PLACES)
+
+
 POSES = ["looking back over her shoulder", "hip popped, one hand on her waist", "lying on her side, propped on an elbow",
          "sitting on the edge, legs crossed", "walking toward the camera", "arching her back, hands in her hair",
          "leaning against the wall, one knee bent", "mirror selfie, phone in hand, hip popped"]
@@ -199,22 +282,20 @@ SEXY_SHOTS = ["full-body shot", "three-quarter body shot from a low angle", "mir
 SEXY_MOODS = ["seductive", "playful", "confident", "sultry", "teasing smile"]
 
 
-def fallback(char, n, hint=""):
-    """No LLM: still a model shoot, never a tourist photo."""
-    b = char.bible
-    out = []
-    for _ in range(n):
-        place = random.choice(b["recurring_places"])
-        style = random.choice(b["style"])
-        pose = random.choice(POSES)
-        light = random.choice(TIMES)
+def fallback(char, n, hint="", places=None):
+    """No LLM: a model shoot built from the idea bank, never a repeat place."""
+    out, taken = [], set()
+    for i in range(n):
+        place = (places[i] if places and i < len(places) else None) or fresh_place(char, taken)
+        taken.add(place)
+        outfit = outfit_for(place)
         out.append({
-            "setting": f"{place}" + (f", {hint}" if hint else ""),
-            "outfit": style, "action": pose, "shot": random.choice(SEXY_SHOTS),
-            "light": light, "mood": random.choice(SEXY_MOODS),
-            "motion": "she slowly shifts her pose and looks into the camera, hair moving softly",
-            "caption": "", "beat": f"Spent some time at {place}.",
-            "tags": [place.split()[-1], style.split()[-1], light.split(",")[0]],
+            "setting": place + (f", {hint}" if hint else ""),
+            "outfit": outfit, "action": random.choice(SIMPLE_ACTIONS), "shot": random.choice(SEXY_SHOTS),
+            "light": random.choice(TIMES), "mood": random.choice(SEXY_MOODS),
+            "motion": "she shifts her weight slowly and smiles softly",
+            "caption": "", "beat": f"Spent time at {place}.",
+            "tags": [place.split()[-1], outfit.split()[-1]],
         })
     return out
 
@@ -222,17 +303,21 @@ def fallback(char, n, hint=""):
 def write(char, lane="social", hint="", n=1, chunk=4):
     """In batches of `chunk`: an 8B model asked for eight JSON objects at once broke
     the JSON on the first cloud run. Each batch retries once before falling back."""
-    scenes = []
+    scenes, taken = [], set()
     while len(scenes) < n:
         k = min(chunk, n - len(scenes))
+        places = []
+        for _ in range(k):
+            places.append(fresh_place(char, taken))
+            taken.add(places[-1])
         got = None
         for attempt in range(2):
             try:
-                got = _parse(_ask(_prompt(char, lane, hint, k), lane), k)
+                got = _parse(_ask(_prompt(char, lane, hint, k, places), lane), k)
                 break
             except Exception as e:
                 log(f"LLM scene writing failed ({type(e).__name__}: {str(e)[:120]}), attempt {attempt + 1}")
-        scenes += got or fallback(char, k, hint)
+        scenes += got or fallback(char, k, hint, places)
     scenes = assign_gazes(scenes[:n])
     char.add_recent(scenes)
     return scenes
@@ -243,13 +328,19 @@ REALISM = ("photorealistic Instagram model photo, professional photoshoot qualit
            "natural skin texture, shallow depth of field, sharp focus, no text, no watermark")
 
 
-def scene_prompt(char, scene, lane, n_refs):
+def scene_prompt(char, scene, lane, n_refs, style="qwen"):
     """The prompt for one scene, rendered from her refs. Refs are numbered <imageN>
     in the order engine.image() passes them, which is character.refs() order."""
     b = char.bible
     lane_cfg = b["lanes"].get(lane, {})
     refs = ", ".join(f"<image{i + 1}>" for i in range(n_refs))
-    if n_refs > 1:
+    if style == "instruct" and n_refs:
+        # Krea 2 Identity Edit: a direct instruction naming the image numbers, as its
+        # own docs phrase it ("Place the person from image 2 ...; preserve their face").
+        nums = " and ".join(f"image {i + 1}" for i in range(n_refs))
+        who = (f"Create a new photo of the woman shown in {nums}. Preserve her exact face, facial features, "
+               f"hair and skin tone; she is the only person in the photo")
+    elif n_refs > 1:
         who = (f"{refs} are reference photos of the same single woman. Show only her, once -- one "
                f"woman in the photo, no duplicates or twins -- with her exact face, facial features, "
                f"hair and skin tone")
