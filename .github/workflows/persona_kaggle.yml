@@ -4,32 +4,33 @@ name: Persona schedule (Kaggle)
 # Social lane only -- the Fanvue lane never leaves the laptop. Her data lives in a
 # private Kaggle dataset, never in this public repo.
 #
-# Times are UTC (Romania is UTC+3 in summer, UTC+2 in winter):
-#   02:35 render           ~05:35 local, done by ~07:30
-# The vote cron is offset from the others on purpose: a run that fires while
-# another is running replaces any pending run in the same concurrency group, and
-# on 2026-10-07 a 02:30 vote check silently replaced the daily render.
-#   06/09/12/15/18 post    ~09/12/15/18/21 local
-#   :07/:22/:37/:52 votes   apply 👍/👎, queue 🎬 taps and reply motion prompts, run the video kernel
+# Driven by the Cloudflare Worker (worker/src/persona.js), times UTC:
+#   02:30-03:15 render   (retried; exits if today's batch already started)
+#   06/09/12/15/18 post  (~09/12/15/18/21 Romania summer time)
+#   every 15 min votes   moves the 🎬/🔁 kernel along; each tap or reply is also
+#                        forwarded at once as `update`
 #
 # Secrets: KAGGLE_USERNAME, KAGGLE_API_TOKEN, HF_TOKEN(S), PERSONA_BOT_TOKEN,
 # PERSONA_CHAT_ID. Variables: PERSONA_SLUG (empty = schedule off),
 # PERSONA_CLOUD_IMAGES, PERSONA_CLOUD_VIDEOS, PERSONA_CLOUD_VOTES.
 on:
-  schedule:
-    - cron: "35 2 * * *"
-    - cron: "0 6,9,12,15,18 * * *"
-    - cron: "7,22,37,52 * * * *"
+  # Driven by the Cloudflare Worker (worker/src/persona.js): its cron every 15 min
+  # and the persona bot's webhook. GitHub's own schedule for this workflow ran
+  # hours late or not at all, so it is no longer used.
   workflow_dispatch:
     inputs:
       action:
         description: "render, post, votes, or qa (dry-run the photo check)"
-        default: post
+        default: votes
         type: choice
         options: [render, post, votes, qa]
       slot:
         description: "post slot 0-4 (4 posts everything left)"
         default: "4"
+        type: string
+      update:
+        description: "a Telegram update (JSON) forwarded by the Worker"
+        default: ""
         type: string
 
 # models: read gives the free GitHub Models API (scene writing) to GITHUB_TOKEN.
@@ -70,26 +71,17 @@ jobs:
       # without this the render had no LLM and repeated her bible's few places.
       # Only the daily render needs it.
       - name: Install Ollama (render only)
-        if: github.event.schedule == '35 2 * * *' || inputs.action == 'render'
+        if: inputs.action == 'render'
         run: |
           curl -fsSL https://ollama.com/install.sh | sh
           nohup ollama serve > /tmp/ollama.log 2>&1 &
           for i in {1..30}; do curl -sf http://localhost:11434/api/tags > /dev/null && break; sleep 1; done
           ollama pull llama3.2:3b
-      - name: Render (daily) or post (slot)
+      - name: Render, post or votes
+        env:
+          PERSONA_UPDATE: ${{ inputs.update }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            ACTION="${{ inputs.action }}"; SLOT="${{ inputs.slot }}"
-          elif [ "${{ github.event.schedule }}" = "35 2 * * *" ]; then
-            ACTION=render
-          elif [ "${{ github.event.schedule }}" = "7,22,37,52 * * * *" ]; then
-            ACTION=votes
-          else
-            ACTION=post
-            # Cron can start late; slot = which of 06/09/12/15/18 UTC this run belongs to.
-            H=$(date -u +%-H)
-            SLOT=$(( H < 9 ? 0 : H < 12 ? 1 : H < 15 ? 2 : H < 18 ? 3 : 4 ))
-          fi
+          ACTION="${{ inputs.action }}"; SLOT="${{ inputs.slot }}"
           if [ "$ACTION" = render ]; then
             python -m persona.actions render "${{ vars.PERSONA_SLUG }}"
           elif [ "$ACTION" = qa ]; then

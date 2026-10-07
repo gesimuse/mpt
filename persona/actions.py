@@ -119,11 +119,15 @@ def collect_votes(char, items):
     render). Returns how many changes were made."""
     if not config.flag("PERSONA_CLOUD_VOTES", "1"):
         return 0
-    try:
-        updates = tg.call("getUpdates", timeout=0, allowed_updates=UPDATE_TYPES)
-    except Exception as e:
-        log(f"could not read updates: {e}")
-        return 0
+    forwarded = config.env("PERSONA_UPDATE")
+    if forwarded:
+        updates = [json.loads(forwarded)]
+    else:
+        try:
+            updates = tg.call("getUpdates", timeout=0, allowed_updates=UPDATE_TYPES)
+        except Exception as e:
+            log(f"no polled updates ({str(e)[:80]})")
+            return 0
     chat = str(tg.chat("social"))
     applied, voted = 0, set(_posted(char).get("voted", []))
     for u in updates:
@@ -170,7 +174,7 @@ def collect_votes(char, items):
         if item.get("kind") == "image":
             rows[0].append(("🎬 Video", f"pv:vid:{item_id}"))
         tg.set_buttons(msg.get("chat", {}).get("id"), msg.get("message_id"), tg.kb(*rows))
-    if updates:
+    if updates and not forwarded:
         # Confirm them all, so the next run does not see them again.
         tg.call("getUpdates", timeout=0, offset=updates[-1]["update_id"] + 1, allowed_updates=UPDATE_TYPES)
     if applied:
@@ -254,6 +258,9 @@ def _output_items(char, tmp):
 
 def render(slug):
     char = fetch(slug)
+    if _posted(char).get("render_date") == today():
+        log("today's render was already started; nothing to do")
+        return
     with tempfile.TemporaryDirectory() as tmp:
         try:
             _, items = _output_items(char, tmp)
@@ -264,6 +271,9 @@ def render(slug):
     n = int(config.env("PERSONA_CLOUD_IMAGES", "10"))
     v = int(config.env("PERSONA_CLOUD_VIDEOS", "0"))
     scene_list = scenes.write(char, lane="social", n=n)
+    state = _posted(char)
+    state["render_date"] = today()
+    (char.dir / "posted.json").write_text(json.dumps(state))
     log(kaggle.sync(char))
     kaggle.push(char, scene_list, videos=v, date=today())
 
@@ -409,11 +419,17 @@ def post(slug, k, n_slots):
 def votes(slug):
     """Every 15 min: apply 👍/👎, queue 🎬 taps and reply prompts, and move the
     on-demand video kernel along. Skips all downloads when there is nothing to do."""
-    try:
-        pending = tg.call("getUpdates", timeout=0, allowed_updates=UPDATE_TYPES)
-    except Exception as e:
-        log(f"could not read updates: {e}")
-        return
+    forwarded = config.env("PERSONA_UPDATE")
+    if forwarded:
+        pending = [json.loads(forwarded)]
+    else:
+        try:
+            pending = tg.call("getUpdates", timeout=0, allowed_updates=UPDATE_TYPES)
+        except Exception as e:
+            # With the Worker's webhook set, getUpdates answers 409: taps arrive as
+            # PERSONA_UPDATE instead, and this run just moves the video kernel along.
+            log(f"no polled updates ({str(e)[:80]})")
+            pending = []
     char = fetch(slug)
     with tempfile.TemporaryDirectory() as tmp:
         items = {}
