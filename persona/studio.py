@@ -8,7 +8,7 @@ import json
 import shutil
 import time
 
-from . import config, faceid, registry, scenes
+from . import config, faceid, qa, registry, scenes
 
 
 def log(msg):
@@ -164,11 +164,23 @@ class Studio:
             item = char.new_item(kind="image", lane=lane, model=model["id"], scene=scene, prompt=prompt,
                                  tags=scene.get("tags", []), caption=scene.get("caption", ""),
                                  commercial=bool(model.get("commercial")))
-            try:
-                path = self.engine.image(model, prompt, char.dir / "items", item["id"], refs=refs,
-                                         negative=scenes.negative(char, lane))
-            except Exception as e:
-                yield char.update_item(item["id"], status="failed", ok=False, reason=str(e)[:300])
+            tries = 1 + int(config.env("PERSONA_QA_RETRIES", "1"))
+            for attempt in range(tries):
+                try:
+                    path = self.engine.image(model, prompt, char.dir / "items", item["id"], refs=refs,
+                                             negative=scenes.negative(char, lane))
+                except Exception as e:
+                    path = None
+                    reason = str(e)[:300]
+                    break
+                good, why, counts = qa.check(path)
+                if good:
+                    break
+                log(f"{item['id']}: anatomy check failed ({why}), attempt {attempt + 1}/{tries}")
+                path.unlink(missing_ok=True)
+                path, reason = None, f"anatomy check: {why}"
+            if path is None:
+                yield char.update_item(item["id"], status="failed", ok=False, reason=reason)
                 continue
             ok, info = faceid.check(path, ref_emb)
             if not ok:

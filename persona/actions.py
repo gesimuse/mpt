@@ -98,6 +98,21 @@ def _queue_video(char, item_id, msg, motion, items):
     return "🎬 Queued. The video comes as a reply here in ~40-60 min."
 
 
+def _queue_redo(char, item_id, msg, items):
+    """🔁: draw the same scene again with a new seed, in the next on-demand job.
+    The scene comes from today's render, or from an earlier redo's record."""
+    v = _videos(char)
+    scene = (items.get(item_id) or {}).get("scene") or v.get("known", {}).get(item_id)
+    if not scene:
+        return "Can't redo this one: its scene isn't in today's batch."
+    if any(q.get("kind") == "redo" and q["item"] == item_id for q in v["queue"]):
+        return "Already queued."
+    v["queue"].append({"id": f"{item_id}-r{int(time.time())}", "kind": "redo", "item": item_id, "scene": scene,
+                       "chat": msg["chat"]["id"], "message_id": msg["message_id"]})
+    _save_videos(char, v)
+    return "🔁 Queued. The redrawn photo comes as a reply here in ~40-60 min."
+
+
 def collect_votes(char, items):
     """Apply pending 👍/👎 presses, 🎬 taps and text replies (motion prompts) to
     photos. `items` maps id -> item meta for what this run knows about (today's
@@ -126,6 +141,10 @@ def collect_votes(char, items):
         cq = u.get("callback_query") or {}
         data = cq.get("data", "")
         msg = cq.get("message") or {}
+        if data.startswith("pv:redo:"):
+            tg.answer(cq.get("id"), _queue_redo(char, data.split(":", 2)[2], msg, items))
+            applied += 1
+            continue
         if data.startswith("pv:vid:"):
             item_id = data.split(":", 2)[2]
             tg.answer(cq.get("id"), _queue_video(char, item_id, msg, None, items))
@@ -181,12 +200,19 @@ def run_videos(char):
             for r in status.get("items", []):
                 if r.get("request") in v["done"] or not r.get("chat"):
                     continue
-                if r.get("ok"):
+                if r.get("ok") and r.get("kind") == "image":
+                    meta = json.loads((Path(tmp) / "out" / "items" / f"{r['id']}.json").read_text())
+                    meta["path"] = str(Path(tmp) / "out" / "items" / meta["path"])
+                    tg.photo(r["chat"], meta["path"], caption="🔁 " + _caption(char, meta),
+                             buttons=_buttons(meta), reply_to=r["message_id"])
+                    v.setdefault("known", {})[meta["id"]] = meta.get("scene", {})
+                elif r.get("ok"):
                     meta = json.loads((Path(tmp) / "out" / "items" / f"{r['id']}.json").read_text())
                     tg.video(r["chat"], Path(tmp) / "out" / "items" / meta["path"],
                              caption=f"🎬 {char.name}\n{(r.get('motion') or '')[:300]}", reply_to=r["message_id"])
                 else:
-                    tg.text(r["chat"], f"❌ Video failed: {str(r.get('reason'))[:300]}", reply_to=r["message_id"])
+                    what = "Redraw" if r.get("kind") == "image" else "Video"
+                    tg.text(r["chat"], f"❌ {what} failed: {str(r.get('reason'))[:300]}", reply_to=r["message_id"])
                 v["done"].append(r["request"])
                 changed = True
         if v["running"]:
@@ -197,6 +223,10 @@ def run_videos(char):
         jobs = []
         with tempfile.TemporaryDirectory() as tmp:
             for q in batch:
+                if q.get("kind") == "redo":
+                    jobs.append({"id": q["id"], "kind": "redo", "scene": q["scene"],
+                                 "chat": q["chat"], "message_id": q["message_id"]})
+                    continue
                 img = tg.download(q["file_id"], Path(tmp) / f"{q['id']}.jpg")
                 jobs.append({"id": q["id"], "image_b64": base64.b64encode(img.read_bytes()).decode(),
                              "motion": q.get("motion", ""), "tags": q.get("tags", []),
@@ -206,6 +236,7 @@ def run_videos(char):
         v["queue"] = v["queue"][len(batch):]
         changed = True
     v["done"] = v["done"][-200:]
+    v["known"] = dict(list(v.get("known", {}).items())[-200:])
     _save_videos(char, v)
     return changed
 
@@ -309,7 +340,7 @@ def _caption(char, item):
     if "sim" in chk:
         lines.append(f"face {chk['sim']} · age≈{chk.get('age')}")
     if item.get("kind") != "video":
-        lines.append("🎬 tap, or reply with how she should move")
+        lines.append("🎬 video (or reply with how she moves) · 🔁 redraw")
     lines.append(f"#{item['id']}")
     return "\n".join(l for l in lines if l.strip() not in ("", "📝", "🎞"))
 
@@ -317,7 +348,7 @@ def _caption(char, item):
 def _buttons(item):
     row = [("👍", f"pv:up:{item['id']}"), ("👎", f"pv:dn:{item['id']}")]
     if item.get("kind") != "video":
-        row.append(("🎬 Video", f"pv:vid:{item['id']}"))
+        row += [("🎬 Video", f"pv:vid:{item['id']}"), ("🔁 Redo", f"pv:redo:{item['id']}")]
     return tg.kb(row)
 
 

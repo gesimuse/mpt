@@ -79,6 +79,8 @@ def main():
         subprocess.run([sys.executable, "-m", "pip", "install", "-q", "-r", "requirements.txt"],
                        cwd=WAN2GP_DIR, check=True)
         subprocess.run([sys.executable, "-m", "pip", "uninstall", "-y", "-q", "torchao"], check=True)
+        # The anatomy check (persona/qa.py) loads Qwen2.5-VL-7B in 4-bit.
+        subprocess.run([sys.executable, "-m", "pip", "install", "-q", "bitsandbytes"], check=False)
 
         stage = "render"
         os.environ.update({"PERSONA_HOME": str(HOME), "WAN2GP_DIR": str(WAN2GP_DIR), "WAN2GP_PROFILE": "5",
@@ -99,6 +101,19 @@ def main():
             inp = WORK / "in"
             inp.mkdir(exist_ok=True)
             for job in payload["jobs"]:
+                if job.get("kind") == "redo":
+                    # 🔁: the same scene, a new seed, the same anatomy check.
+                    for item in studio.render(char, lane="social", scene_list=[job["scene"]]):
+                        if item.get("ok"):
+                            dest = out / Path(item["path"]).name
+                            shutil.copyfile(item["path"], dest)
+                            item["path"] = dest.name
+                            (out / f"{item['id']}.json").write_text(json.dumps(item, ensure_ascii=False))
+                        results.append({"request": job["id"], "id": item["id"], "ok": bool(item.get("ok")),
+                                        "kind": "image", "reason": item.get("reason"),
+                                        "chat": job.get("chat"), "message_id": job.get("message_id")})
+                        log(f"redo {item['id']} for request {job['id']}: {'ok' if item.get('ok') else item.get('reason')}")
+                    continue
                 src = inp / f"{job['id']}.jpg"
                 src.write_bytes(base64.b64decode(job["image_b64"]))
                 photo = char.new_item(kind="image", lane="social", path=str(src), model="telegram",
