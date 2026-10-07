@@ -85,8 +85,11 @@ def main():
         stage = "install-qa"
         qa_env = Path("/kaggle/tmp/qaenv")
         try:
-            subprocess.run([sys.executable, "-m", "venv", str(qa_env)], check=True)
-            qpip = [str(qa_env / "bin" / "python"), "-m", "pip", "install", "-q"]
+            # `python -m venv` fails on Kaggle's image (no ensurepip); uv builds the venv
+            # without it and installs much faster.
+            subprocess.run([sys.executable, "-m", "pip", "install", "-q", "uv"], check=True)
+            subprocess.run([sys.executable, "-m", "uv", "venv", "-q", "--python", sys.executable, str(qa_env)], check=True)
+            qpip = [sys.executable, "-m", "uv", "pip", "install", "-q", "--python", str(qa_env / "bin" / "python")]
             subprocess.run(qpip + ["torch==2.11.0", "--index-url", "https://download.pytorch.org/whl/cu128"], check=True)
             subprocess.run(qpip + ["transformers", "accelerate", "bitsandbytes", "pillow", "numpy"], check=True)
             os.environ.update({"PERSONA_QA_SUBPROCESS": "1", "PERSONA_QA_PYTHON": str(qa_env / "bin" / "python")})

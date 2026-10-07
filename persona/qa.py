@@ -146,6 +146,7 @@ def _worker_check(path):
         if line.startswith("QA_RESULT "):
             r = json.loads(line[len("QA_RESULT "):])
             return r["ok"], r["reason"], r["counts"]
+        print(f"[qa-worker] {line.rstrip()}", flush=True)
 
 
 def check(path):

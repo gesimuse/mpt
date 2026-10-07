@@ -174,6 +174,7 @@ class Studio:
                     reason = str(e)[:300]
                     break
                 good, why, counts = qa.check(path)
+                log(f"{item['id']}: anatomy check {'passed' if good else 'FAILED'} {why} {counts}")
                 if good:
                     break
                 log(f"{item['id']}: anatomy check failed ({why}), attempt {attempt + 1}/{tries}")
