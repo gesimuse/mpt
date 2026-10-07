@@ -267,6 +267,8 @@ def post(slug, k, n_slots):
             log(f"today's render is not ready (status: {(status or {}).get('stage')}, "
                 f"date {(status or {}).get('date')}); nothing to post this slot")
             log(f"votes applied: {collect_votes(char, items)}")
+            if run_videos(char) or True:
+                log(kaggle.sync(char))
             if (status or {}).get("date") == today() and not status.get("ok"):
                 tg.text(chat, f"⚠️ Today's Kaggle render failed at {status.get('stage')}: "
                               f"{(status.get('error') or '')[:300]}")
@@ -298,6 +300,7 @@ def post(slug, k, n_slots):
         (char.dir / "posted.json").write_text(json.dumps(state))
         log(f"slot {k}/{n_slots}: posted {sent}")
         log(f"votes applied: {collect_votes(char, items)}")
+    run_videos(char)
     log(kaggle.sync(char))
 
 
