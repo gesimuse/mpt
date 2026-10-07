@@ -70,9 +70,11 @@ def _load():
     with _LOCK:
         if _MODEL is None:
             import torch
-            from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration
+            from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration  # noqa: I001
             name = config.env("PERSONA_VISION_QA_MODEL", "Qwen/Qwen2.5-VL-7B-Instruct")
-            kw = {"torch_dtype": torch.float16, "device_map": "cuda"}
+            import transformers
+            dkey = "dtype" if int(transformers.__version__.split(".")[0]) >= 5 else "torch_dtype"
+            kw = {dkey: torch.float16, "device_map": "cuda"}
             try:
                 import bitsandbytes  # noqa: F401
                 from transformers import BitsAndBytesConfig
@@ -119,15 +121,67 @@ def _ask(path, prompt, tiles):
     return json.loads(re.search(r"\{.*\}", answer, re.S).group(0))
 
 
+_WORKER = None
+
+
+def _worker_check(path):
+    """Ask the checker running in its own process (PERSONA_QA_SUBPROCESS=1). On the
+    Kaggle T4 the model failed inside the Wan2GP process with a CUDA JIT error
+    (ERROR_UNSUPPORTED_CAST) yet ran fine in a clean process, so there it lives in
+    a separate interpreter, PERSONA_QA_PYTHON (default: this one)."""
+    import subprocess
+    import sys
+    global _WORKER
+    if _WORKER is None or _WORKER.poll() is not None:
+        env = dict(__import__("os").environ, PERSONA_QA_SUBPROCESS="0")
+        _WORKER = subprocess.Popen([config.env("PERSONA_QA_PYTHON") or sys.executable, "-m", "persona.qa", "--worker"],
+                                   stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, env=env,
+                                   cwd=str(config.REPO))
+    _WORKER.stdin.write(json.dumps({"path": str(path)}) + "\n")
+    _WORKER.stdin.flush()
+    while True:
+        line = _WORKER.stdout.readline()
+        if not line:
+            raise RuntimeError("QA worker exited")
+        if line.startswith("QA_RESULT "):
+            r = json.loads(line[len("QA_RESULT "):])
+            return r["ok"], r["reason"], r["counts"]
+
+
 def check(path):
     """(ok, reason, counts). Fails open (ok, 'qa unavailable') if the model cannot run."""
     if not enabled():
         return True, "qa off", {}
+    if config.flag("PERSONA_QA_SUBPROCESS", "0"):
+        try:
+            return _worker_check(path)
+        except Exception as e:
+            log(f"worker failed ({type(e).__name__}: {str(e)[:200]})")
+            return True, "qa unavailable", {}
     try:
         counts = _ask(path, QA_PROMPT, 1024)
         counts["head_turned_unnaturally"] = bool(_ask(path, TWIST_PROMPT, 2048).get("body_twisted_impossibly"))
         ok, reason = verdict(counts)
         return ok, reason, counts
     except Exception as e:
-        log(f"check could not run ({type(e).__name__}: {str(e)[:200]})")
+        import traceback
+        log(f"check could not run ({type(e).__name__}: {str(e)[-300:]})\n{traceback.format_exc()[-1500:]}")
         return True, "qa unavailable", {}
+
+
+def _worker_main():
+    """`python -m persona.qa --worker`: one JSON request per stdin line, one
+    QA_RESULT line back. Everything else it prints is ordinary log output."""
+    import sys
+    for line in sys.stdin:
+        if not line.strip():
+            continue
+        ok, reason, counts = check(json.loads(line)["path"])
+        print("QA_RESULT " + json.dumps({"ok": ok, "reason": reason, "counts": counts}), flush=True)
+
+
+if __name__ == "__main__":
+    import sys
+    if "--worker" in sys.argv:
+        config.load_env()
+        _worker_main()

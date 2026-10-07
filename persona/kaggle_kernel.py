@@ -79,8 +79,20 @@ def main():
         subprocess.run([sys.executable, "-m", "pip", "install", "-q", "-r", "requirements.txt"],
                        cwd=WAN2GP_DIR, check=True)
         subprocess.run([sys.executable, "-m", "pip", "uninstall", "-y", "-q", "torchao"], check=True)
-        # The anatomy check (persona/qa.py) loads Qwen2.5-VL-7B in 4-bit.
-        subprocess.run([sys.executable, "-m", "pip", "install", "-q", "bitsandbytes"], check=False)
+        # The anatomy check (persona/qa.py, Qwen2.5-VL-7B in 4-bit) gets its own venv:
+        # tested 2026-10-07, it fails on the T4 under Wan2GP's torch 2.10+cu130 with a
+        # CUDA JIT error, and runs fine under torch 2.11+cu128 (Kaggle's stock build).
+        stage = "install-qa"
+        qa_env = Path("/kaggle/tmp/qaenv")
+        try:
+            subprocess.run([sys.executable, "-m", "venv", str(qa_env)], check=True)
+            qpip = [str(qa_env / "bin" / "python"), "-m", "pip", "install", "-q"]
+            subprocess.run(qpip + ["torch==2.11.0", "--index-url", "https://download.pytorch.org/whl/cu128"], check=True)
+            subprocess.run(qpip + ["transformers", "accelerate", "bitsandbytes", "pillow", "numpy"], check=True)
+            os.environ.update({"PERSONA_QA_SUBPROCESS": "1", "PERSONA_QA_PYTHON": str(qa_env / "bin" / "python")})
+        except Exception as e:
+            log(f"QA venv failed ({e}); images will post without the anatomy check")
+            os.environ["PERSONA_VISION_QA"] = "0"
 
         stage = "render"
         os.environ.update({"PERSONA_HOME": str(HOME), "WAN2GP_DIR": str(WAN2GP_DIR), "WAN2GP_PROFILE": "5",
