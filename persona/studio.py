@@ -189,17 +189,43 @@ class Studio:
                             prompt=prompt, tags=item.get("tags", []), caption=item.get("caption", ""),
                             scene=item.get("scene", {}), commercial=bool(model.get("commercial")))
         path = self.engine.video(model, item["path"], prompt, char.dir / "items", vid["id"])
+        path = slow_down(path)
         return char.update_item(vid["id"], status="review", ok=True, path=str(path))
 
 
+# Every second asks for the same slow continuation. The earlier beats escalated
+# ("reaches its fullest point", "hair flip") and the Lightning model over-acted on
+# them: users found the motion far too much.
 TIMELINE_BEATS = [
-    "{motion}, slow and natural, camera static",
-    "{motion}, smooth and unhurried",
-    "she shifts her weight slightly, a subtle confident smile, eyes on the lens",
-    "a slow hair touch, gentle natural movement",
-    "she settles into the pose, fabric moving softly",
-    "she holds the pose, breathing, gaze on the lens, slow camera push-in",
+    "{motion}, very slow and subtle, smooth natural movement, camera static",
+    "the same movement continues slowly and gently, small natural motion",
+    "slow, calm continuation, only slight movement, she stays in the same place",
+    "gentle slow movement, soft breathing, hair moving slightly",
+    "slow and smooth, minimal motion, relaxed",
+    "she holds the pose calmly, almost still, slow camera push-in",
 ]
+
+
+def slow_down(path):
+    """Motion-interpolate the clip and play it PERSONA_VIDEO_SLOWDOWN times slower
+    (default 1.6: Wan's 5s at 16fps becomes ~8s at 24fps, smoother and calmer).
+    Falls back to the original if ffmpeg is missing or fails."""
+    import subprocess
+    factor = float(config.env("PERSONA_VIDEO_SLOWDOWN", "1.6"))
+    if factor <= 1:
+        return path
+    out = path.with_name(path.stem + "-slow.mp4")
+    r = subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(path), "-filter:v",
+                        f"minterpolate=fps=32:mi_mode=mci:mc_mode=aobmc:vsbmc=1,setpts={factor}*PTS",
+                        "-r", "24", "-an", "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p", str(out)],
+                       capture_output=True, text=True)
+    if r.returncode != 0 or not out.exists():
+        print(f"[persona.studio] slow-down failed, keeping the original: {r.stderr[-300:]}", flush=True)
+        return path
+    path.unlink(missing_ok=True)
+    final = path.with_suffix(".mp4")
+    out.rename(final)
+    return final
 
 
 def _timeline(motion):

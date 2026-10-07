@@ -162,44 +162,50 @@ def collect_votes(char, items):
 
 
 def run_videos(char):
-    """Advance the on-demand video kernel: post a finished batch, then start the
-    next one from the queue. Returns True if anything changed."""
+    """Advance the on-demand video kernel: post every finished clip not posted yet,
+    then start the next batch from the queue. Posting is driven by the kernel's own
+    output (each result carries its chat and photo message), not by our record of
+    what is running, so a lost or overwritten state file can no longer lose a
+    finished video. Returns True if anything changed."""
     import base64
     v = _videos(char)
+    v.setdefault("done", [])
     vk = kaggle.video_kernel_id(char)
+    st = kaggle.status(vk)
+    if "RUNNING" in st or "QUEUED" in st:
+        return False
     changed = False
-    if v["running"]:
-        st = kaggle.status(vk)
-        if "RUNNING" in st or "QUEUED" in st:
-            return False
+    if "COMPLETE" in st or "ERROR" in st:
         with tempfile.TemporaryDirectory() as tmp:
-            status = kaggle.download_output(char, tmp, slug=vk) if ("COMPLETE" in st or "ERROR" in st) else None
-            done = {r.get("request"): r for r in (status or {}).get("items", [])}
-            same_batch = status and set(status.get("requests", [])) == {j["id"] for j in v["running"]}
-            for job in v["running"]:
-                r = done.get(job["id"]) if same_batch else None
-                if r and r.get("ok"):
+            status = kaggle.download_output(char, tmp, slug=vk) or {}
+            for r in status.get("items", []):
+                if r.get("request") in v["done"] or not r.get("chat"):
+                    continue
+                if r.get("ok"):
                     meta = json.loads((Path(tmp) / "out" / "items" / f"{r['id']}.json").read_text())
-                    tg.video(job["chat"], Path(tmp) / "out" / "items" / meta["path"],
-                             caption=f"🎬 {char.name}\n{(job.get('motion') or '')[:300]}",
-                             reply_to=job["message_id"])
+                    tg.video(r["chat"], Path(tmp) / "out" / "items" / meta["path"],
+                             caption=f"🎬 {char.name}\n{(r.get('motion') or '')[:300]}", reply_to=r["message_id"])
                 else:
-                    reason = (r or {}).get("reason") or (status or {}).get("error") or "the video job failed"
-                    tg.text(job["chat"], f"❌ Video failed: {str(reason)[:300]}", reply_to=job["message_id"])
-        v["running"] = []
-        changed = True
-    if v["queue"] and not v["running"]:
+                    tg.text(r["chat"], f"❌ Video failed: {str(r.get('reason'))[:300]}", reply_to=r["message_id"])
+                v["done"].append(r["request"])
+                changed = True
+        if v["running"]:
+            v["running"] = []
+            changed = True
+    if v["queue"]:
         batch = v["queue"][: int(config.env("PERSONA_VIDEO_BATCH", "3"))]
         jobs = []
         with tempfile.TemporaryDirectory() as tmp:
             for q in batch:
                 img = tg.download(q["file_id"], Path(tmp) / f"{q['id']}.jpg")
                 jobs.append({"id": q["id"], "image_b64": base64.b64encode(img.read_bytes()).decode(),
-                             "motion": q.get("motion", ""), "tags": q.get("tags", [])})
+                             "motion": q.get("motion", ""), "tags": q.get("tags", []),
+                             "chat": q["chat"], "message_id": q["message_id"]})
         kaggle.push_videos(char, jobs)
         v["running"] = batch
         v["queue"] = v["queue"][len(batch):]
         changed = True
+    v["done"] = v["done"][-200:]
     _save_videos(char, v)
     return changed
 

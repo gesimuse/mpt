@@ -106,14 +106,17 @@ def main():
                 try:
                     vid = studio.animate(char, photo, job.get("motion") or None)
                 except Exception as e:
-                    results.append({"request": job["id"], "ok": False, "reason": f"{type(e).__name__}: {e}"[:300]})
+                    results.append({"request": job["id"], "ok": False, "reason": f"{type(e).__name__}: {e}"[:300],
+                                    "chat": job.get("chat"), "message_id": job.get("message_id")})
                     log(f"video {job['id']} failed: {e}")
                     continue
                 dest = out / Path(vid["path"]).name
                 shutil.copyfile(vid["path"], dest)
                 vid.update({"path": dest.name, "request": job["id"]})
                 (out / f"{vid['id']}.json").write_text(json.dumps(vid, ensure_ascii=False))
-                results.append({"request": job["id"], "id": vid["id"], "ok": True, "kind": "video"})
+                results.append({"request": job["id"], "id": vid["id"], "ok": True, "kind": "video",
+                                "chat": job.get("chat"), "message_id": job.get("message_id"),
+                                "motion": job.get("motion", "")})
                 log(f"video {vid['id']} for request {job['id']}")
             write_status("done", True, {"items": results, "mode": "video",
                                         "requests": [j["id"] for j in payload["jobs"]]})
