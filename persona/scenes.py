@@ -106,7 +106,8 @@ Recent scenes -- do NOT repeat these settings or outfits:
 Return ONLY a JSON array of {n} objects with these keys:
 "setting" (where, specific), "outfit" (always with colours and materials, e.g. "emerald satin
 mini dress", "white string bikini" -- vary the colours), "action" (what she is doing, pose,
-with her hands somewhere simple and visible: on her hip, in her hair, holding a drink),
+her hands doing ONE simple thing: on her hip, in her hair, holding one drink; never several
+objects at once; her body facing roughly toward the camera, no twisting),
 "shot" (camera framing), "light", "mood", "motion" (one sentence: how she moves in a
 5-second video of this photo), "caption" (first-person social caption, max 20 words,
 1-2 emojis, no hashtags), "beat" (one past-tense sentence for her storyline),
@@ -139,26 +140,26 @@ FACE_SHEET = [
 # Head angle and expression, rotated across a batch so at most a few look straight
 # into the lens. Without this every image copied the refs: front-facing, same
 # closed-mouth smile. Each maps to the FACE_SHEET portrait used as its reference.
+# Expression and a MILD head angle only -- no body twists and no hand actions.
+# The first version had "looking back over her shoulder" (heads turned almost
+# backwards), "looking down at her phone" and "blowing a kiss" (an extra hand
+# appeared whenever the scene already had her holding something).
 GAZES = [
-    ("head turned in profile, looking off to the side, lips slightly parted", "profile-left"),
-    ("looking back over her shoulder at the camera, playful half-smile", "over-shoulder"),
-    ("looking down at her phone, absorbed, soft smile", "looking-down"),
-    ("laughing with her eyes closed, head tilted back", "laughing"),
-    ("three-quarter view, gazing out of frame, dreamy expression", "three-quarter-right"),
-    ("looking up and to the side, biting her lower lip", "looking-up"),
-    ("eyes down, shy smile, hair falling across her face", "shy"),
-    ("looking straight into the camera, sultry and confident, no smile", "sultry"),
-    ("big genuine smile at the camera, teeth showing", "big-smile"),
-    ("blowing a kiss toward the camera", "kiss"),
-    ("head turned in profile to the other side, calm expression", "profile-right"),
-    ("three-quarter view toward the camera, soft smile", "three-quarter-left"),
+    ("soft smile, head tilted slightly", "three-quarter-left"),
+    ("dreamy expression, eyes looking slightly past the camera", "three-quarter-right"),
+    ("laughing naturally, eyes almost closed", "laughing"),
+    ("big genuine smile at the camera", "big-smile"),
+    ("sultry and confident, no smile, lips slightly parted, looking into the camera", "sultry"),
+    ("shy smile, eyes lowered", "shy"),
+    ("calm, eyes looking down, gentle smile", "looking-down"),
+    ("playful, biting her lower lip, eyes slightly up", "looking-up"),
 ]
 
 
 def assign_gazes(scenes):
     start = random.randrange(len(GAZES))
     for i, sc in enumerate(scenes):
-        sc["gaze"], sc["sheet"] = GAZES[(start + i * 5) % len(GAZES)]
+        sc["gaze"], sc["sheet"] = GAZES[(start + i * 3) % len(GAZES)]
     return scenes
 
 

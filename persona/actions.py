@@ -230,11 +230,52 @@ def render(slug):
             log(f"no previous output to read votes against ({e})")
             items = {}
         log(f"votes applied: {collect_votes(char, items)}")
-    n = int(config.env("PERSONA_CLOUD_IMAGES", "8"))
+    n = int(config.env("PERSONA_CLOUD_IMAGES", "10"))
     v = int(config.env("PERSONA_CLOUD_VIDEOS", "0"))
     scene_list = scenes.write(char, lane="social", n=n)
     log(kaggle.sync(char))
     kaggle.push(char, scene_list, videos=v, date=today())
+
+
+QA_PROMPT = """You check an AI-generated photo of one woman for visible defects before it is posted.
+Reject it only for clear problems: extra or missing arms, hands or fingers; a hand fused with an
+object or holding too many things; melted, twisted or impossible limbs; a head turned unnaturally
+far relative to the body; a distorted or doubled face; the same woman appearing twice.
+Ignore style, pose choice and minor imperfections.
+Reply with ONLY JSON: {"ok": true or false, "problem": "short reason or empty"}"""
+
+
+def qa_check(path):
+    """GitHub Models vision (free in Actions). Returns (ok, reason). Fails open: if
+    the check cannot run, the photo is posted, and the log says so."""
+    import base64, io, re
+    import requests
+    token = config.env("GITHUB_MODELS_TOKEN")
+    if not token or not config.flag("PERSONA_QA", "1"):
+        return True, "qa off"
+    try:
+        from PIL import Image
+        img = Image.open(path).convert("RGB")
+        img.thumbnail((768, 768))
+        buf = io.BytesIO()
+        img.save(buf, "JPEG", quality=85)
+        data = base64.b64encode(buf.getvalue()).decode()
+    except Exception:
+        data = base64.b64encode(Path(path).read_bytes()).decode()
+    try:
+        r = requests.post("https://models.github.ai/inference/chat/completions", timeout=120,
+                          headers={"Authorization": f"Bearer {token}"},
+                          json={"model": config.env("PERSONA_QA_MODEL", "openai/gpt-4.1"), "max_tokens": 120,
+                                "messages": [{"role": "user", "content": [
+                                    {"type": "text", "text": QA_PROMPT},
+                                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{data}"}}]}]})
+        r.raise_for_status()
+        text = r.json()["choices"][0]["message"]["content"]
+        verdict = json.loads(re.search(r"\{.*\}", text, re.S).group(0))
+        return bool(verdict.get("ok", True)), verdict.get("problem", "")
+    except Exception as e:
+        log(f"QA could not run ({type(e).__name__}: {str(e)[:150]}); posting unchecked")
+        return True, "qa failed"
 
 
 def _caption(char, item):
@@ -287,6 +328,13 @@ def post(slug, k, n_slots):
             if item_id in state["ids"] or item_id not in items:
                 continue
             item = items[item_id]
+            if item.get("kind") != "video":
+                ok, why = qa_check(item["path"])
+                if not ok:
+                    log(f"QA rejected {item_id}: {why}")
+                    state["ids"].append(item_id)
+                    state.setdefault("rejected", []).append({"id": item_id, "why": why})
+                    continue
             try:
                 if item.get("kind") == "video":
                     tg.video(chat, item["path"], caption=_caption(char, item), buttons=_buttons(item))
@@ -335,6 +383,14 @@ def main():
     cmd, slug = sys.argv[1], sys.argv[2]
     if cmd == "render":
         render(slug)
+    elif cmd == "qa":
+        # Dry run of the photo check on the latest render, verdicts to the log only.
+        char = fetch(slug)
+        with tempfile.TemporaryDirectory() as tmp:
+            _, items = _output_items(char, tmp)
+            for item_id, item in sorted(items.items()):
+                if item.get("kind") != "video" and item.get("path"):
+                    log(f"QA {item_id}: {qa_check(item['path'])}")
     elif cmd == "votes":
         votes(slug)
     elif cmd == "post":
