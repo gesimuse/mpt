@@ -184,7 +184,7 @@ class Studio:
         model = self.model("video", lane=item.get("lane", "social"))
         motion = (motion or item.get("scene", {}).get("motion") or
                   "she moves naturally and looks into the camera, hair and clothes moving slightly")
-        prompt = _timeline(motion)
+        prompt = calm_prompt(motion)
         vid = char.new_item(kind="video", lane=item.get("lane", "social"), model=model["id"], parent=item["id"],
                             prompt=prompt, tags=item.get("tags", []), caption=item.get("caption", ""),
                             scene=item.get("scene", {}), commercial=bool(model.get("commercial")))
@@ -204,6 +204,17 @@ TIMELINE_BEATS = [
     "slow and smooth, minimal motion, relaxed",
     "she holds the pose calmly, almost still, slow camera push-in",
 ]
+
+
+def calm_prompt(motion):
+    """One plain sentence. Tested 2026-10-07 on the same photo and seed: Wan2GP's
+    per-second "(at N seconds: ...)" timeline made her lunge at the camera with a
+    push-in and flying hair (mean frame difference 7.8); the same motion as one
+    sentence stayed natural (4.4). A timeline typed by hand is still passed through."""
+    motion = motion.strip().rstrip(".")
+    if motion.startswith("(at "):
+        return motion
+    return f"{motion}, slow subtle natural movement, realistic, camera static"
 
 
 def slow_down(path):

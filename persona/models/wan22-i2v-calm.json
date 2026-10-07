@@ -1,0 +1,15 @@
+{
+  "id": "wan22-i2v-calm",
+  "name": "Wan 2.2 I2V 14B + Lightning 4-step (calm)",
+  "hf": "Wan-AI/Wan2.2-I2V-A14B",
+  "kind": "video",
+  "roles": ["video"],
+  "lanes": ["social", "fanvue"],
+  "license": "apache-2.0",
+  "commercial": true,
+  "kaggle_ok": true,
+  "wan2gp_model_type": "i2v_2_2",
+  "profile": "profiles/wan_2_2/Lightning i2v v2025-10-14 2 Phases - 4 Steps.json",
+  "settings": {"video_length": 81, "resolution": "480x832", "image_prompt_type": "S"},
+  "notes": "Standard Wan 2.2 with the official Lightning accelerator. Its known slow-motion effect gives calm, natural movement, the opposite of Enhanced Lightning v2's exaggerated motion."
+}
