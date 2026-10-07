@@ -237,45 +237,68 @@ def render(slug):
     kaggle.push(char, scene_list, videos=v, date=today())
 
 
-QA_PROMPT = """You check an AI-generated photo of one woman for visible defects before it is posted.
-Reject it only for clear problems: extra or missing arms, hands or fingers; a hand fused with an
-object or holding too many things; melted, twisted or impossible limbs; a head turned unnaturally
-far relative to the body; a distorted or doubled face; the same woman appearing twice.
-Ignore style, pose choice and minor imperfections.
-Reply with ONLY JSON: {"ok": true or false, "problem": "short reason or empty"}"""
+QA_PROMPT = ('Look carefully at the woman in this photo and answer with ONLY JSON:\n'
+             '{"hands_visible": <number of her hands you can see>, "arms_visible": <number of her arms>, '
+             '"objects_in_one_hand": <max number of separate objects held in a single hand>, '
+             '"head_turned_unnaturally": <true if her face points more than ~100 degrees away from where '
+             'her chest faces>, "limb_defect": <true if any arm, leg, hand or finger is fused, melted, '
+             'duplicated or impossible>}')
+
+
+def _qa_verdict(v):
+    """Counting questions, judged here: tested 2026-10-07, a yes/no 'any defects?'
+    flipped between runs on the same photo, while counts were stable and caught
+    the phone-and-book-in-one-hand photo."""
+    problems = []
+    if int(v.get("hands_visible") or 0) > 2:
+        problems.append(f"{v['hands_visible']} hands")
+    if int(v.get("arms_visible") or 0) > 2:
+        problems.append(f"{v['arms_visible']} arms")
+    if int(v.get("objects_in_one_hand") or 0) > 1:
+        problems.append("one hand holding several things")
+    if v.get("head_turned_unnaturally"):
+        problems.append("head turned unnaturally")
+    if v.get("limb_defect"):
+        problems.append("limb defect")
+    return not problems, ", ".join(problems)
 
 
 def qa_check(path):
-    """GitHub Models vision (free in Actions). Returns (ok, reason). Fails open: if
-    the check cannot run, the photo is posted, and the log says so."""
+    """Qwen2.5-VL-72B through Hugging Face's router (HF_TOKEN/HF_TOKENS, rotating on
+    an out-of-credit 402). Returns (ok, reason). Fails open: when no backend
+    answers (credits used up, GitHub Models answering a bare "OK"), the photo is
+    posted and the log says so."""
     import base64, io, re
     import requests
-    token = config.env("GITHUB_MODELS_TOKEN")
-    if not token or not config.flag("PERSONA_QA", "1"):
+    if not config.flag("PERSONA_QA", "1"):
         return True, "qa off"
     try:
         from PIL import Image
         img = Image.open(path).convert("RGB")
-        img.thumbnail((768, 768))
+        img.thumbnail((896, 896))
         buf = io.BytesIO()
-        img.save(buf, "JPEG", quality=85)
+        img.save(buf, "JPEG", quality=88)
         data = base64.b64encode(buf.getvalue()).decode()
     except Exception:
         data = base64.b64encode(Path(path).read_bytes()).decode()
-    try:
-        r = requests.post("https://models.github.ai/inference/chat/completions", timeout=120,
-                          headers={"Authorization": f"Bearer {token}"},
-                          json={"model": config.env("PERSONA_QA_MODEL", "openai/gpt-4.1"), "max_tokens": 120,
-                                "messages": [{"role": "user", "content": [
-                                    {"type": "text", "text": QA_PROMPT},
-                                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{data}"}}]}]})
-        r.raise_for_status()
-        text = r.json()["choices"][0]["message"]["content"]
-        verdict = json.loads(re.search(r"\{.*\}", text, re.S).group(0))
-        return bool(verdict.get("ok", True)), verdict.get("problem", "")
-    except Exception as e:
-        log(f"QA could not run ({type(e).__name__}: {str(e)[:150]}); posting unchecked")
-        return True, "qa failed"
+    body = {"model": config.env("PERSONA_QA_MODEL", "Qwen/Qwen2.5-VL-72B-Instruct:fastest"), "max_tokens": 150,
+            "temperature": 0, "messages": [{"role": "user", "content": [
+                {"type": "text", "text": QA_PROMPT},
+                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{data}"}}]}]}
+    tokens = [t.strip() for t in (config.env("HF_TOKENS").split(",") + [config.env("HF_TOKEN")]) if t.strip()]
+    for tok in dict.fromkeys(tokens):
+        try:
+            r = requests.post("https://router.huggingface.co/v1/chat/completions", json=body, timeout=120,
+                              headers={"Authorization": f"Bearer {tok}"})
+            if r.status_code in (401, 402, 403, 429):
+                continue
+            r.raise_for_status()
+            text = r.json()["choices"][0]["message"]["content"]
+            return _qa_verdict(json.loads(re.search(r"\{.*\}", text, re.S).group(0)))
+        except Exception as e:
+            log(f"QA error ({type(e).__name__}: {str(e)[:120]})")
+    log("QA unavailable (no HF credit left on any token); posting unchecked")
+    return True, "qa unavailable"
 
 
 def _caption(char, item):
