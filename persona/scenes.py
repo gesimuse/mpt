@@ -63,7 +63,7 @@ def _ask(prompt, lane):
     return llm.ask(prompt, max_tokens=1600, temperature=1.0)
 
 
-def _prompt(char, lane, hint, n, places=None):
+def _prompt(char, lane, hint, n, places=None, outfits=None):
     b = char.bible
     liked, disliked = char.leaning()
     story = "\n".join(f"- {s['beat']}" for s in char.story(8)) or "- (nothing yet, this is her first post)"
@@ -102,7 +102,8 @@ her face or hair; that is fixed.
 
 Recent scenes -- do NOT repeat these settings or outfits:
 {recent}
-{("Use these places, one per scene, in this order: " + "; ".join(places)) if places else ""}
+{("Use these places and outfits, one pair per scene, in this order: "
+   + "; ".join(f"{p} wearing a {o}" for p, o in zip(places, outfits or [""] * len(places)))) if places else ""}
 
 Return ONLY a JSON array of {n} objects with these keys:
 "setting" (where, specific), "outfit" (always with colours and materials, e.g. "emerald satin
@@ -258,14 +259,20 @@ PLACE_KINDS = [
 ]
 
 
-def outfit_for(place):
-    """An outfit that belongs at the place: no bikinis in a coffee shop."""
+def outfit_for(place, used=()):
+    """An outfit that belongs at the place (no bikinis in a coffee shop), and not
+    one already used in this batch: the sample batch of 2026-10-07 had the same
+    turquoise bikini and emerald dress twice."""
     low = place.lower()
+    pool = None
     for kind, words in PLACE_KINDS:
         if any(w in low for w in words):
-            return random.choice(OUTFIT_KINDS[kind])
-    taken = {o for v in OUTFIT_KINDS.values() for o in v if "swim" in o or "bikini" in o}
-    return random.choice([o for o in OUTFITS if o not in taken and o not in OUTFIT_KINDS["sport"]])
+            pool = OUTFIT_KINDS[kind]
+            break
+    if pool is None:
+        swim = set(OUTFIT_KINDS["swim"]) | set(OUTFIT_KINDS["sport"])
+        pool = [o for o in OUTFITS if o not in swim]
+    return random.choice([o for o in pool if o not in used] or pool)
 
 
 def fresh_place(char, taken=()):
@@ -282,13 +289,13 @@ SEXY_SHOTS = ["full-body shot", "three-quarter body shot from a low angle", "mir
 SEXY_MOODS = ["seductive", "playful", "confident", "sultry", "teasing smile"]
 
 
-def fallback(char, n, hint="", places=None):
+def fallback(char, n, hint="", places=None, outfits=None):
     """No LLM: a model shoot built from the idea bank, never a repeat place."""
     out, taken = [], set()
     for i in range(n):
         place = (places[i] if places and i < len(places) else None) or fresh_place(char, taken)
         taken.add(place)
-        outfit = outfit_for(place)
+        outfit = (outfits[i] if outfits and i < len(outfits) else None) or outfit_for(place)
         out.append({
             "setting": place + (f", {hint}" if hint else ""),
             "outfit": outfit, "action": random.choice(SIMPLE_ACTIONS), "shot": random.choice(SEXY_SHOTS),
@@ -303,21 +310,23 @@ def fallback(char, n, hint="", places=None):
 def write(char, lane="social", hint="", n=1, chunk=4):
     """In batches of `chunk`: an 8B model asked for eight JSON objects at once broke
     the JSON on the first cloud run. Each batch retries once before falling back."""
-    scenes, taken = [], set()
+    scenes, taken, used = [], set(), set()
     while len(scenes) < n:
         k = min(chunk, n - len(scenes))
-        places = []
+        places, outfits = [], []
         for _ in range(k):
             places.append(fresh_place(char, taken))
             taken.add(places[-1])
+            outfits.append(outfit_for(places[-1], used))
+            used.add(outfits[-1])
         got = None
         for attempt in range(2):
             try:
-                got = _parse(_ask(_prompt(char, lane, hint, k, places), lane), k)
+                got = _parse(_ask(_prompt(char, lane, hint, k, places, outfits), lane), k)
                 break
             except Exception as e:
                 log(f"LLM scene writing failed ({type(e).__name__}: {str(e)[:120]}), attempt {attempt + 1}")
-        scenes += got or fallback(char, k, hint, places)
+        scenes += got or fallback(char, k, hint, places, outfits)
     scenes = assign_gazes(scenes[:n])
     char.add_recent(scenes)
     return scenes
