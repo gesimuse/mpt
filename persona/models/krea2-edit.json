@@ -1,0 +1,24 @@
+{
+  "id": "krea2-edit",
+  "name": "Krea 2 Turbo Identity Edit v1.2",
+  "hf": "DeepBeepMeep/krea-2",
+  "kind": "image",
+  "roles": [
+    "edit",
+    "fanvue_edit"
+  ],
+  "lanes": [
+    "social",
+    "fanvue"
+  ],
+  "license": "check Krea 2 terms",
+  "commercial": false,
+  "kaggle_ok": true,
+  "max_refs": 2,
+  "wan2gp_model_type": "krea2_turbo_edit",
+  "settings": {
+    "image_mode": 1,
+    "resolution": "896x1152"
+  },
+  "notes": "Krea 2 with its identity-preserving edit LoRA, 8 steps, up to 2 references. Krea is known for photographic, less 'AI' looking output. Tested 2026-10-07 vs qwen21 on 3 scenes: more photographic and natural poses, but weaker identity (face match 0.62-0.66 vs 0.82-0.87), ~115s/image on the A4500."
+}

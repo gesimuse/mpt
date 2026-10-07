@@ -1,0 +1,25 @@
+{
+  "id": "flux2-klein-9b",
+  "name": "Flux 2 Klein 9B",
+  "hf": "black-forest-labs/FLUX.2-klein-9B",
+  "kind": "image",
+  "roles": [
+    "edit",
+    "fanvue_edit",
+    "cast"
+  ],
+  "lanes": [
+    "social",
+    "fanvue"
+  ],
+  "license": "check FLUX.2 Klein 9B terms",
+  "commercial": false,
+  "kaggle_ok": true,
+  "max_refs": 4,
+  "wan2gp_model_type": "flux2_klein_9b",
+  "settings": {
+    "image_mode": 1,
+    "resolution": "896x1152"
+  },
+  "notes": "FLUX.2 Klein 9B, step-distilled (4 steps), multi-reference editing. Not yet tested: needs ~20GB of disk (Qwen3-8B text encoder)."
+}
