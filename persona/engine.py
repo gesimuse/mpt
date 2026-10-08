@@ -154,7 +154,9 @@ class Engine:
         job = {"prompt": prompt, "image_start": str(image), "seed": seed, "batch_size": 1,
                "video_length": frames}
         settings = self.build_settings(model, **job)
-        return self.run(settings, dest_dir, stem)[0]
+        # With sliding windows Wan2GP returns an intermediate file per window before
+        # the finished video; the last one is the video.
+        return self.run(settings, dest_dir, stem)[-1]
 
     def _effective_guidance(self, model):
         """Negative prompts only do anything when guidance > 1. The 8-step

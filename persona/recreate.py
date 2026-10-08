@@ -67,38 +67,24 @@ def _stage_edit(work):
     log(f"first frame: {out}")
 
 
-SEGMENT = 5.0   # seconds; Viggle renders one 124-frame window (5.17s at 24fps)
-OVERLAP = 1.0   # seconds each segment repeats from the previous one, to crossfade over
-FADE = 0.4      # crossfade length inside the overlap; 0.75 left visible double hands mid-gesture
-
-
-def segment_starts(seconds):
-    """0, 4, 8, ...: every segment after the first starts OVERLAP seconds early, so
-    joins can be crossfaded instead of cut (a hard cut was clearly visible)."""
-    starts, t = [0.0], 0.0
-    while t + SEGMENT < seconds - 0.05:
-        t += SEGMENT - OVERLAP
-        starts.append(t)
-    return starts
-
-
-def _stage_viggle(work, n_segments):
-    """One Viggle window per segment of the clip, all with the same edited frame.
-    Wan2GP's sliding window for Viggle rendered only the first window when asked
-    for 192 frames (2026-10-08), so longer clips are split here and joined after."""
+def _stage_viggle(work, seconds):
+    """One Viggle pass over the whole clip with Wan2GP's sliding window: each 124-
+    frame window continues from the previous one, so the result is one continuous
+    video. Two things made this look broken at first (2026-10-08): the length has
+    to be given in seconds ("8.5s"), and Wan2GP returns the first window as an
+    intermediate file before the finished one -- the LAST file is the video."""
     from .engine import Engine
     eng = Engine(profile=config.env("PERSONA_RECREATE_PROFILE", "5"))
     model = {"id": "viggle", "wan2gp_model_type": "viggle_animate", "settings": {}}
     edited = next(work.glob("first-persona.*"))
-    import random
-    seed = random.randint(0, 2**31 - 1)   # the same for every segment: closer details at the joins
-    for i in range(n_segments):
-        seg = work / f"seg{i:02d}.mp4"
-        s = eng.build_settings(model, prompt="a woman, natural movement", video_guide=str(seg),
-                               image_refs=[str(edited)], resolution=config.env("PERSONA_RECREATE_RES", "608x1072"),
-                               seed=seed)
-        out = eng.run(s, work, f"out{i:02d}")[0]
-        log(f"segment {i + 1}/{n_segments}: {out}")
+    s = eng.build_settings(model, prompt="a woman, natural movement", video_guide=str(work / "clip.mp4"),
+                           image_refs=[str(edited)], resolution=config.env("PERSONA_RECREATE_RES", "608x1072"),
+                           video_length=f"{seconds:.2f}s", sliding_window_size=124, sliding_window_overlap=18,
+                           seed=-1)
+    files = eng.run(s, work, "viggle")
+    final = max(files, key=_probe)
+    final.rename(work / "joined.mp4")
+    log(f"video: {final.name} ({_probe(work / 'joined.mp4'):.1f}s)")
 
 
 def recreate(src, out_dir, seconds=None):
@@ -109,41 +95,18 @@ def recreate(src, out_dir, seconds=None):
     seconds = min(seconds, _probe(src) or seconds)
     clip = trim(src, out_dir / "clip.mp4", seconds)
     first_frame(clip, out_dir / "first.jpg")
-    starts = segment_starts(seconds)
-    n = len(starts)
-    for i, start in enumerate(starts):
-        subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", str(start), "-i", str(clip), "-t", str(SEGMENT),
-                        "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p", "-an",
-                        str(out_dir / f"seg{i:02d}.mp4")], check=True)
     t = time.time()
-    for stage, extra in (("edit", []), ("viggle", [str(n)])):
+    for stage, extra in (("edit", []), ("viggle", [f"{seconds:.3f}"])):
         r = subprocess.run([sys.executable, "-m", "persona.recreate", "--stage", stage, str(out_dir), *extra],
                            cwd=str(config.REPO))
         if r.returncode != 0:
             raise RuntimeError(f"recreate stage {stage} failed ({r.returncode})")
-    parts = sorted(out_dir.glob("out[0-9][0-9].mp4"))
     joined = out_dir / "joined.mp4"
-    if len(parts) == 1:
-        subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(parts[0]), "-map", "0:v", "-c:v", "libx264",
-                        "-crf", "18", "-pix_fmt", "yuv420p", str(joined)], check=True)
-    else:
-        # Each next part starts OVERLAP seconds before the previous one ends: fade
-        # across the last FADE seconds of that overlap, timed to the original clip.
-        inputs, chain, prev = [], [], "[0:v]"
-        for p in parts:
-            inputs += ["-i", str(p)]
-        for i in range(1, len(parts)):
-            offset = starts[i]   # part i begins at its own time in the original clip
-            label = f"[x{i}]"
-            chain.append(f"{prev}[{i}:v]xfade=transition=fade:duration={FADE}:offset={offset:.3f}{label}")
-            prev = label
-        subprocess.run(["ffmpeg", "-v", "error", "-y", *inputs, "-filter_complex", ";".join(chain), "-map", prev,
-                        "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p", str(joined)], check=True)
     out = out_dir / "recreated.mp4"
     # The original clip's audio, cut to the video's length.
     subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(joined), "-i", str(clip), "-map", "0:v", "-map", "1:a?",
                     "-c:v", "copy", "-c:a", "aac", "-shortest", str(out)], check=True)
-    log(f"done in {int(time.time() - t)}s ({len(parts)} segments): {out}")
+    log(f"done in {int(time.time() - t)}s: {out}")
     return out
 
 
@@ -155,7 +118,7 @@ def main():
         if args[1] == "edit":
             _stage_edit(work)
         else:
-            _stage_viggle(work, int(args[3]))  # number of segments
+            _stage_viggle(work, float(args[3]))  # seconds
         return
     seconds = None
     if "--seconds" in args:
