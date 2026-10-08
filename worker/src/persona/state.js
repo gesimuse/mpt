@@ -13,7 +13,8 @@ export const EMPTY = {
   render_date: "",
   voted: [],
   queue: [],          // on-demand jobs waiting: 🎬 / reply / 🔁
-  running: [],
+  running: [],        // the old single job kernel's last run
+  lanes: {},          // quick / recreate kernel -> jobs in its current run
   done: [],
   items: {},          // id -> {kind, tags, beat, scene, caption, motion}
 };

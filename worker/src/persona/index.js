@@ -291,73 +291,107 @@ async function post(env, k) {
 }
 
 // ----------------------------------------------------- on-demand Kaggle jobs
+/**
+ * Two Kaggle job kernels, so they never block each other: "quick" for 🔁 and 🎬
+ * (minutes), "recreate" for 🎭 (an hour+). Results only come back when a whole
+ * run ends, and on 2026-10-08 a bowling redo sat for hours behind a recreate in
+ * one shared run. The original single kernel ("video") is still read for
+ * results until its last run is posted.
+ */
+const LANES = {
+  quick: { kernel: (env) => `${env.KAGGLE_USERNAME}/mpt-persona-quick-${slugOf(env)}`, takes: (q) => q.kind !== "recreate", max: 3 },
+  recreate: { kernel: (env) => `${env.KAGGLE_USERNAME}/mpt-persona-recreate-${slugOf(env)}`, takes: (q) => q.kind === "recreate", max: 1 },
+};
+
+async function postResults(env, state, b, kernel) {
+  const files = await kaggle.outputs(env, kernel).catch(() => ({}));
+  const status = files["status.json"] ? await kaggle.fetchJson(files["status.json"]).catch(() => ({})) : {};
+  let changed = false;
+  for (const r of status.items || []) {
+    if (!r.request || state.done.includes(r.request) || !r.chat) continue;
+    try {
+      if (r.ok && r.kind === "image") {
+        const item = await kaggle.fetchJson(files[`out/items/${r.id}.json`]);
+        await sendMedia(env, "photo", r.chat, files[`out/items/${r.id}.jpg`],
+                        { caption: "🔁 " + caption(b.name, item), buttons: buttons(item), replyTo: r.message_id });
+        remember(state, item);
+      } else if (r.ok) {
+        const item = await kaggle.fetchJson(files[`out/items/${r.id}.json`]);
+        const cap = r.recreate ? `🎭 ${b.name} · recreated` : `🎬 ${b.name}\n${(r.motion || "").slice(0, 300)}`;
+        const btns = r.recreate ? kb([[["👍", `pv:up:${r.id}`], ["👎", `pv:dn:${r.id}`]]]) : undefined;
+        await sendMedia(env, "video", r.chat, files[`out/items/${item.path}`], { caption: cap, buttons: btns, replyTo: r.message_id });
+      } else {
+        await tg(env, "sendMessage", { chat_id: r.chat, reply_to_message_id: r.message_id,
+          text: `❌ ${r.kind === "image" ? "Redraw" : r.recreate ? "Recreate" : "Video"} failed: ${String(r.reason).slice(0, 300)}` });
+      }
+    } catch (e) {
+      console.error("job result post failed", r.request, String(e));
+      continue;
+    }
+    state.done.push(r.request);
+    changed = true;
+  }
+  return changed;
+}
+
+async function jobPayload(env, origin, batch) {
+  const jobs = [];
+  for (const q of batch) {
+    if (q.kind === "redo") {
+      jobs.push({ id: q.id, kind: "redo", scene: q.scene, chat: q.chat, message_id: q.message_id });
+    } else if (q.kind === "recreate") {
+      jobs.push({ id: q.id, kind: "recreate", url: q.url, seconds: q.seconds, chat: q.chat, message_id: q.message_id,
+                  video_url: q.file_id ? await fileLink(env, origin, q.file_id) : "" });
+    } else {
+      jobs.push({ id: q.id, image_url: await fileLink(env, origin, q.file_id), motion: q.motion || "",
+                  chat: q.chat, message_id: q.message_id });
+    }
+  }
+  return jobs;
+}
+
 async function advanceJobs(env, origin) {
   const slug = slugOf(env);
-  const s = await kaggle.status(env, jobKernel(env));
-  if (s === "RUNNING" || s === "QUEUED") return `job kernel ${s}`;
   const state = await st.load(env, slug);
   const b = (await st.bible(env, slug)) || { name: slug };
+  state.lanes = state.lanes || {};
   let changed = false;
-  if (s === "COMPLETE" || s === "ERROR") {
-    const files = await kaggle.outputs(env, jobKernel(env)).catch(() => ({}));
-    const status = files["status.json"] ? await kaggle.fetchJson(files["status.json"]) : {};
-    for (const r of status.items || []) {
-      if (!r.request || state.done.includes(r.request) || !r.chat) continue;
-      try {
-        if (r.ok && r.kind === "image") {
-          const item = await kaggle.fetchJson(files[`out/items/${r.id}.json`]);
-          await sendMedia(env, "photo", r.chat, files[`out/items/${r.id}.jpg`],
-                          { caption: "🔁 " + caption(b.name, item), buttons: buttons(item), replyTo: r.message_id });
-          remember(state, item);
-        } else if (r.ok) {
-          const item = await kaggle.fetchJson(files[`out/items/${r.id}.json`]);
-          const cap = r.recreate ? `🎭 ${b.name} · recreated` : `🎬 ${b.name}\n${(r.motion || "").slice(0, 300)}`;
-          const buttons = r.recreate ? kb([[["👍", `pv:up:${r.id}`], ["👎", `pv:dn:${r.id}`]]]) : undefined;
-          await sendMedia(env, "video", r.chat, files[`out/items/${item.path}`], { caption: cap, buttons, replyTo: r.message_id });
-        } else {
-          await tg(env, "sendMessage", { chat_id: r.chat, reply_to_message_id: r.message_id,
-            text: `❌ ${r.kind === "image" ? "Redraw" : r.recreate ? "Recreate" : "Video"} failed: ${String(r.reason).slice(0, 300)}` });
-        }
-      } catch (e) {
-        console.error("job result post failed", r.request, String(e));
-        continue;
-      }
-      state.done.push(r.request);
+  const notes = [];
+
+  // The old single kernel: post whatever its last run produced, once.
+  if ((state.running || []).length) {
+    const s = await kaggle.status(env, jobKernel(env));
+    if (s === "COMPLETE" || s === "ERROR") {
+      changed = (await postResults(env, state, b, jobKernel(env))) || changed;
+      state.running = [];
       changed = true;
-    }
-    if (state.running.length) { state.running = []; changed = true; }
+    } else notes.push(`legacy ${s}`);
   }
-  let note = "idle";
-  if (state.queue.length) {
-    // Results only come back when the whole Kaggle run ends, so a 🔁 batched with a
-    // 🎭 recreate (70+ min on the T4) waited for it: on 2026-10-08 a bowling redo sat
-    // behind a recreate. Quick jobs (🔁, 🎬) go first in their own run; a recreate
-    // runs alone, only when nothing quick is waiting.
-    const quick = state.queue.filter((q) => q.kind !== "recreate");
-    const batch = quick.length
-      ? quick.slice(0, Number(env.PERSONA_VIDEO_BATCH || 3))
-      : state.queue.filter((q) => q.kind === "recreate").slice(0, 1);
-    const jobs = [];
-    for (const q of batch) {
-      if (q.kind === "redo") {
-        jobs.push({ id: q.id, kind: "redo", scene: q.scene, chat: q.chat, message_id: q.message_id });
-      } else if (q.kind === "recreate") {
-        jobs.push({ id: q.id, kind: "recreate", url: q.url, seconds: q.seconds, chat: q.chat, message_id: q.message_id,
-                    video_url: q.file_id ? await fileLink(env, origin, q.file_id) : "" });
-      } else {
-        jobs.push({ id: q.id, image_url: await fileLink(env, origin, q.file_id), motion: q.motion || "",
-                    chat: q.chat, message_id: q.message_id });
-      }
+
+  for (const [name, lane] of Object.entries(LANES)) {
+    const kernel = lane.kernel(env);
+    const running = state.lanes[name] || [];
+    if (running.length) {
+      const s = await kaggle.status(env, kernel);
+      if (s === "RUNNING" || s === "QUEUED") { notes.push(`${name} ${s}`); continue; }
+      if (s === "COMPLETE" || s === "ERROR") {
+        changed = (await postResults(env, state, b, kernel)) || changed;
+        state.lanes[name] = [];
+        changed = true;
+      } else { notes.push(`${name} ${s}`); continue; }
     }
-    await kaggle.push(env, jobKernel(env), kaggle.bootstrap({ ...basePayload(env), mode: "video", jobs }), [dataset(env)]);
-    state.running = batch;
+    const batch = state.queue.filter(lane.takes).slice(0, lane.max);
+    if (!batch.length) continue;
+    const jobs = await jobPayload(env, origin, batch);
+    await kaggle.push(env, kernel, kaggle.bootstrap({ ...basePayload(env), mode: "video", jobs }), [dataset(env)]);
+    state.lanes[name] = batch;
     const taken = new Set(batch.map((q) => q.id));
     state.queue = state.queue.filter((q) => !taken.has(q.id));
     changed = true;
-    note = `pushed ${jobs.length} jobs`;
+    notes.push(`${name}: pushed ${jobs.length}`);
   }
   if (changed) await st.save(env, slug, state);
-  return note;
+  return notes.join("; ") || "idle";
 }
 
 // ---------------------------------------------------------------- schedule
