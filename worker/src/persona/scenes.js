@@ -16,7 +16,7 @@ function outfitFor(place, used) {
     if (words.some((w) => low.includes(w))) { pool = IDEAS.outfit_kinds[kind]; break; }
   }
   if (!pool) {
-    const excluded = new Set([...IDEAS.outfit_kinds.swim, ...IDEAS.outfit_kinds.sport]);
+    const excluded = new Set([...IDEAS.outfit_kinds.swim, ...IDEAS.outfit_kinds.sport, ...(IDEAS.outfit_kinds.snow || [])]);
     pool = IDEAS.outfits.filter((o) => !excluded.has(o));
   }
   const free = pool.filter((o) => !used.has(o));
@@ -69,7 +69,8 @@ ${recent}
 Return ONLY a JSON array of ${n} objects with these keys:
 "setting" (the place, specific), "outfit" (the given outfit, with colours), "action" (what she is
 doing, her hands doing ONE simple thing: on her hip, in her hair, holding one drink; never several
-objects; her body facing roughly toward the camera, no twisting), "shot" (camera framing), "light",
+objects; her body facing roughly toward the camera, no twisting; she is POSING for the photo at the place, never
+caught mid-action: no throwing, swinging, running or jumping), "shot" (camera framing), "light",
 "mood", "motion" (one sentence: how she moves slowly in a 5-second video), "caption" (first-person
 social caption, max 20 words, 1-2 emojis, no hashtags), "beat" (one past-tense sentence for her
 storyline), "tags" (3-5 short lowercase tags).`;

@@ -30,7 +30,8 @@ const jobKernel = (env) => `${env.KAGGLE_USERNAME}/mpt-persona-video-${slugOf(en
 const dataset = (env) => `${env.KAGGLE_USERNAME}/mpt-persona-${slugOf(env)}`;
 
 function basePayload(env) {
-  return { slug: slugOf(env), roles: ROLES, face_min: "0.45", min_age: "21" };
+  // 0.62: her scenes score 0.80-0.90; a bowling shot at 0.55 no longer looked like her.
+  return { slug: slugOf(env), roles: ROLES, face_min: env.PERSONA_FACE_MIN || "0.62", min_age: "21" };
 }
 
 // ------------------------------------------------------------------ captions

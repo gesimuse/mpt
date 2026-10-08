@@ -5,7 +5,7 @@ against the mean of her master refs) and its age estimator for the adult floor.
 Runs on CPU so it never competes with Wan2GP for VRAM.
 
 Two gates, with different failure behaviour:
-  * identity  -- soft. Below PERSONA_FACE_MIN (default 0.45) the image is dropped as
+  * identity  -- soft. Below PERSONA_FACE_MIN (default 0.62) the image is dropped as
                  off-model. If the checker cannot load, images pass with a warning.
   * age       -- hard. Any detected face estimated under PERSONA_MIN_AGE (default
                  21) is dropped, and so is an image where no face can be checked.
@@ -82,7 +82,7 @@ def reference_embedding(ref_paths):
 def check(path, ref_emb, min_sim=None):
     """Returns (ok, info). info carries similarity/age/reason for the caption."""
     min_age = float(config.env("PERSONA_MIN_AGE", "21"))
-    min_sim = float(config.env("PERSONA_FACE_MIN", "0.45")) if min_sim is None else min_sim
+    min_sim = float(config.env("PERSONA_FACE_MIN", "0.62")) if min_sim is None else min_sim
     if not enabled():
         return True, {"note": "face check off"}
     if _app() is None:

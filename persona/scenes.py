@@ -122,7 +122,8 @@ Return ONLY a JSON array of {n} objects with these keys:
 "setting" (where, specific), "outfit" (always with colours and materials, e.g. "emerald satin
 mini dress", "white string bikini" -- vary the colours), "action" (what she is doing, pose,
 her hands doing ONE simple thing: on her hip, in her hair, holding one drink; never several
-objects at once; her body facing roughly toward the camera, no twisting),
+objects at once; her body facing roughly toward the camera, no twisting; she is POSING for the photo at
+the place, never caught mid-action: no throwing, swinging, running or jumping),
 "shot" (camera framing), "light", "mood", "motion" (one sentence: how she moves in a
 5-second video of this photo), "caption" (first-person social caption, max 20 words,
 1-2 emojis, no hashtags), "beat" (one past-tense sentence for her storyline),
@@ -215,7 +216,7 @@ def outfit_for(place, used=()):
             pool = OUTFIT_KINDS[kind]
             break
     if pool is None:
-        swim = set(OUTFIT_KINDS["swim"]) | set(OUTFIT_KINDS["sport"])
+        swim = set(OUTFIT_KINDS["swim"]) | set(OUTFIT_KINDS["sport"]) | set(OUTFIT_KINDS.get("snow", []))
         pool = [o for o in OUTFITS if o not in swim]
     return random.choice([o for o in pool if o not in used] or pool)
 

@@ -176,7 +176,12 @@ class Studio:
                 good, why, counts = qa.check(path)
                 log(f"{item['id']}: anatomy check {'passed' if good else 'FAILED'} {why} {counts}")
                 if good:
-                    break
+                    # Off-model faces are redrawn too, not just dropped.
+                    face_ok, info = faceid.check(path, ref_emb)
+                    if face_ok:
+                        break
+                    good, why = False, info.get("reason", "face check")
+                    log(f"{item['id']}: face check FAILED {why}")
                 log(f"{item['id']}: anatomy check failed ({why}), attempt {attempt + 1}/{tries}")
                 path.unlink(missing_ok=True)
                 path, reason = None, f"anatomy check: {why}"

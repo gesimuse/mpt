@@ -117,7 +117,9 @@
   "sheer black blouse over a bralette",
   "orange satin wrap dress",
   "hot pink mini dress",
-  "teal swimsuit with cutouts"
+  "teal swimsuit with cutouts",
+  "white puffer jacket and matching ski pants",
+  "fitted white thermal set with fur boots"
  ],
  "times": [
   "sunrise",
@@ -158,6 +160,15 @@
   "teasing smile"
  ],
  "place_kinds": [
+  [
+   "snow",
+   [
+    "ski",
+    "snow",
+    "chalet",
+    "hot tub surrounded by snow"
+   ]
+  ],
   [
    "swim",
    [
@@ -259,8 +270,12 @@
    "cozy oversized hoodie and shorts",
    "chocolate brown ribbed knit set",
    "cherry red knit cardigan and mini skirt",
-   "ski suit in bright white",
    "plaid mini skirt and fitted turtleneck"
+  ],
+  "snow": [
+   "ski suit in bright white",
+   "white puffer jacket and matching ski pants",
+   "fitted white thermal set with fur boots"
   ]
  },
  "gazes": [

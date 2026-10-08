@@ -180,7 +180,7 @@ def push_videos(char, jobs):
 def _push(char, slug, extra, what):
     env = _env()
     payload = {"slug": char.slug, "wan2gp_commit": _wan2gp_commit(),
-               "face_min": config.env("PERSONA_FACE_MIN", "0.45"),
+               "face_min": config.env("PERSONA_FACE_MIN", "0.62"),
                "min_age": config.env("PERSONA_MIN_AGE", "21"), **extra}
     src = (config.PACKAGE / "kaggle_kernel.py").read_text()
     # Replace the assignment lines, not the first occurrence: the template's own
