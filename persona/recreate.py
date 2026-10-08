@@ -68,6 +68,18 @@ def _stage_edit(work):
 
 
 SEGMENT = 5.0   # seconds; Viggle renders one 124-frame window (5.17s at 24fps)
+OVERLAP = 1.0   # seconds each segment repeats from the previous one, to crossfade over
+FADE = 0.4      # crossfade length inside the overlap; 0.75 left visible double hands mid-gesture
+
+
+def segment_starts(seconds):
+    """0, 4, 8, ...: every segment after the first starts OVERLAP seconds early, so
+    joins can be crossfaded instead of cut (a hard cut was clearly visible)."""
+    starts, t = [0.0], 0.0
+    while t + SEGMENT < seconds - 0.05:
+        t += SEGMENT - OVERLAP
+        starts.append(t)
+    return starts
 
 
 def _stage_viggle(work, n_segments):
@@ -78,11 +90,13 @@ def _stage_viggle(work, n_segments):
     eng = Engine(profile=config.env("PERSONA_RECREATE_PROFILE", "5"))
     model = {"id": "viggle", "wan2gp_model_type": "viggle_animate", "settings": {}}
     edited = next(work.glob("first-persona.*"))
+    import random
+    seed = random.randint(0, 2**31 - 1)   # the same for every segment: closer details at the joins
     for i in range(n_segments):
         seg = work / f"seg{i:02d}.mp4"
         s = eng.build_settings(model, prompt="a woman, natural movement", video_guide=str(seg),
                                image_refs=[str(edited)], resolution=config.env("PERSONA_RECREATE_RES", "608x1072"),
-                               seed=-1)
+                               seed=seed)
         out = eng.run(s, work, f"out{i:02d}")[0]
         log(f"segment {i + 1}/{n_segments}: {out}")
 
@@ -95,9 +109,10 @@ def recreate(src, out_dir, seconds=None):
     seconds = min(seconds, _probe(src) or seconds)
     clip = trim(src, out_dir / "clip.mp4", seconds)
     first_frame(clip, out_dir / "first.jpg")
-    n = max(1, int(-(-seconds // SEGMENT)))
-    for i in range(n):
-        subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", str(i * SEGMENT), "-i", str(clip), "-t", str(SEGMENT),
+    starts = segment_starts(seconds)
+    n = len(starts)
+    for i, start in enumerate(starts):
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", str(start), "-i", str(clip), "-t", str(SEGMENT),
                         "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p", "-an",
                         str(out_dir / f"seg{i:02d}.mp4")], check=True)
     t = time.time()
@@ -107,10 +122,23 @@ def recreate(src, out_dir, seconds=None):
         if r.returncode != 0:
             raise RuntimeError(f"recreate stage {stage} failed ({r.returncode})")
     parts = sorted(out_dir.glob("out[0-9][0-9].mp4"))
-    (out_dir / "parts.txt").write_text("".join(f"file '{p.name}'\n" for p in parts))
     joined = out_dir / "joined.mp4"
-    subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "concat", "-safe", "0", "-i", str(out_dir / "parts.txt"),
-                    "-map", "0:v", "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p", str(joined)], check=True)
+    if len(parts) == 1:
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(parts[0]), "-map", "0:v", "-c:v", "libx264",
+                        "-crf", "18", "-pix_fmt", "yuv420p", str(joined)], check=True)
+    else:
+        # Each next part starts OVERLAP seconds before the previous one ends: fade
+        # across the last FADE seconds of that overlap, timed to the original clip.
+        inputs, chain, prev = [], [], "[0:v]"
+        for p in parts:
+            inputs += ["-i", str(p)]
+        for i in range(1, len(parts)):
+            offset = starts[i]   # part i begins at its own time in the original clip
+            label = f"[x{i}]"
+            chain.append(f"{prev}[{i}:v]xfade=transition=fade:duration={FADE}:offset={offset:.3f}{label}")
+            prev = label
+        subprocess.run(["ffmpeg", "-v", "error", "-y", *inputs, "-filter_complex", ";".join(chain), "-map", prev,
+                        "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p", str(joined)], check=True)
     out = out_dir / "recreated.mp4"
     # The original clip's audio, cut to the video's length.
     subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(joined), "-i", str(clip), "-map", "0:v", "-map", "1:a?",
