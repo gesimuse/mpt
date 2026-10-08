@@ -20,6 +20,19 @@ from . import config
 if str(config.REPO) not in sys.path:
     sys.path.insert(0, str(config.REPO))
 
+# The idea bank lives in persona/ideas.json, shared with the Cloudflare Worker
+# (worker/src/persona/scenes.js), so the laptop and the cloud draw from one list.
+# Every batch is seeded from it, so scenes stay new even when no capable LLM is
+# reachable (GitHub Models answering "OK", HF credits used up -- both happened on
+# 2026-10-07 and every cloud scene fell back to her 7 bible places).
+_IDEAS = json.loads((config.PACKAGE / "ideas.json").read_text())
+PLACES = _IDEAS["places"]
+OUTFITS = _IDEAS["outfits"]
+TIMES = _IDEAS["times"]
+SIMPLE_ACTIONS = _IDEAS["simple_actions"]
+OUTFIT_KINDS = _IDEAS["outfit_kinds"]
+PLACE_KINDS = [(k, tuple(w)) for k, w in _IDEAS["place_kinds"]]
+
 SHOTS = ["candid smartphone photo", "mirror selfie", "close-up portrait", "half-body shot",
          "full-body shot", "over-the-shoulder candid", "wide shot with her small in the frame"]
 MOODS = ["laughing", "relaxed", "confident", "dreamy", "playful", "focused", "flirty smile"]
@@ -146,16 +159,7 @@ FACE_SHEET = [
 # The first version had "looking back over her shoulder" (heads turned almost
 # backwards), "looking down at her phone" and "blowing a kiss" (an extra hand
 # appeared whenever the scene already had her holding something).
-GAZES = [
-    ("soft smile, head tilted slightly", "three-quarter-left"),
-    ("dreamy expression, eyes looking slightly past the camera", "three-quarter-right"),
-    ("laughing naturally, eyes almost closed", "laughing"),
-    ("big genuine smile at the camera", "big-smile"),
-    ("sultry and confident, no smile, lips slightly parted, looking into the camera", "sultry"),
-    ("shy smile, eyes lowered", "shy"),
-    ("calm, eyes looking down, gentle smile", "looking-down"),
-    ("playful, biting her lower lip, eyes slightly up", "looking-up"),
-]
+GAZES = [tuple(g) for g in _IDEAS["gazes"]]
 
 
 def assign_gazes(scenes):
@@ -198,65 +202,6 @@ def _parse(text, n):
 # both happened on 2026-10-07 and every cloud scene fell back to her 7 bible
 # places, the "always the same pics" complaint). Each scene gets a place she has
 # not been to recently; the LLM, when present, writes around it.
-PLACES = [
-    "a rooftop pool in Dubai at sunset", "a white-sand beach in Tulum", "a yacht deck off the Amalfi coast",
-    "a luxury hotel suite with floor-to-ceiling windows", "a marble bathroom with a freestanding tub",
-    "a neon-lit Tokyo street at night", "a Parisian balcony overlooking rooftops", "a vineyard in Tuscany at golden hour",
-    "a ski chalet with a fireplace", "an outdoor hot tub surrounded by snow", "a desert road in Joshua Tree",
-    "a sunflower field", "a lavender field in Provence", "a rooftop bar in Manhattan", "a jazz club with red lights",
-    "a casino in Monaco", "a private jet cabin", "a vintage convertible on a coastal road", "a Santorini terrace",
-    "a Bali villa with an infinity pool", "a tropical waterfall pool", "a boho cafe with plants", "a bookstore loft",
-    "an art gallery with white walls", "a recording studio", "a pilates studio", "a boxing gym",
-    "a yoga deck by the ocean", "a tennis court", "a golf course at sunrise", "a horse ranch at sunset",
-    "a cherry blossom park in Kyoto", "an autumn forest path with orange leaves", "a rainy city street with umbrellas",
-    "a Christmas market at night", "a cozy cabin in the mountains", "a kitchen baking cookies",
-    "a bedroom with silk sheets and morning light", "a walk-in closet full of clothes", "a vanity mirror with bulbs",
-    "a laundromat at night", "a retro diner booth", "a rooftop picnic", "a hammock on the beach",
-    "a sailboat at sea", "a speedboat", "a beach bonfire at dusk", "a music festival at sunset", "a karaoke bar",
-    "a fashion week street", "a luxury car showroom", "a spa with candles", "a sauna", "a greenhouse with tropical plants",
-    "a flower market", "a farmers market", "a train window seat", "an airport lounge", "a hotel elevator mirror",
-    "a penthouse terrace at night", "a city skyline viewpoint", "a Greek island harbor", "a Moroccan riad courtyard",
-    "a Mexican hacienda", "an ice rink", "a bowling alley", "an arcade", "a cinema seat", "a rooftop at blue hour",
-    "a lake dock at sunrise", "a mountain viewpoint", "a beach club daybed", "a poolside cabana", "a wine cellar",
-    "a sushi bar counter", "a pizza place in Naples", "a coffee shop window seat", "a rainy window with city lights",
-]
-OUTFITS = [
-    "red string bikini", "black one-piece swimsuit with a high cut", "white crochet bikini", "leopard print bikini",
-    "emerald satin mini dress", "black bodycon mini dress", "red slip dress", "silver sequin party dress",
-    "baby blue sundress", "white linen shirt dress", "pink matching gym set", "black sports bra and leggings",
-    "olive green yoga set", "cropped white tank and low-rise jeans", "oversized boyfriend shirt", "cream knit sweater dress",
-    "black leather mini skirt and white crop top", "denim shorts and a tied plaid shirt", "lilac satin pajama set",
-    "black lace bralette under a blazer", "white tennis skirt and polo", "burgundy velvet off-shoulder top",
-    "beige trench coat over a slip dress", "cozy oversized hoodie and shorts", "pastel yellow bikini with a sarong",
-    "gold metallic mini dress", "chocolate brown ribbed knit set", "navy striped sailor top and white shorts",
-    "cherry red knit cardigan and mini skirt", "black halter jumpsuit", "white corset top and flared jeans",
-    "turquoise bikini and sun hat", "ski suit in bright white", "plaid mini skirt and fitted turtleneck",
-    "sheer black blouse over a bralette", "orange satin wrap dress", "hot pink mini dress", "teal swimsuit with cutouts",
-]
-TIMES = ["sunrise", "morning light", "midday sun", "golden hour", "blue hour", "night, warm lamps",
-         "neon night lights", "overcast soft light", "candlelight"]
-SIMPLE_ACTIONS = ["one hand on her hip", "one hand in her hair", "holding one drink", "leaning on a railing",
-                  "sitting with legs crossed", "lying on her side propped on an elbow", "walking toward the camera",
-                  "sitting on the edge, hands beside her", "stretching her arms above her head",
-                  "adjusting her sunglasses", "hands resting on her knees"]
-
-
-OUTFIT_KINDS = {
-    "swim": [o for o in OUTFITS if any(w in o for w in ("bikini", "swimsuit"))],
-    "sport": [o for o in OUTFITS if any(w in o for w in ("gym", "sports bra", "yoga", "tennis"))],
-    "night": [o for o in OUTFITS if any(w in o for w in ("mini dress", "slip dress", "sequin", "jumpsuit", "leather",
-                                                           "velvet", "wrap dress", "corset", "sheer", "satin"))],
-    "cozy": [o for o in OUTFITS if any(w in o for w in ("knit", "sweater", "hoodie", "pajama", "boyfriend", "cardigan",
-                                                          "turtleneck", "ski suit"))],
-}
-PLACE_KINDS = [
-    ("swim", ("pool", "beach", "yacht", "sailboat", "speedboat", "hot tub", "waterfall", "cabana", "daybed",
-              "hammock", "lake dock", "tub", "sauna")),
-    ("sport", ("gym", "pilates", "yoga", "tennis", "golf", "boxing", "ice rink")),
-    ("night", ("night", "bar", "club", "casino", "karaoke", "festival", "penthouse", "neon", "blue hour")),
-    ("cozy", ("chalet", "cabin", "fireplace", "bedroom", "kitchen", "laundromat", "rainy", "snow", "christmas",
-              "cinema", "closet", "pajama")),
-]
 
 
 def outfit_for(place, used=()):
@@ -284,9 +229,8 @@ def fresh_place(char, taken=()):
 POSES = ["looking back over her shoulder", "hip popped, one hand on her waist", "lying on her side, propped on an elbow",
          "sitting on the edge, legs crossed", "walking toward the camera", "arching her back, hands in her hair",
          "leaning against the wall, one knee bent", "mirror selfie, phone in hand, hip popped"]
-SEXY_SHOTS = ["full-body shot", "three-quarter body shot from a low angle", "mirror selfie", "half-body close shot",
-              "over-the-shoulder shot"]
-SEXY_MOODS = ["seductive", "playful", "confident", "sultry", "teasing smile"]
+SEXY_SHOTS = _IDEAS["shots"]
+SEXY_MOODS = _IDEAS["moods"]
 
 
 def fallback(char, n, hint="", places=None, outfits=None):

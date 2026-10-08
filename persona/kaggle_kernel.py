@@ -53,8 +53,18 @@ def main():
 
         stage = "unpack"
         CODE.mkdir(parents=True, exist_ok=True)
-        with tarfile.open(fileobj=io.BytesIO(base64.b64decode(PACKAGE_B64)), mode="r:gz") as tar:
-            tar.extractall(CODE)
+        if PACKAGE_B64.startswith("__"):
+            # Pushed by the Cloudflare Worker: no bundled code, take persona/ from the
+            # public repo at the commit the Worker names (or main).
+            repo = Path("/kaggle/tmp/mpt-repo")
+            subprocess.run(["git", "clone", "-q", "https://github.com/gesimuse/mpt", str(repo)], check=True)
+            if payload.get("repo_ref"):
+                subprocess.run(["git", "checkout", "-q", payload["repo_ref"]], cwd=repo, check=True)
+            shutil.copytree(repo / "persona", CODE / "persona")
+            shutil.copyfile(repo / "llm.py", CODE / "llm.py")
+        else:
+            with tarfile.open(fileobj=io.BytesIO(base64.b64decode(PACKAGE_B64)), mode="r:gz") as tar:
+                tar.extractall(CODE)
         # The mount path has changed between Kaggle images (/kaggle/input/<slug> vs
         # deeper owner/slug layouts), so find her bible wherever it landed.
         found = sorted(Path("/kaggle/input").rglob("bible.json"))
@@ -132,7 +142,14 @@ def main():
                         log(f"redo {item['id']} for request {job['id']}: {'ok' if item.get('ok') else item.get('reason')}")
                     continue
                 src = inp / f"{job['id']}.jpg"
-                src.write_bytes(base64.b64decode(job["image_b64"]))
+                if job.get("image_url"):
+                    # A signed, short-lived link served by the Worker, which fetches the
+                    # photo from Telegram itself -- the bot token never comes here.
+                    import urllib.request
+                    with urllib.request.urlopen(job["image_url"], timeout=120) as r:
+                        src.write_bytes(r.read())
+                else:
+                    src.write_bytes(base64.b64decode(job["image_b64"]))
                 photo = char.new_item(kind="image", lane="social", path=str(src), model="telegram",
                                       scene={"motion": job.get("motion") or ""}, tags=job.get("tags", []))
                 try:
