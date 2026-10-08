@@ -378,6 +378,12 @@ async function advanceJobs(env, origin) {
         changed = (await postResults(env, state, b, kernel)) || changed;
         state.lanes[name] = [];
         changed = true;
+      } else if (s.includes("No runs found")) {
+        // Saved but never started (no GPU quota free at push time): put the jobs
+        // back and push again below, instead of waiting on a run that won't come.
+        state.queue = [...running, ...state.queue];
+        state.lanes[name] = [];
+        changed = true;
       } else { notes.push(`${name} ${s}`); continue; }
     }
     const batch = state.queue.filter(lane.takes).slice(0, lane.max);
