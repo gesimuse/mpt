@@ -127,7 +127,42 @@ def main():
             # the payload, straight from Telegram.
             inp = WORK / "in"
             inp.mkdir(exist_ok=True)
-            for job in payload["jobs"]:
+            # 🎭 recreate jobs first, each in its own process (persona/recreate.py runs
+            # its two models in separate processes): this process has not loaded any
+            # model yet, so its RAM is still free for them.
+            jobs = sorted(payload["jobs"], key=lambda j: j.get("kind") != "recreate")
+            for job in [j for j in jobs if j.get("kind") == "recreate"]:
+                try:
+                    src = inp / f"{job['id']}.mp4"
+                    if job.get("video_url"):
+                        import urllib.request
+                        with urllib.request.urlopen(job["video_url"], timeout=300) as r:
+                            src.write_bytes(r.read())
+                    else:
+                        subprocess.run([sys.executable, "-m", "pip", "install", "-q", "yt-dlp"], check=True)
+                        subprocess.run([sys.executable, "-m", "yt_dlp", "-q", "--no-warnings", "-f", "mp4/best",
+                                        "-o", str(src), job["url"]], check=True)
+                    work = WORK / "recreate" / job["id"]
+                    cmd = [sys.executable, "-m", "persona.recreate", str(src), str(work)]
+                    if job.get("seconds"):
+                        cmd += ["--seconds", str(job["seconds"])]
+                    subprocess.run(cmd, cwd=str(CODE), check=True)
+                    made = next(work.glob("recreated.*"))
+                    vid = char.new_item(kind="video", lane="social", model="viggle_animate", recreate=True,
+                                        source=job.get("url", ""))
+                    dest = out / f"{vid['id']}{made.suffix}"
+                    shutil.copyfile(made, dest)
+                    vid = char.update_item(vid["id"], path=dest.name, request=job["id"])
+                    (out / f"{vid['id']}.json").write_text(json.dumps(vid, ensure_ascii=False))
+                    results.append({"request": job["id"], "id": vid["id"], "ok": True, "kind": "video",
+                                    "recreate": True, "chat": job.get("chat"), "message_id": job.get("message_id")})
+                    log(f"recreate {vid['id']} for request {job['id']}")
+                except Exception as e:
+                    results.append({"request": job["id"], "ok": False, "kind": "video", "recreate": True,
+                                    "reason": f"{type(e).__name__}: {e}"[:300],
+                                    "chat": job.get("chat"), "message_id": job.get("message_id")})
+                    log(f"recreate {job['id']} failed: {e}")
+            for job in [j for j in jobs if j.get("kind") != "recreate"]:
                 if job.get("kind") == "redo":
                     # 🔁: the same scene, a new seed, the same anatomy check.
                     for item in studio.render(char, lane="social", scene_list=[job["scene"]]):

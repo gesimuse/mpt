@@ -41,6 +41,7 @@ PERSONA_CHAT_ID = "-1004314616972"
 PERSONA_SLUG = "lena"
 KAGGLE_USERNAME = "antonzaharia"
 PERSONA_CLOUD_IMAGES = "10"
+PERSONA_RECREATE_MAX = "10"
 # 1 = collect the bot's taps by polling every 15 min (no webhook yet). Set to 0 once
 # the bot's webhook points at /persona.
 PERSONA_POLL = "1"

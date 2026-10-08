@@ -2,7 +2,8 @@
  * Persona studio, run entirely from this Worker. Kaggle does the GPU work (images,
  * videos, the anatomy check); GitHub only holds the code (Kaggle jobs clone it).
  *
- *   POST /persona               the persona bot's webhook: 👍 👎 🎬 🔁 and replies
+ *   POST /persona               the persona bot's webhook: 👍 👎 🎬 🔁, replies, and 🎭
+ *                               (a TikTok link or a video posted in the channel)
  *   GET  /persona/file          signed, short-lived photo links for Kaggle video jobs
  *   POST /persona/admin/*       the laptop uploads her bible / migrates state
  *   scheduled() every 15 min    02:30-03:15 UTC render, 06/09/12/15/18 post slots,
@@ -120,6 +121,27 @@ async function onTap(env, cq, state, origin) {
   return answer(env, cq.id, "");
 }
 
+const TIKTOK = /https?:\/\/(?:www\.|vm\.|vt\.|m\.)?tiktok\.com\/\S+/i;
+
+/**
+ * 🎭 A TikTok link, or a video uploaded into the channel: recreate that clip with
+ * her (persona/recreate.py). "8s" or "first 8" in the text sets the length.
+ */
+async function onRecreateRequest(env, post, state) {
+  const text = post.text || post.caption || "";
+  const link = (TIKTOK.exec(text) || [])[0];
+  const video = post.video || (post.document?.mime_type?.startsWith("video/") ? post.document : null);
+  if (!link && !video) return false;
+  const secs = /(?:first\s*)?(\d{1,2})\s*(?:s|sec|seconds?)\b/i.exec(text) || /first\s+(\d{1,2})/i.exec(text);
+  const seconds = Math.min(Number(secs?.[1] || env.PERSONA_RECREATE_MAX || 10), Number(env.PERSONA_RECREATE_MAX || 10));
+  state.queue.push({ id: `rec-${post.message_id}-${Date.now()}`, kind: "recreate", item: `rec-${post.message_id}`,
+                     url: link || "", file_id: video?.file_id || "", seconds,
+                     chat: post.chat.id, message_id: post.message_id });
+  await tg(env, "sendMessage", { chat_id: post.chat.id, reply_to_message_id: post.message_id,
+    text: `🎭 Queued: her version of this clip (first ${seconds}s). It comes as a reply here in ~40-70 min.` });
+  return true;
+}
+
 function queueVideo(state, itemId, msg, fileId, motion) {
   const existing = state.queue.find((q) => q.kind !== "redo" && q.item === itemId);
   if (existing) {
@@ -167,6 +189,7 @@ async function handleUpdates(env, updates, origin) {
     const chatId = String(cq?.message?.chat?.id ?? post?.chat?.id ?? "");
     if (chatId !== String(env.PERSONA_CHAT_ID)) continue;
     if (cq?.data?.startsWith("pv:")) { await onTap(env, cq, state, origin); changed = true; }
+    else if (post && !post.reply_to_message && (await onRecreateRequest(env, post, state))) changed = true;
     else if (post?.text && post.reply_to_message && !post.text.startsWith("/")) {
       await onReply(env, post, state); changed = true;
     }
@@ -287,11 +310,12 @@ async function advanceJobs(env, origin) {
           remember(state, item);
         } else if (r.ok) {
           const item = await kaggle.fetchJson(files[`out/items/${r.id}.json`]);
-          await sendMedia(env, "video", r.chat, files[`out/items/${item.path}`],
-                          { caption: `🎬 ${b.name}\n${(r.motion || "").slice(0, 300)}`, replyTo: r.message_id });
+          const cap = r.recreate ? `🎭 ${b.name} · recreated` : `🎬 ${b.name}\n${(r.motion || "").slice(0, 300)}`;
+          const buttons = r.recreate ? kb([[["👍", `pv:up:${r.id}`], ["👎", `pv:dn:${r.id}`]]]) : undefined;
+          await sendMedia(env, "video", r.chat, files[`out/items/${item.path}`], { caption: cap, buttons, replyTo: r.message_id });
         } else {
           await tg(env, "sendMessage", { chat_id: r.chat, reply_to_message_id: r.message_id,
-            text: `❌ ${r.kind === "image" ? "Redraw" : "Video"} failed: ${String(r.reason).slice(0, 300)}` });
+            text: `❌ ${r.kind === "image" ? "Redraw" : r.recreate ? "Recreate" : "Video"} failed: ${String(r.reason).slice(0, 300)}` });
         }
       } catch (e) {
         console.error("job result post failed", r.request, String(e));
@@ -304,11 +328,17 @@ async function advanceJobs(env, origin) {
   }
   let note = "idle";
   if (state.queue.length) {
-    const batch = state.queue.slice(0, Number(env.PERSONA_VIDEO_BATCH || 3));
+    // A 🎭 recreate is long (two models, up to ~40 min on the T4): one per batch.
+    let batch = state.queue.slice(0, Number(env.PERSONA_VIDEO_BATCH || 3));
+    const firstRec = batch.findIndex((q) => q.kind === "recreate");
+    if (firstRec >= 0) batch = batch.filter((q, i) => q.kind !== "recreate" || i === firstRec);
     const jobs = [];
     for (const q of batch) {
       if (q.kind === "redo") {
         jobs.push({ id: q.id, kind: "redo", scene: q.scene, chat: q.chat, message_id: q.message_id });
+      } else if (q.kind === "recreate") {
+        jobs.push({ id: q.id, kind: "recreate", url: q.url, seconds: q.seconds, chat: q.chat, message_id: q.message_id,
+                    video_url: q.file_id ? await fileLink(env, origin, q.file_id) : "" });
       } else {
         jobs.push({ id: q.id, image_url: await fileLink(env, origin, q.file_id), motion: q.motion || "",
                     chat: q.chat, message_id: q.message_id });
@@ -316,7 +346,8 @@ async function advanceJobs(env, origin) {
     }
     await kaggle.push(env, jobKernel(env), kaggle.bootstrap({ ...basePayload(env), mode: "video", jobs }), [dataset(env)]);
     state.running = batch;
-    state.queue = state.queue.slice(batch.length);
+    const taken = new Set(batch.map((q) => q.id));
+    state.queue = state.queue.filter((q) => !taken.has(q.id));
     changed = true;
     note = `pushed ${jobs.length} jobs`;
   }
