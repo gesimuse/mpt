@@ -329,10 +329,14 @@ async function advanceJobs(env, origin) {
   }
   let note = "idle";
   if (state.queue.length) {
-    // A 🎭 recreate is long (two models, up to ~40 min on the T4): one per batch.
-    let batch = state.queue.slice(0, Number(env.PERSONA_VIDEO_BATCH || 3));
-    const firstRec = batch.findIndex((q) => q.kind === "recreate");
-    if (firstRec >= 0) batch = batch.filter((q, i) => q.kind !== "recreate" || i === firstRec);
+    // Results only come back when the whole Kaggle run ends, so a 🔁 batched with a
+    // 🎭 recreate (70+ min on the T4) waited for it: on 2026-10-08 a bowling redo sat
+    // behind a recreate. Quick jobs (🔁, 🎬) go first in their own run; a recreate
+    // runs alone, only when nothing quick is waiting.
+    const quick = state.queue.filter((q) => q.kind !== "recreate");
+    const batch = quick.length
+      ? quick.slice(0, Number(env.PERSONA_VIDEO_BATCH || 3))
+      : state.queue.filter((q) => q.kind === "recreate").slice(0, 1);
     const jobs = [];
     for (const q of batch) {
       if (q.kind === "redo") {
