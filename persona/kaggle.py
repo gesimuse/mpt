@@ -106,7 +106,21 @@ def sync(char):
         if "ready" in _kaggle("datasets", "status", ds, env=env, check=False).lower():
             break
         time.sleep(10)
-    return f"synced {char.name} to private dataset {ds}"
+    worker = _sync_worker(char)
+    return f"synced {char.name} to private dataset {ds}" + (f"; {worker}" if worker else "")
+
+
+def _sync_worker(char):
+    """Her bible to the Cloudflare Worker, which writes the daily scenes from it
+    (worker/src/persona/). Skipped when PERSONA_WORKER_URL is not set."""
+    url, secret = config.env("PERSONA_WORKER_URL"), config.env("PERSONA_ADMIN_SECRET")
+    if not (url and secret):
+        return ""
+    import requests
+    r = requests.post(f"{url}/persona/admin/bible", params={"slug": char.slug}, timeout=30,
+                      headers={"Authorization": f"Bearer {secret}"},
+                      data=(char.dir / "bible.json").read_bytes())
+    return "bible sent to the Worker" if r.ok else f"Worker refused the bible ({r.status_code})"
 
 
 def restore_layout(char_dir):

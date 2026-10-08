@@ -112,7 +112,9 @@ About 1 min each. Show them; re-render a bad one with `sheet <stem>` (e.g.
 ## 6. Test and hand back
 
 Render two scenes so the user sees her in the wild, show them, sync her to the cloud
-dataset (the laptop-free schedule renders from it), then restart the bot if used:
+(refs to the Kaggle dataset, bible to the Cloudflare Worker that runs the schedule;
+point `PERSONA_SLUG` in worker/wrangler.toml at her slug and redeploy to make the
+cloud post her), then restart the bot if used:
 
 ```bash
 ~/apps/Wan2GP/.venv/bin/python -m persona.cli scene 2

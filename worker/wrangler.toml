@@ -34,10 +34,24 @@ VIDEO_LENGTH_S = "5.0"
 # against yet. FANVUE_API_TOKEN is a SECRET (wrangler secret put FANVUE_API_TOKEN),
 # not set here, once you have one.
 FANVUE_AUDIENCE = "subscribers"
-# Persona studio (src/persona.js). PERSONA_BOT_TOKEN and PERSONA_WEBHOOK_SECRET are
-# secrets. The persona schedule runs from the cron below, not GitHub's.
+# Persona studio (src/persona/). Secrets: PERSONA_BOT_TOKEN, PERSONA_WEBHOOK_SECRET,
+# PERSONA_ADMIN_SECRET, KAGGLE_API_TOKEN. Everything runs from here and Kaggle;
+# GitHub only holds the code.
 PERSONA_CHAT_ID = "-1004314616972"
-PERSONA_WORKFLOW = "persona_kaggle.yml"
+PERSONA_SLUG = "lena"
+KAGGLE_USERNAME = "antonzaharia"
+PERSONA_CLOUD_IMAGES = "10"
+# 1 = collect the bot's taps by polling every 15 min (no webhook yet). Set to 0 once
+# the bot's webhook points at /persona.
+PERSONA_POLL = "1"
+WORKER_ORIGIN = "https://mpt-telegram.gesimuse01-32e.workers.dev"
+
+[[kv_namespaces]]
+binding = "PERSONA"
+id = "3ca2bda582a444f88d772562a21be2a4"
+
+[ai]
+binding = "AI"
 
 [triggers]
 crons = ["*/15 * * * *"]

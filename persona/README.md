@@ -89,27 +89,34 @@ text to animate it with that motion.
 Fine-tune her any time in `bible.json`: personality, places, styles, and the
 lane cues (`lanes.fanvue.cue` is yours to write; it never goes to a hosted LLM).
 
-## Cloud schedule (laptop closed)
+## Cloud (laptop closed): the Cloudflare Worker
 
-`.github/workflows/persona_kaggle.yml` runs `persona/actions.py`:
+Everything that isn't GPU work runs in the existing Cloudflare Worker
+(`worker/src/persona/`); Kaggle does the GPU work; GitHub only holds the code.
 
-* **02:30 UTC render:** applies pending 👍/👎, writes the day's scenes, syncs the
-  private Kaggle dataset `<KAGGLE_USERNAME>/mpt-persona-<slug>` and starts a T4
-  kernel: `PERSONA_CLOUD_IMAGES` (8) images plus `PERSONA_CLOUD_VIDEOS` (2) videos.
-  About 6 min per image and 25 min per video on the T4, plus ~15 min of install
-  and downloads: ~2 GPU-hours a day of Kaggle's ~30 h/week (shared with aibeauty).
-* **06/09/12/15/18 UTC post:** each slot posts its share into `PERSONA_CHAT_ID`
-  with 👍/👎, catches up on anything a late render missed, and collects votes.
+* **Schedule** (Cloudflare cron, every 15 min, UTC): 02:30-03:15 render (10 scenes
+  written on Workers AI from her bible, votes and storyline, then a Kaggle T4 job;
+  retried, and skipped if today's already started); 06/09/12/15/18 post slots into
+  `PERSONA_CHAT_ID`; every tick moves the on-demand Kaggle job along.
+* **Taps**: 👍 👎 update her tag scores and storyline; 🎬 or a reply (= motion
+  prompt) queues a video; 🔁 queues a redraw of the same scene. One Kaggle job runs
+  up to 3 of them and the results come back as replies. With the bot's webhook on
+  `/persona` it is instant; with `PERSONA_POLL=1` taps are collected every 15 min.
+* **State** (votes, storyline, recent scenes, what's posted, the job queue) lives in
+  Workers KV. Her identity (bible, refs, face sheet) is in the private Kaggle
+  dataset `<KAGGLE_USERNAME>/mpt-persona-<slug>`.
+* **Kaggle jobs** are pushed through Kaggle's API with a tiny bootstrap that clones
+  this repo and runs `persona/kaggle_kernel.py`. Photos for 🎬 reach Kaggle via a
+  signed, 6-hour Worker link, never the bot token.
+* After creating or re-casting a persona on the laptop: `python -m persona.cli sync`
+  uploads her refs to Kaggle and her bible to the Worker. Set `PERSONA_SLUG` in
+  `worker/wrangler.toml` to switch which persona the cloud runs.
 
-In cloud mode the dataset is the source of truth (votes, storyline, what was
-posted). Turn it on with the repo variable `PERSONA_SLUG`; empty turns it off.
-Stop the laptop bot while it runs (`systemctl --user disable --now
-mpt-persona-bot`): both would post, and both would read the same bot's updates.
-After creating or re-casting a persona on the laptop, `python -m persona.cli sync`
-uploads her (and point `PERSONA_SLUG` at her slug).
+Admin (Bearer `PERSONA_ADMIN_SECRET`): `GET/POST /persona/admin/state`,
+`POST /persona/admin/bible`, `POST /persona/admin/run?what=render|post&slot=N|jobs|poll`.
 
-`/kaggle 3` (bot) or `python -m persona.cli kaggle 3` still renders a one-off batch
-on Kaggle and imports it to the laptop.
+`.github/workflows/persona_kaggle.yml` and `persona/actions.py` are the previous
+GitHub Actions version, kept for manual use; the workflow is disabled.
 
 ## CLI
 

@@ -12,7 +12,7 @@ import {
 } from "./github.js";
 import { answer, deleteMessage, getFileUrl, api, redact } from "./telegram.js";
 import * as fanvue from "./fanvue.js";
-import { onPersonaWebhook, onPersonaSchedule } from "./persona.js";
+import { onPersonaWebhook, onPersonaSchedule } from "./persona/index.js";
 
 /** callback_data is capped at 64 bytes, so buttons carry ids, not URLs. */
 function parseCallback(data) {
@@ -517,9 +517,10 @@ export default {
     await onPersonaSchedule(event, env);
   },
   async fetch(request, env) {
+    // The persona studio has its own routes and secrets (see persona/index.js);
+    // its signed photo links are GETs, so this comes before the POST-only gate.
+    if (new URL(request.url).pathname.startsWith("/persona")) return onPersonaWebhook(request, env);
     if (request.method !== "POST") return new Response("ok");
-    // The persona bot has its own webhook path and secret (see persona.js).
-    if (new URL(request.url).pathname === "/persona") return onPersonaWebhook(request, env);
     // The Worker URL is public. Without this check anyone who finds it could dispatch
     // workflows and rewrite posted.json, so it is verified before the body is parsed.
     if (request.headers.get("X-Telegram-Bot-Api-Secret-Token")
