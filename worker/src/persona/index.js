@@ -190,7 +190,8 @@ async function handleUpdates(env, updates, origin) {
     const chatId = String(cq?.message?.chat?.id ?? post?.chat?.id ?? "");
     if (chatId !== String(env.PERSONA_CHAT_ID)) continue;
     if (cq?.data?.startsWith("pv:")) { await onTap(env, cq, state, origin); changed = true; }
-    else if (post && !post.reply_to_message && (await onRecreateRequest(env, post, state))) changed = true;
+    // A TikTok link or video counts as 🎭 even when it is sent as a reply.
+    else if (post && (await onRecreateRequest(env, post, state))) changed = true;
     else if (post?.text && post.reply_to_message && !post.text.startsWith("/")) {
       await onReply(env, post, state); changed = true;
     }
