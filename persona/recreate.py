@@ -133,6 +133,9 @@ def _stage_edit(work):
         log(f"{first.name}: {out.name}")
 
 
+WINDOW = 124  # Viggle's frames per generation window (24fps)
+
+
 def _stage_viggle(work):
     """One Viggle pass per shot with Wan2GP's sliding window, so each shot is one
     continuous video. Two gotchas from 2026-10-08: the length has to be given in
@@ -144,14 +147,26 @@ def _stage_viggle(work):
     for shot in sorted(work.glob("shot[0-9][0-9].mp4")):
         edited = next(work.glob(f"{shot.stem}-persona.*"))
         seconds = _probe(shot)
-        s = eng.build_settings(model, prompt="a woman, natural movement", video_guide=str(shot),
+        guide, length = shot, seconds
+        if seconds * 24 < WINDOW:
+            # A shot shorter than one window came back with its first 17 frames
+            # frozen on frame 0 (her eyes morphing from the edited frame: the "eye
+            # swirl") and everything after 0.7s late, hands out of sync with the
+            # audio. Measured 2026-10-09 with frame numbers burned into the control
+            # video; full windows map frame n to frame n. So short shots are padded
+            # to a full window with their last frame, and trimmed back below.
+            guide = work / f"{shot.stem}-guide.mp4"
+            pad = WINDOW - round(seconds * 24)
+            subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(shot), "-vf", f"tpad=stop_mode=clone:stop={pad}",
+                            "-an", "-c:v", "libx264", "-crf", "16", "-pix_fmt", "yuv420p", str(guide)], check=True)
+            length = WINDOW / 24
+        s = eng.build_settings(model, prompt="a woman, natural movement", video_guide=str(guide),
                                image_refs=[str(edited)], resolution=config.env("PERSONA_RECREATE_RES", "608x1072"),
-                               video_length=f"{seconds:.2f}s", sliding_window_size=124, sliding_window_overlap=18,
+                               video_length=f"{length:.2f}s", sliding_window_size=WINDOW, sliding_window_overlap=18,
                                seed=-1)
         files = eng.run(s, work, f"{shot.stem}-viggle")
         final = max(files, key=_probe)
-        # Viggle renders at least 107 frames (~4.5s): a shorter shot comes back
-        # padded, which would push every later shot out of sync with the audio.
+        # Back to the shot's own length, so later shots stay in sync with the audio.
         subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(final), "-t", f"{seconds:.3f}", "-an",
                         "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p", str(work / f"{shot.stem}-out.mp4")],
                        check=True)
@@ -172,10 +187,9 @@ def recreate(src, out_dir, seconds=None):
         subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", f"{a:.3f}", "-i", str(clip), "-t", f"{b - a:.3f}",
                         "-vf", "fps=24", "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p", "-an", str(shot)],
                        check=True)
-        # The shot's first frame, edited with its expression and eye direction kept:
-        # a mismatch there (straight gaze vs. an eye-roll) made her pupils swirl.
-        # best_frame() picks the most front-on frame instead, but head pose does
-        # not see eyes rolled up or closed, so it is not used by default.
+        # The shot's first frame, edited with its expression and eye direction kept.
+        # (The eye swirl blamed on it was the short-shot freeze, see _stage_viggle;
+        # best_frame() made no difference in a 2026-10-09 A/B.)
         first_frame(shot, out_dir / f"shot{i:02d}-first.jpg")
     t = time.time()
     for stage in ("edit", "viggle"):
