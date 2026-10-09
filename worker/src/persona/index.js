@@ -1,11 +1,13 @@
 /**
- * Persona studio, run entirely from this Worker. Kaggle does the GPU work (images,
- * videos, the anatomy check); GitHub only holds the code (Kaggle jobs clone it).
+ * Persona studio, run entirely from this Worker. Kaggle does the scheduled GPU work
+ * (the daily render); on-demand jobs run on the laptop while it is open
+ * (persona/agent.py), on Kaggle otherwise. GitHub only holds the code.
  *
  *   POST /persona               the persona bot's webhook: 👍 👎 🎬 🔁, replies, and 🎭
  *                               (a TikTok link or a video posted in the channel)
  *   GET  /persona/file          signed, short-lived photo links for Kaggle video jobs
- *   POST /persona/admin/*       the laptop uploads her bible / migrates state
+ *   POST /persona/admin/*       the laptop uploads her bible / migrates state, and
+ *                               claims and returns on-demand jobs (laptop/claim|result)
  *   scheduled() every 15 min    02:30-03:15 UTC render, 06/09/12/15/18 post slots,
  *                               and always: move the on-demand Kaggle job along
  *
@@ -241,6 +243,8 @@ async function onAdmin(request, env) {
     if (what === "jobs") return new Response(await advanceJobs(env, u.origin));
     if (what === "poll") return new Response(await poll(env, u.origin));
   }
+  if (u.pathname === "/persona/admin/laptop/claim" && request.method === "POST") return laptopClaim(request, env, u.origin);
+  if (u.pathname === "/persona/admin/laptop/result" && request.method === "POST") return laptopResult(request, env);
   return new Response("not found", { status: 404 });
 }
 
@@ -305,6 +309,24 @@ const LANES = {
   recreate: { kernel: (env) => `${env.KAGGLE_USERNAME}/mpt-persona-recreate-${slugOf(env)}`, takes: (q) => q.kind === "recreate", max: 1 },
 };
 
+/**
+ * Post one finished job (from a Kaggle run or the laptop) under the message that
+ * asked for it. `item` is the item JSON, `file` its photo/video (URL or Blob).
+ */
+async function postResult(env, state, b, r, item, file) {
+  if (r.ok && r.kind === "image") {
+    await sendMedia(env, "photo", r.chat, file, { caption: "🔁 " + caption(b.name, item), buttons: buttons(item), replyTo: r.message_id });
+    remember(state, item);
+  } else if (r.ok) {
+    const cap = r.recreate ? `🎭 ${b.name} · recreated` : `🎬 ${b.name}\n${(r.motion || "").slice(0, 300)}`;
+    const btns = r.recreate ? kb([[["👍", `pv:up:${r.id}`], ["👎", `pv:dn:${r.id}`]]]) : undefined;
+    await sendMedia(env, "video", r.chat, file, { caption: cap, buttons: btns, replyTo: r.message_id });
+  } else {
+    await tg(env, "sendMessage", { chat_id: r.chat, reply_to_message_id: r.message_id,
+      text: `❌ ${r.kind === "image" ? "Redraw" : r.recreate ? "Recreate" : "Video"} failed: ${String(r.reason).slice(0, 300)}` });
+  }
+}
+
 async function postResults(env, state, b, kernel) {
   const files = await kaggle.outputs(env, kernel).catch(() => ({}));
   const status = files["status.json"] ? await kaggle.fetchJson(files["status.json"]).catch(() => ({})) : {};
@@ -312,20 +334,9 @@ async function postResults(env, state, b, kernel) {
   for (const r of status.items || []) {
     if (!r.request || state.done.includes(r.request) || !r.chat) continue;
     try {
-      if (r.ok && r.kind === "image") {
-        const item = await kaggle.fetchJson(files[`out/items/${r.id}.json`]);
-        await sendMedia(env, "photo", r.chat, files[`out/items/${r.id}.jpg`],
-                        { caption: "🔁 " + caption(b.name, item), buttons: buttons(item), replyTo: r.message_id });
-        remember(state, item);
-      } else if (r.ok) {
-        const item = await kaggle.fetchJson(files[`out/items/${r.id}.json`]);
-        const cap = r.recreate ? `🎭 ${b.name} · recreated` : `🎬 ${b.name}\n${(r.motion || "").slice(0, 300)}`;
-        const btns = r.recreate ? kb([[["👍", `pv:up:${r.id}`], ["👎", `pv:dn:${r.id}`]]]) : undefined;
-        await sendMedia(env, "video", r.chat, files[`out/items/${item.path}`], { caption: cap, buttons: btns, replyTo: r.message_id });
-      } else {
-        await tg(env, "sendMessage", { chat_id: r.chat, reply_to_message_id: r.message_id,
-          text: `❌ ${r.kind === "image" ? "Redraw" : r.recreate ? "Recreate" : "Video"} failed: ${String(r.reason).slice(0, 300)}` });
-      }
+      const item = r.ok ? await kaggle.fetchJson(files[`out/items/${r.id}.json`]) : null;
+      const file = item ? files[`out/items/${r.kind === "image" ? `${r.id}.jpg` : item.path}`] : null;
+      await postResult(env, state, b, r, item, file);
     } catch (e) {
       console.error("job result post failed", r.request, String(e));
       continue;
@@ -334,6 +345,67 @@ async function postResults(env, state, b, kernel) {
     changed = true;
   }
   return changed;
+}
+
+// ------------------------------------------------------------------ laptop
+/**
+ * While the laptop is open, persona/agent.py checks in every 30s and runs the
+ * on-demand jobs on its own GPU; Kaggle only gets them when it has gone quiet.
+ * The check-in is written to KV at most every 4 minutes (KV's free tier allows
+ * 1000 writes a day), so "quiet" means no check-in for LAPTOP_STALE_MS.
+ */
+const LAPTOP_STALE_MS = 10 * 60 * 1000;
+const LAPTOP_WRITE_MS = 4 * 60 * 1000;
+const laptopFresh = (state) => Date.now() - (state.laptop?.seen || 0) < LAPTOP_STALE_MS;
+
+async function laptopClaim(request, env, origin) {
+  const body = await request.json().catch(() => ({}));
+  const slug = slugOf(env);
+  let state = await st.load(env, slug);
+  if (Date.now() - (state.laptop?.seen || 0) > LAPTOP_WRITE_MS) {
+    state.laptop = { seen: Date.now() };
+    await st.save(env, slug, state);
+  }
+  // Then taps (while the bot has no webhook), so a tap made a moment ago is in the
+  // queue below -- and, the laptop being marked up, not pushed to Kaggle.
+  if (env.PERSONA_POLL === "1" && !body.busy) {
+    await poll(env, origin).catch((e) => console.error("poll", String(e)));
+    state = await st.load(env, slug);
+  }
+  state.lanes = state.lanes || {};
+  let changed = false;
+  let job = null;
+  if (!body.busy) {
+    // A job it already holds comes back too: the agent restarted mid-job.
+    let q = (state.lanes.laptop || [])[0];
+    if (!q && state.queue.length) {
+      q = state.queue.shift();
+      state.lanes.laptop = [q];
+      changed = true;
+    }
+    if (q) job = (await jobPayload(env, origin, [q]))[0];
+  }
+  if (changed) await st.save(env, slug, state);
+  return Response.json({ job });
+}
+
+async function laptopResult(request, env) {
+  const form = await request.formData();
+  const r = JSON.parse(form.get("result"));
+  const slug = slugOf(env);
+  const state = await st.load(env, slug);
+  if (state.done.includes(r.request)) return new Response("already posted");
+  const b = (await st.bible(env, slug)) || { name: slug };
+  const item = form.get("item") ? JSON.parse(await form.get("item").text()) : null;
+  await postResult(env, state, b, r, item, form.get("file"));
+  state.done.push(r.request);
+  // Taken back from Kaggle's queue too, if it was handed over while the laptop
+  // was quiet; a Kaggle result for it is skipped as already done.
+  state.lanes.laptop = (state.lanes.laptop || []).filter((q) => q.id !== r.request);
+  state.queue = state.queue.filter((q) => q.id !== r.request);
+  state.laptop = { seen: Date.now() };
+  await st.save(env, slug, state);
+  return new Response("posted");
 }
 
 async function jobPayload(env, origin, batch) {
@@ -370,6 +442,16 @@ async function advanceJobs(env, origin) {
     } else notes.push(`legacy ${s}`);
   }
 
+  // The laptop went quiet holding a job (lid closed mid-render): Kaggle takes it.
+  const laptopUp = laptopFresh(state);
+  if ((state.lanes.laptop || []).length && !laptopUp) {
+    state.queue = [...state.lanes.laptop, ...state.queue];
+    state.lanes.laptop = [];
+    changed = true;
+    notes.push("laptop quiet: its job goes to Kaggle");
+  }
+  if (laptopUp) notes.push("laptop up: new jobs wait for it");
+
   for (const [name, lane] of Object.entries(LANES)) {
     const kernel = lane.kernel(env);
     const running = state.lanes[name] || [];
@@ -388,7 +470,7 @@ async function advanceJobs(env, origin) {
         changed = true;
       } else { notes.push(`${name} ${s}`); continue; }
     }
-    const batch = state.queue.filter(lane.takes).slice(0, lane.max);
+    const batch = laptopUp ? [] : state.queue.filter(lane.takes).slice(0, lane.max);
     if (!batch.length) continue;
     const jobs = await jobPayload(env, origin, batch);
     await kaggle.push(env, kernel, kaggle.bootstrap({ ...basePayload(env), mode: "video", jobs }), [dataset(env)]);

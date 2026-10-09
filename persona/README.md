@@ -112,8 +112,18 @@ Everything that isn't GPU work runs in the existing Cloudflare Worker
   uploads her refs to Kaggle and her bible to the Worker. Set `PERSONA_SLUG` in
   `worker/wrangler.toml` to switch which persona the cloud runs.
 
+* **Laptop open**: `persona/agent.py` (`mpt-persona-agent.service`) checks in every
+  30s and runs the on-demand jobs (🎬 🔁 🎭) on the laptop GPU instead of Kaggle,
+  one per process (`python -m persona.jobs`, the same code the Kaggle kernel runs).
+  Its check-in also collects taps, so buttons answer in seconds. When it has not
+  checked in for 10 min (lid closed), jobs go to Kaggle again, including one it was
+  in the middle of. The daily render and post slots always stay on Kaggle/the cron.
+  Install: `cp persona/mpt-persona-agent.service ~/.config/systemd/user/ &&
+  systemctl --user enable --now mpt-persona-agent`
+
 Admin (Bearer `PERSONA_ADMIN_SECRET`): `GET/POST /persona/admin/state`,
-`POST /persona/admin/bible`, `POST /persona/admin/run?what=render|post&slot=N|jobs|poll`.
+`POST /persona/admin/bible`, `POST /persona/admin/run?what=render|post&slot=N|jobs|poll`,
+`POST /persona/admin/laptop/claim|result` (the agent).
 
 `.github/workflows/persona_kaggle.yml` and `persona/actions.py` are the previous
 GitHub Actions version, kept for manual use; the workflow is disabled.

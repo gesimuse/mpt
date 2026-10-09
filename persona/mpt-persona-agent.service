@@ -1,0 +1,18 @@
+[Unit]
+# Runs the persona channel's on-demand jobs (🎬 🔁 🎭) on the laptop GPU while it
+# is on; Kaggle takes them when it is not. See persona/agent.py.
+Description=MPT persona studio laptop agent
+After=network-online.target
+Wants=network-online.target
+# Same GPU and RAM as these: never at the same time.
+Conflicts=mpt-wan2gp-bot.service mpt-persona-bot.service
+
+[Service]
+Type=simple
+WorkingDirectory=%h/apps/mpt
+ExecStart=%h/apps/Wan2GP/.venv/bin/python -m persona.agent
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target

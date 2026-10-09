@@ -36,15 +36,6 @@ HOME = Path("/kaggle/tmp/persona-home")
 STATUS = WORK / "status.json"
 
 
-def fetch(url, dest, timeout=300):
-    """Download from a signed Worker link. Cloudflare answers 403 to Python's
-    default User-Agent ("Python-urllib"), so send our own."""
-    import urllib.request
-    req = urllib.request.Request(url, headers={"User-Agent": "mpt-persona-kernel/1.0"})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        Path(dest).write_bytes(r.read())
-
-
 def log(m):
     print(f"[persona-kernel] {m}", flush=True)
 
@@ -132,96 +123,11 @@ def main():
         out.mkdir(parents=True, exist_ok=True)
         results = []
         if payload.get("mode") == "video":
-            # On-demand videos (🎬 / a reply with a motion prompt): the photo comes in
-            # the payload, straight from Telegram.
+            # On-demand jobs (🎭 / 🔁 / 🎬), shared with the laptop: persona/jobs.py.
+            from persona import jobs as ondemand
             inp = WORK / "in"
             inp.mkdir(exist_ok=True)
-            # 🎭 recreate jobs first, each in its own process (persona/recreate.py runs
-            # its two models in separate processes): this process has not loaded any
-            # model yet, so its RAM is still free for them.
-            jobs = sorted(payload["jobs"], key=lambda j: j.get("kind") != "recreate")
-            for job in [j for j in jobs if j.get("kind") == "recreate"]:
-                try:
-                    src = inp / f"{job['id']}.mp4"
-                    if job.get("video_url"):
-                        fetch(job["video_url"], src)
-                    else:
-                        subprocess.run([sys.executable, "-m", "pip", "install", "-q", "yt-dlp"], check=True)
-                        # Facebook serves reels as separate video and audio streams: merge
-                        # them (ffmpeg) into one mp4. TikTok's single mp4 still matches.
-                        dl = subprocess.run([sys.executable, "-m", "yt_dlp", "-q", "--no-warnings",
-                                             "-f", "bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/bv*+ba/b",
-                                             "--merge-output-format", "mp4", "-o", str(src), job["url"]],
-                                            capture_output=True, text=True)
-                        if dl.returncode != 0:
-                            err = (dl.stderr or "").strip().splitlines()[-1:] or ["unknown error"]
-                            if "Log in for access" in err[0] or "comfortable for some audiences" in err[0]:
-                                raise RuntimeError("TikTok marks this video age-restricted and only shows it to "
-                                                   "logged-in users. Save it on your phone and post the video "
-                                                   "file here instead.")
-                            if "facebook" in job["url"] or "fb.watch" in job["url"]:
-                                raise RuntimeError("could not download the Facebook video (private, or only shown "
-                                                   "to logged-in users?). Save it on your phone and post the video "
-                                                   f"file here instead. ({err[0][:150]})")
-                            raise RuntimeError(f"could not download the TikTok: {err[0][:200]}")
-                    work = WORK / "recreate" / job["id"]
-                    cmd = [sys.executable, "-m", "persona.recreate", str(src), str(work)]
-                    if job.get("seconds"):
-                        cmd += ["--seconds", str(job["seconds"])]
-                    subprocess.run(cmd, cwd=str(CODE), check=True)
-                    made = next(work.glob("recreated.*"))
-                    vid = char.new_item(kind="video", lane="social", model="viggle_animate", recreate=True,
-                                        source=job.get("url", ""))
-                    dest = out / f"{vid['id']}{made.suffix}"
-                    shutil.copyfile(made, dest)
-                    vid = char.update_item(vid["id"], path=dest.name, request=job["id"])
-                    (out / f"{vid['id']}.json").write_text(json.dumps(vid, ensure_ascii=False))
-                    results.append({"request": job["id"], "id": vid["id"], "ok": True, "kind": "video",
-                                    "recreate": True, "chat": job.get("chat"), "message_id": job.get("message_id")})
-                    log(f"recreate {vid['id']} for request {job['id']}")
-                except Exception as e:
-                    results.append({"request": job["id"], "ok": False, "kind": "video", "recreate": True,
-                                    "reason": (str(e) if isinstance(e, RuntimeError) else f"{type(e).__name__}: {e}")[:300],
-                                    "chat": job.get("chat"), "message_id": job.get("message_id")})
-                    log(f"recreate {job['id']} failed: {e}")
-            for job in [j for j in jobs if j.get("kind") != "recreate"]:
-                if job.get("kind") == "redo":
-                    # 🔁: the same scene, a new seed, the same anatomy check.
-                    for item in studio.render(char, lane="social", scene_list=[job["scene"]]):
-                        if item.get("ok"):
-                            dest = out / Path(item["path"]).name
-                            shutil.copyfile(item["path"], dest)
-                            item["path"] = dest.name
-                            (out / f"{item['id']}.json").write_text(json.dumps(item, ensure_ascii=False))
-                        results.append({"request": job["id"], "id": item["id"], "ok": bool(item.get("ok")),
-                                        "kind": "image", "reason": item.get("reason"),
-                                        "chat": job.get("chat"), "message_id": job.get("message_id")})
-                        log(f"redo {item['id']} for request {job['id']}: {'ok' if item.get('ok') else item.get('reason')}")
-                    continue
-                src = inp / f"{job['id']}.jpg"
-                if job.get("image_url"):
-                    # A signed, short-lived link served by the Worker, which fetches the
-                    # photo from Telegram itself -- the bot token never comes here.
-                    fetch(job["image_url"], src, timeout=120)
-                else:
-                    src.write_bytes(base64.b64decode(job["image_b64"]))
-                photo = char.new_item(kind="image", lane="social", path=str(src), model="telegram",
-                                      scene={"motion": job.get("motion") or ""}, tags=job.get("tags", []))
-                try:
-                    vid = studio.animate(char, photo, job.get("motion") or None)
-                except Exception as e:
-                    results.append({"request": job["id"], "ok": False, "reason": f"{type(e).__name__}: {e}"[:300],
-                                    "chat": job.get("chat"), "message_id": job.get("message_id")})
-                    log(f"video {job['id']} failed: {e}")
-                    continue
-                dest = out / Path(vid["path"]).name
-                shutil.copyfile(vid["path"], dest)
-                vid.update({"path": dest.name, "request": job["id"]})
-                (out / f"{vid['id']}.json").write_text(json.dumps(vid, ensure_ascii=False))
-                results.append({"request": job["id"], "id": vid["id"], "ok": True, "kind": "video",
-                                "chat": job.get("chat"), "message_id": job.get("message_id"),
-                                "motion": job.get("motion", "")})
-                log(f"video {vid['id']} for request {job['id']}")
+            results = ondemand.run(payload["jobs"], char, lambda: studio, out, inp, WORK / "recreate", CODE)
             write_status("done", True, {"items": results, "mode": "video",
                                         "requests": [j["id"] for j in payload["jobs"]]})
             return

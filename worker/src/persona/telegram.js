@@ -15,17 +15,21 @@ export async function answer(env, id, text) {
   catch { /* too old to answer; the action still happened */ }
 }
 
-/** Upload a file fetched from a URL (Kaggle output) as a photo or video. */
-export async function sendMedia(env, kind, chatId, url, { caption = "", buttons, replyTo } = {}) {
-  const file = await fetch(url);
-  if (!file.ok) throw new Error(`download ${file.status}`);
+/** Upload a photo or video: a URL (Kaggle output) or a Blob (sent up by the laptop). */
+export async function sendMedia(env, kind, chatId, src, { caption = "", buttons, replyTo } = {}) {
+  let blob = src;
+  if (typeof src === "string") {
+    const file = await fetch(src);
+    if (!file.ok) throw new Error(`download ${file.status}`);
+    blob = new Blob([await file.arrayBuffer()]);
+  }
   const form = new FormData();
   form.append("chat_id", String(chatId));
   form.append("caption", caption.slice(0, 1024));
   if (buttons) form.append("reply_markup", JSON.stringify(buttons));
   if (replyTo) form.append("reply_to_message_id", String(replyTo));
   if (kind === "video") form.append("supports_streaming", "true");
-  form.append(kind, new Blob([await file.arrayBuffer()]), kind === "video" ? "clip.mp4" : "photo.jpg");
+  form.append(kind, blob, kind === "video" ? "clip.mp4" : "photo.jpg");
   const r = await fetch(`https://api.telegram.org/bot${env.PERSONA_BOT_TOKEN}/send${kind === "video" ? "Video" : "Photo"}`,
     { method: "POST", body: form });
   const body = await r.json();
