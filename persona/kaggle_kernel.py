@@ -36,6 +36,15 @@ HOME = Path("/kaggle/tmp/persona-home")
 STATUS = WORK / "status.json"
 
 
+def fetch(url, dest, timeout=300):
+    """Download from a signed Worker link. Cloudflare answers 403 to Python's
+    default User-Agent ("Python-urllib"), so send our own."""
+    import urllib.request
+    req = urllib.request.Request(url, headers={"User-Agent": "mpt-persona-kernel/1.0"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        Path(dest).write_bytes(r.read())
+
+
 def log(m):
     print(f"[persona-kernel] {m}", flush=True)
 
@@ -135,9 +144,7 @@ def main():
                 try:
                     src = inp / f"{job['id']}.mp4"
                     if job.get("video_url"):
-                        import urllib.request
-                        with urllib.request.urlopen(job["video_url"], timeout=300) as r:
-                            src.write_bytes(r.read())
+                        fetch(job["video_url"], src)
                     else:
                         subprocess.run([sys.executable, "-m", "pip", "install", "-q", "yt-dlp"], check=True)
                         dl = subprocess.run([sys.executable, "-m", "yt_dlp", "-q", "--no-warnings", "-f", "mp4/best",
@@ -187,9 +194,7 @@ def main():
                 if job.get("image_url"):
                     # A signed, short-lived link served by the Worker, which fetches the
                     # photo from Telegram itself -- the bot token never comes here.
-                    import urllib.request
-                    with urllib.request.urlopen(job["image_url"], timeout=120) as r:
-                        src.write_bytes(r.read())
+                    fetch(job["image_url"], src, timeout=120)
                 else:
                     src.write_bytes(base64.b64decode(job["image_b64"]))
                 photo = char.new_item(kind="image", lane="social", path=str(src), model="telegram",
