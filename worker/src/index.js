@@ -403,6 +403,9 @@ async function onReply(env, msg) {
   // with "pv:" and a reply to them is a motion prompt for the persona bot, which
   // answers it. Saying "That batch is no longer in posted.json" there was wrong.
   if (data?.startsWith("pv:")) return;
+  // MPT Videos is shared with the persona bot: a reply there that is not to one of
+  // this bot's own posts belongs to the persona side, so stay quiet.
+  if (!data && String(msg.chat.id) === String(env.PERSONA_CHAT_ID)) return;
   if (!data) {
     // Never silent. A reply to something with no buttons is a user asking for
     // something and getting nothing back, which is indistinguishable from broken.

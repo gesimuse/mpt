@@ -140,8 +140,15 @@ def main():
                             src.write_bytes(r.read())
                     else:
                         subprocess.run([sys.executable, "-m", "pip", "install", "-q", "yt-dlp"], check=True)
-                        subprocess.run([sys.executable, "-m", "yt_dlp", "-q", "--no-warnings", "-f", "mp4/best",
-                                        "-o", str(src), job["url"]], check=True)
+                        dl = subprocess.run([sys.executable, "-m", "yt_dlp", "-q", "--no-warnings", "-f", "mp4/best",
+                                             "-o", str(src), job["url"]], capture_output=True, text=True)
+                        if dl.returncode != 0:
+                            err = (dl.stderr or "").strip().splitlines()[-1:] or ["unknown error"]
+                            if "Log in for access" in err[0] or "comfortable for some audiences" in err[0]:
+                                raise RuntimeError("TikTok marks this video age-restricted and only shows it to "
+                                                   "logged-in users. Save it on your phone and post the video "
+                                                   "file here instead.")
+                            raise RuntimeError(f"could not download the TikTok: {err[0][:200]}")
                     work = WORK / "recreate" / job["id"]
                     cmd = [sys.executable, "-m", "persona.recreate", str(src), str(work)]
                     if job.get("seconds"):
@@ -159,7 +166,7 @@ def main():
                     log(f"recreate {vid['id']} for request {job['id']}")
                 except Exception as e:
                     results.append({"request": job["id"], "ok": False, "kind": "video", "recreate": True,
-                                    "reason": f"{type(e).__name__}: {e}"[:300],
+                                    "reason": (str(e) if isinstance(e, RuntimeError) else f"{type(e).__name__}: {e}")[:300],
                                     "chat": job.get("chat"), "message_id": job.get("message_id")})
                     log(f"recreate {job['id']} failed: {e}")
             for job in [j for j in jobs if j.get("kind") != "recreate"]:
