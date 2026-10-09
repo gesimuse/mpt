@@ -147,14 +147,22 @@ def main():
                         fetch(job["video_url"], src)
                     else:
                         subprocess.run([sys.executable, "-m", "pip", "install", "-q", "yt-dlp"], check=True)
-                        dl = subprocess.run([sys.executable, "-m", "yt_dlp", "-q", "--no-warnings", "-f", "mp4/best",
-                                             "-o", str(src), job["url"]], capture_output=True, text=True)
+                        # Facebook serves reels as separate video and audio streams: merge
+                        # them (ffmpeg) into one mp4. TikTok's single mp4 still matches.
+                        dl = subprocess.run([sys.executable, "-m", "yt_dlp", "-q", "--no-warnings",
+                                             "-f", "bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/bv*+ba/b",
+                                             "--merge-output-format", "mp4", "-o", str(src), job["url"]],
+                                            capture_output=True, text=True)
                         if dl.returncode != 0:
                             err = (dl.stderr or "").strip().splitlines()[-1:] or ["unknown error"]
                             if "Log in for access" in err[0] or "comfortable for some audiences" in err[0]:
                                 raise RuntimeError("TikTok marks this video age-restricted and only shows it to "
                                                    "logged-in users. Save it on your phone and post the video "
                                                    "file here instead.")
+                            if "facebook" in job["url"] or "fb.watch" in job["url"]:
+                                raise RuntimeError("could not download the Facebook video (private, or only shown "
+                                                   "to logged-in users?). Save it on your phone and post the video "
+                                                   f"file here instead. ({err[0][:150]})")
                             raise RuntimeError(f"could not download the TikTok: {err[0][:200]}")
                     work = WORK / "recreate" / job["id"]
                     cmd = [sys.executable, "-m", "persona.recreate", str(src), str(work)]

@@ -122,15 +122,16 @@ async function onTap(env, cq, state, origin) {
   return answer(env, cq.id, "");
 }
 
-const TIKTOK = /https?:\/\/(?:www\.|vm\.|vt\.|m\.)?tiktok\.com\/\S+/i;
+// TikTok, or a Facebook reel/video (facebook.com/reel/…, /share/r/…, /watch, fb.watch/…).
+const CLIP_LINK = /https?:\/\/(?:(?:www\.|vm\.|vt\.|m\.)?tiktok\.com|(?:www\.|m\.|web\.)?facebook\.com|fb\.watch)\/\S+/i;
 
 /**
- * 🎭 A TikTok link, or a video uploaded into the channel: recreate that clip with
+ * 🎭 A TikTok or Facebook reel link, or a video uploaded into the channel: recreate that clip with
  * her (persona/recreate.py). "8s" or "first 8" in the text sets the length.
  */
 async function onRecreateRequest(env, post, state) {
   const text = post.text || post.caption || "";
-  const link = (TIKTOK.exec(text) || [])[0];
+  const link = (CLIP_LINK.exec(text) || [])[0];
   const video = post.video || (post.document?.mime_type?.startsWith("video/") ? post.document : null);
   if (!link && !video) return false;
   const secs = /(?:first\s*)?(\d{1,2})\s*(?:s|sec|seconds?)\b/i.exec(text) || /first\s+(\d{1,2})/i.exec(text);
@@ -190,7 +191,7 @@ async function handleUpdates(env, updates, origin) {
     const chatId = String(cq?.message?.chat?.id ?? post?.chat?.id ?? "");
     if (chatId !== String(env.PERSONA_CHAT_ID)) continue;
     if (cq?.data?.startsWith("pv:")) { await onTap(env, cq, state, origin); changed = true; }
-    // A TikTok link or video counts as 🎭 even when it is sent as a reply.
+    // A TikTok/Facebook link or video counts as 🎭 even when it is sent as a reply.
     else if (post && (await onRecreateRequest(env, post, state))) changed = true;
     else if (post?.text && post.reply_to_message && !post.text.startsWith("/")) {
       await onReply(env, post, state); changed = true;
