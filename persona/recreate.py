@@ -104,8 +104,12 @@ def _stage_viggle(work):
                                seed=-1)
         files = eng.run(s, work, f"{shot.stem}-viggle")
         final = max(files, key=_probe)
-        final.rename(work / f"{shot.stem}-out.mp4")
-        log(f"{shot.stem}: {_probe(work / f'{shot.stem}-out.mp4'):.1f}s")
+        # Viggle renders at least 107 frames (~4.5s): a shorter shot comes back
+        # padded, which would push every later shot out of sync with the audio.
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(final), "-t", f"{seconds:.3f}", "-an",
+                        "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p", str(work / f"{shot.stem}-out.mp4")],
+                       check=True)
+        log(f"{shot.stem}: {_probe(work / f'{shot.stem}-out.mp4'):.2f}s (shot {seconds:.2f}s)")
 
 
 def recreate(src, out_dir, seconds=None):
