@@ -111,15 +111,30 @@ About 1 min each. Show them; re-render a bad one with `sheet <stem>` (e.g.
 
 ## 6. Test and hand back
 
-Render two scenes so the user sees her in the wild, show them, sync her to the cloud
-(refs to the Kaggle dataset, bible to the Cloudflare Worker that runs the schedule;
-point `PERSONA_SLUG` in worker/wrangler.toml at her slug and redeploy to make the
-cloud post her), then restart the bot if used:
+Render two scenes so the user sees her in the wild, show them, then sync her to the
+cloud (refs to the Kaggle dataset, bible to the Cloudflare Worker that runs the
+schedule):
 
 ```bash
 ~/apps/Wan2GP/.venv/bin/python -m persona.cli scene 2
 PATH=$HOME/.local/bin:$PATH ~/apps/Wan2GP/.venv/bin/python -m persona.cli sync
 ```
+
+## 7. Her channel and accounts
+
+Each persona has her own Telegram channel, Instagram and TikTok; 👍 in her channel
+publishes there. Ask the user to create the channel, add the persona bot as an
+admin, and post anything in it; read its chat id from the bot's updates. Then:
+
+```bash
+python -m persona.cli channel <slug> <chat id>
+python -m persona.cli accounts <slug> tiktok          # user logs into HER TikTok in the browser
+python -m persona.cli accounts <slug> instagram <token>
+python -m persona.cli accounts                        # check
+```
+
+The daily render, post slots and on-demand jobs pick her up from the next cron
+tick. Each persona adds a daily Kaggle render to the 30h/week GPU quota.
 
 To switch back to an earlier persona: `python -m persona.cli switch <slug>`
 (`python -m persona.cli list` shows them).

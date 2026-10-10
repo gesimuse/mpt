@@ -17,6 +17,9 @@ GPU commands need Wan2GP's python:
   models | use <role> <model>
   sync                      push her bible+refs+story to the private Kaggle dataset
   kaggle [n] [hint]         render social scenes on Kaggle and import them
+  channel <slug> <chat id>  her own Telegram channel (the bot must be an admin there)
+  accounts [<slug> tiktok [--direct] | instagram <token> | tiktok-verify <name> <body>]
+                            link her accounts for 👍 publishing (see persona/accounts.py)
 """
 import sys
 
@@ -102,6 +105,19 @@ def main(argv=None):
         n, hint = _n_hint(args, 3)
         for item in kaggle.run(character.active(), n=n, hint=hint):
             print(item["id"], item.get("path") or item.get("reason"))
+    elif cmd == "channel":
+        from . import accounts
+        print(accounts.channel(args[0], args[1]))
+    elif cmd == "accounts":
+        from . import accounts
+        if not args:
+            print(accounts.show())
+        elif args[1] == "tiktok":
+            print(accounts.tiktok(args[0], direct="--direct" in args))
+        elif args[1] == "instagram":
+            print(accounts.instagram(args[0], args[2]))
+        elif args[1] == "tiktok-verify":
+            print(accounts.tiktok_verify(args[2], " ".join(args[3:])))
     else:
         sys.exit(f"unknown command {cmd!r}\n{__doc__}")
 

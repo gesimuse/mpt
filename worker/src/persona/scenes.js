@@ -125,3 +125,21 @@ export async function write(env, b, state, n) {
   }
   return assignGazes(out.slice(0, n));
 }
+
+/**
+ * A post caption when the item has none (🎭 recreates): first person, short, in
+ * her voice. Falls back to a plain one if Workers AI fails.
+ */
+export async function caption(env, b) {
+  try {
+    const r = await env.AI.run(MODEL, { messages: [{ role: "user", content:
+      `Write ONE Instagram/TikTok caption for a short video of ${b.name}, a ${b.age}-year-old social-media persona ` +
+      `(${b.personality}). First person, max 15 words, 1-2 emojis, no hashtags, no quotes. Answer with the caption only.` }],
+      max_tokens: 60, temperature: 0.9 });
+    const text = String(r.response || "").trim().replace(/^["']|["']$/g, "").split("\n")[0];
+    if (text) return text;
+  } catch (e) {
+    console.log("caption writing failed", String(e).slice(0, 150));
+  }
+  return "✨";
+}

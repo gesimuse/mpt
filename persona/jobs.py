@@ -33,6 +33,15 @@ def fetch(url, dest, timeout=300):
         Path(dest).write_bytes(r.read())
 
 
+def has_audio(path):
+    """Whether a video carries sound: a 🎭 recreate keeps the original's audio, a
+    🎬 video has none. Decides how it goes to TikTok (posted with its sound, or a
+    draft to add a song to)."""
+    r = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "a", "-show_entries", "stream=index",
+                        "-of", "csv=p=0", str(path)], capture_output=True, text=True)
+    return bool(r.stdout.strip())
+
+
 def _reply(job):
     return {"chat": job.get("chat"), "message_id": job.get("message_id")}
 
@@ -74,6 +83,10 @@ def recreate(job, char, out, inp, work_root, code_dir):
         src = inp / f"{job['id']}.mp4"
         download_clip(job, src)
         work = work_root / job["id"]
+        # Her, not whichever persona is active on this machine: the recreate's stages
+        # run as child processes and read the slug from the environment.
+        import os
+        os.environ["PERSONA_RECREATE_SLUG"] = char.slug
         cmd = [sys.executable, "-m", "persona.recreate", str(src), str(work)]
         if job.get("seconds"):
             cmd += ["--seconds", str(job["seconds"])]
@@ -82,7 +95,7 @@ def recreate(job, char, out, inp, work_root, code_dir):
         report = work / "swapped.json"  # persona/faceswap.py's check of her face
         face = json.loads(report.read_text()) if report.exists() else None
         vid = char.new_item(kind="video", lane="social", model="viggle_animate", recreate=True,
-                            source=job.get("url", ""), face=face)
+                            source=job.get("url", ""), face=face, audio=has_audio(made))
         dest = out / f"{vid['id']}{made.suffix}"
         shutil.copyfile(made, dest)
         vid = char.update_item(vid["id"], path=dest.name, request=job["id"])
@@ -126,7 +139,8 @@ def video(job, char, studio, out, inp):
         return {"request": job["id"], "ok": False, "reason": f"{type(e).__name__}: {e}"[:300], **_reply(job)}
     dest = out / Path(vid["path"]).name
     shutil.copyfile(vid["path"], dest)
-    vid.update({"path": dest.name, "request": job["id"]})
+    vid.update({"path": dest.name, "request": job["id"], "audio": has_audio(dest),
+                "caption": vid.get("caption") or job.get("caption", "")})
     (out / f"{vid['id']}.json").write_text(json.dumps(vid, ensure_ascii=False))
     log(f"video {vid['id']} for request {job['id']}")
     return {"request": job["id"], "id": vid["id"], "ok": True, "kind": "video", "motion": job.get("motion", ""),
@@ -161,7 +175,8 @@ def main():
     for d in (out, inp):
         d.mkdir(parents=True, exist_ok=True)
     try:
-        results = run([job], character.active(), lambda: Studio(Engine()), out, inp, out_dir / "recreate", config.REPO)
+        char = character.Character(job["slug"]) if job.get("slug") else character.active()
+        results = run([job], char, lambda: Studio(Engine()), out, inp, out_dir / "recreate", config.REPO)
     except Exception as e:
         results = [{"request": job["id"], "ok": False, "kind": "image" if job.get("kind") == "redo" else "video",
                     "recreate": job.get("kind") == "recreate", "reason": f"{type(e).__name__}: {e}"[:300],

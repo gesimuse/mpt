@@ -177,7 +177,8 @@ def _area(f):
 
 def video(src, out, char=None):
     from . import character
-    char = char or character.active()
+    slug = config.env("PERSONA_RECREATE_SLUG")
+    char = char or (character.Character(slug) if slug else character.active())
     sw = Swapper(char)
     cv2 = sw.cv2
     fps = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v", "-show_entries", "stream=r_frame_rate",

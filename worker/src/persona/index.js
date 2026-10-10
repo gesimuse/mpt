@@ -3,37 +3,45 @@
  * (the daily render); on-demand jobs run on the laptop while it is open
  * (persona/agent.py), on Kaggle otherwise. GitHub only holds the code.
  *
+ * Each persona has her own Telegram channel (personas.js); the one bot serves them
+ * all. 👍 on a photo or video there publishes it to her Instagram and TikTok
+ * (social.js) and marks the post in the channel.
+ *
  *   POST /persona               the persona bot's webhook: 👍 👎 🎬 🔁, replies, and 🎭
  *                               (a TikTok link or a video posted in the channel)
  *   GET  /persona/file          signed, short-lived photo links for Kaggle video jobs
- *   POST /persona/admin/*       the laptop uploads her bible / migrates state, and
- *                               claims and returns on-demand jobs (laptop/claim|result)
+ *   GET  /persona/media/…       signed media links for Instagram/TikTok, and
+ *                               TikTok's URL-prefix verification file
+ *   POST /persona/admin/*       the laptop uploads her bible / migrates state, links
+ *                               accounts and channels, and claims and returns
+ *                               on-demand jobs (laptop/claim|result)
  *   scheduled() every 15 min    02:30-03:15 UTC render, 06/09/12/15/18 post slots,
- *                               and always: move the on-demand Kaggle job along
+ *                               and always: move the on-demand jobs and publishing along
  *
  * Why not GitHub Actions: its cron fired hours late or not at all, and its runs
  * raced on shared state. Cloudflare's cron is punctual and KV has one writer.
  *
  * Secrets: PERSONA_BOT_TOKEN, PERSONA_WEBHOOK_SECRET, PERSONA_ADMIN_SECRET,
- * KAGGLE_API_TOKEN. Vars: PERSONA_CHAT_ID, PERSONA_SLUG, KAGGLE_USERNAME.
- * Bindings: PERSONA (KV), AI (Workers AI).
+ * KAGGLE_API_TOKEN, TIKTOK_CLIENT_KEY, TIKTOK_CLIENT_SECRET. Vars: PERSONA_CHAT_ID,
+ * PERSONA_SLUG (the first persona), KAGGLE_USERNAME. Bindings: PERSONA (KV), AI.
  */
 import * as kaggle from "./kaggle.js";
 import * as st from "./state.js";
 import * as scenes from "./scenes.js";
+import * as personas from "./personas.js";
+import * as social from "./social.js";
 import { tg, answer, sendMedia, kb } from "./telegram.js";
 
 const POST_HOURS = [6, 9, 12, 15, 18];
 const ROLES = { cast: "qwen21", edit: "qwen21", fanvue_edit: "qwen21-uncensored", video: "wan22-i2v-calm" };
 
-const slugOf = (env) => env.PERSONA_SLUG || "lena";
-const renderKernel = (env) => `${env.KAGGLE_USERNAME}/mpt-persona-render-${slugOf(env)}`;
-const jobKernel = (env) => `${env.KAGGLE_USERNAME}/mpt-persona-video-${slugOf(env)}`;
-const dataset = (env) => `${env.KAGGLE_USERNAME}/mpt-persona-${slugOf(env)}`;
+const renderKernel = (env, p) => `${env.KAGGLE_USERNAME}/mpt-persona-render-${p.slug}`;
+const jobKernel = (env, p) => `${env.KAGGLE_USERNAME}/mpt-persona-video-${p.slug}`;
+const dataset = (env, p) => `${env.KAGGLE_USERNAME}/mpt-persona-${p.slug}`;
 
-function basePayload(env) {
+function basePayload(env, p) {
   // 0.62: her scenes score 0.80-0.90; a bowling shot at 0.55 no longer looked like her.
-  return { slug: slugOf(env), roles: ROLES, face_min: env.PERSONA_FACE_MIN || "0.62", min_age: "21" };
+  return { slug: p.slug, roles: ROLES, face_min: env.PERSONA_FACE_MIN || "0.62", min_age: "21" };
 }
 
 // ------------------------------------------------------------------ captions
@@ -55,7 +63,8 @@ function buttons(item) {
 
 function remember(state, item) {
   state.items[item.id] = { kind: item.kind || "image", tags: item.tags || [], beat: item.scene?.beat || "",
-                           scene: item.scene || {}, caption: item.caption || "" };
+                           scene: item.scene || {}, caption: item.caption || "",
+                           audio: !!item.audio, recreate: !!item.recreate };
 }
 
 function itemIdFrom(msg) {
@@ -77,21 +86,108 @@ async function fileLink(env, origin, fileId) {
   return `${origin}/persona/file?f=${encodeURIComponent(fileId)}&e=${exp}&s=${await sign(env, `${fileId}.${exp}`)}`;
 }
 
+/** For Instagram and TikTok to fetch: under /persona/media/ (TikTok's verified prefix), typed, 24h. */
+async function mediaLink(env, origin, fileId, ext) {
+  const exp = Math.floor(Date.now() / 1000) + 24 * 3600;
+  return `${origin}/persona/media/${encodeURIComponent(fileId)}.${ext}?e=${exp}&s=${await sign(env, `${fileId}.${exp}`)}`;
+}
+
+async function telegramFile(env, fileId) {
+  const info = await tg(env, "getFile", { file_id: fileId });
+  return fetch(`https://api.telegram.org/file/bot${env.PERSONA_BOT_TOKEN}/${info.file_path}`);
+}
+
 async function serveFile(request, env) {
   const u = new URL(request.url);
   const f = u.searchParams.get("f"), e = u.searchParams.get("e"), s = u.searchParams.get("s");
   if (!f || !e || Number(e) < Date.now() / 1000 || s !== await sign(env, `${f}.${e}`)) {
     return new Response("forbidden", { status: 403 });
   }
-  const info = await tg(env, "getFile", { file_id: f });
-  return fetch(`https://api.telegram.org/file/bot${env.PERSONA_BOT_TOKEN}/${info.file_path}`);
+  return telegramFile(env, f);
+}
+
+async function serveMedia(request, env) {
+  const u = new URL(request.url);
+  const name = decodeURIComponent(u.pathname.slice("/persona/media/".length));
+  if (name.endsWith(".txt")) return social.verifyFile(env, name);
+  const dot = name.lastIndexOf(".");
+  const f = name.slice(0, dot), ext = name.slice(dot + 1);
+  const e = u.searchParams.get("e"), s = u.searchParams.get("s");
+  if (!e || Number(e) < Date.now() / 1000 || s !== await sign(env, `${f}.${e}`)) {
+    return new Response("forbidden", { status: 403 });
+  }
+  const file = await telegramFile(env, f);
+  const headers = { "content-type": ext === "mp4" ? "video/mp4" : "image/jpeg" };
+  if (file.headers.get("content-length")) headers["content-length"] = file.headers.get("content-length");
+  return new Response(file.body, { status: file.status, headers });
+}
+
+// ------------------------------------------------------------------ publish
+/**
+ * 👍 on a photo or video: publish it to her Instagram and TikTok. The message's
+ * own Telegram copy is what gets posted.
+ */
+async function queuePublish(env, p, state, cq, itemId) {
+  const msg = cq.message || {};
+  const photo = (msg.photo || []).slice(-1)[0];
+  const video = msg.video;
+  if (!photo && !video) return false;
+  if (state.publish.some((j) => j.item === itemId)) return false;
+  const acc = await social.accounts(env, p.slug);
+  if (!acc.instagram && !acc.tiktok) return false;
+  const known = state.items[itemId] || {};
+  const b = (await st.bible(env, p.slug)) || { name: p.slug };
+  const text = known.caption || await scenes.caption(env, b);
+  const tags = (known.tags || []).slice(0, 4).map((t) => "#" + t.replace(/\s+/g, ""));
+  state.publish.push({
+    id: `pub-${itemId}-${Date.now()}`, item: itemId, kind: photo ? "photo" : "video",
+    file_id: (photo || video).file_id, audio: !!known.audio || !!known.recreate,
+    caption: `${text}\n\n${[...tags, "#aigenerated"].join(" ")}`,
+    chat: msg.chat.id, message_id: msg.message_id, base: (msg.caption || "").split("\n\n━━")[0],
+  });
+  return true;
+}
+
+async function advancePublish(env, p, state, origin) {
+  let changed = false;
+  for (const job of state.publish.filter((j) => !social.finished(j))) {
+    const ext = job.kind === "photo" ? "jpg" : "mp4";
+    const media = {
+      url: await mediaLink(env, origin, job.file_id, ext),
+      bytes: async () => {
+        const r = await telegramFile(env, job.file_id);
+        if (!r.ok) throw new Error(`Telegram file ${r.status}`);
+        return r.arrayBuffer();
+      },
+    };
+    const before = JSON.stringify([job.ig, job.tt]);
+    await social.advance(env, p, job, media);
+    changed = true;
+    if (JSON.stringify([job.ig, job.tt]) === before) continue;
+    // Mark the post in the channel: what happened on each platform, and the
+    // caption to paste into a TikTok draft (drafts take none).
+    let status = social.statusLine(job);
+    if (job.ig?.link) status += `\n${job.ig.link}`;
+    if (job.tt?.mode === "draft" && job.tt?.status === "done") status += `\nCaption: ${job.caption}`;
+    const cap = `${job.base}\n\n━━ published ━━\n${status}`.slice(0, 1024);
+    try {
+      await tg(env, "editMessageCaption", { chat_id: job.chat, message_id: job.message_id, caption: cap,
+        reply_markup: kb([[["✓ 👍 published", `pv:noop:${job.item}`]]]) });
+    } catch (e) {
+      console.error("caption update failed", String(e).slice(0, 200));
+    }
+  }
+  // Keep the last 100.
+  if (state.publish.length > 100) { state.publish = state.publish.slice(-100); changed = true; }
+  return changed;
 }
 
 // ------------------------------------------------------------------- taps
-async function onTap(env, cq, state, origin) {
+async function onTap(env, p, cq, state, origin) {
   const [, act, itemId] = cq.data.split(":");
   const msg = cq.message || {};
   const chat = msg.chat?.id;
+  if (act === "noop") return answer(env, cq.id, "Already published.");
   if (act === "up" || act === "dn") {
     if (state.voted.includes(itemId)) return answer(env, cq.id, "Already voted.");
     const item = state.items[itemId] || { tags: [] };
@@ -99,11 +195,13 @@ async function onTap(env, cq, state, origin) {
     for (const t of item.tags || []) state.votes.tags[t] = (state.votes.tags[t] || 0) + d;
     if (act === "up" && item.beat) state.story.push({ t: Date.now(), beat: item.beat, item: itemId });
     state.voted.push(itemId);
-    await answer(env, cq.id, act === "up" ? "Noted 👍" : "Noted 👎");
-    const label = act === "up" ? "✓ 👍" : "✓ 👎";
+    const publishing = act === "up" && (await queuePublish(env, p, state, cq, itemId));
+    await answer(env, cq.id, act === "dn" ? "Noted 👎" : publishing ? "👍 Publishing to Instagram and TikTok…" : "Noted 👍");
+    const label = act === "up" ? (publishing ? "⏳ publishing" : "✓ 👍") : "✓ 👎";
+    const row = [[label, publishing ? `pv:noop:${itemId}` : cq.data]];
+    if (msg.photo && !publishing) row.push(["🎬 Video", `pv:vid:${itemId}`], ["🔁 Redo", `pv:redo:${itemId}`]);
     try {
-      await tg(env, "editMessageReplyMarkup", { chat_id: chat, message_id: msg.message_id,
-        reply_markup: kb([[[label, cq.data], ["🎬 Video", `pv:vid:${itemId}`], ["🔁 Redo", `pv:redo:${itemId}`]]]) });
+      await tg(env, "editMessageReplyMarkup", { chat_id: chat, message_id: msg.message_id, reply_markup: kb([row]) });
     } catch { /* unchanged markup */ }
     return;
   }
@@ -170,6 +268,7 @@ async function onReply(env, post, state) {
 export async function onPersonaWebhook(request, env) {
   const u = new URL(request.url);
   if (u.pathname === "/persona/file") return serveFile(request, env);
+  if (u.pathname.startsWith("/persona/media/")) return serveMedia(request, env);
   if (u.pathname.startsWith("/persona/admin/")) return onAdmin(request, env);
   if (request.headers.get("X-Telegram-Bot-Api-Secret-Token") !== env.PERSONA_WEBHOOK_SECRET) {
     return new Response("forbidden", { status: 403 });
@@ -182,32 +281,42 @@ export async function onPersonaWebhook(request, env) {
   return new Response("ok");
 }
 
-/** Apply taps and replies (from the webhook, or polled when no webhook is set). */
+/** Apply taps and replies (from the webhook, or polled), each in its persona's channel. */
 async function handleUpdates(env, updates, origin) {
-  const slug = slugOf(env);
-  const state = await st.load(env, slug);
-  let changed = false;
+  const byChat = new Map((await personas.list(env)).map((p) => [p.chat_id, p]));
+  const groups = new Map();
   for (const update of updates) {
     const cq = update.callback_query;
     const post = update.channel_post || update.message;
-    const chatId = String(cq?.message?.chat?.id ?? post?.chat?.id ?? "");
-    if (chatId !== String(env.PERSONA_CHAT_ID)) continue;
-    if (cq?.data?.startsWith("pv:")) { await onTap(env, cq, state, origin); changed = true; }
-    // A TikTok/Facebook link or video counts as 🎭 even when it is sent as a reply.
-    else if (post && (await onRecreateRequest(env, post, state))) changed = true;
-    else if (post?.text && post.reply_to_message && !post.text.startsWith("/")) {
-      await onReply(env, post, state); changed = true;
-    }
+    const p = byChat.get(String(cq?.message?.chat?.id ?? post?.chat?.id ?? ""));
+    if (!p) continue;
+    if (!groups.has(p.slug)) groups.set(p.slug, { p, list: [] });
+    groups.get(p.slug).list.push(update);
   }
-  if (!changed) return;
-  await st.save(env, slug, state);
-  // Start the job right away if Kaggle is idle, instead of waiting for the cron.
-  if (state.queue.length) await advanceJobs(env, origin);
+  for (const { p, list } of groups.values()) {
+    const state = await st.load(env, p.slug);
+    let changed = false;
+    for (const update of list) {
+      const cq = update.callback_query;
+      const post = update.channel_post || update.message;
+      if (cq?.data?.startsWith("pv:")) { await onTap(env, p, cq, state, origin); changed = true; }
+      // A TikTok/Facebook link or video counts as 🎭 even when it is sent as a reply.
+      else if (post && (await onRecreateRequest(env, post, state))) changed = true;
+      else if (post?.text && post.reply_to_message && !post.text.startsWith("/")) {
+        await onReply(env, post, state); changed = true;
+      }
+    }
+    if (!changed) continue;
+    if (state.publish.some((j) => !social.finished(j))) await advancePublish(env, p, state, origin);
+    await st.save(env, p.slug, state);
+    // Start the job right away if Kaggle is idle, instead of waiting for the cron.
+    if (state.queue.length) await advanceJobs(env, p, origin);
+  }
 }
 
 /**
  * Until the persona bot has a webhook (PERSONA_POLL=1), its taps are collected
- * here every 15 minutes, so nothing depends on GitHub Actions in the meantime.
+ * here every 15 minutes (and every 30s while the laptop agent runs).
  */
 async function poll(env, origin) {
   const updates = await tg(env, "getUpdates", { timeout: 0, allowed_updates: ["callback_query", "channel_post", "message"] });
@@ -223,7 +332,8 @@ async function onAdmin(request, env) {
     return new Response("forbidden", { status: 403 });
   }
   const u = new URL(request.url);
-  const slug = u.searchParams.get("slug") || slugOf(env);
+  const slug = u.searchParams.get("slug") || env.PERSONA_SLUG || "lena";
+  const p = (await personas.get(env, slug)) || { slug, chat_id: "" };
   if (u.pathname === "/persona/admin/bible" && request.method === "POST") {
     await env.PERSONA.put(`bible:${slug}`, await request.text());
     return new Response("ok");
@@ -236,12 +346,33 @@ async function onAdmin(request, env) {
     }
     return new Response(JSON.stringify(await st.load(env, slug)), { headers: { "content-type": "application/json" } });
   }
+  if (u.pathname === "/persona/admin/personas") {
+    if (request.method === "POST") return Response.json(await personas.save(env, await request.json()));
+    const all = await personas.list(env);
+    for (const q of all) q.accounts = await social.accounts(env, q.slug);
+    return Response.json(all);
+  }
+  if (u.pathname === "/persona/admin/account" && request.method === "POST") {
+    // {platform: "tiktok", refresh_token} | {platform: "instagram", token, user_id}
+    // | {platform: "tiktok_verify", name, body}
+    const a = await request.json();
+    if (a.platform === "tiktok") await env.PERSONA.put(`tt:${slug}`, JSON.stringify({ refresh_token: a.refresh_token }));
+    else if (a.platform === "instagram") await env.PERSONA.put(`ig:${slug}`, JSON.stringify({ token: a.token, user_id: a.user_id, refreshed: Date.now() }));
+    else if (a.platform === "tiktok_verify") await env.PERSONA.put(`ttverify:${a.name}`, a.body);
+    else return new Response("unknown platform", { status: 400 });
+    return new Response("ok");
+  }
   if (u.pathname === "/persona/admin/run" && request.method === "POST") {
     const what = u.searchParams.get("what");
-    if (what === "render") return new Response(await render(env, u.searchParams.get("force") === "1"));
-    if (what === "post") return new Response(await post(env, Number(u.searchParams.get("slot") || 4)));
-    if (what === "jobs") return new Response(await advanceJobs(env, u.origin));
+    if (what === "render") return new Response(await render(env, p, u.searchParams.get("force") === "1"));
+    if (what === "post") return new Response(await post(env, p, Number(u.searchParams.get("slot") || 4)));
+    if (what === "jobs") return new Response(await advanceJobs(env, p, u.origin));
     if (what === "poll") return new Response(await poll(env, u.origin));
+    if (what === "publish") {
+      const state = await st.load(env, slug);
+      if (await advancePublish(env, p, state, u.origin)) await st.save(env, slug, state);
+      return Response.json(state.publish.slice(-5));
+    }
   }
   if (u.pathname === "/persona/admin/laptop/claim" && request.method === "POST") return laptopClaim(request, env, u.origin);
   if (u.pathname === "/persona/admin/laptop/result" && request.method === "POST") return laptopResult(request, env);
@@ -249,34 +380,32 @@ async function onAdmin(request, env) {
 }
 
 // ------------------------------------------------------------------ render
-async function render(env, force = false) {
-  const slug = slugOf(env);
-  const state = await st.load(env, slug);
-  if (state.render_date === st.today() && !force) return "already rendered today";
-  const b = await st.bible(env, slug);
-  if (!b) return "no bible in KV -- run `python -m persona.cli sync` on the laptop";
+async function render(env, p, force = false) {
+  const state = await st.load(env, p.slug);
+  if (state.render_date === st.today() && !force) return `${p.slug}: already rendered today`;
+  const b = await st.bible(env, p.slug);
+  if (!b) return `${p.slug}: no bible in KV -- run \`python -m persona.cli sync\` on the laptop`;
   const n = Number(env.PERSONA_CLOUD_IMAGES || 10);
   const list = await scenes.write(env, b, state, n);
   state.recent.push(...list.map((s) => `${s.setting} / ${s.outfit} / ${s.action}`));
   state.render_date = st.today();
-  await st.save(env, slug, state);
-  await kaggle.push(env, renderKernel(env),
-    kaggle.bootstrap({ ...basePayload(env), scenes: list, videos: 0, date: st.today() }), [dataset(env)]);
-  return `render pushed: ${list.length} scenes`;
+  await st.save(env, p.slug, state);
+  await kaggle.push(env, renderKernel(env, p),
+    kaggle.bootstrap({ ...basePayload(env, p), scenes: list, videos: 0, date: st.today() }), [dataset(env, p)]);
+  return `${p.slug}: render pushed, ${list.length} scenes`;
 }
 
 // -------------------------------------------------------------------- post
-async function post(env, k) {
-  const slug = slugOf(env);
-  const files = await kaggle.outputs(env, renderKernel(env));
-  if (!files["status.json"]) return "no render output";
+async function post(env, p, k) {
+  const files = await kaggle.outputs(env, renderKernel(env, p)).catch(() => ({}));
+  if (!files["status.json"]) return `${p.slug}: no render output`;
   const status = await kaggle.fetchJson(files["status.json"]);
-  if (!status.ok || status.date !== st.today()) return `render not ready (${status.stage} ${status.date})`;
-  const state = await st.load(env, slug);
+  if (!status.ok || status.date !== st.today()) return `${p.slug}: render not ready (${status.stage} ${status.date})`;
+  const state = await st.load(env, p.slug);
   if (state.posted.date !== st.today()) state.posted = { date: st.today(), ids: [] };
   const images = (status.items || []).filter((r) => r.ok && (r.kind || "image") === "image").map((r) => r.id);
   const due = images.filter((id, i) => i % POST_HOURS.length <= k);
-  const b = (await st.bible(env, slug)) || { name: slug };
+  const b = (await st.bible(env, p.slug)) || { name: p.slug };
   let sent = 0;
   for (const id of due) {
     if (state.posted.ids.includes(id) || !files[`out/items/${id}.json`]) continue;
@@ -284,7 +413,7 @@ async function post(env, k) {
     const img = files[`out/items/${id}.jpg`];
     if (!img) continue;
     try {
-      await sendMedia(env, "photo", env.PERSONA_CHAT_ID, img, { caption: caption(b.name, item), buttons: buttons(item) });
+      await sendMedia(env, "photo", p.chat_id, img, { caption: caption(b.name, item), buttons: buttons(item) });
       remember(state, item);
       state.posted.ids.push(id);
       sent++;
@@ -292,21 +421,21 @@ async function post(env, k) {
       console.error("post failed", id, String(e));
     }
   }
-  await st.save(env, slug, state);
-  return `slot ${k}: posted ${sent}`;
+  await st.save(env, p.slug, state);
+  return `${p.slug} slot ${k}: posted ${sent}`;
 }
 
 // ----------------------------------------------------- on-demand Kaggle jobs
 /**
- * Two Kaggle job kernels, so they never block each other: "quick" for 🔁 and 🎬
- * (minutes), "recreate" for 🎭 (an hour+). Results only come back when a whole
- * run ends, and on 2026-10-08 a bowling redo sat for hours behind a recreate in
- * one shared run. The original single kernel ("video") is still read for
+ * Two Kaggle job kernels per persona, so they never block each other: "quick" for
+ * 🔁 and 🎬 (minutes), "recreate" for 🎭 (an hour+). Results only come back when a
+ * whole run ends, and on 2026-10-08 a bowling redo sat for hours behind a recreate
+ * in one shared run. The original single kernel ("video") is still read for
  * results until its last run is posted.
  */
 const LANES = {
-  quick: { kernel: (env) => `${env.KAGGLE_USERNAME}/mpt-persona-quick-${slugOf(env)}`, takes: (q) => q.kind !== "recreate", max: 3 },
-  recreate: { kernel: (env) => `${env.KAGGLE_USERNAME}/mpt-persona-recreate-${slugOf(env)}`, takes: (q) => q.kind === "recreate", max: 1 },
+  quick: { kernel: (env, p) => `${env.KAGGLE_USERNAME}/mpt-persona-quick-${p.slug}`, takes: (q) => q.kind !== "recreate", max: 3 },
+  recreate: { kernel: (env, p) => `${env.KAGGLE_USERNAME}/mpt-persona-recreate-${p.slug}`, takes: (q) => q.kind === "recreate", max: 1 },
 };
 
 /** persona/faceswap.py's check of a 🎭 video: how much of it looks like her. */
@@ -329,8 +458,9 @@ async function postResult(env, state, b, r, item, file) {
     remember(state, item);
   } else if (r.ok) {
     const cap = r.recreate ? `🎭 ${b.name} · recreated${faceLine(item?.face)}` : `🎬 ${b.name}\n${(r.motion || "").slice(0, 300)}`;
-    const btns = r.recreate ? kb([[["👍", `pv:up:${r.id}`], ["👎", `pv:dn:${r.id}`]]]) : undefined;
-    await sendMedia(env, "video", r.chat, file, { caption: cap, buttons: btns, replyTo: r.message_id });
+    await sendMedia(env, "video", r.chat, file, { caption: `${cap}\n#${r.id}`, replyTo: r.message_id,
+      buttons: kb([[["👍", `pv:up:${r.id}`], ["👎", `pv:dn:${r.id}`]]]) });
+    if (item) remember(state, { ...item, kind: "video", recreate: !!r.recreate });
   } else {
     await tg(env, "sendMessage", { chat_id: r.chat, reply_to_message_id: r.message_id,
       text: `❌ ${r.kind === "image" ? "Redraw" : r.recreate ? "Recreate" : "Video"} failed: ${String(r.reason).slice(0, 300)}` });
@@ -360,52 +490,53 @@ async function postResults(env, state, b, kernel) {
 // ------------------------------------------------------------------ laptop
 /**
  * While the laptop is open, persona/agent.py checks in every 30s and runs the
- * on-demand jobs on its own GPU; Kaggle only gets them when it has gone quiet.
- * The check-in is written to KV at most every 4 minutes (KV's free tier allows
- * 1000 writes a day), so "quiet" means no check-in for LAPTOP_STALE_MS.
+ * on-demand jobs of every persona on its own GPU; Kaggle only gets them when it has
+ * gone quiet. The check-in (KV "laptop", one for all personas) is written at most
+ * every 4 minutes (KV's free tier allows 1000 writes a day), so "quiet" means no
+ * check-in for LAPTOP_STALE_MS.
  */
 const LAPTOP_STALE_MS = 10 * 60 * 1000;
 const LAPTOP_WRITE_MS = 4 * 60 * 1000;
-const laptopFresh = (state) => Date.now() - (state.laptop?.seen || 0) < LAPTOP_STALE_MS;
+
+async function laptopSeen(env) {
+  return JSON.parse((await env.PERSONA.get("laptop")) || "{}").seen || 0;
+}
+const laptopFresh = async (env) => Date.now() - (await laptopSeen(env)) < LAPTOP_STALE_MS;
 
 async function laptopClaim(request, env, origin) {
   const body = await request.json().catch(() => ({}));
-  const slug = slugOf(env);
-  let state = await st.load(env, slug);
-  if (Date.now() - (state.laptop?.seen || 0) > LAPTOP_WRITE_MS) {
-    state.laptop = { seen: Date.now() };
-    await st.save(env, slug, state);
+  if (Date.now() - (await laptopSeen(env)) > LAPTOP_WRITE_MS) {
+    await env.PERSONA.put("laptop", JSON.stringify({ seen: Date.now() }));
   }
-  // Then taps (while the bot has no webhook), so a tap made a moment ago is in the
+  // Then taps (while the bot has no webhook), so a tap made a moment ago is in a
   // queue below -- and, the laptop being marked up, not pushed to Kaggle.
-  if (env.PERSONA_POLL === "1" && !body.busy) {
-    await poll(env, origin).catch((e) => console.error("poll", String(e)));
-    state = await st.load(env, slug);
-  }
-  state.lanes = state.lanes || {};
-  let changed = false;
-  let job = null;
-  if (!body.busy) {
-    // A job it already holds comes back too: the agent restarted mid-job.
-    let q = (state.lanes.laptop || [])[0];
-    if (!q && state.queue.length) {
-      q = state.queue.shift();
-      state.lanes.laptop = [q];
-      changed = true;
+  if (env.PERSONA_POLL === "1" && !body.busy) await poll(env, origin).catch((e) => console.error("poll", String(e)));
+  if (body.busy) return Response.json({ job: null });
+  const all = await personas.list(env);
+  // A job it already holds comes back first: the agent restarted mid-job.
+  for (const pass of ["held", "queued"]) {
+    for (const p of all) {
+      const state = await st.load(env, p.slug);
+      state.lanes = state.lanes || {};
+      let q = (state.lanes.laptop || [])[0];
+      if (!q && pass === "queued" && state.queue.length) {
+        q = state.queue.shift();
+        state.lanes.laptop = [q];
+        await st.save(env, p.slug, state);
+      }
+      if (q) return Response.json({ job: { ...(await jobPayload(env, origin, state, [q]))[0], slug: p.slug } });
     }
-    if (q) job = (await jobPayload(env, origin, [q]))[0];
   }
-  if (changed) await st.save(env, slug, state);
-  return Response.json({ job });
+  return Response.json({ job: null });
 }
 
 async function laptopResult(request, env) {
   const form = await request.formData();
   const r = JSON.parse(form.get("result"));
-  const slug = slugOf(env);
-  const state = await st.load(env, slug);
+  const p = (await personas.get(env, r.slug || env.PERSONA_SLUG || "lena"));
+  const state = await st.load(env, p.slug);
   if (state.done.includes(r.request)) return new Response("already posted");
-  const b = (await st.bible(env, slug)) || { name: slug };
+  const b = (await st.bible(env, p.slug)) || { name: p.slug };
   const item = form.get("item") ? JSON.parse(await form.get("item").text()) : null;
   await postResult(env, state, b, r, item, form.get("file"));
   state.done.push(r.request);
@@ -413,12 +544,12 @@ async function laptopResult(request, env) {
   // was quiet; a Kaggle result for it is skipped as already done.
   state.lanes.laptop = (state.lanes.laptop || []).filter((q) => q.id !== r.request);
   state.queue = state.queue.filter((q) => q.id !== r.request);
-  state.laptop = { seen: Date.now() };
-  await st.save(env, slug, state);
+  await st.save(env, p.slug, state);
+  await env.PERSONA.put("laptop", JSON.stringify({ seen: Date.now() }));
   return new Response("posted");
 }
 
-async function jobPayload(env, origin, batch) {
+async function jobPayload(env, origin, state, batch) {
   const jobs = [];
   for (const q of batch) {
     if (q.kind === "redo") {
@@ -428,42 +559,42 @@ async function jobPayload(env, origin, batch) {
                   video_url: q.file_id ? await fileLink(env, origin, q.file_id) : "" });
     } else {
       jobs.push({ id: q.id, image_url: await fileLink(env, origin, q.file_id), motion: q.motion || "",
+                  caption: state.items[q.item]?.caption || "", tags: state.items[q.item]?.tags || [],
                   chat: q.chat, message_id: q.message_id });
     }
   }
   return jobs;
 }
 
-async function advanceJobs(env, origin) {
-  const slug = slugOf(env);
-  const state = await st.load(env, slug);
-  const b = (await st.bible(env, slug)) || { name: slug };
+async function advanceJobs(env, p, origin) {
+  const state = await st.load(env, p.slug);
+  const b = (await st.bible(env, p.slug)) || { name: p.slug };
   state.lanes = state.lanes || {};
   let changed = false;
   const notes = [];
 
   // The old single kernel: post whatever its last run produced, once.
   if ((state.running || []).length) {
-    const s = await kaggle.status(env, jobKernel(env));
+    const s = await kaggle.status(env, jobKernel(env, p));
     if (s === "COMPLETE" || s === "ERROR") {
-      changed = (await postResults(env, state, b, jobKernel(env))) || changed;
+      changed = (await postResults(env, state, b, jobKernel(env, p))) || changed;
       state.running = [];
       changed = true;
     } else notes.push(`legacy ${s}`);
   }
 
   // The laptop went quiet holding a job (lid closed mid-render): Kaggle takes it.
-  const laptopUp = laptopFresh(state);
+  const laptopUp = await laptopFresh(env);
   if ((state.lanes.laptop || []).length && !laptopUp) {
     state.queue = [...state.lanes.laptop, ...state.queue];
     state.lanes.laptop = [];
     changed = true;
     notes.push("laptop quiet: its job goes to Kaggle");
   }
-  if (laptopUp) notes.push("laptop up: new jobs wait for it");
+  if (laptopUp && state.queue.length) notes.push("laptop up: new jobs wait for it");
 
   for (const [name, lane] of Object.entries(LANES)) {
-    const kernel = lane.kernel(env);
+    const kernel = lane.kernel(env, p);
     const running = state.lanes[name] || [];
     if (running.length) {
       const s = await kaggle.status(env, kernel);
@@ -482,16 +613,16 @@ async function advanceJobs(env, origin) {
     }
     const batch = laptopUp ? [] : state.queue.filter(lane.takes).slice(0, lane.max);
     if (!batch.length) continue;
-    const jobs = await jobPayload(env, origin, batch);
-    await kaggle.push(env, kernel, kaggle.bootstrap({ ...basePayload(env), mode: "video", jobs }), [dataset(env)]);
+    const jobs = await jobPayload(env, origin, state, batch);
+    await kaggle.push(env, kernel, kaggle.bootstrap({ ...basePayload(env, p), mode: "video", jobs }), [dataset(env, p)]);
     state.lanes[name] = batch;
     const taken = new Set(batch.map((q) => q.id));
     state.queue = state.queue.filter((q) => !taken.has(q.id));
     changed = true;
     notes.push(`${name}: pushed ${jobs.length}`);
   }
-  if (changed) await st.save(env, slug, state);
-  return notes.join("; ") || "idle";
+  if (changed) await st.save(env, p.slug, state);
+  return `${p.slug}: ${notes.join("; ") || "idle"}`;
 }
 
 // ---------------------------------------------------------------- schedule
@@ -501,11 +632,21 @@ export async function onPersonaSchedule(event, env) {
   const h = now.getUTCHours(), m = now.getUTCMinutes();
   const origin = env.WORKER_ORIGIN;
   try {
-    if ((h === 2 && m >= 30) || (h === 3 && m < 30)) console.log(await render(env));
-    else if (POST_HOURS.includes(h) && m < 15) console.log(await post(env, POST_HOURS.indexOf(h)));
     if (env.PERSONA_POLL === "1") console.log(await poll(env, origin));
-    console.log(await advanceJobs(env, origin));
   } catch (err) {
-    console.error("persona schedule failed", String(err));
+    console.error("persona poll failed", String(err));
+  }
+  for (const p of await personas.list(env)) {
+    try {
+      if ((h === 2 && m >= 30) || (h === 3 && m < 30)) console.log(await render(env, p));
+      else if (POST_HOURS.includes(h) && m < 15) console.log(await post(env, p, POST_HOURS.indexOf(h)));
+      console.log(await advanceJobs(env, p, origin));
+      const state = await st.load(env, p.slug);
+      if (state.publish.some((j) => !social.finished(j)) && (await advancePublish(env, p, state, origin))) {
+        await st.save(env, p.slug, state);
+      }
+    } catch (err) {
+      console.error(`persona ${p.slug} schedule failed`, String(err));
+    }
   }
 }

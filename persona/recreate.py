@@ -115,10 +115,16 @@ def best_frame(shot, dest, step=0.25):
     return dest
 
 
+def _char():
+    from . import character
+    slug = config.env("PERSONA_RECREATE_SLUG")
+    return character.Character(slug) if slug else character.active()
+
+
 def _stage_edit(work):
-    from . import character, registry
+    from . import registry
     from .engine import Engine
-    char = character.active()
+    char = _char()
     front = char.refs_dir / "01-front.jpg"
     eng = Engine(profile=config.env("PERSONA_RECREATE_PROFILE", "5"))
     model = registry.get(config.load_settings()["roles"].get("edit", "qwen21"))

@@ -96,6 +96,7 @@ def run_job(job):
              "recreate": job.get("kind") == "recreate", "reason": f"laptop job exited {proc.returncode}",
              "chat": job.get("chat"), "message_id": job.get("message_id")}]
         for r in results:
+            r["slug"] = job.get("slug", "")
             files = {}
             if r.get("ok"):
                 item = json.loads((work / "items" / f"{r['id']}.json").read_text())

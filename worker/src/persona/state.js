@@ -15,7 +15,7 @@ export const EMPTY = {
   queue: [],          // on-demand jobs waiting: 🎬 / reply / 🔁
   running: [],        // the old single job kernel's last run
   lanes: {},          // quick / recreate kernel, or laptop -> jobs in its current run
-  laptop: { seen: 0 }, // last check-in of persona/agent.py (ms)
+  publish: [],        // 👍 -> Instagram / TikTok jobs (social.js), newest last
   done: [],
   items: {},          // id -> {kind, tags, beat, scene, caption, motion}
 };
