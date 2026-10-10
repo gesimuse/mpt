@@ -20,6 +20,8 @@ GPU commands need Wan2GP's python:
   channel <slug> <chat id>  her own Telegram channel (the bot must be an admin there)
   accounts [buffer | <slug> buffer <instagram channel> <tiktok channel>]
                             her Buffer channels for 👍 publishing (see persona/accounts.py)
+  tags <slug> [trend|core <tag> ...]
+                            her hashtags: set the trending/core list, or show learned scores
 """
 import sys
 
@@ -117,6 +119,11 @@ def main(argv=None):
                 print(f"{c['service']:10} {c['name']:30} {c['id']}" + ("  (disconnected)" if c["isDisconnected"] else ""))
         elif args[1] == "buffer":
             print(accounts.link_buffer(args[0], args[2], args[3]))
+    elif cmd == "tags":
+        from . import accounts
+        clean = [t.lstrip("#").lower() for t in args[2:]]
+        print(accounts.tags(args[0], trend=clean if args[1:2] == ["trend"] else None,
+                            core=clean if args[1:2] == ["core"] else None))
     else:
         sys.exit(f"unknown command {cmd!r}\n{__doc__}")
 

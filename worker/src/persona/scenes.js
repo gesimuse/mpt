@@ -6,7 +6,11 @@
  */
 import IDEAS from "../../../persona/ideas.json";
 
-const MODEL = "@cf/meta/llama-3.1-8b-instruct";
+// llama-3.1-8b-instruct was retired 2026-05-30 (every call failed: "5028 ... deprecated"),
+// so scenes and captions had been falling back to templates. Mistral Small 3.1 wrote
+// the most specific captions and tags in a 2026-10-10 comparison.
+const MODEL = "@cf/mistralai/mistral-small-3.1-24b-instruct";
+const text = (r) => (typeof r.response === "string" ? r.response : JSON.stringify(r.response || ""));
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 
 function outfitFor(place, used) {
@@ -116,7 +120,7 @@ export async function write(env, b, state, n) {
       try {
         const r = await env.AI.run(MODEL, { messages: [{ role: "user", content: prompt(b, state, places, outfits) }],
                                             max_tokens: 2000, temperature: 0.9 });
-        got = parse(r.response, k);
+        got = parse(text(r), k);
       } catch (e) {
         console.log("scene writing failed", String(e).slice(0, 150));
       }
@@ -126,20 +130,3 @@ export async function write(env, b, state, n) {
   return assignGazes(out.slice(0, n));
 }
 
-/**
- * A post caption when the item has none (🎭 recreates): first person, short, in
- * her voice. Falls back to a plain one if Workers AI fails.
- */
-export async function caption(env, b) {
-  try {
-    const r = await env.AI.run(MODEL, { messages: [{ role: "user", content:
-      `Write ONE Instagram/TikTok caption for a short video of ${b.name}, a ${b.age}-year-old social-media persona ` +
-      `(${b.personality}). First person, max 15 words, 1-2 emojis, no hashtags, no quotes. Answer with the caption only.` }],
-      max_tokens: 60, temperature: 0.9 });
-    const text = String(r.response || "").trim().replace(/^["']|["']$/g, "").split("\n")[0];
-    if (text) return text;
-  } catch (e) {
-    console.log("caption writing failed", String(e).slice(0, 150));
-  }
-  return "✨";
-}

@@ -16,6 +16,8 @@ export const EMPTY = {
   running: [],        // the old single job kernel's last run
   lanes: {},          // quick / recreate kernel, or laptop -> jobs in its current run
   publish: [],        // 👍 -> Instagram / TikTok jobs (social.js), newest last
+  hashtags: {},       // platform -> tag -> {n, sum of log-lift} (captions.js)
+  values: {},         // platform -> her last 30 posts' values, for the median
   done: [],
   items: {},          // id -> {kind, tags, beat, scene, caption, motion}
 };

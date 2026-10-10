@@ -29,6 +29,7 @@ import * as st from "./state.js";
 import * as scenes from "./scenes.js";
 import * as personas from "./personas.js";
 import * as social from "./social.js";
+import * as captions from "./captions.js";
 import { tg, answer, sendMedia, kb } from "./telegram.js";
 
 const POST_HOURS = [6, 9, 12, 15, 18];
@@ -135,12 +136,12 @@ async function queuePublish(env, p, state, cq, itemId) {
   if (!acc.instagram && !acc.tiktok) return false;
   const known = state.items[itemId] || {};
   const b = (await st.bible(env, p.slug)) || { name: p.slug };
-  const text = known.caption || await scenes.caption(env, b);
-  const tags = (known.tags || []).slice(0, 4).map((t) => "#" + t.replace(/\s+/g, ""));
+  // A caption and hashtags for each platform, never empty (captions.js).
+  const posts = await captions.forPost(env, p, b, state, { ...known, kind: photo ? "photo" : "video" });
   state.publish.push({
     id: `pub-${itemId}-${Date.now()}`, item: itemId, kind: photo ? "photo" : "video",
     file_id: (photo || video).file_id, audio: !!known.audio || !!known.recreate,
-    caption: `${text}\n\n${[...tags, "#aigenerated"].join(" ")}`,
+    posts, caption: posts.instagram.text,
     chat: msg.chat.id, message_id: msg.message_id, base: (msg.caption || "").split("\n\n━━")[0],
   });
   return true;
@@ -165,6 +166,34 @@ async function advancePublish(env, p, state, origin) {
   }
   // Keep the last 100.
   if (state.publish.length > 100) { state.publish = state.publish.slice(-100); changed = true; }
+  return changed;
+}
+
+/**
+ * 48h after a post went out, its Buffer numbers score its hashtags (captions.learn),
+ * so the next posts lean on the tags that worked for her. Given up after 7 days
+ * (a TikTok notification post that was never posted from the phone has none).
+ */
+async function learnFromPosts(env, state) {
+  let changed = false;
+  const now = Date.now();
+  for (const job of state.publish) {
+    for (const [key, platform] of [["ig", "instagram"], ["tt", "tiktok"]]) {
+      const rec = job[key];
+      if (!rec?.post || rec.status !== "done" || rec.learned || now - (rec.sent_at || now) < 48 * 3600 * 1000) continue;
+      try {
+        const post = await social.metrics(env, rec.post);
+        const value = captions.postValue(post?.metrics);
+        if (value > 0) {
+          captions.learn(state, platform, job.posts?.[platform]?.tags || [], value);
+          rec.learned = true;
+        } else if (now - rec.sent_at > 7 * 86400 * 1000) rec.learned = "no numbers";
+        changed = true;
+      } catch (e) {
+        console.error("metrics failed", rec.post, String(e).slice(0, 200));
+      }
+    }
+  }
   return changed;
 }
 
@@ -337,6 +366,31 @@ async function onAdmin(request, env) {
     const all = await personas.list(env);
     for (const q of all) q.accounts = social.accounts(q);
     return Response.json(all);
+  }
+  if (u.pathname === "/persona/admin/scenes") {
+    // A dry run of the daily scene writer: nothing is saved or rendered.
+    const b = await st.bible(env, slug);
+    return Response.json(await scenes.write(env, b, await st.load(env, slug), Number(u.searchParams.get("n") || 2)));
+  }
+  if (u.pathname === "/persona/admin/caption") {
+    // A dry run: what a 👍 on this item would post, nothing is published.
+    const state = await st.load(env, slug);
+    const item = state.items[u.searchParams.get("item")] || { kind: u.searchParams.get("kind") || "video", recreate: true };
+    const b = (await st.bible(env, slug)) || { name: slug };
+    return Response.json(await captions.forPost(env, p, b, state, item));
+  }
+  if (u.pathname === "/persona/admin/tags") {
+    // POST {trend: [...]} replaces her hand-kept trending list; GET shows her tag scores.
+    if (request.method === "POST") {
+      const t = await request.json();
+      if (t.trend) await env.PERSONA.put(`trend_tags:${slug}`, JSON.stringify(t.trend));
+      if (t.core) await env.PERSONA.put(`coretags:${slug}`, JSON.stringify(t.core));
+      return new Response("ok");
+    }
+    const state = await st.load(env, slug);
+    return Response.json({ core: JSON.parse((await env.PERSONA.get(`coretags:${slug}`)) || "null"),
+                           trend: JSON.parse((await env.PERSONA.get(`trend_tags:${slug}`)) || "[]"),
+                           scores: state.hashtags || {} });
   }
   if (u.pathname === "/persona/admin/run" && request.method === "POST") {
     const what = u.searchParams.get("what");
@@ -618,9 +672,10 @@ export async function onPersonaSchedule(event, env) {
       else if (POST_HOURS.includes(h) && m < 15) console.log(await post(env, p, POST_HOURS.indexOf(h)));
       console.log(await advanceJobs(env, p, origin));
       const state = await st.load(env, p.slug);
-      if (state.publish.some((j) => !social.finished(j)) && (await advancePublish(env, p, state, origin))) {
-        await st.save(env, p.slug, state);
-      }
+      let dirty = state.publish.some((j) => !social.finished(j)) && (await advancePublish(env, p, state, origin));
+      // Numbers settle slowly: scoring once an hour is plenty.
+      if (m < 15) dirty = (await learnFromPosts(env, state)) || dirty;
+      if (dirty) await st.save(env, p.slug, state);
     } catch (err) {
       console.error(`persona ${p.slug} schedule failed`, String(err));
     }

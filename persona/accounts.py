@@ -83,3 +83,19 @@ def show():
         lines.append(f"{p['slug']}: channel {p.get('chat_id')} · Instagram {'✓' if a.get('instagram') else '—'} · "
                      f"TikTok {'✓' if a.get('tiktok') else '—'}")
     return "\n".join(lines)
+
+
+def tags(slug, trend=None, core=None):
+    """Her hashtags: set the hand-kept trending list (from TikTok Creative Center /
+    Instagram search, refreshed whenever) or her core tags, or show what she has
+    learned -- per platform, best first."""
+    if trend is not None or core is not None:
+        body = {k: v for k, v in (("trend", trend), ("core", core)) if v is not None}
+        _worker("/persona/admin/tags", params={"slug": slug}, json=body)
+        return "saved"
+    d = _worker("/persona/admin/tags", "GET", params={"slug": slug}).json()
+    lines = [f"core: {' '.join(d.get('core') or [])}", f"trending: {' '.join(d.get('trend') or []) or '-'}"]
+    for platform, stats in (d.get("scores") or {}).items():
+        ranked = sorted(stats.items(), key=lambda kv: kv[1]["sum"] / kv[1]["n"], reverse=True)
+        lines.append(f"{platform}: " + ", ".join(f"#{t} {s['sum'] / s['n']:+.2f} ({s['n']})" for t, s in ranked[:15]))
+    return "\n".join(lines)

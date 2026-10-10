@@ -43,8 +43,10 @@ export function accounts(p) {
 async function start(env, p, job, platform, mediaUrl) {
   const channelId = p.buffer?.[platform];
   if (!channelId || !env.BUFFER_ACCESS_TOKEN) return { status: "skipped", note: "not linked" };
+  // Her caption and hashtags for this platform (captions.js).
+  const text = job.posts?.[platform]?.text || job.caption;
   const asset = job.kind === "photo"
-    ? { image: { url: mediaUrl, metadata: { altText: job.caption.split("\n")[0].slice(0, 100) } } }
+    ? { image: { url: mediaUrl, metadata: { altText: text.split("\n")[0].slice(0, 100) } } }
     : { video: { url: mediaUrl } };
   let mode = "automatic", metadata;
   if (platform === "instagram") {
@@ -54,11 +56,11 @@ async function start(env, p, job, platform, mediaUrl) {
     if (!(job.kind === "video" && job.audio)) mode = "notification";
     // TikTok photo posts refuse the AI flag ("do not support AI content
     // disclosure"); the caption's #aigenerated stays.
-    metadata = { tiktok: { title: job.caption.split("\n")[0].slice(0, 90),
+    metadata = { tiktok: { title: text.split("\n")[0].slice(0, 90),
                            ...(job.kind === "photo" ? {} : { isAiGenerated: true }) } };
   }
   const d = await gql(env, CREATE, { input: {
-    channelId, text: job.caption, mode: "shareNow", schedulingType: mode, assets: [asset], metadata, aiAssisted: true,
+    channelId, text, mode: "shareNow", schedulingType: mode, assets: [asset], metadata, aiAssisted: true,
   } });
   const res = d.createPost;
   if (res.__typename !== "PostActionSuccess") throw new Error(`${res.__typename}: ${res.message || ""}`);
@@ -67,9 +69,9 @@ async function start(env, p, job, platform, mediaUrl) {
 
 function settle(rec, post) {
   if (post.status === "error") return { ...rec, status: "failed", note: post.error?.message || "Buffer error" };
-  if (post.status === "sent") return { ...rec, status: "done", link: post.externalLink || "" };
+  if (post.status === "sent") return { ...rec, status: "done", link: post.externalLink || "", sent_at: rec.sent_at || Date.now() };
   // A notification post waits for you on the phone: nothing more to watch here.
-  if (rec.mode === "notification") return { ...rec, status: "done" };
+  if (rec.mode === "notification") return { ...rec, status: "done", sent_at: rec.sent_at || Date.now() };
   return { ...rec, status: "processing" };
 }
 
@@ -98,6 +100,13 @@ export async function advance(env, p, job, mediaUrl) {
     if (job[key]?.status === "processing" && job.tries > 24) job[key] = { ...job[key], status: "failed", note: "timed out" };
   }
   return job;
+}
+
+const METRICS = `query($input: PostInput!) { post(input: $input) { status metrics { type value } } }`;
+
+/** Buffer's numbers for a post: {status, metrics: [{type, value}]}. */
+export async function metrics(env, postId) {
+  return (await gql(env, METRICS, { input: { id: postId } })).post;
 }
 
 export const finished = (job) => ["ig", "tt"].every((k) => job[k] && job[k].status !== "processing");
