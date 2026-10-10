@@ -79,8 +79,10 @@ def recreate(job, char, out, inp, work_root, code_dir):
             cmd += ["--seconds", str(job["seconds"])]
         subprocess.run(cmd, cwd=str(code_dir), check=True)
         made = next(work.glob("recreated.*"))
+        report = work / "swapped.json"  # persona/faceswap.py's check of her face
+        face = json.loads(report.read_text()) if report.exists() else None
         vid = char.new_item(kind="video", lane="social", model="viggle_animate", recreate=True,
-                            source=job.get("url", ""))
+                            source=job.get("url", ""), face=face)
         dest = out / f"{vid['id']}{made.suffix}"
         shutil.copyfile(made, dest)
         vid = char.update_item(vid["id"], path=dest.name, request=job["id"])

@@ -309,6 +309,16 @@ const LANES = {
   recreate: { kernel: (env) => `${env.KAGGLE_USERNAME}/mpt-persona-recreate-${slugOf(env)}`, takes: (q) => q.kind === "recreate", max: 1 },
 };
 
+/** persona/faceswap.py's check of a 🎭 video: how much of it looks like her. */
+function faceLine(face) {
+  if (!face) return "\n⚠️ face not checked (no face swap ran)";
+  if (!face.judged) return "\n⚠️ face not checked: she never faces the camera";
+  const line = `\nface match ${face.median} (lowest ${face.min})`;
+  if (face.low_share > 0.15 || face.low_seconds >= 1)
+    return `${line}\n⚠️ ${Math.round(face.low_share * 100)}% doesn't look like her (longest ${face.low_seconds}s)`;
+  return line;
+}
+
 /**
  * Post one finished job (from a Kaggle run or the laptop) under the message that
  * asked for it. `item` is the item JSON, `file` its photo/video (URL or Blob).
@@ -318,7 +328,7 @@ async function postResult(env, state, b, r, item, file) {
     await sendMedia(env, "photo", r.chat, file, { caption: "🔁 " + caption(b.name, item), buttons: buttons(item), replyTo: r.message_id });
     remember(state, item);
   } else if (r.ok) {
-    const cap = r.recreate ? `🎭 ${b.name} · recreated` : `🎬 ${b.name}\n${(r.motion || "").slice(0, 300)}`;
+    const cap = r.recreate ? `🎭 ${b.name} · recreated${faceLine(item?.face)}` : `🎬 ${b.name}\n${(r.motion || "").slice(0, 300)}`;
     const btns = r.recreate ? kb([[["👍", `pv:up:${r.id}`], ["👎", `pv:dn:${r.id}`]]]) : undefined;
     await sendMedia(env, "video", r.chat, file, { caption: cap, buttons: btns, replyTo: r.message_id });
   } else {

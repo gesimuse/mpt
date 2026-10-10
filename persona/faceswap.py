@@ -14,6 +14,7 @@ the FaceFusion assets release on first use. Note: inswapper_128 is released for
 non-commercial research use -- fine for the review channel, but look at its
 license before anything made with it goes to Fanvue.
 """
+import json
 import subprocess
 import sys
 import tempfile
@@ -27,6 +28,9 @@ from . import config
 MODELS = Path.home() / ".insightface" / "swap"
 ASSETS = "https://github.com/facefusion/facefusion-assets/releases/download/models-3.0.0/"
 # FFHQ 512 alignment (what GFPGAN was trained on), as used by FaceFusion.
+# Her face against her averaged identity, front-on frames of a good recreate:
+# 0.6-0.8; Viggle's own faces (the original girl's): 0.05-0.3.
+LOOKS_LIKE_HER = 0.45
 FFHQ_512 = np.array([[192.98138, 239.94708], [318.90277, 240.19366], [256.63416, 314.01935],
                      [201.26117, 371.41043], [313.08905, 371.15118]], dtype=np.float32)
 
@@ -55,9 +59,12 @@ class Swapper:
         import cv2
         import insightface
         import onnxruntime as ort
-        from . import faceid
+        from insightface.app import FaceAnalysis
         self.cv2 = cv2
-        self.app = faceid._app()
+        # Its own detector on the GPU: faceid's CPU one took 0.9s a call, twice a
+        # frame, most of a recreate's swap time.
+        self.app = FaceAnalysis(name="buffalo_l", providers=_providers(), allowed_modules=["detection", "recognition"])
+        self.app.prepare(ctx_id=0 if "CUDAExecutionProvider" in _providers() else -1, det_size=(640, 640))
         self.swap = insightface.model_zoo.get_model(str(_model("inswapper_128.onnx")), providers=_providers())
         self.restore = ort.InferenceSession(str(_model("gfpgan_1.4.onnx")), providers=_providers())
         embs = []
@@ -110,12 +117,32 @@ class Swapper:
         face = max(faces, key=_area)
         orig = img
         img = self.swap.get(img, face, self.source, paste_back=True)
-        swapped = self.app.get(img)
-        if swapped:
-            img = self._sharpen(img, max(swapped, key=_area))
+        img = self._sharpen(img, face)  # the swap keeps the face where it was
         text = self._text_mask(orig)
         img = (orig * text + img * (1 - text)).astype(np.uint8)
         return img, _frontal(face)
+
+
+    def check(self, frames, frontal, fps, step=4, low=LOOKS_LIKE_HER):
+        """How much the finished video looks like her: every `step`-th frame where
+        she faces the camera, her face against her identity. Turned-away frames
+        are not judged (they are left as Viggle made them on purpose)."""
+        sims = []
+        for i in range(0, len(frames), step):
+            if frontal[i] < 0.5:
+                continue
+            faces = self.app.get(self.cv2.imread(str(frames[i])))
+            sims.append((i, float(max(faces, key=_area).normed_embedding @ self.source.normed_embedding) if faces else 0.0))
+        if not sims:
+            return {"judged": 0}
+        run = longest = 0
+        for _, sim in sims:
+            run = run + 1 if sim < low else 0
+            longest = max(longest, run)
+        vals = [sim for _, sim in sims]
+        return {"judged": len(sims), "median": round(float(np.median(vals)), 2), "min": round(min(vals), 2),
+                "low_share": round(sum(v < low for v in vals) / len(vals), 2),
+                "low_seconds": round(longest * step / fps, 1)}
 
 
 def _frontal(face):
@@ -171,6 +198,9 @@ def video(src, out, char=None):
                 cv2.imwrite(str(f), (img * a + orig * (1 - a)).astype(np.uint8))
         log(f"{len(frames)} frames: swapped {int((w >= 0.99).sum())}, faded {int(((w > 0) & (w < 0.99)).sum())}, "
             f"left as is {int((w == 0).sum())} (no face or turned away)")
+        report = sw.check(frames, frontal, float(fps.split("/")[0]) / float((fps.split("/") + ["1"])[1]))
+        Path(out).with_suffix(".json").write_text(json.dumps(report))
+        log(f"face check: {report}")
         subprocess.run(["ffmpeg", "-v", "error", "-y", "-framerate", fps, "-i", str(tmp / "%05d.png"), "-i", str(src),
                         "-map", "0:v", "-map", "1:a?", "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p",
                         "-c:a", "copy", "-shortest", str(out)], check=True)
