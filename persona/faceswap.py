@@ -1,0 +1,150 @@
+"""Put her face back on every frame of a 🎭 recreate.
+
+Viggle takes hair, skin and clothes from the edited frame but rebuilds the face
+from the original footage: on 2026-10-10 the edited frames matched her at
+0.72-0.77 (InsightFace) and the video's frames fell to 0.06-0.2 within seconds --
+"the hair changed but the face is still the original". So after Viggle each
+frame's face is swapped to her identity (inswapper_128, her embedding averaged
+over her refs) and sharpened (GFPGAN 1.4, inswapper works at 128px).
+
+    python -m persona.faceswap <video> <out>
+
+Models: ~/.insightface/swap/{inswapper_128.onnx,gfpgan_1.4.onnx}, fetched from
+the FaceFusion assets release on first use. Note: inswapper_128 is released for
+non-commercial research use -- fine for the review channel, but look at its
+license before anything made with it goes to Fanvue.
+"""
+import subprocess
+import sys
+import tempfile
+import urllib.request
+from pathlib import Path
+
+import numpy as np
+
+from . import config
+
+MODELS = Path.home() / ".insightface" / "swap"
+ASSETS = "https://github.com/facefusion/facefusion-assets/releases/download/models-3.0.0/"
+# FFHQ 512 alignment (what GFPGAN was trained on), as used by FaceFusion.
+FFHQ_512 = np.array([[192.98138, 239.94708], [318.90277, 240.19366], [256.63416, 314.01935],
+                     [201.26117, 371.41043], [313.08905, 371.15118]], dtype=np.float32)
+
+
+def log(msg):
+    print(f"[persona.faceswap] {msg}", flush=True)
+
+
+def _model(name):
+    path = MODELS / name
+    if not path.exists() or path.stat().st_size < 1_000_000:
+        MODELS.mkdir(parents=True, exist_ok=True)
+        log(f"downloading {name}")
+        urllib.request.urlretrieve(ASSETS + name, path)
+    return path
+
+
+def _providers():
+    import onnxruntime as ort
+    have = ort.get_available_providers()
+    return [p for p in ("CUDAExecutionProvider", "CPUExecutionProvider") if p in have]
+
+
+class Swapper:
+    def __init__(self, char):
+        import cv2
+        import insightface
+        import onnxruntime as ort
+        from . import faceid
+        self.cv2 = cv2
+        self.app = faceid._app()
+        self.swap = insightface.model_zoo.get_model(str(_model("inswapper_128.onnx")), providers=_providers())
+        self.restore = ort.InferenceSession(str(_model("gfpgan_1.4.onnx")), providers=_providers())
+        embs = []
+        refs = sorted(char.refs_dir.glob("*.jpg")) + sorted((char.refs_dir / "sheet").glob("*.jpg"))
+        for p in refs:
+            img = cv2.imread(str(p))
+            faces = self.app.get(img) if img is not None else []
+            if faces:
+                embs.append(max(faces, key=_area).normed_embedding)
+        if not embs:
+            raise RuntimeError(f"no face found in her refs ({char.refs_dir})")
+        mean = np.mean(embs, axis=0)
+
+        class Source:  # what INSwapper.get reads from the source face
+            normed_embedding = mean / np.linalg.norm(mean)
+        self.source = Source()
+        log(f"her identity from {len(embs)} refs")
+
+    def _sharpen(self, frame, face, blend=0.8):
+        cv2 = self.cv2
+        m = cv2.estimateAffinePartial2D(face.kps.astype(np.float32), FFHQ_512, method=cv2.LMEDS)[0]
+        crop = cv2.warpAffine(frame, m, (512, 512), borderMode=cv2.BORDER_REPLICATE)
+        x = (crop[:, :, ::-1].astype(np.float32) / 255.0 - 0.5) / 0.5
+        out = self.restore.run(None, {self.restore.get_inputs()[0].name: x.transpose(2, 0, 1)[None]})[0][0]
+        out = ((out.transpose(1, 2, 0).clip(-1, 1) + 1) / 2 * 255).astype(np.uint8)[:, :, ::-1]
+        out = cv2.addWeighted(out, blend, crop, 1 - blend, 0)
+        mask = np.zeros((512, 512), np.float32)
+        cv2.ellipse(mask, (256, 280), (170, 215), 0, 0, 360, 1.0, -1)
+        mask = cv2.GaussianBlur(mask, (0, 0), 18)
+        inv = cv2.invertAffineTransform(m)
+        h, w = frame.shape[:2]
+        back = cv2.warpAffine(out, inv, (w, h), borderMode=cv2.BORDER_REPLICATE)
+        alpha = cv2.warpAffine(mask, inv, (w, h))[:, :, None]
+        return (back * alpha + frame * (1 - alpha)).astype(np.uint8)
+
+    def _text_mask(self, img):
+        """On-screen captions over her face (white text, dark outline): the swap and
+        GFPGAN turned "POV: you wear a tube top" into noise (2026-10-10), so those
+        pixels are kept from the frame as it was."""
+        cv2 = self.cv2
+        white = (img.min(axis=2) > 225) & (img.max(axis=2).astype(int) - img.min(axis=2) < 25)
+        mask = cv2.dilate(white.astype(np.uint8), np.ones((5, 5), np.uint8))
+        return cv2.GaussianBlur(mask.astype(np.float32), (0, 0), 1.0)[:, :, None]
+
+    def frame(self, img):
+        faces = self.app.get(img)
+        if not faces:
+            return img, None
+        face = max(faces, key=_area)
+        orig = img
+        img = self.swap.get(img, face, self.source, paste_back=True)
+        swapped = self.app.get(img)
+        if swapped:
+            face = max(swapped, key=_area)
+            img = self._sharpen(img, face)
+        text = self._text_mask(orig)
+        img = (orig * text + img * (1 - text)).astype(np.uint8)
+        return img, face
+
+
+def _area(f):
+    return (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1])
+
+
+def video(src, out, char=None):
+    from . import character
+    char = char or character.active()
+    sw = Swapper(char)
+    cv2 = sw.cv2
+    fps = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v", "-show_entries", "stream=r_frame_rate",
+                          "-of", "csv=p=0", str(src)], capture_output=True, text=True).stdout.strip() or "24"
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        subprocess.run(["ffmpeg", "-v", "error", "-i", str(src), "-q:v", "1", str(tmp / "%05d.png")], check=True)
+        frames = sorted(tmp.glob("*.png"))
+        missed = 0
+        for f in frames:
+            img, face = sw.frame(cv2.imread(str(f)))
+            missed += face is None
+            cv2.imwrite(str(f), img)
+        log(f"{len(frames)} frames, no face in {missed}")
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-framerate", fps, "-i", str(tmp / "%05d.png"), "-i", str(src),
+                        "-map", "0:v", "-map", "1:a?", "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p",
+                        "-c:a", "copy", "-shortest", str(out)], check=True)
+    return Path(out)
+
+
+if __name__ == "__main__":
+    config.load_env()
+    print(video(sys.argv[1], sys.argv[2]))

@@ -8,6 +8,8 @@
    framing")
 3. Viggle-Animate carries that first frame through the whole clip, following the
    original motion; the original audio stays
+4. her face is swapped back onto every frame (persona/faceswap.py): Viggle keeps
+   the edited hair and clothes but rebuilds the face from the original footage
 
 Chosen 2026-10-08 after a laptop test on a real TikTok: Viggle kept the room,
 chair, outfit, gestures and timing with her face and hair. Wan 2.2 Animate's
@@ -203,6 +205,15 @@ def recreate(src, out_dir, seconds=None):
     # Hard cuts between shots, exactly where the original cuts.
     subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "concat", "-safe", "0", "-i", str(out_dir / "shots.txt"),
                     "-map", "0:v", "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p", str(joined)], check=True)
+    if config.flag("PERSONA_RECREATE_FACESWAP", "1"):
+        # Viggle rebuilds the face from the original footage; her face goes back on
+        # every frame (persona/faceswap.py), in its own process like the stages.
+        swapped = out_dir / "swapped.mp4"
+        r = subprocess.run([sys.executable, "-m", "persona.faceswap", str(joined), str(swapped)], cwd=str(config.REPO))
+        if r.returncode == 0:
+            joined = swapped
+        else:
+            log(f"face swap failed ({r.returncode}); posting Viggle's faces")
     out = out_dir / "recreated.mp4"
     # The original clip's audio, cut to the video's length.
     subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(joined), "-i", str(clip), "-map", "0:v", "-map", "1:a?",
