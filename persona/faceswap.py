@@ -103,19 +103,43 @@ class Swapper:
         return cv2.GaussianBlur(mask.astype(np.float32), (0, 0), 1.0)[:, :, None]
 
     def frame(self, img):
+        """(swapped frame, how front-on her face is 0..1) -- (img, 0.0) without a face."""
         faces = self.app.get(img)
         if not faces:
-            return img, None
+            return img, 0.0
         face = max(faces, key=_area)
         orig = img
         img = self.swap.get(img, face, self.source, paste_back=True)
         swapped = self.app.get(img)
         if swapped:
-            face = max(swapped, key=_area)
-            img = self._sharpen(img, face)
+            img = self._sharpen(img, max(swapped, key=_area))
         text = self._text_mask(orig)
         img = (orig * text + img * (1 - text)).astype(np.uint8)
-        return img, face
+        return img, _frontal(face)
+
+
+def _frontal(face):
+    """1 facing the camera, 0 in profile: where the nose sits between the eyes
+    (InsightFace keypoints: eyes, nose, mouth corners), and how wide the eyes
+    are next to the face box."""
+    le, re_, nose = face.kps[0], face.kps[1], face.kps[2]
+    eye_w = abs(re_[0] - le[0]) or 1.0
+    centred = 1 - min(1.0, abs(nose[0] - (le[0] + re_[0]) / 2) / (eye_w / 2))
+    spread = min(1.0, eye_w / max(1.0, face.bbox[2] - face.bbox[0]) / 0.4)
+    return float(centred * spread)
+
+
+def weights(frontal, lo=0.35, hi=0.65, smooth=5):
+    """How much of the swap each frame gets. inswapper only knows front-on faces:
+    on a head turned into profile it pasted a frontal face onto the side of her
+    head (2026-10-10, "when she turns her head her face does something weird").
+    So it fades out between `hi` and `lo`, smoothed over `smooth` frames so the
+    face never pops from one identity to the other."""
+    w = np.clip((np.array(frontal, dtype=np.float32) - lo) / (hi - lo), 0, 1)
+    if len(w) > smooth:
+        k = np.ones(smooth, np.float32) / smooth
+        w = np.minimum(w, np.convolve(np.pad(w, smooth // 2, mode="edge"), k, mode="valid"))
+    return w
 
 
 def _area(f):
@@ -133,12 +157,20 @@ def video(src, out, char=None):
         tmp = Path(tmp)
         subprocess.run(["ffmpeg", "-v", "error", "-i", str(src), "-q:v", "1", str(tmp / "%05d.png")], check=True)
         frames = sorted(tmp.glob("*.png"))
-        missed = 0
+        swapped_dir = tmp / "swapped"
+        swapped_dir.mkdir()
+        frontal = []
         for f in frames:
-            img, face = sw.frame(cv2.imread(str(f)))
-            missed += face is None
-            cv2.imwrite(str(f), img)
-        log(f"{len(frames)} frames, no face in {missed}")
+            img, front = sw.frame(cv2.imread(str(f)))
+            frontal.append(front)
+            cv2.imwrite(str(swapped_dir / f.name), img)
+        w = weights(frontal)
+        for f, a in zip(frames, w):
+            if a > 0:
+                orig, img = cv2.imread(str(f)), cv2.imread(str(swapped_dir / f.name))
+                cv2.imwrite(str(f), (img * a + orig * (1 - a)).astype(np.uint8))
+        log(f"{len(frames)} frames: swapped {int((w >= 0.99).sum())}, faded {int(((w > 0) & (w < 0.99)).sum())}, "
+            f"left as is {int((w == 0).sum())} (no face or turned away)")
         subprocess.run(["ffmpeg", "-v", "error", "-y", "-framerate", fps, "-i", str(tmp / "%05d.png"), "-i", str(src),
                         "-map", "0:v", "-map", "1:a?", "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p",
                         "-c:a", "copy", "-shortest", str(out)], check=True)
