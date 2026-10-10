@@ -5,7 +5,7 @@
  * Workers AI writes one from what is in the post, else a template from the scene
  * -- never empty, never a lone emoji.
  *
- * Hashtags (5 per platform, #aigenerated always one of them) come from three
+ * Hashtags (5 per platform, #aigenerated always the last) come from three
  * pools -- her core tags (persona entry core_tags, else written once from her
  * bible and cached), tags for this post's scene, and a hand-kept trending list
  * (KV trend_tags:<slug>; TikTok's trending API needs a logged-in browser, see
@@ -111,7 +111,7 @@ function choose(stats, pools) {
   }
   const ranked = [...cands.entries()].map(([t, kind]) => ({ t, kind, s: score(stats, t, prior[kind]) }))
     .sort((a, b) => b.s - a.s);
-  const out = [ALWAYS];
+  const out = [];
   // One tag for this post's own scene, so the tags always fit the post.
   const scene = ranked.find((r) => r.kind === "scene");
   if (scene) out.push(scene.t);
@@ -119,10 +119,11 @@ function choose(stats, pools) {
   const untried = ranked.filter((r) => !stats[r.t] && !out.includes(r.t));
   if (untried.length) out.push(pick(untried).t);
   for (const r of ranked) {
-    if (out.length >= PER_POST) break;
+    if (out.length >= PER_POST - 1) break;
     if (!out.includes(r.t)) out.push(r.t);
   }
-  return out;
+  // The AI label always last.
+  return [...out, ALWAYS];
 }
 
 /**
