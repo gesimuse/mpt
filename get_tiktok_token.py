@@ -81,9 +81,7 @@ class Handler(BaseHTTPRequestHandler):
 
 auth_url = "https://www.tiktok.com/v2/auth/authorize/?" + urllib.parse.urlencode({
     "client_key": CLIENT_KEY,
-    # video.publish too for direct (public) posting, once the app has passed
-    # TikTok's audit: TIKTOK_SCOPES=user.info.basic,video.upload,video.publish
-    "scope": os.environ.get("TIKTOK_SCOPES", "user.info.basic,video.upload"),
+    "scope": "user.info.basic,video.upload",
     "response_type": "code",
     "redirect_uri": REDIRECT,
     "state": STATE,
@@ -134,7 +132,5 @@ if not r.ok:
 data = r.json()
 if "refresh_token" not in data:
     sys.exit(f"No refresh_token in response: {data}")
-if os.environ.get("TIKTOK_TOKEN_OUT"):  # persona/accounts.py picks it up from here
-    Path(os.environ["TIKTOK_TOKEN_OUT"]).write_text(data["refresh_token"])
 print(f"\nREFRESH TOKEN:\n{data['refresh_token']}")
 print("\nSave as TIKTOK_REFRESH_TOKEN_AIBEAUTY in .env (local) and GitHub secret.")

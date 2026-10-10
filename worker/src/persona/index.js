@@ -5,15 +5,14 @@
  *
  * Each persona has her own Telegram channel (personas.js); the one bot serves them
  * all. 👍 on a photo or video there publishes it to her Instagram and TikTok
- * (social.js) and marks the post in the channel.
+ * through Buffer (social.js) and marks the post in the channel.
  *
  *   POST /persona               the persona bot's webhook: 👍 👎 🎬 🔁, replies, and 🎭
  *                               (a TikTok link or a video posted in the channel)
  *   GET  /persona/file          signed, short-lived photo links for Kaggle video jobs
- *   GET  /persona/media/…       signed media links for Instagram/TikTok, and
- *                               TikTok's URL-prefix verification file
+ *   GET  /persona/media/…       signed media links Buffer fetches the posts from
  *   POST /persona/admin/*       the laptop uploads her bible / migrates state, links
- *                               accounts and channels, and claims and returns
+ *                               channels and Buffer accounts, and claims and returns
  *                               on-demand jobs (laptop/claim|result)
  *   scheduled() every 15 min    02:30-03:15 UTC render, 06/09/12/15/18 post slots,
  *                               and always: move the on-demand jobs and publishing along
@@ -22,7 +21,7 @@
  * raced on shared state. Cloudflare's cron is punctual and KV has one writer.
  *
  * Secrets: PERSONA_BOT_TOKEN, PERSONA_WEBHOOK_SECRET, PERSONA_ADMIN_SECRET,
- * KAGGLE_API_TOKEN, TIKTOK_CLIENT_KEY, TIKTOK_CLIENT_SECRET. Vars: PERSONA_CHAT_ID,
+ * KAGGLE_API_TOKEN, BUFFER_ACCESS_TOKEN. Vars: PERSONA_CHAT_ID,
  * PERSONA_SLUG (the first persona), KAGGLE_USERNAME. Bindings: PERSONA (KV), AI.
  */
 import * as kaggle from "./kaggle.js";
@@ -86,7 +85,7 @@ async function fileLink(env, origin, fileId) {
   return `${origin}/persona/file?f=${encodeURIComponent(fileId)}&e=${exp}&s=${await sign(env, `${fileId}.${exp}`)}`;
 }
 
-/** For Instagram and TikTok to fetch: under /persona/media/ (TikTok's verified prefix), typed, 24h. */
+/** For Buffer to fetch: typed by extension (Instagram wants a real image/jpeg), 24h. */
 async function mediaLink(env, origin, fileId, ext) {
   const exp = Math.floor(Date.now() / 1000) + 24 * 3600;
   return `${origin}/persona/media/${encodeURIComponent(fileId)}.${ext}?e=${exp}&s=${await sign(env, `${fileId}.${exp}`)}`;
@@ -109,7 +108,6 @@ async function serveFile(request, env) {
 async function serveMedia(request, env) {
   const u = new URL(request.url);
   const name = decodeURIComponent(u.pathname.slice("/persona/media/".length));
-  if (name.endsWith(".txt")) return social.verifyFile(env, name);
   const dot = name.lastIndexOf(".");
   const f = name.slice(0, dot), ext = name.slice(dot + 1);
   const e = u.searchParams.get("e"), s = u.searchParams.get("s");
@@ -133,7 +131,7 @@ async function queuePublish(env, p, state, cq, itemId) {
   const video = msg.video;
   if (!photo && !video) return false;
   if (state.publish.some((j) => j.item === itemId)) return false;
-  const acc = await social.accounts(env, p.slug);
+  const acc = social.accounts(p);
   if (!acc.instagram && !acc.tiktok) return false;
   const known = state.items[itemId] || {};
   const b = (await st.bible(env, p.slug)) || { name: p.slug };
@@ -151,25 +149,13 @@ async function queuePublish(env, p, state, cq, itemId) {
 async function advancePublish(env, p, state, origin) {
   let changed = false;
   for (const job of state.publish.filter((j) => !social.finished(j))) {
-    const ext = job.kind === "photo" ? "jpg" : "mp4";
-    const media = {
-      url: await mediaLink(env, origin, job.file_id, ext),
-      bytes: async () => {
-        const r = await telegramFile(env, job.file_id);
-        if (!r.ok) throw new Error(`Telegram file ${r.status}`);
-        return r.arrayBuffer();
-      },
-    };
+    const url = await mediaLink(env, origin, job.file_id, job.kind === "photo" ? "jpg" : "mp4");
     const before = JSON.stringify([job.ig, job.tt]);
-    await social.advance(env, p, job, media);
+    await social.advance(env, p, job, url);
     changed = true;
     if (JSON.stringify([job.ig, job.tt]) === before) continue;
-    // Mark the post in the channel: what happened on each platform, and the
-    // caption to paste into a TikTok draft (drafts take none).
-    let status = social.statusLine(job);
-    if (job.ig?.link) status += `\n${job.ig.link}`;
-    if (job.tt?.mode === "draft" && job.tt?.status === "done") status += `\nCaption: ${job.caption}`;
-    const cap = `${job.base}\n\n━━ published ━━\n${status}`.slice(0, 1024);
+    // Mark the post in the channel: what happened on each platform.
+    const cap = `${job.base}\n\n━━ published ━━\n${social.statusLine(job)}`.slice(0, 1024);
     try {
       await tg(env, "editMessageCaption", { chat_id: job.chat, message_id: job.message_id, caption: cap,
         reply_markup: kb([[["✓ 👍 published", `pv:noop:${job.item}`]]]) });
@@ -349,18 +335,8 @@ async function onAdmin(request, env) {
   if (u.pathname === "/persona/admin/personas") {
     if (request.method === "POST") return Response.json(await personas.save(env, await request.json()));
     const all = await personas.list(env);
-    for (const q of all) q.accounts = await social.accounts(env, q.slug);
+    for (const q of all) q.accounts = social.accounts(q);
     return Response.json(all);
-  }
-  if (u.pathname === "/persona/admin/account" && request.method === "POST") {
-    // {platform: "tiktok", refresh_token} | {platform: "instagram", token, user_id}
-    // | {platform: "tiktok_verify", name, body}
-    const a = await request.json();
-    if (a.platform === "tiktok") await env.PERSONA.put(`tt:${slug}`, JSON.stringify({ refresh_token: a.refresh_token }));
-    else if (a.platform === "instagram") await env.PERSONA.put(`ig:${slug}`, JSON.stringify({ token: a.token, user_id: a.user_id, refreshed: Date.now() }));
-    else if (a.platform === "tiktok_verify") await env.PERSONA.put(`ttverify:${a.name}`, a.body);
-    else return new Response("unknown platform", { status: 400 });
-    return new Response("ok");
   }
   if (u.pathname === "/persona/admin/run" && request.method === "POST") {
     const what = u.searchParams.get("what");

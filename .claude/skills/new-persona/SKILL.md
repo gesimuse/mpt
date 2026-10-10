@@ -123,18 +123,16 @@ PATH=$HOME/.local/bin:$PATH ~/apps/Wan2GP/.venv/bin/python -m persona.cli sync
 ## 7. Her channel and accounts
 
 Each persona has her own Telegram channel, Instagram and TikTok; 👍 in her channel
-publishes there. Ask the user to create the channel, add the persona bot as an
-admin, and post anything in it; read its chat id from the bot's updates. Then:
+publishes there through Buffer. Ask the user to create the channel, add the persona
+bot as an admin and post anything in it (read its chat id from the bot's updates),
+and to connect her Instagram (professional account) and TikTok in Buffer. Then:
 
 ```bash
 python -m persona.cli channel <slug> <chat id>
-python -m persona.cli accounts <slug> tiktok          # user logs into HER TikTok in the browser
-python -m persona.cli accounts <slug> instagram <token>
-python -m persona.cli accounts                        # check
+python -m persona.cli accounts buffer                          # Buffer's channel names
+python -m persona.cli accounts <slug> buffer <instagram> <tiktok>
+python -m persona.cli accounts                                 # check
 ```
 
 The daily render, post slots and on-demand jobs pick her up from the next cron
 tick. Each persona adds a daily Kaggle render to the 30h/week GPU quota.
-
-To switch back to an earlier persona: `python -m persona.cli switch <slug>`
-(`python -m persona.cli list` shows them).

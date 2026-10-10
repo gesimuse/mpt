@@ -18,8 +18,8 @@ GPU commands need Wan2GP's python:
   sync                      push her bible+refs+story to the private Kaggle dataset
   kaggle [n] [hint]         render social scenes on Kaggle and import them
   channel <slug> <chat id>  her own Telegram channel (the bot must be an admin there)
-  accounts [<slug> tiktok [--direct] | instagram <token> | tiktok-verify <name> <body>]
-                            link her accounts for 👍 publishing (see persona/accounts.py)
+  accounts [buffer | <slug> buffer <instagram channel> <tiktok channel>]
+                            her Buffer channels for 👍 publishing (see persona/accounts.py)
 """
 import sys
 
@@ -112,12 +112,11 @@ def main(argv=None):
         from . import accounts
         if not args:
             print(accounts.show())
-        elif args[1] == "tiktok":
-            print(accounts.tiktok(args[0], direct="--direct" in args))
-        elif args[1] == "instagram":
-            print(accounts.instagram(args[0], args[2]))
-        elif args[1] == "tiktok-verify":
-            print(accounts.tiktok_verify(args[2], " ".join(args[3:])))
+        elif args == ["buffer"]:
+            for c in accounts.buffer_channels():
+                print(f"{c['service']:10} {c['name']:30} {c['id']}" + ("  (disconnected)" if c["isDisconnected"] else ""))
+        elif args[1] == "buffer":
+            print(accounts.link_buffer(args[0], args[2], args[3]))
     else:
         sys.exit(f"unknown command {cmd!r}\n{__doc__}")
 
