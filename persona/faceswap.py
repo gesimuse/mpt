@@ -156,12 +156,14 @@ def _frontal(face):
     return float(centred * spread)
 
 
-def weights(frontal, lo=0.35, hi=0.65, smooth=5):
+def weights(frontal, lo=0.15, hi=0.45, smooth=5):
     """How much of the swap each frame gets. inswapper only knows front-on faces:
     on a head turned into profile it pasted a frontal face onto the side of her
     head (2026-10-10, "when she turns her head her face does something weird").
     So it fades out between `hi` and `lo`, smoothed over `smooth` frames so the
-    face never pops from one identity to the other."""
+    face never pops from one identity to the other. Measured: profile frames
+    0-0.1, front-on and three-quarter 0.45+; at 0.35-0.65 most frames of a
+    slightly angled clip were only half swapped."""
     w = np.clip((np.array(frontal, dtype=np.float32) - lo) / (hi - lo), 0, 1)
     if len(w) > smooth:
         k = np.ones(smooth, np.float32) / smooth
