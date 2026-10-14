@@ -17697,6 +17697,25 @@
       "vibe": null,
       "look": null,
       "ts": "2026-10-14T12:01:06"
+    },
+    {
+      "niche": "aibeauty",
+      "topic": "telegram upload 1791979273352",
+      "title": "Uploaded via Telegram",
+      "tiktok": true,
+      "tiktok_via": "telegram_manual_upload",
+      "image_urls": [
+        "https://gesimuse.github.io/mpt/media/telegram-1791979270815.jpg"
+      ],
+      "image_prompts": [
+        null
+      ],
+      "motion_prompts": [
+        null
+      ],
+      "vibe": null,
+      "look": null,
+      "ts": "2026-10-14T12:01:12"
     }
   ],
   "model_stats": {
