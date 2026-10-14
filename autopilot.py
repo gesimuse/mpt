@@ -152,6 +152,11 @@ def _drafts_today(state, niche_id, today=None):
     for u in state.get("uploads", []):
         if u.get("niche") != niche_id or not u.get("tiktok"):
             continue
+        # Photos sent to the bot by hand are registered with tiktok=true but never
+        # pushed to TikTok; counted, they filled the cap from 2026-10-06 and no
+        # autopilot run made a draft after 2026-10-10.
+        if u.get("tiktok_via") == "telegram_manual_upload":
+            continue
         try:
             ts = datetime.strptime(u["ts"], "%Y-%m-%dT%H:%M:%S")
         except (KeyError, ValueError):
