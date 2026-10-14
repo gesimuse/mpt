@@ -56,3 +56,7 @@ binding = "AI"
 
 [triggers]
 crons = ["*/15 * * * *"]
+
+# Worker logs in the Cloudflare dashboard (persona tap failures were invisible).
+[observability]
+enabled = true

@@ -314,11 +314,20 @@ async function handleUpdates(env, updates, origin) {
     for (const update of list) {
       const cq = update.callback_query;
       const post = update.channel_post || update.message;
-      if (cq?.data?.startsWith("pv:")) { await onTap(env, p, cq, state, origin); changed = true; }
-      // A TikTok/Facebook link or video counts as 🎭 even when it is sent as a reply.
-      else if (post && (await onRecreateRequest(env, post, state))) changed = true;
-      else if (post?.text && post.reply_to_message && !post.text.startsWith("/")) {
-        await onReply(env, post, state); changed = true;
+      try {
+        if (cq?.data?.startsWith("pv:")) { await onTap(env, p, cq, state, origin); changed = true; }
+        // A TikTok/Facebook link or video counts as 🎭 even when it is sent as a reply.
+        else if (post && (await onRecreateRequest(env, post, state))) changed = true;
+        else if (post?.text && post.reply_to_message && !post.text.startsWith("/")) {
+          await onReply(env, post, state); changed = true;
+        }
+      } catch (e) {
+        // One bad tap must not take the others down with it, and must not vanish:
+        // on 2026-10-14 three 👍 taps were dropped without a trace.
+        console.error("update failed", update.update_id, String(e?.stack || e).slice(0, 500));
+        const msg = cq?.message || post;
+        await tg(env, "sendMessage", { chat_id: p.chat_id, reply_to_message_id: msg?.message_id,
+          text: `⚠️ Couldn't handle that ${cq ? "tap" : "message"}: ${String(e?.message || e).slice(0, 300)}` }).catch(() => {});
       }
     }
     if (!changed) continue;
@@ -336,8 +345,10 @@ async function handleUpdates(env, updates, origin) {
 async function poll(env, origin) {
   const updates = await tg(env, "getUpdates", { timeout: 0, allowed_updates: ["callback_query", "channel_post", "message"] });
   if (!updates.length) return "no updates";
-  await tg(env, "getUpdates", { timeout: 0, offset: updates[updates.length - 1].update_id + 1 });
+  // Handled first, marked read after: if handling dies (e.g. saving state fails),
+  // the taps come back at the next poll instead of being lost.
   await handleUpdates(env, updates, origin);
+  await tg(env, "getUpdates", { timeout: 0, offset: updates[updates.length - 1].update_id + 1 });
   return `polled ${updates.length}`;
 }
 
