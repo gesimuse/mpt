@@ -1,5 +1,15 @@
 # TikTok captions to paste when finishing a draft
 
+## 2026-10-14T18:54:13 — aibeauty
+
+```
+Sunkissed and untethered.
+
+Created with AI.
+
+#luxuryvibes #poolsidebliss #aiartphotography #vacationmode #paradisefound
+```
+
 ## 2026-10-14T14:53:43 — aibeauty
 
 ```
@@ -28,14 +38,4 @@ Captivated by the moment, forever on the horizon
 Created with AI.
 
 #aiart #sunsetmood #catamaranlife #oceansong #softfocus
-```
-
-## 2026-10-14T07:01:10 — aibeauty
-
-```
-Courtside, where the game changes.
-
-Created with AI.
-
-#aiphotography #artificialintelligenceart #gen #courtsidevibes #lowkeyluxury
 ```
