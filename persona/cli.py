@@ -114,8 +114,8 @@ def main(argv=None):
         from . import accounts
         if not args:
             print(accounts.show())
-        elif args == ["buffer"]:
-            for c in accounts.buffer_channels():
+        elif args[0] == "buffer":
+            for c in accounts.buffer_channels(args[1] if len(args) > 1 else None):
                 print(f"{c['service']:10} {c['name']:30} {c['id']}" + ("  (disconnected)" if c["isDisconnected"] else ""))
         elif args[1] == "buffer":
             print(accounts.link_buffer(args[0], args[2], args[3]))

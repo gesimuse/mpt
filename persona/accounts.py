@@ -3,13 +3,14 @@ TikTok) to the Cloudflare Worker, which publishes on 👍 through Buffer
 (worker/src/persona/social.js).
 
     python -m persona.cli channel <slug> <telegram chat id>
-    python -m persona.cli accounts buffer                     (Buffer's channels)
+    python -m persona.cli accounts buffer [<slug>]            (Buffer's channels)
     python -m persona.cli accounts <slug> buffer <instagram channel> <tiktok channel>
     python -m persona.cli accounts                            (what is linked)
 
-Connect her Instagram (a professional account) and TikTok in Buffer first
-(publish.buffer.com, the account BUFFER_ACCESS_TOKEN belongs to); channels can be
-named by their Buffer name or id, "-" for none.
+Connect her Instagram (a professional account) and TikTok in Buffer first. If she
+has her own Buffer account, put its API key (publish.buffer.com/settings/api) in
+.env as BUFFER_ACCESS_TOKEN_<SLUG>; otherwise the shared BUFFER_ACCESS_TOKEN is
+used. Channels can be named by their Buffer name or id, "-" for none.
 """
 import sys
 
@@ -29,21 +30,26 @@ def _worker(path, method="POST", **kw):
     return r
 
 
-def _buffer(query, variables=None):
+def _buffer_token(slug=None):
+    """Her own Buffer account (BUFFER_ACCESS_TOKEN_<SLUG> in .env), else the shared one."""
+    return (slug and config.env(f"BUFFER_ACCESS_TOKEN_{slug.upper()}")) or config.env("BUFFER_ACCESS_TOKEN")
+
+
+def _buffer(query, variables=None, slug=None):
     r = requests.post(BUFFER, json={"query": query, "variables": variables or {}}, timeout=30,
-                      headers={"Authorization": f"Bearer {config.env('BUFFER_ACCESS_TOKEN')}"})
+                      headers={"Authorization": f"Bearer {_buffer_token(slug)}"})
     d = r.json()
     if d.get("errors"):
         sys.exit(f"Buffer: {d['errors']}")
     return d["data"]
 
 
-def buffer_channels():
-    orgs = _buffer("{ account { organizations { id name } } }")["account"]["organizations"]
+def buffer_channels(slug=None):
+    orgs = _buffer("{ account { organizations { id name } } }", slug=slug)["account"]["organizations"]
     out = []
     for org in orgs:
         out += _buffer("query($o: OrganizationId!) { channels(input: {organizationId: $o}) "
-                       "{ id service name isDisconnected } }", {"o": org["id"]})["channels"]
+                       "{ id service name isDisconnected } }", {"o": org["id"]}, slug=slug)["channels"]
     return out
 
 
@@ -60,7 +66,7 @@ def channel(slug, chat_id):
 
 
 def link_buffer(slug, instagram, tiktok):
-    chans = buffer_channels()
+    chans = buffer_channels(slug)
 
     def find(name, service):
         if name in ("-", "", None):
@@ -72,6 +78,9 @@ def link_buffer(slug, instagram, tiktok):
                  + ", ".join(f"{c['service']}:{c['name']}" for c in chans))
     entry = _entry(slug)
     entry["buffer"] = {"instagram": find(instagram, "instagram"), "tiktok": find(tiktok, "tiktok")}
+    own = config.env(f"BUFFER_ACCESS_TOKEN_{slug.upper()}")
+    if own:  # her own Buffer account: the Worker needs its key
+        _worker("/persona/admin/buffer-token", params={"slug": slug}, data=own)
     _worker("/persona/admin/personas", json=entry)
     return f"{slug}: Instagram {instagram} · TikTok {tiktok} (Buffer)"
 

@@ -8,18 +8,24 @@
  *   TikTok, no sound (🎬 videos, photos): Buffer's "notification" scheduling --
  *     a push on the phone opens TikTok with the media, to add a song and post.
  *
- * One Buffer account (BUFFER_ACCESS_TOKEN) holds every persona's channels; each
- * persona entry names hers: {buffer: {instagram: <channel id>, tiktok: <id>}}
+ * Each persona can have her own Buffer account (KV buffertoken:<slug>; the shared
+ * BUFFER_ACCESS_TOKEN otherwise); her entry names her channels there:
+ * {buffer: {instagram: <channel id>, tiktok: <id>}}
  * (persona.cli accounts <slug> buffer). Buffer fetches the media from a signed
  * Worker link (/persona/media/).
  */
 
 const API = "https://api.buffer.com";
 
-async function gql(env, query, variables) {
+/** Her own Buffer account's token (KV buffertoken:<slug>), else the shared BUFFER_ACCESS_TOKEN. */
+async function token(env, slug) {
+  return (await env.PERSONA.get(`buffertoken:${slug}`)) || env.BUFFER_ACCESS_TOKEN;
+}
+
+async function gql(env, slug, query, variables) {
   const r = await fetch(API, {
     method: "POST",
-    headers: { Authorization: `Bearer ${env.BUFFER_ACCESS_TOKEN}`, "content-type": "application/json" },
+    headers: { Authorization: `Bearer ${await token(env, slug)}`, "content-type": "application/json" },
     body: JSON.stringify({ query, variables }),
   });
   const d = await r.json();
@@ -42,7 +48,7 @@ export function accounts(p) {
 /** Start one platform's post. Returns its record {status, post, mode, link, note}. */
 async function start(env, p, job, platform, mediaUrl) {
   const channelId = p.buffer?.[platform];
-  if (!channelId || !env.BUFFER_ACCESS_TOKEN) return { status: "skipped", note: "not linked" };
+  if (!channelId) return { status: "skipped", note: "not linked" };
   // Her caption and hashtags for this platform (captions.js).
   const text = job.posts?.[platform]?.text || job.caption;
   const asset = job.kind === "photo"
@@ -59,7 +65,7 @@ async function start(env, p, job, platform, mediaUrl) {
     metadata = { tiktok: { title: text.split("\n")[0].slice(0, 90),
                            ...(job.kind === "photo" ? {} : { isAiGenerated: true }) } };
   }
-  const d = await gql(env, CREATE, { input: {
+  const d = await gql(env, p.slug, CREATE, { input: {
     channelId, text, mode: "shareNow", schedulingType: mode, assets: [asset], metadata, aiAssisted: true,
   } });
   const res = d.createPost;
@@ -75,8 +81,8 @@ function settle(rec, post) {
   return { ...rec, status: "processing" };
 }
 
-async function poll(env, rec) {
-  const d = await gql(env, STATUS, { input: { id: rec.post } });
+async function poll(env, p, rec) {
+  const d = await gql(env, p.slug, STATUS, { input: { id: rec.post } });
   return settle(rec, d.post);
 }
 
@@ -89,7 +95,7 @@ export async function advance(env, p, job, mediaUrl) {
     const cur = job[key];
     try {
       if (!cur) job[key] = await start(env, p, job, platform, mediaUrl);
-      else if (cur.status === "processing") job[key] = await poll(env, cur);
+      else if (cur.status === "processing") job[key] = await poll(env, p, cur);
     } catch (e) {
       job[key] = { ...(cur || {}), status: "failed", note: String(e.message || e).slice(0, 200) };
     }
@@ -105,8 +111,8 @@ export async function advance(env, p, job, mediaUrl) {
 const METRICS = `query($input: PostInput!) { post(input: $input) { status metrics { type value } } }`;
 
 /** Buffer's numbers for a post: {status, metrics: [{type, value}]}. */
-export async function metrics(env, postId) {
-  return (await gql(env, METRICS, { input: { id: postId } })).post;
+export async function metrics(env, p, postId) {
+  return (await gql(env, p.slug, METRICS, { input: { id: postId } })).post;
 }
 
 export const finished = (job) => ["ig", "tt"].every((k) => job[k] && job[k].status !== "processing");

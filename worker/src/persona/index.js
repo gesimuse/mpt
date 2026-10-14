@@ -174,7 +174,7 @@ async function advancePublish(env, p, state, origin) {
  * so the next posts lean on the tags that worked for her. Given up after 7 days
  * (a TikTok notification post that was never posted from the phone has none).
  */
-async function learnFromPosts(env, state) {
+async function learnFromPosts(env, p, state) {
   let changed = false;
   const now = Date.now();
   for (const job of state.publish) {
@@ -182,7 +182,7 @@ async function learnFromPosts(env, state) {
       const rec = job[key];
       if (!rec?.post || rec.status !== "done" || rec.learned || now - (rec.sent_at || now) < 48 * 3600 * 1000) continue;
       try {
-        const post = await social.metrics(env, rec.post);
+        const post = await social.metrics(env, p, rec.post);
         const value = captions.postValue(post?.metrics);
         if (value > 0) {
           captions.learn(state, platform, job.posts?.[platform]?.tags || [], value);
@@ -378,6 +378,11 @@ async function onAdmin(request, env) {
     const item = state.items[u.searchParams.get("item")] || { kind: u.searchParams.get("kind") || "video", recreate: true };
     const b = (await st.bible(env, slug)) || { name: slug };
     return Response.json(await captions.forPost(env, p, b, state, item));
+  }
+  if (u.pathname === "/persona/admin/buffer-token" && request.method === "POST") {
+    // Her own Buffer account's API key; never returned by any endpoint.
+    await env.PERSONA.put(`buffertoken:${slug}`, (await request.text()).trim());
+    return new Response("ok");
   }
   if (u.pathname === "/persona/admin/tags") {
     // POST {trend: [...]} replaces her hand-kept trending list; GET shows her tag scores.
@@ -674,7 +679,7 @@ export async function onPersonaSchedule(event, env) {
       const state = await st.load(env, p.slug);
       let dirty = state.publish.some((j) => !social.finished(j)) && (await advancePublish(env, p, state, origin));
       // Numbers settle slowly: scoring once an hour is plenty.
-      if (m < 15) dirty = (await learnFromPosts(env, state)) || dirty;
+      if (m < 15) dirty = (await learnFromPosts(env, p, state)) || dirty;
       if (dirty) await st.save(env, p.slug, state);
     } catch (err) {
       console.error(`persona ${p.slug} schedule failed`, String(err));
