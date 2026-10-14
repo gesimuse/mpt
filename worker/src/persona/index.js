@@ -546,8 +546,16 @@ async function laptopClaim(request, env, origin) {
   // Then taps (while the bot has no webhook), so a tap made a moment ago is in a
   // queue below -- and, the laptop being marked up, not pushed to Kaggle.
   if (env.PERSONA_POLL === "1" && !body.busy) await poll(env, origin).catch((e) => console.error("poll", String(e)));
-  if (body.busy) return Response.json({ job: null });
   const all = await personas.list(env);
+  // Posts still on their way to Instagram/TikTok: checked on every check-in, so the
+  // channel shows "posted" a minute after 👍 rather than at the next 15-min cron.
+  for (const p of all) {
+    const state = await st.load(env, p.slug);
+    if (state.publish.some((j) => !social.finished(j)) && (await advancePublish(env, p, state, origin))) {
+      await st.save(env, p.slug, state);
+    }
+  }
+  if (body.busy) return Response.json({ job: null });
   // A job it already holds comes back first: the agent restarted mid-job.
   for (const pass of ["held", "queued"]) {
     for (const p of all) {
