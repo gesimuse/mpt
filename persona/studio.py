@@ -236,17 +236,18 @@ def calm_prompt(motion):
 
 
 def slow_down(path, factor=None):
-    """Motion-interpolate the clip and play it PERSONA_VIDEO_SLOWDOWN times slower
-    (default 1.6: Wan's 5s at 16fps becomes ~8s at 24fps, smoother and calmer).
+    """Motion-interpolate the clip to 24fps and play it PERSONA_VIDEO_SLOWDOWN times
+    slower (default 1.6: Wan's 5s at 16fps becomes ~8s at 24fps, smoother and calmer).
     Falls back to the original if ffmpeg is missing or fails."""
     import subprocess
     # A model may set its own (the calm model is slow already); the env var wins.
     factor = float(config.env("PERSONA_VIDEO_SLOWDOWN") or (factor if factor is not None else 1.6))
-    if factor <= 1:
-        return path
+    # No slow-down still gets interpolated to 24fps: Wan renders 16fps, and Instagram
+    # refuses Reels under 23fps ("Video frame rate must be at least 23 fps", 2026-10-14).
+    filt = (f"minterpolate=fps=32:mi_mode=mci:mc_mode=aobmc:vsbmc=1,setpts={factor}*PTS" if factor > 1
+            else "minterpolate=fps=24:mi_mode=mci:mc_mode=aobmc:vsbmc=1")
     out = path.with_name(path.stem + "-slow.mp4")
-    r = subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(path), "-filter:v",
-                        f"minterpolate=fps=32:mi_mode=mci:mc_mode=aobmc:vsbmc=1,setpts={factor}*PTS",
+    r = subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(path), "-filter:v", filt,
                         "-r", "24", "-an", "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p", str(out)],
                        capture_output=True, text=True)
     if r.returncode != 0 or not out.exists():
