@@ -61,10 +61,14 @@ function buttons(item) {
   return kb([row]);
 }
 
-function remember(state, item) {
+/** `sent`: the Telegram message it went out as -- its file is kept, because a tap on a
+ * message older than ~48h no longer carries the photo/video, and 👍 still has to post it. */
+function remember(state, item, sent) {
+  const media = sent?.video || (sent?.photo || []).slice(-1)[0];
   state.items[item.id] = { kind: item.kind || "image", tags: item.tags || [], beat: item.scene?.beat || "",
                            scene: item.scene || {}, caption: item.caption || "",
-                           audio: !!item.audio, recreate: !!item.recreate };
+                           audio: !!item.audio, recreate: !!item.recreate,
+                           file_id: media?.file_id || state.items[item.id]?.file_id || "" };
 }
 
 function itemIdFrom(msg) {
@@ -128,19 +132,22 @@ async function serveMedia(request, env) {
  */
 async function queuePublish(env, p, state, cq, itemId) {
   const msg = cq.message || {};
-  const photo = (msg.photo || []).slice(-1)[0];
-  const video = msg.video;
-  if (!photo && !video) return false;
-  if (state.publish.some((j) => j.item === itemId)) return false;
+  const known = state.items[itemId] || {};
   const acc = social.accounts(p);
   if (!acc.instagram && !acc.tiktok) return false;
-  const known = state.items[itemId] || {};
+  if (state.publish.some((j) => j.item === itemId)) return "already published";
+  const photo = (msg.photo || []).slice(-1)[0];
+  const video = msg.video;
+  // An old message's tap carries no media: use the file kept when it was posted.
+  const fileId = (photo || video)?.file_id || known.file_id;
+  if (!fileId) return "can't publish this one: Telegram no longer sends its photo/video, and it predates file tracking";
+  const isPhoto = photo ? true : video ? false : known.kind !== "video";
   const b = (await st.bible(env, p.slug)) || { name: p.slug };
   // A caption and hashtags for each platform, never empty (captions.js).
-  const posts = await captions.forPost(env, p, b, state, { ...known, kind: photo ? "photo" : "video" });
+  const posts = await captions.forPost(env, p, b, state, { ...known, kind: isPhoto ? "photo" : "video" });
   state.publish.push({
-    id: `pub-${itemId}-${Date.now()}`, item: itemId, kind: photo ? "photo" : "video",
-    file_id: (photo || video).file_id, audio: !!known.audio || !!known.recreate,
+    id: `pub-${itemId}-${Date.now()}`, item: itemId, kind: isPhoto ? "photo" : "video",
+    file_id: fileId, audio: !!known.audio || !!known.recreate,
     posts, caption: posts.instagram.text,
     chat: msg.chat.id, message_id: msg.message_id, base: (msg.caption || "").split("\n\n━━")[0],
   });
@@ -210,8 +217,13 @@ async function onTap(env, p, cq, state, origin) {
     for (const t of item.tags || []) state.votes.tags[t] = (state.votes.tags[t] || 0) + d;
     if (act === "up" && item.beat) state.story.push({ t: Date.now(), beat: item.beat, item: itemId });
     state.voted.push(itemId);
-    const publishing = act === "up" && (await queuePublish(env, p, state, cq, itemId));
-    await answer(env, cq.id, act === "dn" ? "Noted 👎" : publishing ? "👍 Publishing to Instagram and TikTok…" : "Noted 👍");
+    const res = act === "up" ? await queuePublish(env, p, state, cq, itemId) : false;
+    const publishing = res === true;
+    await answer(env, cq.id, act === "dn" ? "Noted 👎" : publishing ? "👍 Publishing…"
+      : typeof res === "string" ? `Noted 👍 -- ${res}` : "Noted 👍");
+    if (typeof res === "string" && res.startsWith("can't")) {
+      await tg(env, "sendMessage", { chat_id: chat, reply_to_message_id: msg.message_id, text: `⚠️ 👍 noted, but ${res}.` }).catch(() => {});
+    }
     const label = act === "up" ? (publishing ? "⏳ publishing" : "✓ 👍") : "✓ 👎";
     const row = [[label, publishing ? `pv:noop:${itemId}` : cq.data]];
     if (msg.photo && !publishing) row.push(["🎬 Video", `pv:vid:${itemId}`], ["🔁 Redo", `pv:redo:${itemId}`]);
@@ -228,7 +240,11 @@ async function onTap(env, p, cq, state, origin) {
   }
   if (act === "redo") {
     const scene = state.items[itemId]?.scene;
-    if (!scene?.setting) return answer(env, cq.id, "Can't redo this one: its scene isn't known.");
+    if (!scene?.setting) {
+      await tg(env, "sendMessage", { chat_id: chat, reply_to_message_id: msg.message_id,
+        text: "⚠️ Can't redo this one: its scene wasn't recorded (older post)." }).catch(() => {});
+      return answer(env, cq.id, "Can't redo this one: its scene isn't known.");
+    }
     if (state.queue.some((q) => q.kind === "redo" && q.item === itemId)) return answer(env, cq.id, "Already queued.");
     state.queue.push({ id: `${itemId}-r${Date.now()}`, kind: "redo", item: itemId, scene,
                        chat, message_id: msg.message_id });
@@ -459,8 +475,8 @@ async function post(env, p, k) {
     const img = files[`out/items/${id}.jpg`];
     if (!img) continue;
     try {
-      await sendMedia(env, "photo", p.chat_id, img, { caption: caption(b.name, item), buttons: buttons(item) });
-      remember(state, item);
+      const msg = await sendMedia(env, "photo", p.chat_id, img, { caption: caption(b.name, item), buttons: buttons(item) });
+      remember(state, item, msg);
       state.posted.ids.push(id);
       sent++;
     } catch (e) {
@@ -500,13 +516,13 @@ function faceLine(face) {
  */
 async function postResult(env, state, b, r, item, file) {
   if (r.ok && r.kind === "image") {
-    await sendMedia(env, "photo", r.chat, file, { caption: "🔁 " + caption(b.name, item), buttons: buttons(item), replyTo: r.message_id });
-    remember(state, item);
+    const sent = await sendMedia(env, "photo", r.chat, file, { caption: "🔁 " + caption(b.name, item), buttons: buttons(item), replyTo: r.message_id });
+    remember(state, item, sent);
   } else if (r.ok) {
     const cap = r.recreate ? `🎭 ${b.name} · recreated${faceLine(item?.face)}` : `🎬 ${b.name}\n${(r.motion || "").slice(0, 300)}`;
-    await sendMedia(env, "video", r.chat, file, { caption: `${cap}\n#${r.id}`, replyTo: r.message_id,
+    const sent = await sendMedia(env, "video", r.chat, file, { caption: `${cap}\n#${r.id}`, replyTo: r.message_id,
       buttons: kb([[["👍", `pv:up:${r.id}`], ["👎", `pv:dn:${r.id}`]]]) });
-    if (item) remember(state, { ...item, kind: "video", recreate: !!r.recreate });
+    if (item) remember(state, { ...item, kind: "video", recreate: !!r.recreate }, sent);
   } else {
     await tg(env, "sendMessage", { chat_id: r.chat, reply_to_message_id: r.message_id,
       text: `❌ ${r.kind === "image" ? "Redraw" : r.recreate ? "Recreate" : "Video"} failed: ${String(r.reason).slice(0, 300)}` });
