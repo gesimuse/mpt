@@ -301,8 +301,21 @@ function queueVideo(state, itemId, msg, fileId, motion) {
                      chat: msg.chat.id, message_id: msg.message_id });
 }
 
-async function onReply(env, post, state) {
+const PUBLISH_WORDS = /^\s*(👍|post|publish|post it)\s*[.!]*\s*$/iu;
+
+async function onReply(env, p, post, state, origin) {
   const parent = post.reply_to_message;
+  // "👍" / "post" as a reply publishes any photo or video, including ones posted
+  // without buttons (older 🎬 videos, hand-posted versions).
+  if (PUBLISH_WORDS.test(post.text) && (parent.photo || parent.video)) {
+    const itemId = itemIdFrom(parent) || `msg-${parent.message_id}`;
+    const res = await queuePublish(env, p, state, { message: parent }, itemId);
+    if (res === true && !state.voted.includes(itemId)) state.voted.push(itemId);
+    await tg(env, "sendMessage", { chat_id: post.chat.id, reply_to_message_id: parent.message_id,
+      text: res === true ? "👍 Publishing…" : `⚠️ Not published: ${res || "no Instagram/TikTok linked"}.` });
+    if (res === true) await advancePublish(env, p, state, origin);
+    return;
+  }
   const itemId = itemIdFrom(parent);
   const photo = (parent.photo || []).slice(-1)[0];
   if (!itemId || !photo) return;
@@ -350,7 +363,7 @@ async function handleUpdates(env, updates, origin) {
         // A TikTok/Facebook link or video counts as 🎭 even when it is sent as a reply.
         else if (post && (await onRecreateRequest(env, post, state))) changed = true;
         else if (post?.text && post.reply_to_message && !post.text.startsWith("/")) {
-          await onReply(env, post, state); changed = true;
+          await onReply(env, p, post, state, origin); changed = true;
         }
       } catch (e) {
         // One bad tap must not take the others down with it, and must not vanish:
