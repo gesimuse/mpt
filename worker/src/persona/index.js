@@ -138,10 +138,25 @@ async function queuePublish(env, p, state, cq, itemId) {
   if (state.publish.some((j) => j.item === itemId)) return "already published";
   const photo = (msg.photo || []).slice(-1)[0];
   const video = msg.video;
-  // An old message's tap carries no media: use the file kept when it was posted.
-  const fileId = (photo || video)?.file_id || known.file_id;
-  if (!fileId) return "can't publish this one: Telegram no longer sends its photo/video, and it predates file tracking";
-  const isPhoto = photo ? true : video ? false : known.kind !== "video";
+  // An old message's tap carries no media: use the file kept when it was posted, or
+  // forward the message (silently, deleted at once) -- a forward carries the media.
+  const chat = msg.chat?.id;
+  let fileId = (photo || video)?.file_id || known.file_id;
+  let fwdVideo = null, fwdCaption = null;
+  if (!fileId && msg.message_id) {
+    try {
+      const fwd = await tg(env, "forwardMessage", { chat_id: chat, from_chat_id: chat, message_id: msg.message_id,
+                                                     disable_notification: true });
+      await tg(env, "deleteMessage", { chat_id: chat, message_id: fwd.message_id }).catch(() => {});
+      fwdVideo = fwd.video || null;
+      fwdCaption = fwd.caption || "";
+      fileId = (fwd.video || (fwd.photo || []).slice(-1)[0])?.file_id;
+    } catch (e) {
+      console.error("forward for media failed", String(e).slice(0, 200));
+    }
+  }
+  if (!fileId) return "can't publish this one: Telegram didn't give its photo/video";
+  const isPhoto = photo ? true : (video || fwdVideo) ? false : known.kind !== "video";
   const b = (await st.bible(env, p.slug)) || { name: p.slug };
   // A caption and hashtags for each platform, never empty (captions.js).
   const posts = await captions.forPost(env, p, b, state, { ...known, kind: isPhoto ? "photo" : "video" });
@@ -149,7 +164,7 @@ async function queuePublish(env, p, state, cq, itemId) {
     id: `pub-${itemId}-${Date.now()}`, item: itemId, kind: isPhoto ? "photo" : "video",
     file_id: fileId, audio: !!known.audio || !!known.recreate,
     posts, caption: posts.instagram.text,
-    chat: msg.chat.id, message_id: msg.message_id, base: (msg.caption || "").split("\n\n━━")[0],
+    chat, message_id: msg.message_id, base: (msg.caption ?? fwdCaption ?? "").split("\n\n━━")[0],
   });
   return true;
 }
