@@ -311,5 +311,95 @@
    "playful, biting her lower lip, eyes slightly up",
    "looking-up"
   ]
- ]
+ ],
+ "angles": [
+  [
+   "facing the camera straight on",
+   "",
+   5
+  ],
+  [
+   "head turned a little to her left, three-quarter view of her face",
+   "three-quarter-left",
+   4
+  ],
+  [
+   "head turned a little to her right, three-quarter view of her face",
+   "three-quarter-right",
+   4
+  ],
+  [
+   "face in side profile, turned to her left, looking into the distance",
+   "profile-left",
+   2
+  ],
+  [
+   "face in side profile, turned to her right, looking into the distance",
+   "profile-right",
+   2
+  ],
+  [
+   "chin raised, looking up and slightly to the side",
+   "looking-up",
+   2
+  ],
+  [
+   "head tilted down, eyes lowered",
+   "looking-down",
+   2
+  ],
+  [
+   "glancing off-camera to the side, candid, not looking at the lens",
+   "three-quarter-right",
+   3
+  ],
+  [
+   "head tilted to one side, looking at the camera",
+   "three-quarter-left",
+   2
+  ]
+ ],
+ "expressions": [
+  [
+   "soft closed-mouth smile",
+   ""
+  ],
+  [
+   "laughing, mouth open, eyes crinkled",
+   "laughing"
+  ],
+  [
+   "sultry and confident, no smile, lips slightly parted",
+   "sultry"
+  ],
+  [
+   "playful smirk",
+   ""
+  ],
+  [
+   "biting her lower lip, flirty",
+   "looking-up"
+  ],
+  [
+   "pouting lips, teasing",
+   "kiss"
+  ],
+  [
+   "dreamy, relaxed, lips softly parted",
+   ""
+  ],
+  [
+   "confident and serious, intense eyes",
+   "sultry"
+  ],
+  [
+   "delighted surprise, mouth slightly open, eyebrows raised",
+   "big-smile"
+  ],
+  [
+   "big cheeky grin, teeth showing",
+   "big-smile"
+  ]
+ ],
+ "_angles_note": "Head angle [text, face-sheet portrait, weight] and expression [text, portrait when facing the camera], picked separately per scene (persona/scenes.py assign_gazes, worker/src/persona/scenes.js). No sad looks. No over-the-shoulder: the anatomy check flags every one as a twisted head, and told the pose is intended it also passed a real backwards head (2026-10-15)."
 }

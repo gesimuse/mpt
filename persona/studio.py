@@ -154,10 +154,22 @@ class Studio:
 
         def refs_for(scene):
             sheet = char.refs_dir / "sheet" / f"{scene.get('sheet', '')}.jpg"
-            chosen = front + [sheet] if scene.get("sheet") and sheet.exists() else default_refs
+            if scene.get("sheet") and sheet.exists():
+                # A turned head: its portrait FIRST, so the model takes the head angle
+                # from it rather than copying the front ref's straight-on pose.
+                turned = scene.get("angle_sheet") in scenes.ANGLE_FLOOR
+                chosen = [sheet] + front if turned else front + [sheet]
+            else:
+                chosen = default_refs
             return [head(p) for p in chosen[: max(1, model.get("max_refs", 1))]]
 
         ref_emb = faceid.reference_embedding(char.refs())
+
+        def floor_for(scene):
+            if not scene.get("angle"):
+                return None
+            base = float(config.env("PERSONA_FACE_MIN", "0.62"))
+            return min(base, scenes.ANGLE_FLOOR.get(scene.get("angle_sheet", ""), base))
         for scene in (scene_list or scenes.write(char, lane=lane, hint=hint, n=n)):
             refs = refs_for(scene)
             prompt = scenes.scene_prompt(char, scene, lane, len(refs), style=model.get("prompt_style", "qwen"))
@@ -176,8 +188,9 @@ class Studio:
                 good, why, counts = qa.check(path)
                 log(f"{item['id']}: anatomy check {'passed' if good else 'FAILED'} {why} {counts}")
                 if good:
-                    # Off-model faces are redrawn too, not just dropped.
-                    face_ok, info = faceid.check(path, ref_emb)
+                    # Off-model faces are redrawn too, not just dropped. A turned head
+                    # gets a lower floor (scenes.ANGLE_FLOOR), the age check stays.
+                    face_ok, info = faceid.check(path, ref_emb, min_sim=floor_for(scene))
                     if face_ok:
                         break
                     good, why = False, info.get("reason", "face check")
@@ -188,7 +201,7 @@ class Studio:
             if path is None:
                 yield char.update_item(item["id"], status="failed", ok=False, reason=reason)
                 continue
-            ok, info = faceid.check(path, ref_emb)
+            ok, info = faceid.check(path, ref_emb, min_sim=floor_for(scene))
             if not ok:
                 path.unlink(missing_ok=True)
                 yield char.update_item(item["id"], status="rejected", ok=False, reason=info.get("reason"),

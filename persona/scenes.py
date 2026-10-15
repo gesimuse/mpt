@@ -161,12 +161,38 @@ FACE_SHEET = [
 # backwards), "looking down at her phone" and "blowing a kiss" (an extra hand
 # appeared whenever the scene already had her holding something).
 GAZES = [tuple(g) for g in _IDEAS["gazes"]]
+# 2026-10-15: the mild gazes above made nearly every photo face the camera. Head
+# angle and expression are now picked separately (ideas.json angles/expressions):
+# about a quarter look straight at the lens, the rest are three-quarter, profile,
+# up/down or off-camera, each with its own face-sheet portrait.
+ANGLES = _IDEAS.get("angles", [])
+EXPRESSIONS = _IDEAS.get("expressions", [])
+
+# How far a turned face may drop below the usual face floor and still be her:
+# InsightFace scores side views lower against her front-heavy refs, so profiles
+# were redrawn until they faced the camera again.
+ANGLE_FLOOR = {"profile-left": 0.45, "profile-right": 0.45,
+               "three-quarter-left": 0.55, "three-quarter-right": 0.55, "looking-up": 0.55,
+               "looking-down": 0.55}
 
 
 def assign_gazes(scenes):
-    start = random.randrange(len(GAZES))
-    for i, sc in enumerate(scenes):
-        sc["gaze"], sc["sheet"] = GAZES[(start + i * 3) % len(GAZES)]
+    if not ANGLES:
+        start = random.randrange(len(GAZES))
+        for i, sc in enumerate(scenes):
+            sc["gaze"], sc["sheet"] = GAZES[(start + i * 3) % len(GAZES)]
+        return scenes
+    weights = [a[2] for a in ANGLES]
+    used = set()
+    for sc in scenes:
+        angle, a_sheet, _ = random.choices(ANGLES, weights=weights)[0]
+        free = [e for e in EXPRESSIONS if e[0] not in used] or EXPRESSIONS
+        expr, e_sheet = random.choice(free)
+        used.add(expr)
+        sc["angle"], sc["expression"] = angle, expr
+        sc["gaze"] = f"{angle}; {expr}"
+        sc["sheet"] = a_sheet or e_sheet
+        sc["angle_sheet"] = a_sheet  # "" when she faces the camera
     return scenes
 
 
@@ -302,13 +328,17 @@ def scene_prompt(char, scene, lane, n_refs, style="qwen"):
         who = f"The woman from {refs}, alone in the photo, with her exact face, facial features, hair and skin tone"
     else:
         who = "A single woman"
+    if scene.get("angle"):
+        face = f"Head angle: {scene['angle']}. Facial expression: {scene['expression']}."
+    else:
+        face = f"Her head and face: {scene['gaze']}." if scene.get("gaze") else ""
     parts = [
         f"{scene['shot']} of {b['safety']['adult_anchor']}. {who}.",
+        face,
         f"{b.get('identity', '')}." if b.get("identity") else "",
         f"Setting: {scene['setting']}.",
         f"She wears {scene['outfit']}.",
         f"She is {scene['action']}, {scene['mood']}.",
-        f"Her head and face: {scene['gaze']}." if scene.get("gaze") else "",
         ("The reference photos only show who she is; her head angle, expression and pose follow this scene, "
          "not the references." if n_refs else ""),
         "She is the only person in the photo, nobody else in the frame or background.",

@@ -103,9 +103,30 @@ function fallback(places, outfits) {
   }));
 }
 
+/**
+ * Head angle and expression, picked separately (ideas.json angles/expressions, the
+ * same as persona/scenes.py assign_gazes): about a quarter face the lens, the rest
+ * are turned, each with its face-sheet portrait. The old mild gazes made nearly
+ * every photo face the camera.
+ */
 function assignGazes(list) {
-  const g = IDEAS.gazes, start = Math.floor(Math.random() * g.length);
-  list.forEach((s, i) => { [s.gaze, s.sheet] = g[(start + i * 3) % g.length]; });
+  if (!IDEAS.angles?.length) {
+    const g = IDEAS.gazes, start = Math.floor(Math.random() * g.length);
+    list.forEach((s, i) => { [s.gaze, s.sheet] = g[(start + i * 3) % g.length]; });
+    return list;
+  }
+  const total = IDEAS.angles.reduce((a, x) => a + x[2], 0);
+  const used = new Set();
+  for (const s of list) {
+    let r = Math.random() * total, angle = IDEAS.angles[0];
+    for (const a of IDEAS.angles) { if ((r -= a[2]) < 0) { angle = a; break; } }
+    const free = IDEAS.expressions.filter((e) => !used.has(e[0]));
+    const expr = pick(free.length ? free : IDEAS.expressions);
+    used.add(expr[0]);
+    s.angle = angle[0]; s.expression = expr[0]; s.angle_sheet = angle[1];
+    s.gaze = `${angle[0]}; ${expr[0]}`;
+    s.sheet = angle[1] || expr[1];
+  }
   return list;
 }
 
