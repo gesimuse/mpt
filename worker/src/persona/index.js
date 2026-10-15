@@ -96,6 +96,56 @@ async function mediaLink(env, origin, fileId, ext) {
   return `${origin}/persona/media/${encodeURIComponent(fileId)}.${ext}?e=${exp}&s=${await sign(env, `${fileId}.${exp}`)}`;
 }
 
+/** A week-long link to the share page of one publish job (see sharePage). */
+async function shareLink(env, origin, p, job) {
+  const exp = Math.floor(Date.now() / 1000) + 7 * 86400;
+  return `${origin}/persona/share?slug=${p.slug}&j=${encodeURIComponent(job.id)}&e=${exp}&s=${await sign(env, `share.${job.id}.${exp}`)}`;
+}
+
+const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+/**
+ * Opened on the phone from the channel post's "Post on Instagram" button: the video
+ * and her caption, and a button that hands the video to Instagram through the phone's
+ * share sheet (Web Share API) -- Instagram opens its editor, where a trending song
+ * from its library can be added. Instagram's API cannot pick music.
+ */
+async function sharePage(request, env) {
+  const u = new URL(request.url);
+  const slug = u.searchParams.get("slug"), jid = u.searchParams.get("j"), e = u.searchParams.get("e");
+  if (!jid || !e || Number(e) < Date.now() / 1000 || u.searchParams.get("s") !== await sign(env, `share.${jid}.${e}`)) {
+    return new Response("This link has expired.", { status: 403 });
+  }
+  const job = (await st.load(env, slug)).publish.find((j) => j.id === jid);
+  if (!job) return new Response("Not found.", { status: 404 });
+  const video = await mediaLink(env, u.origin, job.file_id, "mp4");
+  const caption = job.posts?.instagram?.text || job.caption || "";
+  const html = `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Post on Instagram</title>
+<style>body{font:16px system-ui;margin:0;padding:16px;background:#111;color:#eee;max-width:480px;margin:auto}
+video{width:100%;border-radius:12px;background:#000}button,a.b{display:block;width:100%;box-sizing:border-box;margin:10px 0;
+padding:14px;border:0;border-radius:10px;font-size:17px;font-weight:600;text-align:center;text-decoration:none}
+#share{background:linear-gradient(45deg,#f58529,#dd2a7b,#8134af);color:#fff}#copy,a.b{background:#333;color:#eee}
+textarea{width:100%;box-sizing:border-box;height:110px;background:#222;color:#eee;border:1px solid #444;border-radius:8px;padding:8px}
+small{color:#999}</style>
+<video src="${esc(video)}" controls playsinline loop muted></video>
+<button id="copy">1 · Copy caption</button>
+<button id="share">2 · Share to Instagram</button>
+<small>Pick <b>Instagram → Reels</b>, tap ♫ to add a trending song, paste the caption, share.</small>
+<textarea readonly>${esc(caption)}</textarea>
+<a class="b" href="${esc(video)}" download="lena.mp4">Or save the video</a>
+<script>
+const url=${JSON.stringify(video)}, cap=${JSON.stringify(caption)};
+let file=null; fetch(url).then(r=>r.blob()).then(b=>file=new File([b],"lena.mp4",{type:"video/mp4"}));
+document.getElementById("copy").onclick=async(e)=>{try{await navigator.clipboard.writeText(cap);e.target.textContent="✓ Caption copied"}catch{document.querySelector("textarea").select()}};
+document.getElementById("share").onclick=async(e)=>{
+  if(!file){e.target.textContent="Loading video… tap again";return}
+  if(navigator.canShare&&navigator.canShare({files:[file]})){try{await navigator.share({files:[file]})}catch(err){}}
+  else{e.target.textContent="Sharing not supported here: open this page in Chrome/Safari, or save the video"}};
+</script>`;
+  return new Response(html, { headers: { "content-type": "text/html; charset=utf-8" } });
+}
+
 async function telegramFile(env, fileId) {
   const info = await tg(env, "getFile", { file_id: fileId });
   return fetch(`https://api.telegram.org/file/bot${env.PERSONA_BOT_TOKEN}/${info.file_path}`);
@@ -179,9 +229,12 @@ async function advancePublish(env, p, state, origin) {
     if (JSON.stringify([job.ig, job.tt]) === before) continue;
     // Mark the post in the channel: what happened on each platform.
     const cap = `${job.base}\n\n━━ published ━━\n${social.statusLine(job)}`.slice(0, 1024);
+    const markup = job.ig?.mode === "phone"
+      ? { inline_keyboard: [[{ text: "📲 Post on Instagram", url: await shareLink(env, origin, p, job) }]] }
+      : kb([[["✓ 👍 published", `pv:noop:${job.item}`]]]);
     try {
       await tg(env, "editMessageCaption", { chat_id: job.chat, message_id: job.message_id, caption: cap,
-        reply_markup: kb([[["✓ 👍 published", `pv:noop:${job.item}`]]]) });
+        reply_markup: markup });
     } catch (e) {
       console.error("caption update failed", String(e).slice(0, 200));
     }
@@ -328,6 +381,7 @@ export async function onPersonaWebhook(request, env) {
   const u = new URL(request.url);
   if (u.pathname === "/persona/file") return serveFile(request, env);
   if (u.pathname.startsWith("/persona/media/")) return serveMedia(request, env);
+  if (u.pathname === "/persona/share") return sharePage(request, env);
   if (u.pathname.startsWith("/persona/admin/")) return onAdmin(request, env);
   if (request.headers.get("X-Telegram-Bot-Api-Secret-Token") !== env.PERSONA_WEBHOOK_SECRET) {
     return new Response("forbidden", { status: 403 });

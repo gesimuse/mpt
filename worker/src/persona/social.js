@@ -3,8 +3,8 @@
  * through Buffer (api.buffer.com, GraphQL), from the copy Telegram already holds.
  *
  *   Instagram: published now, public (a photo post or a Reel with its own sound),
- *     labelled AI. A silent video goes to the phone (Buffer "notification") to add
- *     a trending song from Instagram's library before sharing.
+ *     labelled AI. A silent video is shared from the phone instead (a button on the
+ *     channel post), to add a trending song from Instagram's library.
  *   TikTok, video WITH sound (🎭 recreates keep the original's audio): published
  *     now, public, with that sound (Buffer's "automatic" scheduling), labelled AI.
  *   TikTok, no sound (🎬 videos, photos): Buffer's "notification" scheduling --
@@ -58,10 +58,11 @@ async function start(env, p, job, platform, mediaUrl) {
     : { video: { url: mediaUrl } };
   let mode = "automatic", metadata;
   if (platform === "instagram") {
-    // A silent video goes to the phone too: a viral song can only be added from
-    // Instagram's own music library, in the app (a song mixed into the file gets the
-    // Reel muted or blocked).
-    if (job.kind === "video" && !job.audio) mode = "notification";
+    // A silent video is shared from the phone instead: a viral song can only be added
+    // from Instagram's own music library, in the app (a song mixed into the file gets
+    // the Reel muted or blocked). The channel post gets a "Post on Instagram" button
+    // (index.js sharePage) that hands the video to Instagram via the share sheet.
+    if (job.kind === "video" && !job.audio) return { status: "done", mode: "phone" };
     metadata = { instagram: { type: job.kind === "photo" ? "post" : "reel", shouldShareToFeed: true, isAiGenerated: true } };
   } else {
     // Without sound it goes to the phone, to add a song before posting.
@@ -133,8 +134,8 @@ export function statusLine(job) {
     return `⏳ ${name}: posting…`;
   };
   return [
-    line("Instagram", job.ig, (r) => r.mode === "notification"
-      ? "📲 Instagram: Buffer sent it to your phone -- add a trending song and share"
+    line("Instagram", job.ig, (r) => r.mode === "phone"
+      ? "📲 Instagram: tap «Post on Instagram» below on your phone, add a trending song, share"
       : "✅ Instagram: posted"),
     line("TikTok", job.tt, (r) => r.mode === "notification"
       ? "📲 TikTok: Buffer sent it to your phone -- add a song and post"
