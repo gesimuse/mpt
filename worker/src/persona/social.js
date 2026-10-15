@@ -2,7 +2,9 @@
  * 👍 in a persona's channel publishes the photo/video to her Instagram and TikTok
  * through Buffer (api.buffer.com, GraphQL), from the copy Telegram already holds.
  *
- *   Instagram: published now, public (a photo post or a Reel), labelled AI.
+ *   Instagram: published now, public (a photo post or a Reel with its own sound),
+ *     labelled AI. A silent video goes to the phone (Buffer "notification") to add
+ *     a trending song from Instagram's library before sharing.
  *   TikTok, video WITH sound (🎭 recreates keep the original's audio): published
  *     now, public, with that sound (Buffer's "automatic" scheduling), labelled AI.
  *   TikTok, no sound (🎬 videos, photos): Buffer's "notification" scheduling --
@@ -56,6 +58,10 @@ async function start(env, p, job, platform, mediaUrl) {
     : { video: { url: mediaUrl } };
   let mode = "automatic", metadata;
   if (platform === "instagram") {
+    // A silent video goes to the phone too: a viral song can only be added from
+    // Instagram's own music library, in the app (a song mixed into the file gets the
+    // Reel muted or blocked).
+    if (job.kind === "video" && !job.audio) mode = "notification";
     metadata = { instagram: { type: job.kind === "photo" ? "post" : "reel", shouldShareToFeed: true, isAiGenerated: true } };
   } else {
     // Without sound it goes to the phone, to add a song before posting.
@@ -127,7 +133,9 @@ export function statusLine(job) {
     return `⏳ ${name}: posting…`;
   };
   return [
-    line("Instagram", job.ig, () => "✅ Instagram: posted"),
+    line("Instagram", job.ig, (r) => r.mode === "notification"
+      ? "📲 Instagram: Buffer sent it to your phone -- add a trending song and share"
+      : "✅ Instagram: posted"),
     line("TikTok", job.tt, (r) => r.mode === "notification"
       ? "📲 TikTok: Buffer sent it to your phone -- add a song and post"
       : "✅ TikTok: posted with its sound"),
