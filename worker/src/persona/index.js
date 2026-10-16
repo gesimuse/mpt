@@ -415,7 +415,8 @@ function queueVideo(state, itemId, msg, fileId, motion) {
 }
 
 const PUBLISH_WORDS = /^\s*(👍|post|publish|post it)\s*[.!]*\s*$/iu;
-const CAROUSEL_WORDS = /^\s*(🖼️?|carousel|caroussel|carusel|make a carousel)\s*[.!]*\s*$/iu;
+// Any short reply mentioning a carousel ("carousel please", "make carousel 🖼", ...).
+const CAROUSEL_WORDS = /^(?=.{0,60}$).*(🖼|car+ou?s+el+|carusel)/isu;
 
 /** A photo uploaded into her channel: 2 more shots of it for a 🖼 carousel. */
 async function onPhotoUpload(env, post, state) {
