@@ -415,11 +415,27 @@ function queueVideo(state, itemId, msg, fileId, motion) {
 }
 
 const PUBLISH_WORDS = /^\s*(👍|post|publish|post it)\s*[.!]*\s*$/iu;
+const CAROUSEL_WORDS = /^\s*(🖼️?|carousel|caroussel|carusel|make a carousel)\s*[.!]*\s*$/iu;
 
 async function onReply(env, p, post, state, origin) {
   const parent = post.reply_to_message;
   // "👍" / "post" as a reply publishes any photo or video, including ones posted
   // without buttons (older 🎬 videos, hand-posted versions).
+  // "🖼" / "carousel" as a reply: a carousel of any photo, including old posts
+  // without the 🖼 button.
+  if (CAROUSEL_WORDS.test(post.text) && parent.photo) {
+    const itemId = itemIdFrom(parent) || `msg-${parent.message_id}`;
+    const fileId = parent.photo.slice(-1)[0].file_id;
+    state.items[itemId] = { kind: "image", tags: [], scene: {}, caption: "", ...(state.items[itemId] || {}), file_id: fileId };
+    const busy = state.queue.some((q) => q.kind === "carousel" && q.item === itemId);
+    if (!busy) {
+      state.queue.push({ id: `${itemId}-car${Date.now()}`, kind: "carousel", item: itemId, scene: state.items[itemId].scene || {},
+                         file_id: fileId, count: 2, chat: post.chat.id, message_id: parent.message_id });
+    }
+    await tg(env, "sendMessage", { chat_id: post.chat.id, reply_to_message_id: parent.message_id,
+      text: busy ? "🖼 Already making this carousel." : "🖼 Making 2 more shots of this photo for a carousel (~5-10 min on the laptop)." });
+    return;
+  }
   if (PUBLISH_WORDS.test(post.text) && (parent.photo || parent.video)) {
     const itemId = itemIdFrom(parent) || `msg-${parent.message_id}`;
     const res = await queuePublish(env, p, state, { message: parent }, itemId);
