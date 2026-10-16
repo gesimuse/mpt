@@ -74,8 +74,67 @@ def heartbeat_while(proc, job_id):
             time.sleep(1)
 
 
+UNSENT = Path.home() / ".cache" / "mpt-persona" / "unsent"
+
+
+def _telegram(method, fields, files=None):
+    """The persona bot, called from the laptop (its token is in .env here)."""
+    token = config.env("PERSONA_BOT_TOKEN") or config.env("LOCAL_BOT_TOKEN")
+    data, ctype = _multipart(fields, files or {})
+    req = urllib.request.Request(f"https://api.telegram.org/bot{token}/{method}", data=data, method="POST",
+                                 headers={"Content-Type": ctype})
+    with urllib.request.urlopen(req, timeout=300) as r:
+        body = json.loads(r.read())
+    if not body.get("ok"):
+        raise RuntimeError(f"telegram {method}: {str(body)[:200]}")
+    return body["result"]
+
+
+def deliver(work, r):
+    """Post one result. Photos/videos go to Telegram from here (caption and buttons
+    from the Worker), then the Worker is told what was sent; large videos pushed
+    through the Worker failed with HTTP 500."""
+    item = None
+    if r.get("ok"):
+        item = json.loads((work / "items" / f"{r['id']}.json").read_text())
+    if not item or not (config.env("PERSONA_BOT_TOKEN") or config.env("LOCAL_BOT_TOKEN")):
+        files = {} if not item else {"item": work / "items" / f"{r['id']}.json", "file": work / "items" / item["path"]}
+        data, ctype = _multipart({"result": json.dumps(r)}, files)
+        return _call("/persona/admin/laptop/result", data=data, content_type=ctype, timeout=300)
+    m = _call("/persona/admin/laptop/prepare", {"result": r, "item": item})
+    fields = {"chat_id": m["chat"], "caption": m["caption"][:1024], "reply_markup": json.dumps(m["buttons"])}
+    if m.get("replyTo"):
+        fields["reply_to_message_id"] = m["replyTo"]
+    if m["kind"] == "video":
+        fields["supports_streaming"] = "true"
+    sent = _telegram("sendVideo" if m["kind"] == "video" else "sendPhoto", fields,
+                     {m["kind"]: work / "items" / item["path"]})
+    return _call("/persona/admin/laptop/result", {"result": r, "item": item, "sent": sent})
+
+
+def deliver_all(work):
+    """Every result of a finished job; True when all went out. Kept on disk until then."""
+    results = json.loads((work / "results.json").read_text())
+    left = []
+    for r in results:
+        try:
+            log(f"{r['request']}: {'ok' if r.get('ok') else r.get('reason')} -> {deliver(work, r)}")
+        except Exception as e:
+            log(f"{r['request']}: delivery failed ({e}); kept to retry")
+            left.append(r)
+    (work / "results.json").write_text(json.dumps(left))
+    return not left
+
+
+def retry_unsent():
+    for work in sorted(UNSENT.glob("*")) if UNSENT.exists() else []:
+        if (work / "results.json").exists() and deliver_all(work):
+            shutil.rmtree(work, ignore_errors=True)
+
+
 def run_job(job):
-    work = Path(tempfile.mkdtemp(prefix=f"persona-job-{job['id']}-"))
+    UNSENT.mkdir(parents=True, exist_ok=True)
+    work = Path(tempfile.mkdtemp(prefix=f"{job['id']}-", dir=UNSENT))
     (work / "job.json").write_text(json.dumps(job))
     log(f"job {job['id']} ({job.get('kind') or 'video'})")
     t = time.time()
@@ -91,30 +150,23 @@ def run_job(job):
                                 cwd=str(config.REPO))
         heartbeat_while(proc, job["id"])
         results_file = work / "results.json"
-        results = json.loads(results_file.read_text()) if results_file.exists() else [
-            {"request": job["id"], "ok": False, "kind": "image" if job.get("kind") == "redo" else "video",
-             "recreate": job.get("kind") == "recreate", "reason": f"laptop job exited {proc.returncode}",
-             "chat": job.get("chat"), "message_id": job.get("message_id")}]
+        if not results_file.exists():
+            results_file.write_text(json.dumps([
+                {"request": job["id"], "ok": False, "kind": "image" if job.get("kind") == "redo" else "video",
+                 "recreate": job.get("kind") == "recreate", "reason": f"laptop job exited {proc.returncode}",
+                 "chat": job.get("chat"), "message_id": job.get("message_id")}]))
+        results = json.loads(results_file.read_text())
         for r in results:
             r["slug"] = job.get("slug", "")
-            files = {}
-            if r.get("ok"):
-                item = json.loads((work / "items" / f"{r['id']}.json").read_text())
-                files = {"item": work / "items" / f"{r['id']}.json", "file": work / "items" / item["path"]}
-            data, ctype = _multipart({"result": json.dumps(r)}, files)
-            for attempt in range(5):
-                try:
-                    log(f"{r['request']}: {'ok' if r.get('ok') else r.get('reason')} -> "
-                        f"{_call('/persona/admin/laptop/result', data=data, content_type=ctype, timeout=300)}")
-                    break
-                except Exception as e:
-                    log(f"upload failed ({e}), retrying")
-                    time.sleep(30 * (attempt + 1))
+        results_file.write_text(json.dumps(results))
+        # A failed delivery keeps the finished work here, so it is sent again rather
+        # than rendered again.
+        if deliver_all(work):
+            shutil.rmtree(work, ignore_errors=True)
         log(f"job {job['id']} done in {int(time.time() - t)}s")
     finally:
         if inhibit:
             inhibit.terminate()
-        shutil.rmtree(work, ignore_errors=True)
 
 
 def main():
@@ -123,6 +175,10 @@ def main():
         sys.exit("PERSONA_WORKER_URL and PERSONA_ADMIN_SECRET must be set in .env")
     log("checking in with the Worker every 30s")
     while True:
+        try:
+            retry_unsent()
+        except Exception as e:
+            log(f"retrying unsent results failed: {e}")
         try:
             r = _call("/persona/admin/laptop/claim", {})
             if r.get("job"):

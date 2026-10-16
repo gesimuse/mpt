@@ -520,6 +520,7 @@ async function onAdmin(request, env) {
   }
   if (u.pathname === "/persona/admin/laptop/claim" && request.method === "POST") return laptopClaim(request, env, u.origin);
   if (u.pathname === "/persona/admin/laptop/result" && request.method === "POST") return laptopResult(request, env);
+  if (u.pathname === "/persona/admin/laptop/prepare" && request.method === "POST") return laptopPrepare(request, env);
   return new Response("not found", { status: 404 });
 }
 
@@ -596,19 +597,39 @@ function faceLine(face) {
  * Post one finished job (from a Kaggle run or the laptop) under the message that
  * asked for it. `item` is the item JSON, `file` its photo/video (URL or Blob).
  */
-async function postResult(env, state, b, r, item, file) {
+/** How a finished job is posted: {kind: "photo"|"video"|"text", caption|text, buttons, chat, replyTo}. */
+function resultMessage(b, r, item) {
   if (r.ok && r.kind === "image") {
-    const sent = await sendMedia(env, "photo", r.chat, file, { caption: "🔁 " + caption(b.name, item), buttons: buttons(item), replyTo: r.message_id });
-    remember(state, item, sent);
-  } else if (r.ok) {
-    const cap = r.recreate ? `🎭 ${b.name} · recreated${faceLine(item?.face)}` : `🎬 ${b.name}\n${(r.motion || "").slice(0, 300)}`;
-    const sent = await sendMedia(env, "video", r.chat, file, { caption: `${cap}\n#${r.id}`, replyTo: r.message_id,
-      buttons: kb([[["👍", `pv:up:${r.id}`], ["👎", `pv:dn:${r.id}`]]]) });
-    if (item) remember(state, { ...item, kind: "video", recreate: !!r.recreate }, sent);
-  } else {
-    await tg(env, "sendMessage", { chat_id: r.chat, reply_to_message_id: r.message_id,
-      text: `❌ ${r.kind === "image" ? "Redraw" : r.recreate ? "Recreate" : "Video"} failed: ${String(r.reason).slice(0, 300)}` });
+    return { kind: "photo", chat: r.chat, replyTo: r.message_id, caption: "🔁 " + caption(b.name, item), buttons: buttons(item) };
   }
+  if (r.ok) {
+    const cap = r.recreate ? `🎭 ${b.name} · recreated${faceLine(item?.face)}` : `🎬 ${b.name}\n${(r.motion || "").slice(0, 300)}`;
+    return { kind: "video", chat: r.chat, replyTo: r.message_id, caption: `${cap}\n#${r.id}`,
+             buttons: kb([[["👍", `pv:up:${r.id}`], ["👎", `pv:dn:${r.id}`]]]) };
+  }
+  return { kind: "text", chat: r.chat, replyTo: r.message_id,
+           text: `❌ ${r.kind === "image" ? "Redraw" : r.recreate ? "Recreate" : "Video"} failed: ${String(r.reason).slice(0, 300)}` };
+}
+
+/** Remember a posted result (`sent`: the Telegram message it went out as). */
+function recordResult(state, r, item, sent) {
+  if (!r.ok || !item) return;
+  if (r.kind === "image") remember(state, item, sent);
+  else remember(state, { ...item, kind: "video", recreate: !!r.recreate }, sent);
+}
+
+/**
+ * Post one finished job (from a Kaggle run or the laptop) under the message that
+ * asked for it. `item` is the item JSON, `file` its photo/video (URL or Blob).
+ */
+async function postResult(env, state, b, r, item, file) {
+  const m = resultMessage(b, r, item);
+  if (m.kind === "text") {
+    await tg(env, "sendMessage", { chat_id: m.chat, reply_to_message_id: m.replyTo, text: m.text });
+    return;
+  }
+  const sent = await sendMedia(env, m.kind, m.chat, file, { caption: m.caption, buttons: m.buttons, replyTo: m.replyTo });
+  recordResult(state, r, item, sent);
 }
 
 async function postResults(env, state, b, kernel) {
@@ -682,15 +703,35 @@ async function laptopClaim(request, env, origin) {
   return Response.json({ job: null });
 }
 
+/**
+ * The laptop posts finished photos/videos to Telegram itself (laptop/prepare gives
+ * it the caption and buttons), then reports the sent message here as JSON. Big
+ * videos sent THROUGH the Worker failed with HTTP 500 on 2026-10-16 (a 10s recreate,
+ * five tries), and the agent deleted it and rendered it again.
+ */
+async function laptopPrepare(request, env) {
+  const { result: r, item } = await request.json();
+  const p = await personas.get(env, r.slug || env.PERSONA_SLUG || "lena");
+  const b = (await st.bible(env, p.slug)) || { name: p.slug };
+  return Response.json(resultMessage(b, r, item));
+}
+
 async function laptopResult(request, env) {
-  const form = await request.formData();
-  const r = JSON.parse(form.get("result"));
+  let r, item, file = null, sent = null;
+  if ((request.headers.get("content-type") || "").startsWith("application/json")) {
+    ({ result: r, item, sent } = await request.json());
+  } else {
+    const form = await request.formData();
+    r = JSON.parse(form.get("result"));
+    item = form.get("item") ? JSON.parse(await form.get("item").text()) : null;
+    file = form.get("file");
+  }
   const p = (await personas.get(env, r.slug || env.PERSONA_SLUG || "lena"));
   const state = await st.load(env, p.slug);
   if (state.done.includes(r.request)) return new Response("already posted");
   const b = (await st.bible(env, p.slug)) || { name: p.slug };
-  const item = form.get("item") ? JSON.parse(await form.get("item").text()) : null;
-  await postResult(env, state, b, r, item, form.get("file"));
+  if (sent) recordResult(state, r, item, sent);
+  else await postResult(env, state, b, r, item, file);
   state.done.push(r.request);
   // Taken back from Kaggle's queue too, if it was handed over while the laptop
   // was quiet; a Kaggle result for it is skipped as already done.
