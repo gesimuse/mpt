@@ -295,7 +295,8 @@ async function learnFromPosts(env, p, state) {
         const post = await social.metrics(env, p, rec.post);
         const value = captions.postValue(post?.metrics);
         if (value > 0) {
-          captions.learn(state, platform, job.posts?.[platform]?.tags || [], value);
+          const hour = Number(new Date(rec.sent_at).toLocaleString("en-GB", { timeZone: "Europe/Prague", hour: "2-digit", hour12: false }));
+          captions.learn(state, platform, job.posts?.[platform]?.tags || [], value, { kind: job.kind, hour });
           rec.learned = true;
         } else if (now - rec.sent_at > 7 * 86400 * 1000) rec.learned = "no numbers";
         changed = true;
@@ -537,7 +538,7 @@ async function onAdmin(request, env) {
       return new Response("ok");
     }
     const state = await st.load(env, slug);
-    return Response.json({ core: JSON.parse((await env.PERSONA.get(`coretags:${slug}`)) || "null"),
+    return Response.json({ context: state.context || {}, core: JSON.parse((await env.PERSONA.get(`coretags:${slug}`)) || "null"),
                            trend: JSON.parse((await env.PERSONA.get(`trend_tags:${slug}`)) || "[]"),
                            scores: state.hashtags || {} });
   }
@@ -573,7 +574,8 @@ async function render(env, p, force = false) {
   // The laptop renders when it is open (its GPU, no Kaggle quota); Kaggle otherwise,
   // or later if the laptop goes quiet before finishing (advanceJobs).
   if (await laptopFresh(env)) {
-    state.queue.unshift({ id: `render-${p.slug}-${st.today()}`, kind: "render", scenes: list, date: st.today() });
+    state.queue.unshift({ id: `render-${p.slug}-${st.today()}`, kind: "render", scenes: list, date: st.today(),
+                          chat: p.chat_id, videos: dailyReels(env) });
     state.render_via = "laptop";
     await env.PERSONA.put(`rstatus:${p.slug}`, JSON.stringify({ date: st.today(), ok: true, items: [] }));
     await st.save(env, p.slug, state);
@@ -585,9 +587,12 @@ async function render(env, p, force = false) {
   return `${p.slug}: render pushed, ${list.length} scenes`;
 }
 
+/** Reels a day: the render's first N good photos animated (PERSONA_DAILY_REELS, 2). */
+const dailyReels = (env) => Number(env.PERSONA_DAILY_REELS ?? 2);
+
 async function pushRender(env, p, list) {
   await kaggle.push(env, renderKernel(env, p),
-    kaggle.bootstrap({ ...basePayload(env, p), scenes: list, videos: 0, date: st.today() }), [dataset(env, p)]);
+    kaggle.bootstrap({ ...basePayload(env, p), scenes: list, videos: dailyReels(env), date: st.today() }), [dataset(env, p)]);
 }
 
 /**
@@ -595,16 +600,15 @@ async function pushRender(env, p, list) {
  * where post() sends it like a Kaggle render output.
  */
 async function laptopRenderItem(request, env) {
-  const form = await request.formData();
-  const r = JSON.parse(form.get("result"));
+  // JSON {result, item, file_id}: the laptop already put the photo/Reel on Telegram.
+  const { result: r, item, file_id } = await request.json();
   const slug = r.slug || env.PERSONA_SLUG || "lena";
   const ttl = { expirationTtl: 3 * 86400 };
-  if (r.ok && form.get("file")) {
-    await env.PERSONA.put(`rimg:${slug}:${r.id}`, await form.get("file").arrayBuffer(), ttl);
-    await env.PERSONA.put(`ritem:${slug}:${r.id}`, await form.get("item").text(), ttl);
-  }
+  if (r.ok && item && file_id) await env.PERSONA.put(`ritem:${slug}:${r.id}`, JSON.stringify({ ...item, file_id }), ttl);
   const status = JSON.parse((await env.PERSONA.get(`rstatus:${slug}`)) || "null") || { date: r.render, ok: true, items: [] };
-  if (!status.items.some((x) => x.id === r.id)) status.items.push({ id: r.id, ok: !!r.ok, kind: "image", reason: r.reason || null });
+  if (!status.items.some((x) => x.id === r.id)) {
+    status.items.push({ id: r.id, ok: !!r.ok, kind: r.kind === "video" ? "video" : "image", parent: r.parent || null, reason: r.reason || null });
+  }
   status.date = r.render || status.date;
   await env.PERSONA.put(`rstatus:${slug}`, JSON.stringify(status));
   return new Response("kept");
@@ -620,20 +624,28 @@ async function post(env, p, k) {
     if (!status) return `${p.slug}: no laptop render`;
     getItem = async (id) => JSON.parse((await env.PERSONA.get(`ritem:${p.slug}:${id}`)) || "null");
     getImage = async (id) => {
-      const buf = await env.PERSONA.get(`rimg:${p.slug}:${id}`, "arrayBuffer");
-      return buf ? new Blob([buf]) : null;
+      const it = await getItem(id);
+      return it?.file_id ? { fileId: it.file_id } : null;
     };
   } else {
     const files = await kaggle.outputs(env, renderKernel(env, p)).catch(() => ({}));
     if (!files["status.json"]) return `${p.slug}: no render output`;
     status = await kaggle.fetchJson(files["status.json"]);
     getItem = async (id) => (files[`out/items/${id}.json`] ? kaggle.fetchJson(files[`out/items/${id}.json`]) : null);
-    getImage = async (id) => files[`out/items/${id}.jpg`] || null;
+    getImage = async (id) => {
+      const it = await getItem(id);
+      return it?.path ? files[`out/items/${it.path}`] || null : files[`out/items/${id}.jpg`] || null;
+    };
   }
   if (!status.ok || status.date !== st.today()) return `${p.slug}: render not ready (${status.stage} ${status.date})`;
   if (state.posted.date !== st.today()) state.posted = { date: st.today(), ids: [] };
   const images = (status.items || []).filter((r) => r.ok && (r.kind || "image") === "image").map((r) => r.id);
-  const due = images.filter((id, i) => i % POST_HOURS.length <= k);
+  // The day's Reels go out between the photos (2nd and 4th place).
+  const reels = (status.items || []).filter((r) => r.ok && r.kind === "video").map((r) => r.id);
+  const order = [...images];
+  reels.forEach((id, j) => order.splice(Math.min(order.length, 1 + 3 * j), 0, id));
+  const isReel = new Set(reels);
+  const due = order.filter((id, i) => i % POST_HOURS.length <= k);
   const b = (await st.bible(env, p.slug)) || { name: p.slug };
   let sent = 0;
   for (const id of due) {
@@ -642,8 +654,10 @@ async function post(env, p, k) {
     const img = item && (await getImage(id));
     if (!img) continue;
     try {
-      const msg = await sendMedia(env, "photo", p.chat_id, img, { caption: caption(b.name, item), buttons: buttons(item) });
-      remember(state, item, msg);
+      const reel = isReel.has(id);
+      const msg = await sendMedia(env, reel ? "video" : "photo", p.chat_id, img,
+        { caption: caption(b.name, { ...item, kind: reel ? "video" : item.kind }), buttons: buttons({ ...item, kind: reel ? "video" : item.kind }) });
+      remember(state, { ...item, kind: reel ? "video" : (item.kind || "image") }, msg);
       state.posted.ids.push(id);
       sent++;
     } catch (e) {

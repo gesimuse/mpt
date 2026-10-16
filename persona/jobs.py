@@ -158,8 +158,23 @@ def render(job, char, studio, out):
             item["path"] = dest.name
             (out / f"{item['id']}.json").write_text(json.dumps(item, ensure_ascii=False))
         results.append({"request": job["id"], "id": item["id"], "ok": bool(item.get("ok")), "kind": "image",
-                        "render": job.get("date", ""), "reason": item.get("reason")})
+                        "render": job.get("date", ""), "reason": item.get("reason"), "chat": job.get("chat")})
         log(f"render {item['id']}: {'ok' if item.get('ok') else item.get('reason')}")
+    # The day's Reels: the first N photos that passed, animated (Reels reach more new
+    # people than photos for a small account).
+    for r in [r for r in results if r["ok"]][: int(job.get("videos", 0))]:
+        try:
+            vid = studio.animate(char, char.item(r["id"]))
+        except Exception as e:
+            log(f"reel of {r['id']} failed: {e}")
+            continue
+        dest = out / Path(vid["path"]).name
+        shutil.copyfile(vid["path"], dest)
+        vid.update({"path": dest.name, "audio": has_audio(dest), "caption": char.item(r["id"]).get("caption", "")})
+        (out / f"{vid['id']}.json").write_text(json.dumps(vid, ensure_ascii=False))
+        results.append({"request": job["id"], "id": vid["id"], "ok": True, "kind": "video", "parent": r["id"],
+                        "render": job.get("date", ""), "chat": job.get("chat")})
+        log(f"reel {vid['id']} of {r['id']}")
     # Tells the Worker the render is over (its laptop lane is freed).
     results.append({"request": job["id"], "ok": True, "kind": "render-done", "render": job.get("date", "")})
     return results

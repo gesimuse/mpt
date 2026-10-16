@@ -173,13 +173,30 @@ export function postValue(metrics) {
  * Score the tags of a post that has had 48h: log of its value against her median
  * post on that platform, added to each tag it carried.
  */
-export function learn(state, platform, tags, value) {
+/**
+ * The same lift, scored by format (photo / reel) and Prague posting hour, so the
+ * posting slots and the photo/Reel mix can follow what works for her
+ * (state.context[platform]["kind:photo" | "hour:12"] = {n, sum}).
+ */
+function learnContext(state, platform, context, lift) {
+  if (!context) return;
+  state.context = state.context || {};
+  const c = (state.context[platform] = state.context[platform] || {});
+  for (const key of [context.kind && `kind:${context.kind}`, context.hour != null && `hour:${context.hour}`].filter(Boolean)) {
+    const s = (c[key] = c[key] || { n: 0, sum: 0 });
+    s.n += 1;
+    s.sum += lift;
+  }
+}
+
+export function learn(state, platform, tags, value, context) {
   state.hashtags = state.hashtags || {};
   state.values = state.values || {};
   const hist = (state.values[platform] = [...(state.values[platform] || []), value].slice(-30));
   const sorted = [...hist].sort((a, b) => a - b);
   const median = sorted[Math.floor(sorted.length / 2)] || 1;
   const lift = Math.log((value + 1) / (median + 1));
+  learnContext(state, platform, context, lift);
   const stats = (state.hashtags[platform] = state.hashtags[platform] || {});
   for (const t of tags) {
     if (t === ALWAYS) continue;

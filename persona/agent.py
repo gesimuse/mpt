@@ -100,10 +100,18 @@ def deliver(work, r):
     if r.get("kind") == "render-done":
         return _call("/persona/admin/laptop/result", {"result": r})
     if r.get("render"):
-        # A daily-render photo: kept by the Worker for the day's post slots.
-        files = {} if not item else {"item": work / "items" / f"{r['id']}.json", "file": work / "items" / item["path"]}
-        data, ctype = _multipart({"result": json.dumps(r)}, files)
-        return _call("/persona/admin/laptop/render-item", data=data, content_type=ctype, timeout=120)
+        # A daily-render photo/Reel, kept by the Worker for the day's post slots as a
+        # Telegram file reference: uploaded silently to her channel and deleted at
+        # once (the file stays valid), so no large file goes through the Worker.
+        file_id = None
+        if item:
+            chat = r.get("chat") or config.env("PERSONA_CHAT_ID")
+            video = item["path"].endswith(".mp4")
+            msg = _telegram("sendVideo" if video else "sendPhoto", {"chat_id": chat, "disable_notification": "true"},
+                            {"video" if video else "photo": work / "items" / item["path"]})
+            _telegram("deleteMessage", {"chat_id": chat, "message_id": msg["message_id"]})
+            file_id = (msg.get("video") or (msg.get("photo") or [{}])[-1]).get("file_id")
+        return _call("/persona/admin/laptop/render-item", {"result": r, "item": item, "file_id": file_id})
     if not item or not (config.env("PERSONA_BOT_TOKEN") or config.env("LOCAL_BOT_TOKEN")):
         files = {} if not item else {"item": work / "items" / f"{r['id']}.json", "file": work / "items" / item["path"]}
         data, ctype = _multipart({"result": json.dumps(r)}, files)

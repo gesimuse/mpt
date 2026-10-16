@@ -104,6 +104,9 @@ def tags(slug, trend=None, core=None):
         return "saved"
     d = _worker("/persona/admin/tags", "GET", params={"slug": slug}).json()
     lines = [f"core: {' '.join(d.get('core') or [])}", f"trending: {' '.join(d.get('trend') or []) or '-'}"]
+    for platform, ctx in (d.get("context") or {}).items():
+        lines.append(f"{platform} format/hour: " + ", ".join(f"{k} {v['sum'] / v['n']:+.2f} ({v['n']})" for k, v in
+                                                             sorted(ctx.items())))
     for platform, stats in (d.get("scores") or {}).items():
         ranked = sorted(stats.items(), key=lambda kv: kv[1]["sum"] / kv[1]["n"], reverse=True)
         lines.append(f"{platform}: " + ", ".join(f"#{t} {s['sum'] / s['n']:+.2f} ({s['n']})" for t, s in ranked[:15]))

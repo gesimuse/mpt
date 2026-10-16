@@ -22,6 +22,12 @@ export async function answer(env, id, text) {
 
 /** Upload a photo or video: a URL (Kaggle output) or a Blob (sent up by the laptop). */
 export async function sendMedia(env, kind, chatId, src, { caption = "", buttons, replyTo } = {}) {
+  if (src?.fileId) {
+    // Already on Telegram (a laptop render): sent by reference, nothing uploaded.
+    return tg(env, kind === "video" ? "sendVideo" : "sendPhoto", { chat_id: chatId, [kind]: src.fileId,
+      caption: caption.slice(0, 1024), reply_markup: buttons, reply_to_message_id: replyTo,
+      ...(kind === "video" ? { supports_streaming: true } : {}) });
+  }
   let blob = src;
   if (typeof src === "string") {
     const file = await fetch(src);
