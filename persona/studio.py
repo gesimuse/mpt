@@ -5,6 +5,7 @@ Every long operation is a generator that yields each result as soon as it exists
 so the bot can post image 1 while image 2 is still rendering.
 """
 import json
+from pathlib import Path
 import shutil
 import time
 
@@ -164,6 +165,7 @@ class Studio:
             return [head(p) for p in chosen[: max(1, model.get("max_refs", 1))]]
 
         ref_emb = faceid.reference_embedding(char.refs())
+        two_step = config.flag("PERSONA_TWO_STEP", "0")
 
         def floor_for(scene):
             if not scene.get("angle"):
@@ -179,8 +181,11 @@ class Studio:
             tries = 1 + int(config.env("PERSONA_QA_RETRIES", "1"))
             for attempt in range(tries):
                 try:
-                    path = self.engine.image(model, prompt, char.dir / "items", item["id"], refs=refs,
-                                             negative=scenes.negative(char, lane))
+                    if two_step:
+                        path = self._two_step(char, model, scene, lane, item["id"], front)
+                    else:
+                        path = self.engine.image(model, prompt, char.dir / "items", item["id"], refs=refs,
+                                                 negative=scenes.negative(char, lane))
                 except Exception as e:
                     path = None
                     reason = str(e)[:300]
@@ -208,6 +213,24 @@ class Studio:
                                        check=info)
                 continue
             yield char.update_item(item["id"], status="review", ok=True, path=str(path), check=info)
+
+    def _two_step(self, char, model, scene, lane, stem, front):
+        """Pose first, then her: the scene is drawn WITHOUT her face photos -- with them
+        the model copies their straight-on pose and her head angle stays front-facing
+        (2026-10-16: asked for profiles, three-quarters, glances, nearly every photo
+        faced the lens) -- and her identity is then edited onto that photo, keeping its
+        pose, head angle and expression, the same edit 🎭 recreates use."""
+        out = char.dir / "items"
+        neg = scenes.negative(char, lane)
+        pose = self.engine.image(model, scenes.scene_prompt(char, scene, lane, 0), out, f"{stem}-pose", refs=(),
+                                 negative=neg)
+        edit = ("Replace the woman in image 1 with the woman from image 2. Keep image 1's exact pose, head angle, "
+                "gaze direction, facial expression, hands, clothing, camera framing, background and lighting; only "
+                f"her identity -- face, hair and skin -- becomes the woman from image 2 ({char.bible.get('identity', '')}).")
+        try:
+            return self.engine.image(model, edit, out, stem, refs=[str(pose), str(front[0])], negative=neg)
+        finally:
+            Path(pose).unlink(missing_ok=True)
 
     # -------------------------------------------------------------------- video
     def animate(self, char, item, motion=None):

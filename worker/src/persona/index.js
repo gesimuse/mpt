@@ -758,6 +758,9 @@ async function publishCarousel(env, p, state, cq, itemId) {
   return answer(env, cq.id, `🖼 Carousel of ${fileIds.length} queued for Instagram.`);
 }
 
+/** One job can return several results (🖼 carousel angles): each is posted once. */
+const resultKey = (r) => (r.carousel ? `${r.request}/${r.id}` : r.request);
+
 /** Remember a posted result (`sent`: the Telegram message it went out as). */
 function recordResult(state, r, item, sent) {
   if (!r.ok || !item) return;
@@ -785,7 +788,7 @@ async function postResults(env, state, b, kernel) {
   const status = files["status.json"] ? await kaggle.fetchJson(files["status.json"]).catch(() => ({})) : {};
   let changed = false;
   for (const r of status.items || []) {
-    if (!r.request || state.done.includes(r.request) || !r.chat) continue;
+    if (!r.request || state.done.includes(resultKey(r)) || !r.chat) continue;
     try {
       const item = r.ok ? await kaggle.fetchJson(files[`out/items/${r.id}.json`]) : null;
       const file = item ? files[`out/items/${r.kind === "image" ? `${r.id}.jpg` : item.path}`] : null;
@@ -794,7 +797,7 @@ async function postResults(env, state, b, kernel) {
       console.error("job result post failed", r.request, String(e));
       continue;
     }
-    state.done.push(r.request);
+    state.done.push(resultKey(r));
     changed = true;
   }
   return changed;
@@ -876,12 +879,12 @@ async function laptopResult(request, env) {
   }
   const p = (await personas.get(env, r.slug || env.PERSONA_SLUG || "lena"));
   const state = await st.load(env, p.slug);
-  if (state.done.includes(r.request)) return new Response("already posted");
+  if (state.done.includes(resultKey(r))) return new Response("already posted");
   const b = (await st.bible(env, p.slug)) || { name: p.slug };
   if (r.kind === "render-done") { /* the photos came in one by one (laptop/render-item) */ }
   else if (sent) { recordResult(state, r, item, sent); await carouselProgress(env, state, r); }
   else await postResult(env, state, b, r, item, file);
-  state.done.push(r.request);
+  state.done.push(resultKey(r));
   // Taken back from Kaggle's queue too, if it was handed over while the laptop
   // was quiet; a Kaggle result for it is skipped as already done.
   state.lanes.laptop = (state.lanes.laptop || []).filter((q) => q.id !== r.request);
