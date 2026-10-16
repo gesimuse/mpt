@@ -264,8 +264,11 @@ async function advancePublish(env, p, state, origin) {
       : await mediaLink(env, origin, job.file_id, job.kind === "video" ? "mp4" : "jpg");
     const before = JSON.stringify([job.ig, job.tt]);
     await social.advance(env, p, job, url);
-    changed = true;
+    // Saved only when something moved: this runs on every 30s laptop check-in, and an
+    // unconditional save there overwrote taps and 🖼 requests that the webhook had
+    // saved a moment before (2026-10-16, two carousel requests lost).
     if (JSON.stringify([job.ig, job.tt]) === before) continue;
+    changed = true;
     // Mark the post in the channel: what happened on each platform.
     const cap = `${job.base}\n\n━━ published ━━\n${social.statusLine(job)}`.slice(0, 1024);
     const markup = job.ig?.mode === "phone"
@@ -489,7 +492,10 @@ async function handleUpdates(env, updates, origin) {
   for (const update of updates) {
     const cq = update.callback_query;
     const post = update.channel_post || update.message;
-    const p = byChat.get(String(cq?.message?.chat?.id ?? post?.chat?.id ?? ""));
+    const chatId = String(cq?.message?.chat?.id ?? post?.chat?.id ?? "");
+    const p = byChat.get(chatId);
+    console.log("update", update.update_id, cq ? `tap ${cq.data}` : post?.photo ? "photo" : post?.video ? "video" : post?.text ? `text "${post.text.slice(0, 40)}"` : "other",
+                "chat", chatId, post?.chat?.title || cq?.message?.chat?.title || "", p ? `-> ${p.slug}` : "-> no persona channel, ignored");
     if (!p) continue;
     if (!groups.has(p.slug)) groups.set(p.slug, { p, list: [] });
     groups.get(p.slug).list.push(update);
