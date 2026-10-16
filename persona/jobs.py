@@ -180,6 +180,26 @@ def render(job, char, studio, out):
     return results
 
 
+# Carousel moves: what changes between the photos of one shoot.
+CAROUSEL_POSES = [
+    "sitting down on something nearby, legs crossed",
+    "leaning back against the wall or a railing behind her",
+    "standing turned sideways to the camera, one hand in her hair",
+    "taking a slow step toward the camera",
+    "standing with both hands on her hips, weight on one leg",
+    "looking back over her shoulder, body turned slightly away",
+    "with one hand touching her necklace or collar, relaxed",
+    "sitting on the edge of a ledge or table, leaning forward slightly",
+]
+CAROUSEL_SHOTS = [
+    "closer, from the chest up",
+    "wider, showing more of the place around her, full body",
+    "from slightly lower, looking up at her",
+    "from a little to her side, three-quarter view of the scene",
+    "waist-up, the camera moved to the other side of her",
+]
+
+
 def carousel(job, char, studio, out, inp):
     """🖼: the same moment from other angles, for an Instagram carousel with the
     original photo (carousels earn the most saves and engagement per view).
@@ -205,6 +225,8 @@ def carousel(job, char, studio, out, inp):
     exprs = [e for e in scenes.EXPRESSIONS if e[0] != base.get("expression")]
     random.shuffle(exprs)
     model = studio.model("edit", lane="social")
+    poses = random.sample(CAROUSEL_POSES, len(CAROUSEL_POSES))
+    shots = random.sample(CAROUSEL_SHOTS, len(CAROUSEL_SHOTS))
     front = [p for p in char.refs() if p.name.startswith("01-")][:1]
     emb = faceid.reference_embedding(char.refs())
     results = []
@@ -212,11 +234,14 @@ def carousel(job, char, studio, out, inp):
         item = char.new_item(kind="image", lane="social", model=model["id"],
                              scene=dict(base, angle=a[0], expression=e[0], angle_sheet=a[1]),
                              tags=base.get("tags", []), caption=base.get("caption", ""))
-        prompt = ("The same woman as in image 1, in the same outfit, the same place and the same light, "
-                  "photographed again a moment later for the next photo of the same shoot: "
-                  f"{a[0]}, {e[0]}, a different natural pose. Keep her face, hair, outfit (exact garments, "
-                  "colours, fit), body, background and lighting exactly as in image 1; only her pose, head angle "
-                  "and expression change. She is the only person in the photo.")
+        pose, shot = poses.pop(), shots.pop()
+        # Pose and camera change too: told to keep "body and framing", the edit only
+        # turned her head and the rest of the photo stayed identical (2026-10-16).
+        prompt = ("A new photo from the same photo shoot as image 1: the same woman, wearing exactly the same "
+                  "outfit (same garments, colours and fit), in the same location with the same lighting. "
+                  f"This time she is {pose}, {a[0]}, {e[0]}. Camera: {shot}. Her pose, the camera position and "
+                  "the framing are different from image 1; her face, hair, outfit and the place stay the same. "
+                  "She is the only person in the photo.")
         path, why = None, ""
         for attempt in range(2):
             path = studio.engine.image(model, prompt, char.dir / "items", item["id"],
