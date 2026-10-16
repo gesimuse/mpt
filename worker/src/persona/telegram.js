@@ -1,5 +1,10 @@
 /** The persona bot (PERSONA_BOT_TOKEN). */
 export async function tg(env, method, params) {
+  // A reply to a deleted message is still sent, as a plain message.
+  if (params?.reply_to_message_id) {
+    params = { ...params, reply_parameters: { message_id: params.reply_to_message_id, allow_sending_without_reply: true } };
+    delete params.reply_to_message_id;
+  }
   const r = await fetch(`https://api.telegram.org/bot${env.PERSONA_BOT_TOKEN}/${method}`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -27,7 +32,7 @@ export async function sendMedia(env, kind, chatId, src, { caption = "", buttons,
   form.append("chat_id", String(chatId));
   form.append("caption", caption.slice(0, 1024));
   if (buttons) form.append("reply_markup", JSON.stringify(buttons));
-  if (replyTo) form.append("reply_to_message_id", String(replyTo));
+  if (replyTo) form.append("reply_parameters", JSON.stringify({ message_id: replyTo, allow_sending_without_reply: true }));
   if (kind === "video") form.append("supports_streaming", "true");
   form.append(kind, blob, kind === "video" ? "clip.mp4" : "photo.jpg");
   const r = await fetch(`https://api.telegram.org/bot${env.PERSONA_BOT_TOKEN}/send${kind === "video" ? "Video" : "Photo"}`,

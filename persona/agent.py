@@ -111,7 +111,9 @@ def deliver(work, r):
     m = _call("/persona/admin/laptop/prepare", {"result": r, "item": item})
     fields = {"chat_id": m["chat"], "caption": m["caption"][:1024], "reply_markup": json.dumps(m["buttons"])}
     if m.get("replyTo"):
-        fields["reply_to_message_id"] = m["replyTo"]
+        # Posted anyway if the message it answers was deleted (Telegram: "message to
+        # be replied not found", 2026-10-16 -- the finished video was re-rendered twice).
+        fields["reply_parameters"] = json.dumps({"message_id": m["replyTo"], "allow_sending_without_reply": True})
     if m["kind"] == "video":
         fields["supports_streaming"] = "true"
     sent = _telegram("sendVideo" if m["kind"] == "video" else "sendPhoto", fields,
@@ -188,8 +190,12 @@ def main():
             log(f"retrying unsent results failed: {e}")
         try:
             r = _call("/persona/admin/laptop/claim", {})
-            if r.get("job"):
-                run_job(r["job"])
+            job = r.get("job")
+            # Already rendered, only its delivery is pending (retry_unsent): never again.
+            if job and any((d / "results.json").exists() for d in UNSENT.glob(f"{job['id']}-*")):
+                job = None
+            if job:
+                run_job(job)
                 continue
         except Exception as e:
             log(f"check-in failed: {e}")
