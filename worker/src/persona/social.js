@@ -53,9 +53,10 @@ async function start(env, p, job, platform, mediaUrl) {
   if (!channelId) return { status: "skipped", note: "not linked" };
   // Her caption and hashtags for this platform (captions.js).
   const text = job.posts?.[platform]?.text || job.caption;
-  const asset = job.kind === "photo"
-    ? { image: { url: mediaUrl, metadata: { altText: (job.posts?.alt || text.split("\n")[0]).slice(0, 200) } } }
-    : { video: { url: mediaUrl } };
+  const alt = (job.posts?.alt || text.split("\n")[0]).slice(0, 200);
+  const urls = Array.isArray(mediaUrl) ? mediaUrl : [mediaUrl];
+  // A carousel is an Instagram "post" with several images.
+  const assets = job.kind === "video" ? [{ video: { url: urls[0] } }] : urls.map((url) => ({ image: { url, metadata: { altText: alt } } }));
   let mode = "automatic", metadata;
   if (platform === "instagram") {
     // A silent video is shared from the phone instead: a viral song can only be added
@@ -63,20 +64,20 @@ async function start(env, p, job, platform, mediaUrl) {
     // the Reel muted or blocked). The channel post gets a "Post on Instagram" button
     // (index.js sharePage) that hands the video to Instagram via the share sheet.
     if (job.kind === "video" && !job.audio) return { status: "done", mode: "phone" };
-    metadata = { instagram: { type: job.kind === "photo" ? "post" : "reel", shouldShareToFeed: true, isAiGenerated: true } };
+    metadata = { instagram: { type: job.kind === "video" ? "reel" : "post", shouldShareToFeed: true, isAiGenerated: true } };
   } else {
     // Without sound it goes to the phone, to add a song before posting.
     if (!(job.kind === "video" && job.audio)) mode = "notification";
     // TikTok photo posts refuse the AI flag ("do not support AI content
     // disclosure"); the caption's #aigenerated stays.
     metadata = { tiktok: { title: text.split("\n")[0].slice(0, 90),
-                           ...(job.kind === "photo" ? {} : { isAiGenerated: true }) } };
+                           ...(job.kind === "video" ? { isAiGenerated: true } : {}) } };
   }
   // Paced: one post per slot (index.js nextSlot); Buffer publishes it at that time.
   const when = job.due && job.due > Date.now() + 60 * 1000 ? { mode: "customScheduled", dueAt: new Date(job.due).toISOString() }
                                                          : { mode: "shareNow" };
   const d = await gql(env, p.slug, CREATE, { input: {
-    channelId, text, ...when, schedulingType: mode, assets: [asset], metadata, aiAssisted: true,
+    channelId, text, ...when, schedulingType: mode, assets, metadata, aiAssisted: true,
   } });
   const res = d.createPost;
   if (res.__typename !== "PostActionSuccess") throw new Error(`${res.__typename}: ${res.message || ""}`);

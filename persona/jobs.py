@@ -180,6 +180,41 @@ def render(job, char, studio, out):
     return results
 
 
+def carousel(job, char, studio, out):
+    """🖼: the same scene from 2 other head angles (and expressions), for an Instagram
+    carousel with the original photo -- carousels earn the most saves and engagement
+    per view."""
+    import random
+    from . import scenes
+    base = job["scene"]
+    angles = [a for a in scenes.ANGLES if a[1] and a[1] != base.get("angle_sheet")]
+    random.shuffle(angles)
+    picked, seen = [], set()
+    for a in angles:
+        if a[1] in seen:
+            continue
+        seen.add(a[1])
+        picked.append(a)
+        if len(picked) == int(job.get("count", 2)):
+            break
+    exprs = [e for e in scenes.EXPRESSIONS if e[0] != base.get("expression")]
+    random.shuffle(exprs)
+    variants = []
+    for a, e in zip(picked, exprs):
+        variants.append(dict(base, angle=a[0], expression=e[0], angle_sheet=a[1], sheet=a[1], gaze=f"{a[0]}; {e[0]}"))
+    results = []
+    for item in studio.render(char, lane="social", scene_list=variants):
+        if item.get("ok"):
+            dest = out / Path(item["path"]).name
+            shutil.copyfile(item["path"], dest)
+            item["path"] = dest.name
+            (out / f"{item['id']}.json").write_text(json.dumps(item, ensure_ascii=False))
+        results.append({"request": job["id"], "id": item["id"], "ok": bool(item.get("ok")), "kind": "image",
+                        "carousel": job["item"], "reason": item.get("reason"), **_reply(job)})
+        log(f"carousel angle {item['id']} of {job['item']}: {'ok' if item.get('ok') else item.get('reason')}")
+    return results
+
+
 def run(jobs, char, studio_factory, out, inp, work_root, code_dir):
     """All jobs, 🎭 first: they run in child processes, and this process has not
     loaded a model yet, so its RAM is still free for them."""
@@ -191,6 +226,8 @@ def run(jobs, char, studio_factory, out, inp, work_root, code_dir):
     for job in rest:
         if job.get("kind") == "render":
             results.extend(render(job, char, studio, out))
+        elif job.get("kind") == "carousel":
+            results.extend(carousel(job, char, studio, out))
         elif job.get("kind") == "redo":
             results.extend(redo(job, char, studio, out))
         else:

@@ -58,7 +58,9 @@ function caption(name, item) {
 function buttons(item) {
   const row = [["👍", `pv:up:${item.id}`], ["👎", `pv:dn:${item.id}`]];
   if (item.kind !== "video") row.push(["🎬 Video", `pv:vid:${item.id}`], ["🔁 Redo", `pv:redo:${item.id}`]);
-  return kb([row]);
+  const rows = [row];
+  if (item.kind !== "video") rows.push([["🖼 Carousel (+2 angles)", `pv:car:${item.id}`]]);
+  return kb(rows);
 }
 
 /** `sent`: the Telegram message it went out as -- its file is kept, because a tap on a
@@ -257,7 +259,9 @@ function nextSlot(env, state) {
 async function advancePublish(env, p, state, origin) {
   let changed = false;
   for (const job of state.publish.filter((j) => !social.finished(j))) {
-    const url = await mediaLink(env, origin, job.file_id, job.kind === "photo" ? "jpg" : "mp4");
+    const url = job.file_ids
+      ? await Promise.all(job.file_ids.map((f) => mediaLink(env, origin, f, "jpg")))
+      : await mediaLink(env, origin, job.file_id, job.kind === "video" ? "mp4" : "jpg");
     const before = JSON.stringify([job.ig, job.tt]);
     await social.advance(env, p, job, url);
     changed = true;
@@ -268,8 +272,8 @@ async function advancePublish(env, p, state, origin) {
       ? { inline_keyboard: [[{ text: "📲 Post on Instagram", url: await shareLink(env, origin, p, job) }]] }
       : kb([[["✓ 👍 published", `pv:noop:${job.item}`]]]);
     try {
-      await tg(env, "editMessageCaption", { chat_id: job.chat, message_id: job.message_id, caption: cap,
-        reply_markup: markup });
+      await tg(env, job.text ? "editMessageText" : "editMessageCaption", { chat_id: job.chat, message_id: job.message_id,
+        ...(job.text ? { text: cap.slice(0, 4096) } : { caption: cap }), reply_markup: markup });
     } catch (e) {
       console.error("caption update failed", String(e).slice(0, 200));
     }
@@ -342,6 +346,14 @@ async function onTap(env, p, cq, state, origin) {
     queueVideo(state, itemId, msg, photo.file_id, "");
     return answer(env, cq.id, "🎬 Queued. The video comes as a reply here in ~40-60 min.");
   }
+  if (act === "car") {
+    const scene = state.items[itemId]?.scene;
+    if (!scene?.setting) return answer(env, cq.id, "Can't: this photo's scene wasn't recorded.");
+    if (state.queue.some((q) => q.kind === "carousel" && q.item === itemId)) return answer(env, cq.id, "Already queued.");
+    state.queue.push({ id: `${itemId}-car${Date.now()}`, kind: "carousel", item: itemId, scene, chat, message_id: msg.message_id });
+    return answer(env, cq.id, "🖼 Making 2 more angles of this scene for a carousel (~20-30 min).");
+  }
+  if (act === "carpub") return publishCarousel(env, p, state, cq, itemId);
   if (act === "redo") {
     const scene = state.items[itemId]?.scene;
     if (!scene?.setting) {
@@ -697,6 +709,11 @@ function faceLine(face) {
  */
 /** How a finished job is posted: {kind: "photo"|"video"|"text", caption|text, buttons, chat, replyTo}. */
 function resultMessage(b, r, item) {
+  if (r.ok && r.kind === "image" && r.carousel) {
+    return { kind: "photo", chat: r.chat, replyTo: r.message_id,
+             caption: `🖼 another angle of #${r.carousel}\n🎭 ${item?.scene?.angle || ""}\n#${r.id}`,
+             buttons: kb([[["👎", `pv:dn:${r.id}`]]]) };
+  }
   if (r.ok && r.kind === "image") {
     return { kind: "photo", chat: r.chat, replyTo: r.message_id, caption: "🔁 " + caption(b.name, item), buttons: buttons(item) };
   }
@@ -707,6 +724,38 @@ function resultMessage(b, r, item) {
   }
   return { kind: "text", chat: r.chat, replyTo: r.message_id,
            text: `❌ ${r.kind === "image" ? "Redraw" : r.recreate ? "Recreate" : "Video"} failed: ${String(r.reason).slice(0, 300)}` };
+}
+
+/**
+ * 🖼 angles arrive one by one; when the set is complete, a message under the
+ * original photo offers to post photo + angles as one Instagram carousel.
+ */
+async function carouselProgress(env, state, r) {
+  if (!r.carousel || !r.ok) return;
+  const set = (state.carousels = state.carousels || {})[r.carousel] || { ids: [] };
+  if (!set.ids.includes(r.id)) set.ids.push(r.id);
+  state.carousels[r.carousel] = set;
+  if (set.ids.length < 2 || set.offered) return;
+  set.offered = true;
+  await tg(env, "sendMessage", { chat_id: r.chat, reply_to_message_id: r.message_id,
+    text: `🖼 Carousel ready: this photo + ${set.ids.length} more angles. Tap to post them as one Instagram carousel.`,
+    reply_markup: kb([[["🖼 Post carousel", `pv:carpub:${r.carousel}`]]]) });
+}
+
+/** 🖼 Post carousel: the original photo and its angles, one Instagram post. */
+async function publishCarousel(env, p, state, cq, itemId) {
+  const set = state.carousels?.[itemId];
+  const fileIds = [state.items[itemId]?.file_id, ...(set?.ids || []).map((id) => state.items[id]?.file_id)].filter(Boolean);
+  if (fileIds.length < 2) return answer(env, cq.id, "Can't: the carousel's photos aren't known.");
+  if (state.publish.some((j) => j.item === `car-${itemId}`)) return answer(env, cq.id, "Already queued.");
+  const b = (await st.bible(env, p.slug)) || { name: p.slug };
+  const known = state.items[itemId] || {};
+  const posts = await captions.forPost(env, p, b, state, { ...known, kind: "photo" });
+  state.publish.push({ id: `pub-car-${itemId}-${Date.now()}`, item: `car-${itemId}`, kind: "carousel", file_ids: fileIds,
+    created: Date.now(), due: nextSlot(env, state), audio: false, posts, caption: posts.instagram.text,
+    chat: cq.message.chat.id, message_id: cq.message.message_id, base: cq.message.text || "🖼 Carousel", text: true });
+  await advancePublish(env, p, state, env.WORKER_ORIGIN);
+  return answer(env, cq.id, `🖼 Carousel of ${fileIds.length} queued for Instagram.`);
 }
 
 /** Remember a posted result (`sent`: the Telegram message it went out as). */
@@ -728,6 +777,7 @@ async function postResult(env, state, b, r, item, file) {
   }
   const sent = await sendMedia(env, m.kind, m.chat, file, { caption: m.caption, buttons: m.buttons, replyTo: m.replyTo });
   recordResult(state, r, item, sent);
+  await carouselProgress(env, state, r);
 }
 
 async function postResults(env, state, b, kernel) {
@@ -829,7 +879,7 @@ async function laptopResult(request, env) {
   if (state.done.includes(r.request)) return new Response("already posted");
   const b = (await st.bible(env, p.slug)) || { name: p.slug };
   if (r.kind === "render-done") { /* the photos came in one by one (laptop/render-item) */ }
-  else if (sent) recordResult(state, r, item, sent);
+  else if (sent) { recordResult(state, r, item, sent); await carouselProgress(env, state, r); }
   else await postResult(env, state, b, r, item, file);
   state.done.push(r.request);
   // Taken back from Kaggle's queue too, if it was handed over while the laptop
@@ -844,7 +894,9 @@ async function laptopResult(request, env) {
 async function jobPayload(env, origin, state, batch) {
   const jobs = [];
   for (const q of batch) {
-    if (q.kind === "render") {
+    if (q.kind === "carousel") {
+      jobs.push({ id: q.id, kind: "carousel", item: q.item, scene: q.scene, chat: q.chat, message_id: q.message_id });
+    } else if (q.kind === "render") {
       jobs.push({ id: q.id, kind: "render", scenes: q.scenes, date: q.date });
     } else if (q.kind === "redo") {
       jobs.push({ id: q.id, kind: "redo", scene: q.scene, chat: q.chat, message_id: q.message_id });
