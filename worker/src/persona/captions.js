@@ -54,28 +54,41 @@ function templateCaption(item) {
 }
 
 /** {caption, tiktok, tags}: the post's caption, a TikTok version with search words, scene tags. */
+/**
+ * {caption, tiktok, alt, tags}. Instagram 2026 (research 2026-10-16): the caption is
+ * what its search reads -- the first line works as the post's title, so it names
+ * the place/look/vibe in words people search for, inside a sentence, not a keyword
+ * list; then one line in her voice; at most a light, natural question (comments and
+ * sends are what get a post shown to non-followers, but explicit "like/comment/
+ * follow/share" asks are engagement bait, which Instagram demotes). Alt text is read
+ * too.
+ */
 async function write(env, b, item) {
-  const prompt = `You write social posts for ${b.name}, a ${b.age}-year-old fictional social-media persona from ${b.home_city}.
+  const prompt = `You write Instagram posts for ${b.name}, a ${b.age}-year-old fictional social-media persona from ${b.home_city}.
 Personality: ${b.personality}.
-The post: ${describe(item)}.${item.caption ? `\nIts caption: "${item.caption}"` : ""}
+The post: ${describe(item)}.${item.caption ? `\nA draft caption: "${item.caption}"` : ""}
 Return ONLY JSON:
-{"caption": ${item.caption ? "the caption above, unchanged" : "\"first-person caption in her voice, max 20 words, 1-2 emojis, no hashtags\""},
- "tiktok": "the same caption plus a few words people would search for on TikTok, naturally, max 30 words, no hashtags",
+{"caption": "first line: a hook that names THIS post's own place, outfit or vibe in words people actually search for, then one short flirty line in her voice, optionally ending with a light, natural question. 12-30 words, 1-2 emojis, no hashtags. Never ask people to like, comment, follow, share or tag.",
+ "tiktok": "the same caption with a few more searchable words, max 35 words, no hashtags",
+ "alt": "plain alt text describing the image for search: who, wearing what, where, light. 10-18 words, no emojis",
  "tags": ["6 specific lowercase hashtags for THIS post's place, outfit and mood, no # sign, no generic tags like love or instagood"]}`;
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       const d = await ask(env, prompt);
-      const caption = okCaption(item.caption) || okCaption(d.caption);
-      if (!caption) continue;
-      return { caption, tiktok: okCaption(d.tiktok) || caption,
+      const caption = okCaption(d.caption) || okCaption(item.caption);
+      if (!caption || BAIT.test(caption)) continue;
+      return { caption, tiktok: okCaption(d.tiktok) || caption, alt: String(d.alt || "").slice(0, 200),
                tags: (Array.isArray(d.tags) ? d.tags : []).map(clean).filter((t) => t.length >= 3).slice(0, 8) };
     } catch (e) {
       console.log("caption writing failed", String(e).slice(0, 120));
     }
   }
   const caption = okCaption(item.caption) || templateCaption(item);
-  return { caption, tiktok: caption, tags: (item.tags || []).map(clean) };
+  return { caption, tiktok: caption, alt: describe(item).slice(0, 200), tags: (item.tags || []).map(clean) };
 }
+
+// Engagement bait Instagram demotes.
+const BAIT = /\b(like|comment|follow|share|tag|save)\s+(this|if|below|me|for|a friend|someone)\b|\blink in bio\b/i;
 
 /** Her core tags: the persona entry's core_tags, else written once from her bible. */
 async function coreTags(env, p, b) {
@@ -135,7 +148,7 @@ export async function forPost(env, p, b, state, item) {
   const core = await coreTags(env, p, b);
   const trend = JSON.parse((await env.PERSONA.get(`trend_tags:${p.slug}`)) || "[]").map(clean);
   const stats = state.hashtags || {};
-  const out = {};
+  const out = { alt: w.alt };
   for (const platform of ["instagram", "tiktok"]) {
     const tags = choose(stats[platform] || {}, { scene: w.tags, trend, core });
     const text = platform === "tiktok" ? w.tiktok : w.caption;

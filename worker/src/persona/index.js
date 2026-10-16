@@ -212,11 +212,34 @@ async function queuePublish(env, p, state, cq, itemId) {
   const posts = await captions.forPost(env, p, b, state, { ...known, kind: isPhoto ? "photo" : "video" });
   state.publish.push({
     id: `pub-${itemId}-${Date.now()}`, item: itemId, kind: isPhoto ? "photo" : "video",
+    created: Date.now(), due: nextSlot(env, state),
     file_id: fileId, audio: !!known.audio || !!known.recreate,
     posts, caption: posts.instagram.text,
     chat, message_id: msg.message_id, base: (msg.caption ?? fwdCaption ?? "").split("\n\n━━")[0],
   });
   return true;
+}
+
+/**
+ * The next free posting slot (ms). Instagram throttles accounts that post 3+ times a
+ * day (each post competes with the last); 1-2 a day is the sweet spot, so 👍 queues
+ * a post into the next free slot instead of posting at once. PERSONA_IG_SLOTS: UTC
+ * hours, default "10,18" (12:00 and 20:00 in Prague).
+ */
+function nextSlot(env, state) {
+  const hours = String(env.PERSONA_IG_SLOTS || "10,18").split(",").map(Number).sort((a, b) => a - b);
+  const taken = new Set(state.publish.filter((j) => j.due).map((j) => j.due));
+  const now = Date.now();
+  for (let day = 0; day < 30; day++) {
+    for (const h of hours) {
+      const d = new Date(now);
+      d.setUTCDate(d.getUTCDate() + day);
+      d.setUTCHours(h, 0, 0, 0);
+      const t = d.getTime();
+      if (t > now + 5 * 60 * 1000 && !taken.has(t)) return t;
+    }
+  }
+  return now;
 }
 
 async function advancePublish(env, p, state, origin) {
@@ -287,7 +310,7 @@ async function onTap(env, p, cq, state, origin) {
     state.voted.push(itemId);
     const res = act === "up" ? await queuePublish(env, p, state, cq, itemId) : false;
     const publishing = res === true;
-    await answer(env, cq.id, act === "dn" ? "Noted 👎" : publishing ? "👍 Publishing…"
+    await answer(env, cq.id, act === "dn" ? "Noted 👎" : publishing ? "👍 Queued for Instagram (next free slot)"
       : typeof res === "string" ? `Noted 👍 -- ${res}` : "Noted 👍");
     if (typeof res === "string" && res.startsWith("can't")) {
       await tg(env, "sendMessage", { chat_id: chat, reply_to_message_id: msg.message_id, text: `⚠️ 👍 noted, but ${res}.` }).catch(() => {});

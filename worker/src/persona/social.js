@@ -54,7 +54,7 @@ async function start(env, p, job, platform, mediaUrl) {
   // Her caption and hashtags for this platform (captions.js).
   const text = job.posts?.[platform]?.text || job.caption;
   const asset = job.kind === "photo"
-    ? { image: { url: mediaUrl, metadata: { altText: text.split("\n")[0].slice(0, 100) } } }
+    ? { image: { url: mediaUrl, metadata: { altText: (job.posts?.alt || text.split("\n")[0]).slice(0, 200) } } }
     : { video: { url: mediaUrl } };
   let mode = "automatic", metadata;
   if (platform === "instagram") {
@@ -72,8 +72,11 @@ async function start(env, p, job, platform, mediaUrl) {
     metadata = { tiktok: { title: text.split("\n")[0].slice(0, 90),
                            ...(job.kind === "photo" ? {} : { isAiGenerated: true }) } };
   }
+  // Paced: one post per slot (index.js nextSlot); Buffer publishes it at that time.
+  const when = job.due && job.due > Date.now() + 60 * 1000 ? { mode: "customScheduled", dueAt: new Date(job.due).toISOString() }
+                                                         : { mode: "shareNow" };
   const d = await gql(env, p.slug, CREATE, { input: {
-    channelId, text, mode: "shareNow", schedulingType: mode, assets: [asset], metadata, aiAssisted: true,
+    channelId, text, ...when, schedulingType: mode, assets: [asset], metadata, aiAssisted: true,
   } });
   const res = d.createPost;
   if (res.__typename !== "PostActionSuccess") throw new Error(`${res.__typename}: ${res.message || ""}`);
@@ -108,9 +111,11 @@ export async function advance(env, p, job, mediaUrl) {
     }
   }
   job.tries = (job.tries || 0) + 1;
-  // Give up watching after ~6h of cron ticks.
+  // Give up watching 6h after it was due.
   for (const key of ["ig", "tt"]) {
-    if (job[key]?.status === "processing" && job.tries > 24) job[key] = { ...job[key], status: "failed", note: "timed out" };
+    if (job[key]?.status === "processing" && Date.now() > (job.due || job.created || 0) + 6 * 3600 * 1000 && job.tries > 24) {
+      job[key] = { ...job[key], status: "failed", note: "timed out" };
+    }
   }
   return job;
 }
@@ -128,6 +133,10 @@ export const finished = (job) => ["ig", "tt"].every((k) => job[k] && job[k].stat
 export function statusLine(job) {
   const line = (name, rec, doneText) => {
     if (!rec) return `⏳ ${name}: starting…`;
+    if (rec.status === "processing" && job.due > Date.now() + 60 * 1000) {
+      const t = new Date(job.due).toLocaleString("en-GB", { timeZone: "Europe/Prague", weekday: "short", hour: "2-digit", minute: "2-digit" });
+      return `🗓 ${name}: scheduled for ${t} (Prague time)`;
+    }
     if (rec.status === "done") return `${doneText(rec)}${rec.link ? `\n${rec.link}` : ""}`;
     if (rec.status === "failed") return `❌ ${name}: ${rec.note}`;
     if (rec.status === "skipped") return `— ${name}: not linked`;
