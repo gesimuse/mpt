@@ -180,38 +180,65 @@ def render(job, char, studio, out):
     return results
 
 
-def carousel(job, char, studio, out):
-    """🖼: the same scene from 2 other head angles (and expressions), for an Instagram
-    carousel with the original photo -- carousels earn the most saves and engagement
-    per view."""
+def carousel(job, char, studio, out, inp):
+    """🖼: the same moment from other angles, for an Instagram carousel with the
+    original photo (carousels earn the most saves and engagement per view).
+
+    Each angle is an EDIT of the original photo -- same woman, outfit, place and
+    light, a new pose and head angle. Drawn from the scene text instead (the first
+    version), every angle came out in a different outfit and body (2026-10-16)."""
     import random
-    from . import scenes
-    base = job["scene"]
+    from . import faceid, qa, scenes
+    src = inp / f"{job['id']}-original.jpg"
+    if job.get("image_url"):
+        fetch(job["image_url"], src, timeout=120)
+    else:
+        src.write_bytes(base64.b64decode(job["image_b64"]))
+    base = job.get("scene") or {}
     angles = [a for a in scenes.ANGLES if a[1] and a[1] != base.get("angle_sheet")]
     random.shuffle(angles)
     picked, seen = [], set()
     for a in angles:
-        if a[1] in seen:
-            continue
-        seen.add(a[1])
-        picked.append(a)
-        if len(picked) == int(job.get("count", 2)):
-            break
+        if a[1] not in seen:
+            seen.add(a[1])
+            picked.append(a)
     exprs = [e for e in scenes.EXPRESSIONS if e[0] != base.get("expression")]
     random.shuffle(exprs)
-    variants = []
-    for a, e in zip(picked, exprs):
-        variants.append(dict(base, angle=a[0], expression=e[0], angle_sheet=a[1], sheet=a[1], gaze=f"{a[0]}; {e[0]}"))
+    model = studio.model("edit", lane="social")
+    front = [p for p in char.refs() if p.name.startswith("01-")][:1]
+    emb = faceid.reference_embedding(char.refs())
     results = []
-    for item in studio.render(char, lane="social", scene_list=variants):
-        if item.get("ok"):
-            dest = out / Path(item["path"]).name
-            shutil.copyfile(item["path"], dest)
-            item["path"] = dest.name
+    for a, e in list(zip(picked, exprs))[: int(job.get("count", 2))]:
+        item = char.new_item(kind="image", lane="social", model=model["id"],
+                             scene=dict(base, angle=a[0], expression=e[0], angle_sheet=a[1]),
+                             tags=base.get("tags", []), caption=base.get("caption", ""))
+        prompt = ("The same woman as in image 1, in the same outfit, the same place and the same light, "
+                  "photographed again a moment later for the next photo of the same shoot: "
+                  f"{a[0]}, {e[0]}, a different natural pose. Keep her face, hair, outfit (exact garments, "
+                  "colours, fit), body, background and lighting exactly as in image 1; only her pose, head angle "
+                  "and expression change. She is the only person in the photo.")
+        path, why = None, ""
+        for attempt in range(2):
+            path = studio.engine.image(model, prompt, char.dir / "items", item["id"],
+                                       refs=[str(src)] + [str(f) for f in front],
+                                       negative=scenes.negative(char, "social"))
+            good, why, _ = qa.check(path)
+            if good:
+                ok, info = faceid.check(path, emb, min_sim=0.5)
+                if ok:
+                    break
+                why = info.get("reason", "face check")
+            path.unlink(missing_ok=True)
+            path = None
+        if path:
+            dest = out / path.name
+            shutil.copyfile(path, dest)
+            item = char.update_item(item["id"], status="review", ok=True, path=dest.name)
             (out / f"{item['id']}.json").write_text(json.dumps(item, ensure_ascii=False))
-        results.append({"request": job["id"], "id": item["id"], "ok": bool(item.get("ok")), "kind": "image",
-                        "carousel": job["item"], "reason": item.get("reason"), **_reply(job)})
-        log(f"carousel angle {item['id']} of {job['item']}: {'ok' if item.get('ok') else item.get('reason')}")
+        results.append({"request": job["id"], "id": item["id"], "ok": bool(path), "kind": "image",
+                        "carousel": job["item"], "replace": job.get("replace"), "reason": None if path else why,
+                        **_reply(job)})
+        log(f"carousel angle {item['id']} of {job['item']}: {'ok' if path else why}")
     return results
 
 
@@ -227,7 +254,7 @@ def run(jobs, char, studio_factory, out, inp, work_root, code_dir):
         if job.get("kind") == "render":
             results.extend(render(job, char, studio, out))
         elif job.get("kind") == "carousel":
-            results.extend(carousel(job, char, studio, out))
+            results.extend(carousel(job, char, studio, out, inp))
         elif job.get("kind") == "redo":
             results.extend(redo(job, char, studio, out))
         else:

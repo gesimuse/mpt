@@ -350,10 +350,22 @@ async function onTap(env, p, cq, state, origin) {
     const scene = state.items[itemId]?.scene;
     if (!scene?.setting) return answer(env, cq.id, "Can't: this photo's scene wasn't recorded.");
     if (state.queue.some((q) => q.kind === "carousel" && q.item === itemId)) return answer(env, cq.id, "Already queued.");
-    state.queue.push({ id: `${itemId}-car${Date.now()}`, kind: "carousel", item: itemId, scene, chat, message_id: msg.message_id });
+    const fileId = (msg.photo || []).slice(-1)[0]?.file_id || state.items[itemId]?.file_id;
+    if (!fileId) return answer(env, cq.id, "Can't: Telegram didn't give this photo.");
+    state.queue.push({ id: `${itemId}-car${Date.now()}`, kind: "carousel", item: itemId, scene, file_id: fileId, count: 2,
+                       chat, message_id: msg.message_id });
     return answer(env, cq.id, "🖼 Making 2 more angles of this scene for a carousel (~20-30 min).");
   }
   if (act === "carpub") return publishCarousel(env, p, state, cq, itemId);
+  if (act === "redo" && state.items[itemId]?.carousel_of) {
+    // 🔁 on a carousel angle: a new angle of the same original photo replaces it.
+    const parent = state.items[itemId].carousel_of;
+    const fileId = state.items[parent]?.file_id;
+    if (!fileId) return answer(env, cq.id, "Can't: the original photo isn't known.");
+    state.queue.push({ id: `${parent}-car${Date.now()}`, kind: "carousel", item: parent, scene: state.items[parent]?.scene || {},
+                       file_id: fileId, count: 1, replace: itemId, chat, message_id: msg.message_id });
+    return answer(env, cq.id, "🔁 Redrawing this angle (~10 min).");
+  }
   if (act === "redo") {
     const scene = state.items[itemId]?.scene;
     if (!scene?.setting) {
@@ -712,7 +724,7 @@ function resultMessage(b, r, item) {
   if (r.ok && r.kind === "image" && r.carousel) {
     return { kind: "photo", chat: r.chat, replyTo: r.message_id,
              caption: `🖼 another angle of #${r.carousel}\n🎭 ${item?.scene?.angle || ""}\n#${r.id}`,
-             buttons: kb([[["👎", `pv:dn:${r.id}`]]]) };
+             buttons: kb([[["👎", `pv:dn:${r.id}`], ["🔁 Redo this angle", `pv:redo:${r.id}`]]]) };
   }
   if (r.ok && r.kind === "image") {
     return { kind: "photo", chat: r.chat, replyTo: r.message_id, caption: "🔁 " + caption(b.name, item), buttons: buttons(item) };
@@ -733,6 +745,17 @@ function resultMessage(b, r, item) {
 async function carouselProgress(env, state, r) {
   if (!r.carousel || !r.ok) return;
   const set = (state.carousels = state.carousels || {})[r.carousel] || { ids: [] };
+  if (r.replace && set.ids.includes(r.replace)) {
+    // 🔁 on one angle: the new one takes its place in the set.
+    set.ids = set.ids.map((id) => (id === r.replace ? r.id : id));
+    state.carousels[r.carousel] = set;
+    if (set.offered) {
+      await tg(env, "sendMessage", { chat_id: r.chat, reply_to_message_id: r.message_id,
+        text: "🔁 Angle redone and swapped into the carousel. Tap 🖼 Post carousel when you're happy.",
+        reply_markup: kb([[["🖼 Post carousel", `pv:carpub:${r.carousel}`]]]) });
+    }
+    return;
+  }
   if (!set.ids.includes(r.id)) set.ids.push(r.id);
   state.carousels[r.carousel] = set;
   if (set.ids.length < 2 || set.offered) return;
@@ -766,6 +789,7 @@ function recordResult(state, r, item, sent) {
   if (!r.ok || !item) return;
   if (r.kind === "image") remember(state, item, sent);
   else remember(state, { ...item, kind: "video", recreate: !!r.recreate }, sent);
+  if (r.carousel && state.items[r.id]) state.items[r.id].carousel_of = r.carousel;
 }
 
 /**
@@ -898,7 +922,8 @@ async function jobPayload(env, origin, state, batch) {
   const jobs = [];
   for (const q of batch) {
     if (q.kind === "carousel") {
-      jobs.push({ id: q.id, kind: "carousel", item: q.item, scene: q.scene, chat: q.chat, message_id: q.message_id });
+      jobs.push({ id: q.id, kind: "carousel", item: q.item, scene: q.scene, count: q.count || 2, replace: q.replace || null,
+                  image_url: await fileLink(env, origin, q.file_id), chat: q.chat, message_id: q.message_id });
     } else if (q.kind === "render") {
       jobs.push({ id: q.id, kind: "render", scenes: q.scenes, date: q.date });
     } else if (q.kind === "redo") {
