@@ -94,15 +94,15 @@ People liked: {', '.join(liked) or 'no data yet'}.
 People did not like: {', '.join(disliked) or 'no data yet'}.
 {('Direction for this batch: ' + hint) if hint else ''}
 
-She is a glamorous, sexy Instagram model and every photo is a flattering shoot of HER,
-not a travel photo: she is the subject, filling most of the frame. Think of what top
-lifestyle/fashion models post: pool and beach in bikinis, hotel rooms, bedroom and
-bathroom mirror selfies, gym sets, rooftop golden hour, night out in a bodycon mini
-dress, yacht, balcony, car selfies. Outfits are figure-flattering and revealing
-(bikinis, crop tops, mini dresses, low-cut tops, lingerie-inspired tops, leggings),
-but there is NO nudity. Poses are confident, model-like and varied: over the
-shoulder, hip popped, lying on the bed, arched back, hair flip, sitting on the edge
-of the pool, walking toward the camera. Moods: seductive, playful, confident, sultry.
+She is a glamorous Instagram fashion and travel model and every photo is a flattering shoot
+of HER, not a travel photo: she is the subject, filling most of the frame. Think of what top
+lifestyle/fashion creators post that Instagram happily recommends: rooftop golden hour, city
+streets, cafes, beach and pool in swimwear, gym sets, a night out in a fitted mini dress,
+yacht, balcony, car selfies. Outfits are stylish and flattering, never lingerie, underwear or
+see-through, and swimwear only at the beach or pool. Poses are confident, elegant and varied:
+hip popped, hair flip, walking toward the camera, sitting on a ledge, leaning on a railing --
+never sexual poses, never lying in bed. Moods: playful, confident, glamorous, carefree.
+(Instagram does not recommend sexually suggestive posts to people who don't follow her.)
 Never a stiff frontal tourist pose, never the same smile every time.
 
 Write {n} NEW scenes. Every one must be a genuinely NEW situation: a different

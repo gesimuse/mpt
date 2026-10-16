@@ -4,7 +4,6 @@
   "a white-sand beach in Tulum",
   "a yacht deck off the Amalfi coast",
   "a luxury hotel suite with floor-to-ceiling windows",
-  "a marble bathroom with a freestanding tub",
   "a neon-lit Tokyo street at night",
   "a Parisian balcony overlooking rooftops",
   "a vineyard in Tuscany at golden hour",
@@ -37,7 +36,6 @@
   "a Christmas market at night",
   "a cozy cabin in the mountains",
   "a kitchen baking cookies",
-  "a bedroom with silk sheets and morning light",
   "a walk-in closet full of clothes",
   "a vanity mirror with bulbs",
   "a laundromat at night",
@@ -80,7 +78,7 @@
   "a rainy window with city lights"
  ],
  "outfits": [
-  "red string bikini",
+  "red bikini",
   "black one-piece swimsuit with a high cut",
   "white crochet bikini",
   "leopard print bikini",
@@ -94,12 +92,9 @@
   "black sports bra and leggings",
   "olive green yoga set",
   "cropped white tank and low-rise jeans",
-  "oversized boyfriend shirt",
   "cream knit sweater dress",
   "black leather mini skirt and white crop top",
   "denim shorts and a tied plaid shirt",
-  "lilac satin pajama set",
-  "black lace bralette under a blazer",
   "white tennis skirt and polo",
   "burgundy velvet off-shoulder top",
   "beige trench coat over a slip dress",
@@ -114,7 +109,6 @@
   "turquoise bikini and sun hat",
   "ski suit in bright white",
   "plaid mini skirt and fitted turtleneck",
-  "sheer black blouse over a bralette",
   "orange satin wrap dress",
   "hot pink mini dress",
   "teal swimsuit with cutouts",
@@ -233,7 +227,7 @@
  ],
  "outfit_kinds": {
   "swim": [
-   "red string bikini",
+   "red bikini",
    "black one-piece swimsuit with a high cut",
    "white crochet bikini",
    "leopard print bikini",
@@ -253,20 +247,16 @@
    "red slip dress",
    "silver sequin party dress",
    "black leather mini skirt and white crop top",
-   "lilac satin pajama set",
    "burgundy velvet off-shoulder top",
    "beige trench coat over a slip dress",
    "gold metallic mini dress",
    "black halter jumpsuit",
    "white corset top and flared jeans",
-   "sheer black blouse over a bralette",
    "orange satin wrap dress",
    "hot pink mini dress"
   ],
   "cozy": [
-   "oversized boyfriend shirt",
    "cream knit sweater dress",
-   "lilac satin pajama set",
    "cozy oversized hoodie and shorts",
    "chocolate brown ribbed knit set",
    "cherry red knit cardigan and mini skirt",
@@ -401,5 +391,6 @@
    "big-smile"
   ]
  ],
- "_angles_note": "Head angle [text, face-sheet portrait, weight] and expression [text, portrait when facing the camera], picked separately per scene (persona/scenes.py assign_gazes, worker/src/persona/scenes.js). No sad looks. No over-the-shoulder: the anatomy check flags every one as a twisted head, and told the pose is intended it also passed a real backwards head (2026-10-15)."
+ "_angles_note": "Head angle [text, face-sheet portrait, weight] and expression [text, portrait when facing the camera], picked separately per scene (persona/scenes.py assign_gazes, worker/src/persona/scenes.js). No sad looks. No over-the-shoulder: the anatomy check flags every one as a twisted head, and told the pose is intended it also passed a real backwards head (2026-10-15).",
+ "_style_note": "Instagram lane, 2026-10-16: glam but recommendable -- Instagram does not recommend sexually suggestive content to non-followers, so no lingerie-type outfits and no bed/bath scenes; swimwear only where the place calls for it (place_kinds). Sexier content belongs to the local Fanvue lane."
 }

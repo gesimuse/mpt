@@ -186,6 +186,18 @@ async function queuePublish(env, p, state, cq, itemId) {
   const acc = social.accounts(p);
   if (!acc.instagram && !acc.tiktok) return false;
   if (state.publish.some((j) => j.item === itemId)) return "already published";
+  // 🎭 recreates are built on other creators' footage and audio, which Instagram
+  // treats as unoriginal: rationed to RECREATE_PER_WEEK so the feed stays mostly
+  // original (chosen 2026-10-16).
+  if (known.recreate) {
+    const week = state.publish.filter((j) => j.recreate && Date.now() - (j.created || 0) < 7 * 86400 * 1000);
+    const cap = Number(env.PERSONA_RECREATE_PER_WEEK || 2);
+    if (week.length >= cap) {
+      const next = new Date(Math.min(...week.map((j) => j.created)) + 7 * 86400 * 1000)
+        .toLocaleDateString("en-GB", { timeZone: "Europe/Prague", weekday: "short", day: "numeric", month: "short" });
+      return `can't publish: ${cap} 🎭 recreates a week is the Instagram limit (keeps her feed original); next allowed ${next}`;
+    }
+  }
   const photo = (msg.photo || []).slice(-1)[0];
   const video = msg.video;
   // An old message's tap carries no media: use the file kept when it was posted, or
@@ -212,7 +224,7 @@ async function queuePublish(env, p, state, cq, itemId) {
   const posts = await captions.forPost(env, p, b, state, { ...known, kind: isPhoto ? "photo" : "video" });
   state.publish.push({
     id: `pub-${itemId}-${Date.now()}`, item: itemId, kind: isPhoto ? "photo" : "video",
-    created: Date.now(), due: nextSlot(env, state),
+    created: Date.now(), due: nextSlot(env, state), recreate: !!known.recreate,
     file_id: fileId, audio: !!known.audio || !!known.recreate,
     posts, caption: posts.instagram.text,
     chat, message_id: msg.message_id, base: (msg.caption ?? fwdCaption ?? "").split("\n\n━━")[0],

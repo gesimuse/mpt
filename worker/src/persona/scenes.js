@@ -61,9 +61,11 @@ ${story}
 People liked: ${liked.join(", ") || "no data yet"}.
 People did not like: ${disliked.join(", ") || "no data yet"}.
 
-She is a glamorous, sexy Instagram model and every photo is a flattering shoot of HER, not a
-travel photo: she is the subject, filling most of the frame. Outfits are figure-flattering and
-revealing, but there is NO nudity. Poses are confident and model-like.
+She is a glamorous Instagram fashion and travel model and every photo is a flattering shoot of
+HER, not a travel photo: she is the subject, filling most of the frame. Outfits are stylish and
+flattering -- never lingerie, underwear or see-through; swimwear only at the beach or pool. Poses
+are confident and elegant, never sexual, never lying in bed (Instagram does not recommend
+sexually suggestive posts to people who don't follow her).
 
 Write ${n} NEW scenes, one per place and outfit, in this order: ${pairs}.
 Do not describe her face or hair; that is fixed.
