@@ -97,6 +97,13 @@ def deliver(work, r):
     item = None
     if r.get("ok"):
         item = json.loads((work / "items" / f"{r['id']}.json").read_text())
+    if r.get("kind") == "render-done":
+        return _call("/persona/admin/laptop/result", {"result": r})
+    if r.get("render"):
+        # A daily-render photo: kept by the Worker for the day's post slots.
+        files = {} if not item else {"item": work / "items" / f"{r['id']}.json", "file": work / "items" / item["path"]}
+        data, ctype = _multipart({"result": json.dumps(r)}, files)
+        return _call("/persona/admin/laptop/render-item", data=data, content_type=ctype, timeout=120)
     if not item or not (config.env("PERSONA_BOT_TOKEN") or config.env("LOCAL_BOT_TOKEN")):
         files = {} if not item else {"item": work / "items" / f"{r['id']}.json", "file": work / "items" / item["path"]}
         data, ctype = _multipart({"result": json.dumps(r)}, files)

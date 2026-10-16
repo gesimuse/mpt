@@ -521,6 +521,7 @@ async function onAdmin(request, env) {
   if (u.pathname === "/persona/admin/laptop/claim" && request.method === "POST") return laptopClaim(request, env, u.origin);
   if (u.pathname === "/persona/admin/laptop/result" && request.method === "POST") return laptopResult(request, env);
   if (u.pathname === "/persona/admin/laptop/prepare" && request.method === "POST") return laptopPrepare(request, env);
+  if (u.pathname === "/persona/admin/laptop/render-item" && request.method === "POST") return laptopRenderItem(request, env);
   return new Response("not found", { status: 404 });
 }
 
@@ -534,28 +535,76 @@ async function render(env, p, force = false) {
   const list = await scenes.write(env, b, state, n);
   state.recent.push(...list.map((s) => `${s.setting} / ${s.outfit} / ${s.action}`));
   state.render_date = st.today();
+  // The laptop renders when it is open (its GPU, no Kaggle quota); Kaggle otherwise,
+  // or later if the laptop goes quiet before finishing (advanceJobs).
+  if (await laptopFresh(env)) {
+    state.queue.unshift({ id: `render-${p.slug}-${st.today()}`, kind: "render", scenes: list, date: st.today() });
+    state.render_via = "laptop";
+    await env.PERSONA.put(`rstatus:${p.slug}`, JSON.stringify({ date: st.today(), ok: true, items: [] }));
+    await st.save(env, p.slug, state);
+    return `${p.slug}: render queued for the laptop, ${list.length} scenes`;
+  }
+  state.render_via = "kaggle";
   await st.save(env, p.slug, state);
+  await pushRender(env, p, list);
+  return `${p.slug}: render pushed, ${list.length} scenes`;
+}
+
+async function pushRender(env, p, list) {
   await kaggle.push(env, renderKernel(env, p),
     kaggle.bootstrap({ ...basePayload(env, p), scenes: list, videos: 0, date: st.today() }), [dataset(env, p)]);
-  return `${p.slug}: render pushed, ${list.length} scenes`;
+}
+
+/**
+ * A daily-render photo from the laptop: kept in KV (3 days) until its post slot,
+ * where post() sends it like a Kaggle render output.
+ */
+async function laptopRenderItem(request, env) {
+  const form = await request.formData();
+  const r = JSON.parse(form.get("result"));
+  const slug = r.slug || env.PERSONA_SLUG || "lena";
+  const ttl = { expirationTtl: 3 * 86400 };
+  if (r.ok && form.get("file")) {
+    await env.PERSONA.put(`rimg:${slug}:${r.id}`, await form.get("file").arrayBuffer(), ttl);
+    await env.PERSONA.put(`ritem:${slug}:${r.id}`, await form.get("item").text(), ttl);
+  }
+  const status = JSON.parse((await env.PERSONA.get(`rstatus:${slug}`)) || "null") || { date: r.render, ok: true, items: [] };
+  if (!status.items.some((x) => x.id === r.id)) status.items.push({ id: r.id, ok: !!r.ok, kind: "image", reason: r.reason || null });
+  status.date = r.render || status.date;
+  await env.PERSONA.put(`rstatus:${slug}`, JSON.stringify(status));
+  return new Response("kept");
 }
 
 // -------------------------------------------------------------------- post
 async function post(env, p, k) {
-  const files = await kaggle.outputs(env, renderKernel(env, p)).catch(() => ({}));
-  if (!files["status.json"]) return `${p.slug}: no render output`;
-  const status = await kaggle.fetchJson(files["status.json"]);
-  if (!status.ok || status.date !== st.today()) return `${p.slug}: render not ready (${status.stage} ${status.date})`;
   const state = await st.load(env, p.slug);
+  // Today's photos: from KV when the laptop rendered them, else Kaggle's output.
+  let status, getItem, getImage;
+  if (state.render_via === "laptop") {
+    status = JSON.parse((await env.PERSONA.get(`rstatus:${p.slug}`)) || "null");
+    if (!status) return `${p.slug}: no laptop render`;
+    getItem = async (id) => JSON.parse((await env.PERSONA.get(`ritem:${p.slug}:${id}`)) || "null");
+    getImage = async (id) => {
+      const buf = await env.PERSONA.get(`rimg:${p.slug}:${id}`, "arrayBuffer");
+      return buf ? new Blob([buf]) : null;
+    };
+  } else {
+    const files = await kaggle.outputs(env, renderKernel(env, p)).catch(() => ({}));
+    if (!files["status.json"]) return `${p.slug}: no render output`;
+    status = await kaggle.fetchJson(files["status.json"]);
+    getItem = async (id) => (files[`out/items/${id}.json`] ? kaggle.fetchJson(files[`out/items/${id}.json`]) : null);
+    getImage = async (id) => files[`out/items/${id}.jpg`] || null;
+  }
+  if (!status.ok || status.date !== st.today()) return `${p.slug}: render not ready (${status.stage} ${status.date})`;
   if (state.posted.date !== st.today()) state.posted = { date: st.today(), ids: [] };
   const images = (status.items || []).filter((r) => r.ok && (r.kind || "image") === "image").map((r) => r.id);
   const due = images.filter((id, i) => i % POST_HOURS.length <= k);
   const b = (await st.bible(env, p.slug)) || { name: p.slug };
   let sent = 0;
   for (const id of due) {
-    if (state.posted.ids.includes(id) || !files[`out/items/${id}.json`]) continue;
-    const item = await kaggle.fetchJson(files[`out/items/${id}.json`]);
-    const img = files[`out/items/${id}.jpg`];
+    if (state.posted.ids.includes(id)) continue;
+    const item = await getItem(id);
+    const img = item && (await getImage(id));
     if (!img) continue;
     try {
       const msg = await sendMedia(env, "photo", p.chat_id, img, { caption: caption(b.name, item), buttons: buttons(item) });
@@ -579,7 +628,7 @@ async function post(env, p, k) {
  * results until its last run is posted.
  */
 const LANES = {
-  quick: { kernel: (env, p) => `${env.KAGGLE_USERNAME}/mpt-persona-quick-${p.slug}`, takes: (q) => q.kind !== "recreate", max: 3 },
+  quick: { kernel: (env, p) => `${env.KAGGLE_USERNAME}/mpt-persona-quick-${p.slug}`, takes: (q) => !["recreate", "render"].includes(q.kind), max: 3 },
   recreate: { kernel: (env, p) => `${env.KAGGLE_USERNAME}/mpt-persona-recreate-${p.slug}`, takes: (q) => q.kind === "recreate", max: 1 },
 };
 
@@ -730,7 +779,8 @@ async function laptopResult(request, env) {
   const state = await st.load(env, p.slug);
   if (state.done.includes(r.request)) return new Response("already posted");
   const b = (await st.bible(env, p.slug)) || { name: p.slug };
-  if (sent) recordResult(state, r, item, sent);
+  if (r.kind === "render-done") { /* the photos came in one by one (laptop/render-item) */ }
+  else if (sent) recordResult(state, r, item, sent);
   else await postResult(env, state, b, r, item, file);
   state.done.push(r.request);
   // Taken back from Kaggle's queue too, if it was handed over while the laptop
@@ -745,7 +795,9 @@ async function laptopResult(request, env) {
 async function jobPayload(env, origin, state, batch) {
   const jobs = [];
   for (const q of batch) {
-    if (q.kind === "redo") {
+    if (q.kind === "render") {
+      jobs.push({ id: q.id, kind: "render", scenes: q.scenes, date: q.date });
+    } else if (q.kind === "redo") {
       jobs.push({ id: q.id, kind: "redo", scene: q.scene, chat: q.chat, message_id: q.message_id });
     } else if (q.kind === "recreate") {
       jobs.push({ id: q.id, kind: "recreate", url: q.url, seconds: q.seconds, chat: q.chat, message_id: q.message_id,
@@ -785,6 +837,15 @@ async function advanceJobs(env, p, origin) {
     notes.push("laptop quiet: its job goes to Kaggle");
   }
   if (laptopUp && state.queue.length) notes.push("laptop up: new jobs wait for it");
+  // The day's render waiting for a laptop that went quiet: Kaggle renders it.
+  const renderJob = state.queue.find((q) => q.kind === "render");
+  if (renderJob && !laptopUp) {
+    await pushRender(env, p, renderJob.scenes);
+    state.queue = state.queue.filter((q) => q !== renderJob);
+    state.render_via = "kaggle";
+    changed = true;
+    notes.push("render: laptop quiet, pushed to Kaggle");
+  }
 
   for (const [name, lane] of Object.entries(LANES)) {
     const kernel = lane.kernel(env, p);

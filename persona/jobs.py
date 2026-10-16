@@ -147,6 +147,24 @@ def video(job, char, studio, out, inp):
             **_reply(job)}
 
 
+def render(job, char, studio, out):
+    """The daily render on the laptop (the Worker gives it to the laptop when it is
+    open at render time, Kaggle otherwise): the day's scenes, each photo a result."""
+    results = []
+    for item in studio.render(char, lane="social", scene_list=job["scenes"]):
+        if item.get("ok"):
+            dest = out / Path(item["path"]).name
+            shutil.copyfile(item["path"], dest)
+            item["path"] = dest.name
+            (out / f"{item['id']}.json").write_text(json.dumps(item, ensure_ascii=False))
+        results.append({"request": job["id"], "id": item["id"], "ok": bool(item.get("ok")), "kind": "image",
+                        "render": job.get("date", ""), "reason": item.get("reason")})
+        log(f"render {item['id']}: {'ok' if item.get('ok') else item.get('reason')}")
+    # Tells the Worker the render is over (its laptop lane is freed).
+    results.append({"request": job["id"], "ok": True, "kind": "render-done", "render": job.get("date", "")})
+    return results
+
+
 def run(jobs, char, studio_factory, out, inp, work_root, code_dir):
     """All jobs, 🎭 first: they run in child processes, and this process has not
     loaded a model yet, so its RAM is still free for them."""
@@ -156,7 +174,9 @@ def run(jobs, char, studio_factory, out, inp, work_root, code_dir):
     rest = [j for j in jobs if j.get("kind") != "recreate"]
     studio = studio_factory() if rest else None
     for job in rest:
-        if job.get("kind") == "redo":
+        if job.get("kind") == "render":
+            results.extend(render(job, char, studio, out))
+        elif job.get("kind") == "redo":
             results.extend(redo(job, char, studio, out))
         else:
             results.append(video(job, char, studio, out, inp))
