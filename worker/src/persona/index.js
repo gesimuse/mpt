@@ -750,6 +750,23 @@ async function advanceJobs(env, p, origin) {
     const running = state.lanes[name] || [];
     if (running.length) {
       const s = await kaggle.status(env, kernel);
+      const started = state.lane_started?.[name] || 0;
+      // A cancelled run, or a lane busy past Kaggle's 12h run limit, will never
+      // post: free the lane and say so. On 2026-10-11 a run ended CANCEL_ACKNOWLEDGED,
+      // a status this did not know, and the recreate lane stayed blocked for 5 days.
+      const dead = s.startsWith("CANCEL") || (started && Date.now() - started > 13 * 3600 * 1000);
+      if (dead) {
+        for (const q of running) {
+          if (state.done.includes(q.id)) continue;
+          await tg(env, "sendMessage", { chat_id: q.chat, reply_to_message_id: q.message_id,
+            text: `❌ ${q.kind === "recreate" ? "Recreate" : q.kind === "redo" ? "Redraw" : "Video"} failed: the Kaggle run was ${s.startsWith("CANCEL") ? "cancelled" : "stuck"}. Send it again.` }).catch(() => {});
+          state.done.push(q.id);
+        }
+        state.lanes[name] = [];
+        changed = true;
+        notes.push(`${name}: dead run (${s}) cleared`);
+        continue;
+      }
       if (s === "RUNNING" || s === "QUEUED") { notes.push(`${name} ${s}`); continue; }
       if (s === "COMPLETE" || s === "ERROR") {
         changed = (await postResults(env, state, b, kernel)) || changed;
@@ -768,6 +785,7 @@ async function advanceJobs(env, p, origin) {
     const jobs = await jobPayload(env, origin, state, batch);
     await kaggle.push(env, kernel, kaggle.bootstrap({ ...basePayload(env, p), mode: "video", jobs }), [dataset(env, p)]);
     state.lanes[name] = batch;
+    state.lane_started = { ...(state.lane_started || {}), [name]: Date.now() };
     const taken = new Set(batch.map((q) => q.id));
     state.queue = state.queue.filter((q) => !taken.has(q.id));
     changed = true;
