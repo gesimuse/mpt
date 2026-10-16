@@ -417,6 +417,17 @@ function queueVideo(state, itemId, msg, fileId, motion) {
 const PUBLISH_WORDS = /^\s*(👍|post|publish|post it)\s*[.!]*\s*$/iu;
 const CAROUSEL_WORDS = /^\s*(🖼️?|carousel|caroussel|carusel|make a carousel)\s*[.!]*\s*$/iu;
 
+/** A photo uploaded into her channel: 2 more shots of it for a 🖼 carousel. */
+async function onPhotoUpload(env, post, state) {
+  const itemId = `msg-${post.message_id}`;
+  const fileId = post.photo.slice(-1)[0].file_id;
+  state.items[itemId] = { kind: "image", tags: [], scene: {}, caption: post.caption || "", file_id: fileId };
+  state.queue.push({ id: `${itemId}-car${Date.now()}`, kind: "carousel", item: itemId, scene: {}, file_id: fileId, count: 2,
+                     chat: post.chat.id, message_id: post.message_id });
+  await tg(env, "sendMessage", { chat_id: post.chat.id, reply_to_message_id: post.message_id,
+    text: "🖼 Making 2 more shots of this photo for a carousel (~5-10 min). Only photos of her pass the face check." });
+}
+
 async function onReply(env, p, post, state, origin) {
   const parent = post.reply_to_message;
   // "👍" / "post" as a reply publishes any photo or video, including ones posted
@@ -492,6 +503,11 @@ async function handleUpdates(env, updates, origin) {
         if (cq?.data?.startsWith("pv:")) { await onTap(env, p, cq, state, origin); changed = true; }
         // A TikTok/Facebook link or video counts as 🎭 even when it is sent as a reply.
         else if (post && (await onRecreateRequest(env, post, state))) changed = true;
+        // A photo uploaded into her channel (not by the bot): 🖼 a carousel of it.
+        // (Bot posts, aibeauty's included, carry buttons; a hand upload has none.)
+        else if (post?.photo && !post.reply_to_message && !post.via_bot && !post.reply_markup) {
+          await onPhotoUpload(env, post, state); changed = true;
+        }
         else if (post?.text && post.reply_to_message && !post.text.startsWith("/")) {
           await onReply(env, p, post, state, origin); changed = true;
         }

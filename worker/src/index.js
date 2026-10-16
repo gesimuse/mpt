@@ -478,6 +478,14 @@ async function onMakeVideoFromReply(env, fake, ts, index, prompt, chatId, useKag
 }
 
 /** A photo sent to the bot gets hosted and registered, so it can be animated too. */
+async function isPersonaChat(env, chatId) {
+  const ids = new Set([String(env.PERSONA_CHAT_ID || "")]);
+  try {
+    for (const p of JSON.parse((await env.PERSONA.get("personas")) || "[]")) ids.add(String(p.chat_id));
+  } catch { /* KV unavailable: the env var alone */ }
+  return ids.has(String(chatId));
+}
+
 async function onPhoto(env, msg) {
   try {
     // photo[] is ascending by resolution; the last is the largest Telegram kept.
@@ -582,7 +590,10 @@ export default {
       else if (post?.text?.trim().split(/[@\s]/)[0] === "/leaderboard") {
         await onLeaderboard(env, post.chat.id);
       } else if (post?.reply_to_message && post.text) await onReply(env, post);
-      else if (post?.photo) await onPhoto(env, post);
+      // A photo in a persona's channel is for the persona bot (🖼 carousel), and must
+      // not be hosted on the public gh-pages branch by this one (2026-10-16: two
+      // photos sent for carousels were registered as aibeauty uploads instead).
+      else if (post?.photo && !(await isPersonaChat(env, post.chat.id))) await onPhoto(env, post);
     } catch (err) {
       console.error("update failed", redact(env, err));
     }
