@@ -251,6 +251,10 @@ def carousel(job, char, studio, out, inp):
                              scene=dict(base, angle=a[0], expression=e[0], angle_sheet=a[1]),
                              tags=base.get("tags", []), caption=base.get("caption", ""))
         pose = poses.pop()
+        # The first extra shot of a carousel is full body (asked for, 2026-10-17):
+        # zoomed out from the same spot, natural proportions; the drift check still
+        # applies, so a full-body shot that invents a new place is redrawn.
+        full = len(results) == 0 and job.get("full_body", True)
         # Pose and camera change too: told to keep "body and framing", the edit only
         # turned her head and the rest of the photo stayed identical (2026-10-16).
         # The camera stays where it was: asked to move it ("a step to her left"), the
@@ -260,6 +264,13 @@ def carousel(job, char, studio, out, inp):
                   "and fit), in exactly the same place with the same background and lighting. Only she moves: "
                   f"this time she is {pose}, {a[0]}, {e[0]}. Everything around her stays exactly as in image 1. "
                   "She is the only person in the photo.")
+        if full:
+            prompt = ("The next photo from the same photo shoot as image 1: the same woman, wearing exactly the same "
+                      "outfit (same garments, colours and fit), in exactly the same place with the same lighting, "
+                      "now a FULL-BODY shot from head to toe -- the camera at the same spot, zoomed out, so more of "
+                      "the same surroundings is visible around her. Natural, realistic body proportions, normal leg "
+                      "length, wearing shoes that fit the outfit and the place (never barefoot unless at the beach or "
+                      f"pool), feet on the ground. She is {pose}, {e[0]}. She is the only person in the photo.")
         path, why = None, ""
         for attempt in range(3):
             path = studio.engine.image(model, prompt, char.dir / "items", item["id"],
