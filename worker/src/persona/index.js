@@ -271,8 +271,10 @@ async function advancePublish(env, p, state, origin) {
     changed = true;
     // Mark the post in the channel: what happened on each platform.
     const cap = `${job.base}\n\n━━ published ━━\n${social.statusLine(job)}`.slice(0, 1024);
+    const failed = ["ig", "tt"].some((k) => job[k]?.status === "failed");
     const markup = job.ig?.mode === "phone"
       ? { inline_keyboard: [[{ text: "📲 Post on Instagram", url: await shareLink(env, origin, p, job) }]] }
+      : failed ? kb([[["🔁 Retry posting", `pv:repub:${job.id}`]]])
       : kb([[["✓ 👍 published", `pv:noop:${job.item}`]]]);
     try {
       await tg(env, job.text ? "editMessageText" : "editMessageCaption", { chat_id: job.chat, message_id: job.message_id,
@@ -321,6 +323,16 @@ async function onTap(env, p, cq, state, origin) {
   const msg = cq.message || {};
   const chat = msg.chat?.id;
   if (act === "noop") return answer(env, cq.id, "Already published.");
+  if (act === "repub") {
+    // 🔁 Retry posting: the failed platform(s) start again.
+    const job = state.publish.find((j) => j.id === itemId);
+    if (!job) return answer(env, cq.id, "That post isn't known any more.");
+    for (const k of ["ig", "tt"]) if (job[k]?.status === "failed") delete job[k];
+    job.tries = 0;
+    job.retry_at = 0;
+    await advancePublish(env, p, state, origin);
+    return answer(env, cq.id, "🔁 Posting again…");
+  }
   if (act === "up" || act === "dn") {
     if (state.voted.includes(itemId)) return answer(env, cq.id, "Already voted.");
     const item = state.items[itemId] || { tags: [] };
