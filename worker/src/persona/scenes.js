@@ -20,9 +20,9 @@ function outfitFor(place, used, sexy = false) {
     if (words.some((w) => low.includes(w))) { pool = IDEAS.outfit_kinds[kind]; break; }
   }
   // Sexy-style personas (MPT): the sexier list everywhere except swim spots, which
-  // keep their swimwear (2026-10-17: "more sexy" -- a vineyard got a hoodie, a golf
+  // keep their swimwear and only they get bikinis (2026-10-17: "more sexy" -- a vineyard got a hoodie, a golf
   // course a gym set).
-  if (sexy && IDEAS.sexy_outfits && pool !== IDEAS.outfit_kinds.swim) pool = IDEAS.sexy_outfits;
+  if (sexy && IDEAS.sexy_outfits && pool !== IDEAS.outfit_kinds.swim) pool = IDEAS.sexy_outfits.filter((o) => !/bikini|swim/i.test(o));
   if (!pool) {
     const excluded = new Set([...IDEAS.outfit_kinds.swim, ...IDEAS.outfit_kinds.sport, ...(IDEAS.outfit_kinds.snow || [])]);
     pool = IDEAS.outfits.filter((o) => !excluded.has(o));
