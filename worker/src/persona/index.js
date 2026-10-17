@@ -681,7 +681,7 @@ async function onAdmin(request, env) {
     if (what === "render") return new Response(await render(env, p, u.searchParams.get("force") === "1"));
     if (what === "post") return new Response(await post(env, p, Number(u.searchParams.get("slot") || 4)));
     if (what === "jobs") return new Response(await advanceJobs(env, p, u.origin));
-    if (what === "shoot") return new Response(await shoot(env, p));
+    if (what === "shoot") return new Response(await shoot(env, p, u.searchParams.get("character")));
     if (what === "poll") return new Response(await poll(env, u.origin));
     if (what === "publish") {
       const state = await st.load(env, slug);
@@ -1102,9 +1102,9 @@ async function jobPayload(env, origin, state, batch) {
  * more than Kaggle's 30h a week). Photos post to the channel as they come; the
  * finished shoot becomes one TikTok photo draft (shootDone).
  */
-async function shoot(env, p) {
+async function shoot(env, p, who = null) {
   const state = await st.load(env, p.slug);
-  const character = nextCharacter(p, state);
+  const character = who || nextCharacter(p, state);
   const b = await st.bible(env, character);
   if (!b) { await st.save(env, p.slug, state); return `${p.slug}: no bible for ${character} (persona.cli sync)`; }
   // MPT stays sexy (its girls' choice, 2026-10-17); Lena's Instagram lane does not.
