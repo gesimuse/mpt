@@ -360,9 +360,13 @@ async function onTap(env, p, cq, state, origin) {
     return answer(env, cq.id, "🖼 Making 2 more angles of this scene for a carousel (~20-30 min).");
   }
   if (act === "carpub") return publishCarousel(env, p, state, cq, itemId);
-  if (act === "redo" && state.items[itemId]?.carousel_of) {
+  // Which carousel a shot belongs to: its own mark, else the carousel sets (shots
+  // made before the mark existed, or whose mark a lost save dropped).
+  const carouselOf = state.items[itemId]?.carousel_of
+    || Object.entries(state.carousels || {}).find(([, set]) => (set.ids || []).includes(itemId))?.[0];
+  if (act === "redo" && carouselOf) {
     // 🔁 on a carousel angle: a new angle of the same original photo replaces it.
-    const parent = state.items[itemId].carousel_of;
+    const parent = carouselOf;
     const fileId = state.items[parent]?.file_id;
     if (!fileId) return answer(env, cq.id, "Can't: the original photo isn't known.");
     state.queue.push({ id: `${parent}-car${Date.now()}`, kind: "carousel", item: parent, scene: state.items[parent]?.scene || {},
