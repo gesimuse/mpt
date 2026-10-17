@@ -259,16 +259,19 @@ function nextSlot(env, state) {
 async function advancePublish(env, p, state, origin) {
   let changed = false;
   for (const job of state.publish.filter((j) => !social.finished(j))) {
+    // Buffer said "too many requests": no more calls this round, for any post.
+    if (state.publish.some((j) => j.retry_at && Date.now() < j.retry_at)) break;
     const url = job.file_ids
       ? await Promise.all(job.file_ids.map((f) => mediaLink(env, origin, f, "jpg")))
       : await mediaLink(env, origin, job.file_id, job.kind === "video" ? "mp4" : "jpg");
-    const before = JSON.stringify([job.ig, job.tt]);
+    const before = JSON.stringify([job.ig, job.tt, job.retry_at]);
     await social.advance(env, p, job, url);
     // Saved only when something moved: this runs on every 30s laptop check-in, and an
     // unconditional save there overwrote taps and 🖼 requests that the webhook had
     // saved a moment before (2026-10-16, two carousel requests lost).
-    if (JSON.stringify([job.ig, job.tt]) === before) continue;
+    if (JSON.stringify([job.ig, job.tt, job.retry_at]) === before) continue;
     changed = true;
+    if (job.retry_at && Date.now() < job.retry_at) continue;  // rate-limited: nothing to show yet
     // Mark the post in the channel: what happened on each platform.
     const cap = `${job.base}\n\n━━ published ━━\n${social.statusLine(job)}`.slice(0, 1024);
     const failed = ["ig", "tt"].some((k) => job[k]?.status === "failed");
