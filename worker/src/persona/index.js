@@ -330,7 +330,7 @@ async function onTap(env, p, cq, state, origin) {
     state.voted.push(itemId);
     const res = act === "up" ? await queuePublish(env, p, state, cq, itemId) : false;
     const publishing = res === true;
-    await answer(env, cq.id, act === "dn" ? "Noted 👎" : publishing ? "👍 Queued for Instagram (next free slot)"
+    await answer(env, cq.id, act === "dn" ? "Noted 👎" : publishing ? "👍 Added to Buffer's queue for Instagram"
       : typeof res === "string" ? `Noted 👍 -- ${res}` : "Noted 👍");
     if (typeof res === "string" && res.startsWith("can't")) {
       await tg(env, "sendMessage", { chat_id: chat, reply_to_message_id: msg.message_id, text: `⚠️ 👍 noted, but ${res}.` }).catch(() => {});

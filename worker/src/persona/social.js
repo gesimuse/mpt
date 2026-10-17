@@ -73,14 +73,19 @@ async function start(env, p, job, platform, mediaUrl) {
     metadata = { tiktok: { title: text.split("\n")[0].slice(0, 90),
                            ...(job.kind === "video" ? { isAiGenerated: true } : {}) } };
   }
-  // Paced: one post per slot (index.js nextSlot); Buffer publishes it at that time.
-  const when = job.due && job.due > Date.now() + 60 * 1000 ? { mode: "customScheduled", dueAt: new Date(job.due).toISOString() }
-                                                         : { mode: "shareNow" };
+  // Into Buffer's own queue: it posts at the times in her Buffer posting schedule,
+  // and nothing here polls it (polling scheduled posts got "Too many requests",
+  // 2026-10-17). PERSONA_BUFFER_QUEUE=0 goes back to our own slots.
+  const queue = env.PERSONA_BUFFER_QUEUE !== "0" && mode === "automatic";
+  const when = queue ? { mode: "addToQueue" }
+    : job.due && job.due > Date.now() + 60 * 1000 ? { mode: "customScheduled", dueAt: new Date(job.due).toISOString() }
+    : { mode: "shareNow" };
   const d = await gql(env, p.slug, CREATE, { input: {
     channelId, text, ...when, schedulingType: mode, assets, metadata, aiAssisted: true,
   } });
   const res = d.createPost;
   if (res.__typename !== "PostActionSuccess") throw new Error(`${res.__typename}: ${res.message || ""}`);
+  if (queue) return { mode: "queued", post: res.post.id, status: "done", sent_at: Date.now() };
   return settle({ mode, post: res.post.id }, res.post);
 }
 
@@ -159,6 +164,7 @@ export function statusLine(job) {
   return [
     line("Instagram", job.ig, (r) => r.mode === "phone"
       ? "📲 Instagram: tap «Post on Instagram» below on your phone, add a trending song, share"
+      : r.mode === "queued" ? "🗓 Instagram: in Buffer's queue -- posts at her next Buffer time slot"
       : "✅ Instagram: posted"),
     line("TikTok", job.tt, (r) => r.mode === "notification"
       ? "📲 TikTok: Buffer sent it to your phone -- add a song and post"
