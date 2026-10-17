@@ -1133,6 +1133,8 @@ async function postShootPhoto(env, p, state, shootId, item, file, character) {
 async function shootDone(env, p, state, shootId) {
   const sh = state.shoots?.[shootId];
   if (!sh || sh.draft || !sh.ids.length) return;
+  // Persona entry tiktok_drafts:false keeps shoots in Telegram only.
+  if (p.tiktok_drafts === false) { sh.draft = "off"; return; }
   const b = (await st.bible(env, sh.character)) || { name: sh.character };
   const first = state.items[sh.ids[0]] || {};
   const posts = await captions.forPost(env, p, b, state, { ...first, kind: "photo" });
