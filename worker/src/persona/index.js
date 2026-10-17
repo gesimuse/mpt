@@ -1053,7 +1053,9 @@ async function laptopResult(request, env) {
   if (r.kind === "render-done") {
     // The photos came in one by one (laptop/render-item); a finished MPT shoot
     // becomes one TikTok draft.
-    if (r.shoot) await shootDone(env, p, state, r.shoot);
+    // (The draft itself is made by the next cron run: uploading the photos and
+    // waiting for gh-pages takes minutes, longer than the laptop waits here.)
+    if (r.shoot && state.shoots?.[r.shoot]) state.shoots[r.shoot].finished = true;
   }
   else if (sent) { recordResult(state, r, item, sent); await carouselProgress(env, state, r); }
   else await postResult(env, state, b, r, item, file);
@@ -1171,6 +1173,11 @@ async function advanceShoots(env, p, state, laptopUp) {
       return notes;
     }
   }
+  for (const [id, sh] of Object.entries(state.shoots || {})) {
+    if (sh.finished && !sh.draft && !sh.draft_error) { await shootDone(env, p, state, id); notes.push(`shoot ${id}: TikTok draft`); }
+  }
+  // Old shoot records go after 3 days.
+  for (const [id, sh] of Object.entries(state.shoots || {})) if (Date.now() - (sh.started || 0) > 3 * 86400 * 1000) delete state.shoots[id];
   if (laptopUp) return notes;
   const day = st.today();
   if (state.kaggle_shoots?.date !== day) state.kaggle_shoots = { date: day, n: 0 };
