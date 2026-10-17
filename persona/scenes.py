@@ -367,6 +367,11 @@ def casting_prompt(char, look, hint=""):
     anchor = b["safety"]["adult_anchor"]
     if "years old" not in anchor:
         anchor += f", {b['age']} years old"
+    if b.get("casting_style"):
+        # A bible can ask for a glam casting portrait (the plain t-shirt-and-wall
+        # portrait made a model character look girl-next-door, 2026-10-17).
+        return (f"Portrait photo of {anchor}, {desc}. Head and shoulders, {b['casting_style']}. "
+                f"{hint + '. ' if hint else ''}{REALISM}.")
     return (f"Candid smartphone portrait photo of {anchor}, "
             f"{desc}. Head and shoulders, looking at the camera with a natural relaxed smile, "
             f"plain light background, soft daylight. {hint + '. ' if hint else ''}{REALISM}.")

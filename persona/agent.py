@@ -185,6 +185,7 @@ def run_job(job):
         results = json.loads(results_file.read_text())
         for r in results:
             r["slug"] = job.get("slug", "")
+            r["persona"] = job.get("persona") or job.get("slug", "")
         results_file.write_text(json.dumps(results))
         # A failed delivery keeps the finished work here, so it is sent again rather
         # than rendered again.

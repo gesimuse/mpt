@@ -43,7 +43,8 @@ def has_audio(path):
 
 
 def _reply(job):
-    return {"chat": job.get("chat"), "message_id": job.get("message_id")}
+    # character: which roster girl a result belongs to (MPT's shared channel).
+    return {"chat": job.get("chat"), "message_id": job.get("message_id"), "character": job.get("character")}
 
 
 def download_clip(job, dest):
@@ -158,7 +159,8 @@ def render(job, char, studio, out):
             item["path"] = dest.name
             (out / f"{item['id']}.json").write_text(json.dumps(item, ensure_ascii=False))
         results.append({"request": job["id"], "id": item["id"], "ok": bool(item.get("ok")), "kind": "image",
-                        "render": job.get("date", ""), "reason": item.get("reason"), "chat": job.get("chat")})
+                        "render": job.get("date", ""), "reason": item.get("reason"), "chat": job.get("chat"),
+                        "character": job.get("character"), "shoot": job.get("shoot")})
         log(f"render {item['id']}: {'ok' if item.get('ok') else item.get('reason')}")
     # The day's Reels: the first N photos that passed, animated (Reels reach more new
     # people than photos for a small account).
@@ -173,10 +175,12 @@ def render(job, char, studio, out):
         vid.update({"path": dest.name, "audio": has_audio(dest), "caption": char.item(r["id"]).get("caption", "")})
         (out / f"{vid['id']}.json").write_text(json.dumps(vid, ensure_ascii=False))
         results.append({"request": job["id"], "id": vid["id"], "ok": True, "kind": "video", "parent": r["id"],
-                        "render": job.get("date", ""), "chat": job.get("chat")})
+                        "render": job.get("date", ""), "chat": job.get("chat"),
+                        "character": job.get("character"), "shoot": job.get("shoot")})
         log(f"reel {vid['id']} of {r['id']}")
     # Tells the Worker the render is over (its laptop lane is freed).
-    results.append({"request": job["id"], "ok": True, "kind": "render-done", "render": job.get("date", "")})
+    results.append({"request": job["id"], "ok": True, "kind": "render-done", "render": job.get("date", ""),
+                    "character": job.get("character"), "shoot": job.get("shoot"), "chat": job.get("chat")})
     return results
 
 

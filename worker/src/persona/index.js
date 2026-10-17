@@ -30,6 +30,7 @@ import * as scenes from "./scenes.js";
 import * as personas from "./personas.js";
 import * as social from "./social.js";
 import * as captions from "./captions.js";
+import * as tiktok from "./tiktok.js";
 import { tg, answer, sendMedia, editPhoto, kb } from "./telegram.js";
 
 const POST_HOURS = [6, 9, 12, 15, 18];
@@ -37,11 +38,19 @@ const ROLES = { cast: "qwen21", edit: "qwen21", fanvue_edit: "qwen21-uncensored"
 
 const renderKernel = (env, p) => `${env.KAGGLE_USERNAME}/mpt-persona-render-${p.slug}`;
 const jobKernel = (env, p) => `${env.KAGGLE_USERNAME}/mpt-persona-video-${p.slug}`;
-const dataset = (env, p) => `${env.KAGGLE_USERNAME}/mpt-persona-${p.slug}`;
+const dataset = (env, slug) => `${env.KAGGLE_USERNAME}/mpt-persona-${slug}`;
 
-function basePayload(env, p) {
+/**
+ * A roster persona (MPT) is a channel shared by several characters ({characters:
+ * [slugs]}): each shoot, photo and job belongs to one of them (q.character /
+ * item.character), and her own Kaggle dataset and bible are used for it.
+ */
+const isRoster = (p) => Array.isArray(p.characters) && p.characters.length > 0;
+const charOf = (p, q) => q?.character || p.slug;
+
+function basePayload(env, p, slug) {
   // 0.62: her scenes score 0.80-0.90; a bowling shot at 0.55 no longer looked like her.
-  return { slug: p.slug, roles: ROLES, face_min: env.PERSONA_FACE_MIN || "0.62", min_age: "21" };
+  return { slug: slug || p.slug, roles: ROLES, face_min: env.PERSONA_FACE_MIN || "0.62", min_age: "21" };
 }
 
 // ------------------------------------------------------------------ captions
@@ -70,7 +79,8 @@ function remember(state, item, sent) {
   state.items[item.id] = { kind: item.kind || "image", tags: item.tags || [], beat: item.scene?.beat || "",
                            scene: item.scene || {}, caption: item.caption || "",
                            audio: !!item.audio, recreate: !!item.recreate,
-                           file_id: media?.file_id || state.items[item.id]?.file_id || "" };
+                           file_id: media?.file_id || state.items[item.id]?.file_id || "",
+                           character: item.character || state.items[item.id]?.character || undefined };
 }
 
 function itemIdFrom(msg) {
@@ -165,6 +175,7 @@ async function serveFile(request, env) {
 async function serveMedia(request, env) {
   const u = new URL(request.url);
   const name = decodeURIComponent(u.pathname.slice("/persona/media/".length));
+  if (name.endsWith(".txt")) return tiktok.verifyFile(env, name);
   const dot = name.lastIndexOf(".");
   const f = name.slice(0, dot), ext = name.slice(dot + 1);
   const e = u.searchParams.get("e"), s = u.searchParams.get("s");
@@ -449,6 +460,26 @@ const PUBLISH_WORDS = /^\s*(👍|post|publish|post it)\s*[.!]*\s*$/iu;
 // Any short reply mentioning a carousel ("carousel please", "make carousel 🖼", ...).
 const CAROUSEL_WORDS = /^(?=.{0,60}$).*(🖼|car+ou?s+el+|carusel)/isu;
 
+/**
+ * MPT: new jobs belong to the girl of the photo they came from; a 🎭 link with no
+ * photo goes to the next girl in rotation. A video sent by hand never leaves the
+ * laptop (local_only), like every hand-sent media in the MPT channels.
+ */
+function tagCharacters(p, state, added, post) {
+  for (const q of added) {
+    if (q.character) continue;
+    const parentId = post?.reply_to_message ? itemIdFrom(post.reply_to_message) : "";
+    q.character = state.items[q.item]?.character || state.items[parentId]?.character || nextCharacter(p, state);
+    if (q.kind === "recreate" && q.file_id) q.local_only = true;
+  }
+}
+
+function nextCharacter(p, state) {
+  const i = state.rotation || 0;
+  state.rotation = i + 1;
+  return p.characters[i % p.characters.length];
+}
+
 /** A photo uploaded into her channel: 2 more shots of it for a 🖼 carousel. */
 async function onPhotoUpload(env, post, state) {
   const itemId = `msg-${post.message_id}`;
@@ -534,7 +565,10 @@ async function handleUpdates(env, updates, origin) {
     for (const update of list) {
       const cq = update.callback_query;
       const post = update.channel_post || update.message;
+      const queued = state.queue.length;
       try {
+        // MPT: photos sent by hand stay private (never processed in the cloud).
+        if (isRoster(p) && post?.photo && !post.reply_to_message && !post.reply_markup) continue;
         if (cq?.data?.startsWith("pv:")) { await onTap(env, p, cq, state, origin); changed = true; }
         // A TikTok/Facebook link or video counts as 🎭 even when it is sent as a reply.
         else if (post && (await onRecreateRequest(env, post, state))) changed = true;
@@ -546,6 +580,7 @@ async function handleUpdates(env, updates, origin) {
         else if (post?.text && post.reply_to_message && !post.text.startsWith("/")) {
           await onReply(env, p, post, state, origin); changed = true;
         }
+        if (isRoster(p)) tagCharacters(p, state, state.queue.slice(queued), post);
       } catch (e) {
         // One bad tap must not take the others down with it, and must not vanish:
         // on 2026-10-14 three 👍 taps were dropped without a trace.
@@ -615,6 +650,14 @@ async function onAdmin(request, env) {
     const b = (await st.bible(env, slug)) || { name: slug };
     return Response.json(await captions.forPost(env, p, b, state, item));
   }
+  if (u.pathname === "/persona/admin/tiktok" && request.method === "POST") {
+    // {refresh_token} for this persona's TikTok account, or {verify_name, verify_body}
+    // for TikTok's URL-prefix verification file.
+    const t = await request.json();
+    if (t.refresh_token) await env.PERSONA.put(`tt:${slug}`, JSON.stringify({ refresh_token: t.refresh_token }));
+    if (t.verify_name) await env.PERSONA.put(`ttverify:${t.verify_name}`, t.verify_body || "");
+    return new Response("ok");
+  }
   if (u.pathname === "/persona/admin/buffer-token" && request.method === "POST") {
     // Her own Buffer account's API key; never returned by any endpoint.
     await env.PERSONA.put(`buffertoken:${slug}`, (await request.text()).trim());
@@ -638,6 +681,7 @@ async function onAdmin(request, env) {
     if (what === "render") return new Response(await render(env, p, u.searchParams.get("force") === "1"));
     if (what === "post") return new Response(await post(env, p, Number(u.searchParams.get("slot") || 4)));
     if (what === "jobs") return new Response(await advanceJobs(env, p, u.origin));
+    if (what === "shoot") return new Response(await shoot(env, p));
     if (what === "poll") return new Response(await poll(env, u.origin));
     if (what === "publish") {
       const state = await st.load(env, slug);
@@ -681,9 +725,10 @@ async function render(env, p, force = false) {
 /** Reels a day: the render's first N good photos animated (PERSONA_DAILY_REELS, 2). */
 const dailyReels = (env) => Number(env.PERSONA_DAILY_REELS ?? 2);
 
-async function pushRender(env, p, list) {
+async function pushRender(env, p, list, character = null, videos = null) {
   await kaggle.push(env, renderKernel(env, p),
-    kaggle.bootstrap({ ...basePayload(env, p), scenes: list, videos: dailyReels(env), date: st.today() }), [dataset(env, p)]);
+    kaggle.bootstrap({ ...basePayload(env, p, character), scenes: list, videos: videos ?? dailyReels(env), date: st.today() }),
+    [dataset(env, character || p.slug)]);
 }
 
 /**
@@ -693,6 +738,16 @@ async function pushRender(env, p, list) {
 async function laptopRenderItem(request, env) {
   // JSON {result, item, file_id}: the laptop already put the photo/Reel on Telegram.
   const { result: r, item, file_id } = await request.json();
+  if (r.shoot) {
+    // An MPT shoot photo: posted to the channel now (by its Telegram file).
+    const p = await personas.get(env, r.persona || env.PERSONA_SLUG);
+    const state = await st.load(env, p.slug);
+    if (r.ok && item && file_id && !state.items[r.id]) {
+      await postShootPhoto(env, p, state, r.shoot, item, { fileId: file_id }, r.character);
+      await st.save(env, p.slug, state);
+    }
+    return new Response("posted");
+  }
   const slug = r.slug || env.PERSONA_SLUG || "lena";
   const ttl = { expirationTtl: 3 * 86400 };
   if (r.ok && item && file_id) await env.PERSONA.put(`ritem:${slug}:${r.id}`, JSON.stringify({ ...item, file_id }), ttl);
@@ -872,6 +927,7 @@ function recordResult(state, r, item, sent) {
   if (r.kind === "image") remember(state, item, sent);
   else remember(state, { ...item, kind: "video", recreate: !!r.recreate }, sent);
   if (r.carousel && state.items[r.id]) state.items[r.id].carousel_of = r.carousel;
+  if (r.character && state.items[r.id]) state.items[r.id].character = r.character;
 }
 
 /**
@@ -904,7 +960,8 @@ async function postResults(env, state, b, kernel) {
     try {
       const item = r.ok ? await kaggle.fetchJson(files[`out/items/${r.id}.json`]) : null;
       const file = item ? files[`out/items/${r.kind === "image" ? `${r.id}.jpg` : item.path}`] : null;
-      await postResult(env, state, b, r, item, file);
+      const rb = r.character ? (await st.bible(env, r.character)) || b : b;
+      await postResult(env, state, rb, r, item, file);
     } catch (e) {
       console.error("job result post failed", r.request, String(e));
       continue;
@@ -960,7 +1017,7 @@ async function laptopClaim(request, env, origin) {
         state.lanes.laptop = [q];
         await st.save(env, p.slug, state);
       }
-      if (q) return Response.json({ job: { ...(await jobPayload(env, origin, state, [q]))[0], slug: p.slug } });
+      if (q) return Response.json({ job: { ...(await jobPayload(env, origin, state, [q]))[0], slug: charOf(p, q), persona: p.slug } });
     }
   }
   return Response.json({ job: null });
@@ -974,8 +1031,8 @@ async function laptopClaim(request, env, origin) {
  */
 async function laptopPrepare(request, env) {
   const { result: r, item } = await request.json();
-  const p = await personas.get(env, r.slug || env.PERSONA_SLUG || "lena");
-  const b = (await st.bible(env, p.slug)) || { name: p.slug };
+  const p = await personas.get(env, r.persona || r.slug || env.PERSONA_SLUG || "lena");
+  const b = (await st.bible(env, r.character || p.slug)) || { name: p.slug };
   return Response.json(resultMessage(b, r, item));
 }
 
@@ -989,11 +1046,15 @@ async function laptopResult(request, env) {
     item = form.get("item") ? JSON.parse(await form.get("item").text()) : null;
     file = form.get("file");
   }
-  const p = (await personas.get(env, r.slug || env.PERSONA_SLUG || "lena"));
+  const p = (await personas.get(env, r.persona || r.slug || env.PERSONA_SLUG || "lena"));
   const state = await st.load(env, p.slug);
   if (state.done.includes(resultKey(r))) return new Response("already posted");
-  const b = (await st.bible(env, p.slug)) || { name: p.slug };
-  if (r.kind === "render-done") { /* the photos came in one by one (laptop/render-item) */ }
+  const b = (await st.bible(env, r.character || p.slug)) || { name: p.slug };
+  if (r.kind === "render-done") {
+    // The photos came in one by one (laptop/render-item); a finished MPT shoot
+    // becomes one TikTok draft.
+    if (r.shoot) await shootDone(env, p, state, r.shoot);
+  }
   else if (sent) { recordResult(state, r, item, sent); await carouselProgress(env, state, r); }
   else await postResult(env, state, b, r, item, file);
   state.done.push(resultKey(r));
@@ -1009,11 +1070,13 @@ async function laptopResult(request, env) {
 async function jobPayload(env, origin, state, batch) {
   const jobs = [];
   for (const q of batch) {
+    const before = jobs.length;
     if (q.kind === "carousel") {
       jobs.push({ id: q.id, kind: "carousel", item: q.item, scene: q.scene, count: q.count || 2, replace: q.replace || null,
                   image_url: await fileLink(env, origin, q.file_id), chat: q.chat, message_id: q.message_id });
     } else if (q.kind === "render") {
-      jobs.push({ id: q.id, kind: "render", scenes: q.scenes, date: q.date });
+      jobs.push({ id: q.id, kind: "render", scenes: q.scenes, date: q.date, chat: q.chat, videos: q.videos ?? 0,
+                  shoot: q.shoot || null });
     } else if (q.kind === "redo") {
       jobs.push({ id: q.id, kind: "redo", scene: q.scene, chat: q.chat, message_id: q.message_id });
     } else if (q.kind === "recreate") {
@@ -1024,8 +1087,100 @@ async function jobPayload(env, origin, state, batch) {
                   caption: state.items[q.item]?.caption || "", tags: state.items[q.item]?.tags || [],
                   chat: q.chat, message_id: q.message_id });
     }
+    if (jobs.length > before && q.character) jobs[jobs.length - 1].character = q.character;
   }
   return jobs;
+}
+
+// ------------------------------------------------------------- MPT shoots
+/**
+ * A roster persona's shoot: the next girl in rotation, p.photos (10) scenes in as
+ * many different places, rendered on the laptop when it is open, else on Kaggle
+ * (at most p.kaggle_shoots a day -- 5 shoots of 10 would need ~5 GPU hours a day,
+ * more than Kaggle's 30h a week). Photos post to the channel as they come; the
+ * finished shoot becomes one TikTok photo draft (shootDone).
+ */
+async function shoot(env, p) {
+  const state = await st.load(env, p.slug);
+  const character = nextCharacter(p, state);
+  const b = await st.bible(env, character);
+  if (!b) { await st.save(env, p.slug, state); return `${p.slug}: no bible for ${character} (persona.cli sync)`; }
+  const list = await scenes.write(env, b, state, Number(p.photos || 10));
+  state.recent.push(...list.map((x) => `${x.setting} / ${x.outfit} / ${x.action}`));
+  const id = `shoot-${character}-${Date.now()}`;
+  state.shoots = state.shoots || {};
+  state.shoots[id] = { character, ids: [], started: Date.now() };
+  state.queue.push({ id, kind: "render", scenes: list, date: st.today(), chat: p.chat_id, videos: 0, character, shoot: id });
+  await st.save(env, p.slug, state);
+  return `${p.slug}: shoot of ${character} queued (${list.length} scenes)`;
+}
+
+/** Post one shoot photo to the channel and remember it under its shoot. */
+async function postShootPhoto(env, p, state, shootId, item, file, character) {
+  const b = (await st.bible(env, character)) || { name: character };
+  const it = { ...item, character };
+  const sent = await sendMedia(env, "photo", p.chat_id, file, { caption: caption(b.name, it), buttons: buttons(it) });
+  remember(state, it, sent);
+  const sh = (state.shoots = state.shoots || {})[shootId] || { character, ids: [] };
+  if (!sh.ids.includes(item.id)) sh.ids.push(item.id);
+  state.shoots[shootId] = sh;
+}
+
+/** A finished shoot: its photos as one TikTok inbox draft on the persona's account. */
+async function shootDone(env, p, state, shootId) {
+  const sh = state.shoots?.[shootId];
+  if (!sh || sh.draft || !sh.ids.length) return;
+  const b = (await st.bible(env, sh.character)) || { name: sh.character };
+  const first = state.items[sh.ids[0]] || {};
+  const posts = await captions.forPost(env, p, b, state, { ...first, kind: "photo" });
+  const urls = await Promise.all(sh.ids.map((id) => mediaLink(env, env.WORKER_ORIGIN, state.items[id]?.file_id, "jpg")));
+  try {
+    sh.draft = await tiktok.photoDraft(env, p.slug, urls, posts.tiktok.text);
+    await tg(env, "sendMessage", { chat_id: p.chat_id,
+      text: `📥 ${b.name}'s shoot (${sh.ids.length} photos) is in the TikTok inbox as a draft -- add a sound and post.\n\n${posts.tiktok.text}` });
+  } catch (e) {
+    sh.draft_error = String(e.message || e).slice(0, 200);
+    await tg(env, "sendMessage", { chat_id: p.chat_id, text: `❌ ${b.name}'s shoot: TikTok draft failed: ${sh.draft_error}` }).catch(() => {});
+  }
+}
+
+/** MPT on Kaggle: push a waiting shoot (daily cap), and post a finished one. */
+async function advanceShoots(env, p, state, laptopUp) {
+  const notes = [];
+  const run = state.kaggle_shoot;
+  if (run) {
+    const s = await kaggle.status(env, renderKernel(env, p));
+    if (s === "COMPLETE" || s === "ERROR" || s.startsWith("CANCEL") || Date.now() - run.started > 13 * 3600 * 1000) {
+      const files = await kaggle.outputs(env, renderKernel(env, p)).catch(() => ({}));
+      const status = files["status.json"] ? await kaggle.fetchJson(files["status.json"]).catch(() => ({})) : {};
+      for (const r of (status.items || []).filter((x) => x.ok && (x.kind || "image") === "image")) {
+        try {
+          const item = await kaggle.fetchJson(files[`out/items/${r.id}.json`]);
+          await postShootPhoto(env, p, state, run.id, item, files[`out/items/${r.id}.jpg`], run.character);
+        } catch (e) { console.error("shoot photo post failed", r.id, String(e).slice(0, 200)); }
+      }
+      await shootDone(env, p, state, run.id);
+      state.kaggle_shoot = null;
+      notes.push(`shoot ${run.id}: ${s}`);
+    } else {
+      notes.push(`shoot on Kaggle ${s}`);
+      return notes;
+    }
+  }
+  if (laptopUp) return notes;
+  const day = st.today();
+  if (state.kaggle_shoots?.date !== day) state.kaggle_shoots = { date: day, n: 0 };
+  const job = state.queue.find((q) => q.kind === "render" && q.shoot);
+  if (job && state.kaggle_shoots.n < Number(p.kaggle_shoots ?? 2)) {
+    await pushRender(env, p, job.scenes, job.character, 0);
+    state.kaggle_shoot = { id: job.shoot, character: job.character, started: Date.now() };
+    state.kaggle_shoots.n += 1;
+    state.queue = state.queue.filter((q) => q !== job);
+    notes.push(`shoot ${job.shoot} pushed to Kaggle`);
+  }
+  // A shoot nobody could render today is dropped rather than piling up.
+  state.queue = state.queue.filter((q) => !(q.shoot && q.date !== day && Date.now() - (state.shoots?.[q.shoot]?.started || 0) > 20 * 3600 * 1000));
+  return notes;
 }
 
 async function advanceJobs(env, p, origin) {
@@ -1054,8 +1209,12 @@ async function advanceJobs(env, p, origin) {
     notes.push("laptop quiet: its job goes to Kaggle");
   }
   if (laptopUp && state.queue.length) notes.push("laptop up: new jobs wait for it");
+  if (isRoster(p)) {
+    const n = await advanceShoots(env, p, state, laptopUp);
+    if (n.length) { notes.push(...n); changed = true; }
+  }
   // The day's render waiting for a laptop that went quiet: Kaggle renders it.
-  const renderJob = state.queue.find((q) => q.kind === "render");
+  const renderJob = !isRoster(p) && state.queue.find((q) => q.kind === "render");
   if (renderJob && !laptopUp) {
     await pushRender(env, p, renderJob.scenes);
     state.queue = state.queue.filter((q) => q !== renderJob);
@@ -1099,10 +1258,14 @@ async function advanceJobs(env, p, origin) {
         changed = true;
       } else { notes.push(`${name} ${s}`); continue; }
     }
-    const batch = laptopUp ? [] : state.queue.filter(lane.takes).slice(0, lane.max);
+    // One character per Kaggle run (her dataset is the one mounted); jobs on media
+    // someone sent by hand in a roster channel never leave the laptop.
+    const ready = laptopUp ? [] : state.queue.filter(lane.takes).filter((q) => !q.local_only);
+    const who = ready.length ? charOf(p, ready[0]) : null;
+    const batch = ready.filter((q) => charOf(p, q) === who).slice(0, lane.max);
     if (!batch.length) continue;
     const jobs = await jobPayload(env, origin, state, batch);
-    await kaggle.push(env, kernel, kaggle.bootstrap({ ...basePayload(env, p), mode: "video", jobs }), [dataset(env, p)]);
+    await kaggle.push(env, kernel, kaggle.bootstrap({ ...basePayload(env, p, who), mode: "video", jobs }), [dataset(env, who)]);
     state.lanes[name] = batch;
     state.lane_started = { ...(state.lane_started || {}), [name]: Date.now() };
     const taken = new Set(batch.map((q) => q.id));
@@ -1127,7 +1290,9 @@ export async function onPersonaSchedule(event, env) {
   }
   for (const p of await personas.list(env)) {
     try {
-      if ((h === 2 && m >= 30) || (h === 3 && m < 30)) console.log(await render(env, p));
+      if (isRoster(p)) {
+        if ((p.shoot_hours || [5, 7, 9, 11, 13]).includes(h) && m < 15) console.log(await shoot(env, p));
+      } else if ((h === 2 && m >= 30) || (h === 3 && m < 30)) console.log(await render(env, p));
       else if (POST_HOURS.includes(h) && m < 15) console.log(await post(env, p, POST_HOURS.indexOf(h)));
       console.log(await advanceJobs(env, p, origin));
       const state = await st.load(env, p.slug);
