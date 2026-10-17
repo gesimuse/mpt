@@ -117,6 +117,16 @@ def deliver(work, r):
         data, ctype = _multipart({"result": json.dumps(r)}, files)
         return _call("/persona/admin/laptop/result", data=data, content_type=ctype, timeout=300)
     m = _call("/persona/admin/laptop/prepare", {"result": r, "item": item})
+    if m.get("edit"):
+        # 🔁: the redrawn photo replaces the old one in its own message.
+        try:
+            sent = _telegram("editMessageMedia", {
+                "chat_id": m["chat"], "message_id": m["edit"], "reply_markup": json.dumps(m["buttons"]),
+                "media": json.dumps({"type": "photo", "media": "attach://file", "caption": m["caption"][:1024]})},
+                {"file": work / "items" / item["path"]})
+            return _call("/persona/admin/laptop/result", {"result": r, "item": item, "sent": sent})
+        except Exception as e:
+            log(f"in-place replace failed ({e}); posting it instead")
     fields = {"chat_id": m["chat"], "caption": m["caption"][:1024], "reply_markup": json.dumps(m["buttons"])}
     if m.get("replyTo"):
         # Posted anyway if the message it answers was deleted (Telegram: "message to

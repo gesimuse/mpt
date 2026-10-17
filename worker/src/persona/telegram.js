@@ -51,3 +51,23 @@ export async function sendMedia(env, kind, chatId, src, { caption = "", buttons,
 export function kb(rows) {
   return { inline_keyboard: rows.map((row) => row.map(([text, data]) => ({ text, callback_data: data }))) };
 }
+
+/** Replace a message's photo in place (🔁), from a URL or Blob; returns the edited message. */
+export async function editPhoto(env, chatId, messageId, src, { caption = "", buttons } = {}) {
+  let blob = src;
+  if (typeof src === "string") {
+    const file = await fetch(src);
+    if (!file.ok) throw new Error(`download ${file.status}`);
+    blob = new Blob([await file.arrayBuffer()]);
+  }
+  const form = new FormData();
+  form.append("chat_id", String(chatId));
+  form.append("message_id", String(messageId));
+  form.append("media", JSON.stringify({ type: "photo", media: "attach://file", caption: caption.slice(0, 1024) }));
+  if (buttons) form.append("reply_markup", JSON.stringify(buttons));
+  form.append("file", blob, "photo.jpg");
+  const r = await fetch(`https://api.telegram.org/bot${env.PERSONA_BOT_TOKEN}/editMessageMedia`, { method: "POST", body: form });
+  const body = await r.json();
+  if (!body.ok) throw new Error(`editMessageMedia: ${JSON.stringify(body).slice(0, 200)}`);
+  return body.result;
+}

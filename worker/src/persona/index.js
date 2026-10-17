@@ -30,7 +30,7 @@ import * as scenes from "./scenes.js";
 import * as personas from "./personas.js";
 import * as social from "./social.js";
 import * as captions from "./captions.js";
-import { tg, answer, sendMedia, kb } from "./telegram.js";
+import { tg, answer, sendMedia, editPhoto, kb } from "./telegram.js";
 
 const POST_HOURS = [6, 9, 12, 15, 18];
 const ROLES = { cast: "qwen21", edit: "qwen21", fanvue_edit: "qwen21-uncensored", video: "wan22-i2v-calm" };
@@ -774,12 +774,14 @@ function faceLine(face) {
 /** How a finished job is posted: {kind: "photo"|"video"|"text", caption|text, buttons, chat, replyTo}. */
 function resultMessage(b, r, item) {
   if (r.ok && r.kind === "image" && r.carousel) {
-    return { kind: "photo", chat: r.chat, replyTo: r.message_id,
+    // A 🔁 of one shot replaces it in its own message.
+    return { kind: "photo", chat: r.chat, replyTo: r.message_id, edit: r.replace ? r.message_id : null,
              caption: `🖼 another angle of #${r.carousel}\n🎭 ${item?.scene?.angle || ""}\n#${r.id}`,
              buttons: kb([[["👎", `pv:dn:${r.id}`], ["🔁 Redo this angle", `pv:redo:${r.id}`]]]) };
   }
   if (r.ok && r.kind === "image") {
-    return { kind: "photo", chat: r.chat, replyTo: r.message_id, caption: "🔁 " + caption(b.name, item), buttons: buttons(item) };
+    return { kind: "photo", chat: r.chat, replyTo: r.message_id, edit: r.redo ? r.message_id : null,
+             caption: "🔁 " + caption(b.name, item), buttons: buttons(item) };
   }
   if (r.ok) {
     const cap = r.recreate ? `🎭 ${b.name} · recreated${faceLine(item?.face)}` : `🎬 ${b.name}\n${(r.motion || "").slice(0, 300)}`;
@@ -817,11 +819,8 @@ async function carouselProgress(env, state, r) {
     // 🔁 on one angle: the new one takes its place in the set.
     set.ids = set.ids.map((id) => (id === r.replace ? r.id : id));
     state.carousels[r.carousel] = set;
-    if (set.offered) {
-      await tg(env, "sendMessage", { chat_id: r.chat, reply_to_message_id: r.message_id,
-        text: "🔁 Angle redone and swapped into the carousel. Tap 🖼 Post carousel when you're happy.",
-        reply_markup: kb([[["🖼 Post carousel", `pv:carpub:${r.carousel}`]]]) });
-    }
+    // The shot was replaced in its own message; the existing "Post carousel"
+    // button now posts the new set.
     return;
   }
   if (!set.ids.includes(r.id)) set.ids.push(r.id);
@@ -871,7 +870,12 @@ async function postResult(env, state, b, r, item, file) {
     await carouselProgress(env, state, r);
     return;
   }
-  const sent = await sendMedia(env, m.kind, m.chat, file, { caption: m.caption, buttons: m.buttons, replyTo: m.replyTo });
+  let sent = null;
+  if (m.edit) {
+    sent = await editPhoto(env, m.chat, m.edit, file, { caption: m.caption, buttons: m.buttons })
+      .catch((e) => { console.error("in-place replace failed", String(e).slice(0, 200)); return null; });
+  }
+  if (!sent) sent = await sendMedia(env, m.kind, m.chat, file, { caption: m.caption, buttons: m.buttons, replyTo: m.replyTo });
   recordResult(state, r, item, sent);
   await carouselProgress(env, state, r);
 }

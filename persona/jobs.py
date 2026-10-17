@@ -117,7 +117,7 @@ def redo(job, char, studio, out):
             item["path"] = dest.name
             (out / f"{item['id']}.json").write_text(json.dumps(item, ensure_ascii=False))
         results.append({"request": job["id"], "id": item["id"], "ok": bool(item.get("ok")), "kind": "image",
-                        "reason": item.get("reason"), **_reply(job)})
+                        "redo": True, "reason": item.get("reason"), **_reply(job)})
         log(f"redo {item['id']} for request {job['id']}: {'ok' if item.get('ok') else item.get('reason')}")
     return results
 
