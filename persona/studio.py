@@ -204,7 +204,12 @@ class Studio:
                     good, why = False, info.get("reason", "face check")
                     log(f"{item['id']}: face check FAILED {why}")
                 log(f"{item['id']}: anatomy check failed ({why}), attempt {attempt + 1}/{tries}")
-                path.unlink(missing_ok=True)
+                # Kept (local only, last 40) so rejections can be looked at later.
+                rej = char.dir / "rejected"
+                rej.mkdir(exist_ok=True)
+                shutil.move(str(path), rej / f"{item['id']}-{attempt}.jpg")
+                for old in sorted(rej.glob("*.jpg"), key=lambda f: f.stat().st_mtime)[:-40]:
+                    old.unlink(missing_ok=True)
                 path, reason = None, f"anatomy check: {why}"
             if path is None:
                 yield char.update_item(item["id"], status="failed", ok=False, reason=reason)
