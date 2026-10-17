@@ -682,7 +682,19 @@ async function onAdmin(request, env) {
     if (what === "post") return new Response(await post(env, p, Number(u.searchParams.get("slot") || 4)));
     if (what === "jobs") return new Response(await advanceJobs(env, p, u.origin));
     if (what === "shoot") return new Response(await shoot(env, p, u.searchParams.get("character")));
-    if (what === "draft") { await onDraftSchedule(null, env); return new Response("draft step done"); }
+    if (what === "draft") {
+      // now=1: the inbox was just cleared, so drafts waiting on TikTok go without the hourly wait.
+      if (u.searchParams.get("now")) {
+        for (const p of (await personas.list(env)).filter(isRoster)) {
+          const state = await st.load(env, p.slug);
+          const waiting = Object.values(state.shoots || {}).filter((sh) => sh.retry_at);
+          waiting.forEach((sh) => delete sh.retry_at);
+          if (waiting.length) await st.save(env, p.slug, state);
+        }
+      }
+      await onDraftSchedule(null, env);
+      return new Response("draft step done");
+    }
   }
   if (u.pathname === "/persona/admin/laptop/claim" && request.method === "POST") return laptopClaim(request, env, u.origin);
   if (u.pathname === "/persona/admin/laptop/result" && request.method === "POST") return laptopResult(request, env);
