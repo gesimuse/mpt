@@ -9,7 +9,7 @@ from pathlib import Path
 import shutil
 import time
 
-from . import config, faceid, qa, registry, scenes
+from . import config, faceid, proportions, qa, registry, scenes
 
 
 def log(msg):
@@ -194,6 +194,8 @@ class Studio:
                     reason = str(e)[:300]
                     break
                 good, why, counts = qa.check(path)
+                if good:
+                    good, why, counts["proportions"] = proportions.check(path)
                 log(f"{item['id']}: anatomy check {'passed' if good else 'FAILED'} {why} {counts}")
                 if good:
                     # Off-model faces are redrawn too, not just dropped. A turned head

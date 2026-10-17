@@ -305,7 +305,8 @@ def write(char, lane="social", hint="", n=1, chunk=4):
 
 # ------------------------------------------------------------------------ prompts
 REALISM = ("photorealistic Instagram model photo, professional photoshoot quality, flattering light, "
-           "natural skin texture, shallow depth of field, sharp focus, no text, no watermark")
+           "natural skin texture, shallow depth of field, sharp focus, no text, no watermark, camera at her "
+           "chest height with a 50mm lens, true-to-life head-to-body proportions")
 
 
 def scene_prompt(char, scene, lane, n_refs, style="qwen"):

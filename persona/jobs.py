@@ -229,7 +229,7 @@ def carousel(job, char, studio, out, inp):
     light, a new pose and head angle. Drawn from the scene text instead (the first
     version), every angle came out in a different outfit and body (2026-10-16)."""
     import random
-    from . import faceid, qa, scenes
+    from . import faceid, proportions, qa, scenes
     src = inp / f"{job['id']}-original.jpg"
     if job.get("image_url"):
         fetch(job["image_url"], src, timeout=120)
@@ -281,6 +281,8 @@ def carousel(job, char, studio, out, inp):
                                        refs=[str(src)] + [str(f) for f in front],
                                        negative=scenes.negative(char, "social"))
             good, why, _ = qa.check(path)
+            if good:
+                good, why, _ = proportions.check(path)
             if good and _background_drift(src, path) > 0.5:
                 good, why = False, "background changed"
             if good:
