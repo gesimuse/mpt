@@ -243,7 +243,7 @@ def carousel(job, char, studio, out, inp):
                   "the framing are different from image 1; her face, hair, outfit and the place stay the same. "
                   "She is the only person in the photo.")
         path, why = None, ""
-        for attempt in range(2):
+        for attempt in range(3):
             path = studio.engine.image(model, prompt, char.dir / "items", item["id"],
                                        refs=[str(src)] + [str(f) for f in front],
                                        negative=scenes.negative(char, "social"))

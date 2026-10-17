@@ -773,6 +773,10 @@ function resultMessage(b, r, item) {
     return { kind: "video", chat: r.chat, replyTo: r.message_id, caption: `${cap}\n#${r.id}`,
              buttons: kb([[["👍", `pv:up:${r.id}`], ["👎", `pv:dn:${r.id}`]]]) };
   }
+  if (r.carousel) {
+    return { kind: "text", chat: r.chat, replyTo: r.message_id,
+             text: `🖼 One carousel shot didn't pass the checks (${String(r.reason).slice(0, 120)}); the carousel goes ahead with the others. Reply "carousel" for more.` };
+  }
   return { kind: "text", chat: r.chat, replyTo: r.message_id,
            text: `❌ ${r.kind === "image" ? "Redraw" : r.recreate ? "Recreate" : "Video"} failed: ${String(r.reason).slice(0, 300)}` };
 }
@@ -782,8 +786,20 @@ function resultMessage(b, r, item) {
  * original photo offers to post photo + angles as one Instagram carousel.
  */
 async function carouselProgress(env, state, r) {
-  if (!r.carousel || !r.ok) return;
+  if (!r.carousel) return;
   const set = (state.carousels = state.carousels || {})[r.carousel] || { ids: [] };
+  if (!r.ok) {
+    // A shot that failed its checks: offer the carousel with the shots that worked.
+    set.failed = (set.failed || 0) + 1;
+    state.carousels[r.carousel] = set;
+    if (set.ids.length && !set.offered && set.ids.length + set.failed >= 2) {
+      set.offered = true;
+      await tg(env, "sendMessage", { chat_id: r.chat, reply_to_message_id: r.message_id,
+        text: `🖼 Carousel ready: this photo + ${set.ids.length} more. Tap to post them as one Instagram carousel.`,
+        reply_markup: kb([[["🖼 Post carousel", `pv:carpub:${r.carousel}`]]]) });
+    }
+    return;
+  }
   if (r.replace && set.ids.includes(r.replace)) {
     // 🔁 on one angle: the new one takes its place in the set.
     set.ids = set.ids.map((id) => (id === r.replace ? r.id : id));
@@ -797,7 +813,7 @@ async function carouselProgress(env, state, r) {
   }
   if (!set.ids.includes(r.id)) set.ids.push(r.id);
   state.carousels[r.carousel] = set;
-  if (set.ids.length < 2 || set.offered) return;
+  if (set.ids.length + (set.failed || 0) < 2 || set.offered) return;
   set.offered = true;
   await tg(env, "sendMessage", { chat_id: r.chat, reply_to_message_id: r.message_id,
     text: `🖼 Carousel ready: this photo + ${set.ids.length} more angles. Tap to post them as one Instagram carousel.`,
@@ -839,6 +855,7 @@ async function postResult(env, state, b, r, item, file) {
   const m = resultMessage(b, r, item);
   if (m.kind === "text") {
     await tg(env, "sendMessage", { chat_id: m.chat, reply_to_message_id: m.replyTo, text: m.text });
+    await carouselProgress(env, state, r);
     return;
   }
   const sent = await sendMedia(env, m.kind, m.chat, file, { caption: m.caption, buttons: m.buttons, replyTo: m.replyTo });
