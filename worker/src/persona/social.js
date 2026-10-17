@@ -123,7 +123,7 @@ export async function advance(env, p, job, mediaUrl) {
     } catch (e) {
       const msg = String(e.message || e);
       if (/too many requests|rate limit|429/i.test(msg)) {
-        job.retry_at = now + 10 * 60 * 1000;
+        job.retry_at = now + 60 * 60 * 1000;  // Buffer escalates to a 24h block when hammered
         continue;
       }
       job[key] = { ...(cur || {}), status: "failed", note: msg.slice(0, 200) };
