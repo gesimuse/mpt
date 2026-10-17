@@ -167,8 +167,15 @@ def check(path):
         counts = _ask(path, QA_PROMPT, 1024)
         # Confirmed by a second, concrete question: alone, the twist question rejected
         # 14 good full-body MPT photos in two shoots (2026-10-17, hand-on-hip glam poses).
-        counts["head_turned_unnaturally"] = (bool(_ask(path, TWIST_PROMPT, 2048).get("body_twisted_impossibly"))
-                                             and bool(_ask(path, OWL_PROMPT, 2048).get("face_over_back")))
+        # The vision model's yes needs the pose model to agree (proportions.twisted:
+        # back to the camera, face looking at it); where the pose model is missing
+        # (Kaggle), a second concrete question has to.
+        twist = bool(_ask(path, TWIST_PROMPT, 2048).get("body_twisted_impossibly"))
+        if twist:
+            from . import proportions
+            geo = proportions.twisted(path)
+            twist = geo if geo is not None else bool(_ask(path, OWL_PROMPT, 2048).get("face_over_back"))
+        counts["head_turned_unnaturally"] = twist
         ok, reason = verdict(counts)
         return ok, reason, counts
     except Exception as e:

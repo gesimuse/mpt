@@ -90,6 +90,32 @@ def check(path):
     return True, "", m
 
 
+def twisted(path):
+    """True when her back faces the camera (shoulders swapped: her right shoulder on
+    the image's right) while her face looks straight at it -- the head turned round
+    over her back. False when not, None when it can't tell. Replaces the vision
+    model's twist question, which called 15 of 18 hip-pop glam poses twisted
+    (2026-10-17)."""
+    import cv2
+    import numpy as np
+    wb = _model()
+    if not wb:
+        return None
+    K, S, det = wb(cv2.imread(str(path)))
+    if not len(det):
+        return None
+    i = int(np.argmax([(d[2] - d[0]) * (d[3] - d[1]) for d in det]))
+    k, s = K[i], S[i]
+    # 2 right shoulder, 5 left; face points 24+36 / 24+45 eye corners, 24+30 nose tip.
+    if min(s[2], s[5], s[60], s[69], s[54]) < 0.4:
+        return None
+    width = float(np.linalg.norm(k[2] - k[5]))
+    back_to_camera = (k[2][0] - k[5][0]) > 0.3 * width
+    eyes = sorted([k[60][0], k[69][0]])
+    frontal = eyes[0] < k[54][0] < eyes[1] and (eyes[1] - eyes[0]) > 0.25 * width
+    return bool(back_to_camera and frontal)
+
+
 if __name__ == "__main__":
     for f in sys.argv[1:]:
-        print(f, check(f))
+        print(f, check(f), "twisted:", twisted(f))
