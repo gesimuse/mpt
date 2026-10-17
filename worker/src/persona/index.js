@@ -363,12 +363,21 @@ async function onTap(env, p, cq, state, origin) {
   // Which carousel a shot belongs to: its own mark, else the carousel sets (shots
   // made before the mark existed, or whose mark a lost save dropped).
   const carouselOf = state.items[itemId]?.carousel_of
-    || Object.entries(state.carousels || {}).find(([, set]) => (set.ids || []).includes(itemId))?.[0];
+    || Object.entries(state.carousels || {}).find(([, set]) => (set.ids || []).includes(itemId))?.[0]
+    || /another angle of #([\w-]+)/.exec(msg.caption || "")?.[1];
   if (act === "redo" && carouselOf) {
     // 🔁 on a carousel angle: a new angle of the same original photo replaces it.
     const parent = carouselOf;
     const fileId = state.items[parent]?.file_id;
-    if (!fileId) return answer(env, cq.id, "Can't: the original photo isn't known.");
+    if (!fileId) {
+      await tg(env, "sendMessage", { chat_id: chat, reply_to_message_id: msg.message_id,
+        text: "⚠️ Can't redo this shot: its original photo isn't known any more. Reply \"carousel\" to the original photo for new shots." }).catch(() => {});
+      return answer(env, cq.id, "Can't: the original photo isn't known.");
+    }
+    state.carousels = state.carousels || {};
+    const set = state.carousels[parent] || { ids: [], offered: true };
+    if (!set.ids.includes(itemId)) set.ids.push(itemId);
+    state.carousels[parent] = set;
     state.queue.push({ id: `${parent}-car${Date.now()}`, kind: "carousel", item: parent, scene: state.items[parent]?.scene || {},
                        file_id: fileId, count: 1, replace: itemId, chat, message_id: msg.message_id });
     return answer(env, cq.id, "🔁 Redrawing this angle (~10 min).");
