@@ -1157,7 +1157,18 @@ async function shootDone(env, p, state, shootId) {
     await tg(env, "sendMessage", { chat_id: p.chat_id,
       text: `📥 ${b.name}'s shoot (${sh.ids.length} photos) is in the TikTok inbox as a draft -- add a sound and post.\n\n${posts.tiktok.text}` });
   } catch (e) {
-    sh.draft_error = String(e.message || e).slice(0, 200);
+    const msg = String(e.message || e).slice(0, 200);
+    if (/too_many_pending|rate_limit|spam_risk/i.test(msg)) {
+      // TikTok's inbox is full of unposted drafts: retried every hour until there
+      // is room (post or delete drafts in the app), told once.
+      if (!sh.retry_at) {
+        await tg(env, "sendMessage", { chat_id: p.chat_id,
+          text: `⏳ ${b.name}'s shoot waits for room in the TikTok inbox (too many unposted drafts). Post or delete some drafts in the app; it retries every hour.` }).catch(() => {});
+      }
+      sh.retry_at = Date.now() + 3600 * 1000;
+      return true;
+    }
+    sh.draft_error = msg;
     await tg(env, "sendMessage", { chat_id: p.chat_id, text: `❌ ${b.name}'s shoot: TikTok draft failed: ${sh.draft_error}` }).catch(() => {});
   }
   return true;
@@ -1168,14 +1179,15 @@ export async function onDraftSchedule(event, env) {
   for (const p of await personas.list(env)) {
     if (!isRoster(p)) continue;
     const state = await st.load(env, p.slug);
-    const pending = Object.entries(state.shoots || {}).find(([, sh]) => sh.finished && !sh.draft && !sh.draft_error);
+    const pending = Object.entries(state.shoots || {})
+      .find(([, sh]) => sh.finished && !sh.draft && !sh.draft_error && !(sh.retry_at && Date.now() < sh.retry_at));
     if (!pending) continue;
     if (await shootDone(env, p, state, pending[0])) {
       // Saved onto the current state: other writers may have moved meanwhile.
       const now = await st.load(env, p.slug);
       if (now.shoots?.[pending[0]]) {
         const sh = state.shoots[pending[0]];
-        Object.assign(now.shoots[pending[0]], { urls: sh.urls, draft: sh.draft, draft_error: sh.draft_error });
+        Object.assign(now.shoots[pending[0]], { urls: sh.urls, draft: sh.draft, draft_error: sh.draft_error, retry_at: sh.retry_at });
         await st.save(env, p.slug, now);
       }
     }
