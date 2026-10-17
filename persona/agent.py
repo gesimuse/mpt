@@ -94,11 +94,11 @@ def deliver(work, r):
     """Post one result. Photos/videos go to Telegram from here (caption and buttons
     from the Worker), then the Worker is told what was sent; large videos pushed
     through the Worker failed with HTTP 500."""
+    if r.get("kind") == "render-done":  # no photo of its own
+        return _call("/persona/admin/laptop/result", {"result": r})
     item = None
     if r.get("ok"):
         item = json.loads((work / "items" / f"{r['id']}.json").read_text())
-    if r.get("kind") == "render-done":
-        return _call("/persona/admin/laptop/result", {"result": r})
     if r.get("render"):
         # A daily-render photo/Reel, kept by the Worker for the day's post slots as a
         # Telegram file reference: uploaded silently to her channel and deleted at
