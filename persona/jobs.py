@@ -182,22 +182,39 @@ def render(job, char, studio, out):
 
 # Carousel moves: what changes between the photos of one shoot.
 CAROUSEL_POSES = [
-    "sitting down on something nearby, legs crossed",
-    "leaning back against the wall or a railing behind her",
-    "standing turned sideways to the camera, one hand in her hair",
-    "taking a slow step toward the camera",
-    "standing with both hands on her hips, weight on one leg",
-    "looking back over her shoulder, body turned slightly away",
-    "with one hand touching her necklace or collar, relaxed",
-    "sitting on the edge of a ledge or table, leaning forward slightly",
+    "one hand in her hair, weight shifted onto one hip",
+    "arms loosely crossed, relaxed",
+    "laughing with her head tilted back a little, one hand at her collarbone",
+    "turned side-on to the camera, chin slightly down, looking toward the lens",
+    "both hands lifting her hair",
+    "hands clasped loosely in front of her, shoulders relaxed",
+    "one hand on her hip, the other relaxed at her side",
+    "touching her earring, looking off to the side",
 ]
+# Camera moves that stay in the same spot. A wide full-body shot stretched her
+# proportions and a tight close-up was a near copy of the original (2026-10-17).
 CAROUSEL_SHOTS = [
-    "closer, from the chest up",
-    "wider, showing more of the place around her, full body",
-    "from slightly lower, looking up at her",
-    "from a little to her side, three-quarter view of the scene",
-    "waist-up, the camera moved to the other side of her",
+    "from a step to her left, waist-up",
+    "from a step to her right, waist-up",
+    "slightly lower camera, head to knees",
+    "slightly higher camera, waist-up",
 ]
+
+
+def _background_drift(a, b):
+    """0 = same surroundings, 1 = different: colour histograms of the image border
+    (top and side strips, where the background is), so a carousel shot that moved
+    her somewhere else is redrawn."""
+    import numpy as np
+    from PIL import Image
+    def border(p):
+        im = np.asarray(Image.open(p).convert("HSV").resize((128, 160)), dtype=np.float32)
+        strips = [im[:32], im[:, :20].reshape(-1, 20, 3), im[:, -20:].reshape(-1, 20, 3)]
+        px = np.concatenate([x.reshape(-1, 3) for x in strips])
+        h, _ = np.histogramdd(px[:, :2], bins=(18, 8), range=((0, 256), (0, 256)))
+        return h.ravel() / max(1, h.sum())
+    ha, hb = border(a), border(b)
+    return float(1 - np.minimum(ha, hb).sum())
 
 
 def carousel(job, char, studio, out, inp):
@@ -226,7 +243,6 @@ def carousel(job, char, studio, out, inp):
     random.shuffle(exprs)
     model = studio.model("edit", lane="social")
     poses = random.sample(CAROUSEL_POSES, len(CAROUSEL_POSES))
-    shots = random.sample(CAROUSEL_SHOTS, len(CAROUSEL_SHOTS))
     front = [p for p in char.refs() if p.name.startswith("01-")][:1]
     emb = faceid.reference_embedding(char.refs())
     results = []
@@ -234,13 +250,15 @@ def carousel(job, char, studio, out, inp):
         item = char.new_item(kind="image", lane="social", model=model["id"],
                              scene=dict(base, angle=a[0], expression=e[0], angle_sheet=a[1]),
                              tags=base.get("tags", []), caption=base.get("caption", ""))
-        pose, shot = poses.pop(), shots.pop()
+        pose = poses.pop()
         # Pose and camera change too: told to keep "body and framing", the edit only
         # turned her head and the rest of the photo stayed identical (2026-10-16).
-        prompt = ("A new photo from the same photo shoot as image 1: the same woman, wearing exactly the same "
-                  "outfit (same garments, colours and fit), in the same location with the same lighting. "
-                  f"This time she is {pose}, {a[0]}, {e[0]}. Camera: {shot}. Her pose, the camera position and "
-                  "the framing are different from image 1; her face, hair, outfit and the place stay the same. "
+        # The camera stays where it was: asked to move it ("a step to her left"), the
+        # model re-imagined the place (a sunflower field became a room, 2026-10-17).
+        prompt = ("The next photo from the same photo shoot as image 1, taken from the SAME camera position "
+                  "with the same framing: the same woman, wearing exactly the same outfit (same garments, colours "
+                  "and fit), in exactly the same place with the same background and lighting. Only she moves: "
+                  f"this time she is {pose}, {a[0]}, {e[0]}. Everything around her stays exactly as in image 1. "
                   "She is the only person in the photo.")
         path, why = None, ""
         for attempt in range(3):
@@ -248,6 +266,8 @@ def carousel(job, char, studio, out, inp):
                                        refs=[str(src)] + [str(f) for f in front],
                                        negative=scenes.negative(char, "social"))
             good, why, _ = qa.check(path)
+            if good and _background_drift(src, path) > 0.5:
+                good, why = False, "background changed"
             if good:
                 ok, info = faceid.check(path, emb, min_sim=0.5)
                 if ok:
