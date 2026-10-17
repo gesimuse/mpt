@@ -27,9 +27,12 @@ function outfitFor(place, used) {
   return pick(free.length ? free : pool);
 }
 
-function seeds(state, n) {
+function seeds(state, n, taken = []) {
   const recent = state.recent.slice(-40).join(" ").toLowerCase();
-  const places = [], outfits = [], usedPlaces = new Set(), usedOutfits = new Set();
+  // `taken`: scenes already written in this batch -- their places and outfits are
+  // not repeated (a shoot had the same pool and bikini twice, 2026-10-17).
+  const places = [], outfits = [], usedPlaces = new Set(taken.map((t) => t.place)),
+        usedOutfits = new Set(taken.map((t) => t.outfit));
   for (let i = 0; i < n; i++) {
     const free = IDEAS.places.filter((p) => !recent.includes(p.toLowerCase()) && !usedPlaces.has(p));
     const place = pick(free.length ? free : IDEAS.places);
@@ -47,7 +50,7 @@ function leaning(state) {
            disliked: ranked.filter(([, v]) => v < 0).slice(-6).map(([t]) => t) };
 }
 
-function prompt(b, state, places, outfits) {
+function prompt(b, state, places, outfits, sexy = false) {
   const { liked, disliked } = leaning(state);
   const story = state.story.slice(-8).map((s) => `- ${s.beat}`).join("\n") || "- (nothing yet)";
   const recent = state.recent.slice(-30).map((r) => `- ${r}`).join("\n") || "- (none yet)";
@@ -61,11 +64,14 @@ ${story}
 People liked: ${liked.join(", ") || "no data yet"}.
 People did not like: ${disliked.join(", ") || "no data yet"}.
 
-She is a glamorous Instagram fashion and travel model and every photo is a flattering shoot of
+${sexy ? `She is a glamorous, sexy social-media model and every photo is a flattering shoot of HER, not a
+travel photo: she is the subject, filling most of the frame. Outfits are figure-flattering and
+revealing (bikinis, crop tops, mini dresses, low-cut tops), but there is NO nudity. Poses are
+confident, model-like and flirty.` : `She is a glamorous Instagram fashion and travel model and every photo is a flattering shoot of
 HER, not a travel photo: she is the subject, filling most of the frame. Outfits are stylish and
 flattering -- never lingerie, underwear or see-through; swimwear only at the beach or pool. Poses
 are confident and elegant, never sexual, never lying in bed (Instagram does not recommend
-sexually suggestive posts to people who don't follow her).
+sexually suggestive posts to people who don't follow her).`}
 
 Write ${n} NEW scenes, one per place and outfit, in this order: ${pairs}.
 Do not describe her face or hair; that is fixed.
@@ -133,15 +139,16 @@ function assignGazes(list) {
 }
 
 /** n scenes, in chunks of 4 (an 8B model breaks long JSON), each chunk retried once. */
-export async function write(env, b, state, n) {
-  const out = [];
+export async function write(env, b, state, n, { sexy = false } = {}) {
+  const out = [], taken = [];
   while (out.length < n) {
     const k = Math.min(4, n - out.length);
-    const { places, outfits } = seeds({ ...state, recent: [...state.recent, ...out.map((s) => s.setting)] }, k);
+    const { places, outfits } = seeds({ ...state, recent: [...state.recent, ...out.map((s) => s.setting)] }, k, taken);
+    taken.push(...places.map((place, i) => ({ place, outfit: outfits[i] })));
     let got = null;
     for (let attempt = 0; attempt < 2 && !got; attempt++) {
       try {
-        const r = await env.AI.run(MODEL, { messages: [{ role: "user", content: prompt(b, state, places, outfits) }],
+        const r = await env.AI.run(MODEL, { messages: [{ role: "user", content: prompt(b, state, places, outfits, sexy) }],
                                             max_tokens: 2000, temperature: 0.9 });
         got = parse(text(r), k);
       } catch (e) {

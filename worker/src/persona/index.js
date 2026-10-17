@@ -1107,7 +1107,8 @@ async function shoot(env, p) {
   const character = nextCharacter(p, state);
   const b = await st.bible(env, character);
   if (!b) { await st.save(env, p.slug, state); return `${p.slug}: no bible for ${character} (persona.cli sync)`; }
-  const list = await scenes.write(env, b, state, Number(p.photos || 10));
+  // MPT stays sexy (its girls' choice, 2026-10-17); Lena's Instagram lane does not.
+  const list = await scenes.write(env, b, state, Number(p.photos || 10), { sexy: p.style !== "recommendable" });
   state.recent.push(...list.map((x) => `${x.setting} / ${x.outfit} / ${x.action}`));
   const id = `shoot-${character}-${Date.now()}`;
   state.shoots = state.shoots || {};
