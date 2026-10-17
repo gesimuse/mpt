@@ -102,13 +102,26 @@ async function poll(env, p, rec) {
  * done or failed. Failures are recorded on the job, not thrown.
  */
 export async function advance(env, p, job, mediaUrl) {
+  const now = Date.now();
+  // Buffer rate-limits: polling every scheduled post on every 30s laptop check-in
+  // got "Too many requests" (2026-10-17). Nothing to check before a post is due,
+  // and after that at most every 5 minutes; a rate limit waits and retries.
+  if (job.retry_at && now < job.retry_at) return job;
   for (const [key, platform] of [["ig", "instagram"], ["tt", "tiktok"]]) {
     const cur = job[key];
     try {
       if (!cur) job[key] = await start(env, p, job, platform, mediaUrl);
-      else if (cur.status === "processing") job[key] = await poll(env, p, cur);
+      else if (cur.status === "processing") {
+        if ((job.due || 0) > now || now - (cur.polled_at || 0) < 5 * 60 * 1000) continue;
+        job[key] = { ...(await poll(env, p, cur)), polled_at: now };
+      }
     } catch (e) {
-      job[key] = { ...(cur || {}), status: "failed", note: String(e.message || e).slice(0, 200) };
+      const msg = String(e.message || e);
+      if (/too many requests|rate limit|429/i.test(msg)) {
+        job.retry_at = now + 10 * 60 * 1000;
+        continue;
+      }
+      job[key] = { ...(cur || {}), status: "failed", note: msg.slice(0, 200) };
     }
   }
   job.tries = (job.tries || 0) + 1;
