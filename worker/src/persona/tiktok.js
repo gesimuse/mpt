@@ -52,38 +52,38 @@ async function hostAll(env, photos) {
     if (!r.ok) throw new Error(`GitHub ${method} ${path}: ${r.status} ${(await r.text()).slice(0, 150)}`);
     return r.json();
   };
-  const ref = await gh("/git/ref/heads/gh-pages");
-  const head = await gh(`/git/commits/${ref.object.sha}`);
   const tree = [];
   for (const ph of photos) {
     const blob = await gh("/git/blobs", "POST", { content: b64(ph.bytes), encoding: "base64" });
     tree.push({ path: `media/${ph.name}`, mode: "100644", type: "blob", sha: blob.sha });
   }
-  const t = await gh("/git/trees", "POST", { base_tree: head.tree.sha, tree });
-  const c = await gh("/git/commits", "POST", { message: `media: ${photos.length} shoot photos`, tree: t.sha, parents: [ref.object.sha] });
-  await gh("/git/refs/heads/gh-pages", "PATCH", { sha: c.sha });
+  // The autopilot also commits to gh-pages: if the branch moved under us ("not a
+  // fast forward"), build the commit again on its new head.
+  for (let attempt = 0; ; attempt++) {
+    const ref = await gh("/git/ref/heads/gh-pages");
+    const head = await gh(`/git/commits/${ref.object.sha}`);
+    const t = await gh("/git/trees", "POST", { base_tree: head.tree.sha, tree });
+    const c = await gh("/git/commits", "POST", { message: `media: ${photos.length} shoot photos`, tree: t.sha, parents: [ref.object.sha] });
+    try {
+      await gh("/git/refs/heads/gh-pages", "PATCH", { sha: c.sha });
+      break;
+    } catch (e) {
+      if (attempt >= 2 || !/fast forward/i.test(String(e))) throw e;
+    }
+  }
   const base = env.PAGES_BASE_URL.replace(/\/$/, "");
   return photos.map((ph) => `${base}/media/${ph.name}`);
 }
 
-/** Wait until GitHub Pages serves every URL (TikTok's fetch fails on a 404). */
-async function waitLive(urls, timeoutMs = 480000) {
-  const end = Date.now() + timeoutMs;
-  while (Date.now() < end) {
-    const codes = await Promise.all(urls.map((u) => fetch(u, { method: "HEAD" }).then((r) => r.status).catch(() => 0)));
-    if (codes.every((c) => c === 200)) return true;
-    await new Promise((res) => setTimeout(res, 10000));
-  }
-  return false;
+export { hostAll };
+
+/** Whether gh-pages already serves the photos (the last URL stands for the commit). */
+export async function live(urls) {
+  return fetch(urls[urls.length - 1], { method: "HEAD" }).then((r) => r.status === 200).catch(() => false);
 }
 
-/**
- * `photos`: [{name, bytes: ArrayBuffer}] in order. Returns the publish_id of the
- * inbox draft (the account owner adds a sound and posts it from the app).
- */
-export async function photoDraft(env, slug, photos, caption) {
-  const urls = await hostAll(env, photos.slice(0, 35));
-  if (!(await waitLive(urls))) throw new Error("gh-pages did not serve the photos in time");
+/** The inbox draft from photos already live on gh-pages (`urls`). */
+export async function photoDraft(env, slug, urls, caption) {
   const token = await accessToken(env, slug);
   const r = await fetch(`${TT}/post/publish/content/init/`, {
     method: "POST",

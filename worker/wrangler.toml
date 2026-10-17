@@ -56,7 +56,8 @@ id = "3ca2bda582a444f88d772562a21be2a4"
 binding = "AI"
 
 [triggers]
-crons = ["*/15 * * * *"]
+# The second cron is its own invocation for MPT's TikTok drafts (50-subrequest budget).
+crons = ["*/15 * * * *", "7,22,37,52 * * * *"]
 
 # Worker logs in the Cloudflare dashboard (persona tap failures were invisible).
 [observability]

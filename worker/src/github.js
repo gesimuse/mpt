@@ -32,7 +32,17 @@ async function getFile(env, path) {
     + `?ref=${env.GITHUB_BRANCH}`;
   const r = await fetch(url, { headers: headers(env) });
   if (!r.ok) throw new Error(`GET ${path}: ${r.status}`);
-  return r.json();
+  const file = await r.json();
+  // Over 1MB the Contents API returns encoding "none" and an empty content, which
+  // JSON.parse turns into "Unexpected end of JSON input" on every button. posted.json
+  // crossed that line. The Blobs API serves the same sha base64-encoded up to 100MB.
+  if (file.encoding === "none" || (!file.content && file.size > 0)) {
+    const b = await fetch(`${API}/repos/${env.GITHUB_OWNER}/${env.GITHUB_REPO}`
+      + `/git/blobs/${file.sha}`, { headers: headers(env) });
+    if (!b.ok) throw new Error(`GET blob ${path}: ${b.status}`);
+    file.content = (await b.json()).content;
+  }
+  return file;
 }
 
 async function putFile(env, path, contentB64, sha, message) {

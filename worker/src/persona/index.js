@@ -682,12 +682,7 @@ async function onAdmin(request, env) {
     if (what === "post") return new Response(await post(env, p, Number(u.searchParams.get("slot") || 4)));
     if (what === "jobs") return new Response(await advanceJobs(env, p, u.origin));
     if (what === "shoot") return new Response(await shoot(env, p, u.searchParams.get("character")));
-    if (what === "poll") return new Response(await poll(env, u.origin));
-    if (what === "publish") {
-      const state = await st.load(env, slug);
-      if (await advancePublish(env, p, state, u.origin)) await st.save(env, slug, state);
-      return Response.json(state.publish.slice(-5));
-    }
+    if (what === "draft") { await onDraftSchedule(null, env); return new Response("draft step done"); }
   }
   if (u.pathname === "/persona/admin/laptop/claim" && request.method === "POST") return laptopClaim(request, env, u.origin);
   if (u.pathname === "/persona/admin/laptop/result" && request.method === "POST") return laptopResult(request, env);
@@ -1129,27 +1124,62 @@ async function postShootPhoto(env, p, state, shootId, item, file, character) {
   state.shoots[shootId] = sh;
 }
 
-/** A finished shoot: its photos as one TikTok inbox draft on the persona's account. */
+/**
+ * A finished shoot's TikTok inbox draft, one step per call, never waiting inside a
+ * request (Cloudflare closes one after ~100s, and an invocation may make only 50
+ * subrequests): first its photos go to gh-pages in one commit (~35 requests), then
+ * a later call, once Pages serves them, makes the draft. Runs in its own cron
+ * invocation (onDraftSchedule). Returns true when it did something.
+ */
 async function shootDone(env, p, state, shootId) {
   const sh = state.shoots?.[shootId];
-  if (!sh || sh.draft || !sh.ids.length) return;
+  if (!sh || sh.draft || !sh.ids.length) return false;
   // Persona entry tiktok_drafts:false keeps shoots in Telegram only.
-  if (p.tiktok_drafts === false) { sh.draft = "off"; return; }
+  if (p.tiktok_drafts === false) { sh.draft = "off"; return true; }
   const b = (await st.bible(env, sh.character)) || { name: sh.character };
-  const first = state.items[sh.ids[0]] || {};
-  const posts = await captions.forPost(env, p, b, state, { ...first, kind: "photo" });
   try {
-    const photos = [];
-    for (const id of sh.ids) {
-      const f = await telegramFile(env, state.items[id]?.file_id);
-      if (f.ok) photos.push({ name: `${Date.now()}-${id}.jpg`, bytes: await f.arrayBuffer() });
+    if (!sh.urls) {
+      const photos = [];
+      for (const id of sh.ids) {
+        const f = await telegramFile(env, state.items[id]?.file_id);
+        if (f.ok) photos.push({ name: `${Date.now()}-${id}.jpg`, bytes: await f.arrayBuffer() });
+      }
+      sh.urls = await tiktok.hostAll(env, photos.slice(0, 35));
+      return true;
     }
-    sh.draft = await tiktok.photoDraft(env, p.slug, photos, posts.tiktok.text);
+    if (!(await tiktok.live(sh.urls))) {
+      if (Date.now() - (sh.started || 0) > 24 * 3600 * 1000) throw new Error("gh-pages never served the photos");
+      return false;
+    }
+    const first = state.items[sh.ids[0]] || {};
+    const posts = await captions.forPost(env, p, b, state, { ...first, kind: "photo" });
+    sh.draft = await tiktok.photoDraft(env, p.slug, sh.urls, posts.tiktok.text);
     await tg(env, "sendMessage", { chat_id: p.chat_id,
       text: `📥 ${b.name}'s shoot (${sh.ids.length} photos) is in the TikTok inbox as a draft -- add a sound and post.\n\n${posts.tiktok.text}` });
   } catch (e) {
     sh.draft_error = String(e.message || e).slice(0, 200);
     await tg(env, "sendMessage", { chat_id: p.chat_id, text: `❌ ${b.name}'s shoot: TikTok draft failed: ${sh.draft_error}` }).catch(() => {});
+  }
+  return true;
+}
+
+/** The draft cron: one step of one finished shoot's TikTok draft per run. */
+export async function onDraftSchedule(event, env) {
+  for (const p of await personas.list(env)) {
+    if (!isRoster(p)) continue;
+    const state = await st.load(env, p.slug);
+    const pending = Object.entries(state.shoots || {}).find(([, sh]) => sh.finished && !sh.draft && !sh.draft_error);
+    if (!pending) continue;
+    if (await shootDone(env, p, state, pending[0])) {
+      // Saved onto the current state: other writers may have moved meanwhile.
+      const now = await st.load(env, p.slug);
+      if (now.shoots?.[pending[0]]) {
+        const sh = state.shoots[pending[0]];
+        Object.assign(now.shoots[pending[0]], { urls: sh.urls, draft: sh.draft, draft_error: sh.draft_error });
+        await st.save(env, p.slug, now);
+      }
+    }
+    return;  // one step a run
   }
 }
 
@@ -1175,9 +1205,6 @@ async function advanceShoots(env, p, state, laptopUp) {
       notes.push(`shoot on Kaggle ${s}`);
       return notes;
     }
-  }
-  for (const [id, sh] of Object.entries(state.shoots || {})) {
-    if (sh.finished && !sh.draft && !sh.draft_error) { await shootDone(env, p, state, id); notes.push(`shoot ${id}: TikTok draft`); }
   }
   // Old shoot records go after 3 days.
   for (const [id, sh] of Object.entries(state.shoots || {})) if (Date.now() - (sh.started || 0) > 3 * 86400 * 1000) delete state.shoots[id];

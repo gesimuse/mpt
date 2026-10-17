@@ -12,7 +12,7 @@ import {
 } from "./github.js";
 import { answer, deleteMessage, getFileUrl, api, redact } from "./telegram.js";
 import * as fanvue from "./fanvue.js";
-import { onPersonaWebhook, onPersonaSchedule } from "./persona/index.js";
+import { onPersonaWebhook, onPersonaSchedule, onDraftSchedule } from "./persona/index.js";
 
 /** callback_data is capped at 64 bytes, so buttons carry ids, not URLs. */
 function parseCallback(data) {
@@ -525,6 +525,7 @@ async function onPhoto(env, msg) {
 
 export default {
   async scheduled(event, env) {
+    if (event.cron === "7,22,37,52 * * * *") return onDraftSchedule(event, env);
     await onPersonaSchedule(event, env);
   },
   async fetch(request, env) {
