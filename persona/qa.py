@@ -38,6 +38,10 @@ TWIST_PROMPT = ('Is this woman\'s head or torso rotated further than a real pers
                 'example her face pointing backwards over her back)? Answer ONLY JSON: '
                 '{"body_twisted_impossibly": true or false}')
 
+OWL_PROMPT = ('Look at this woman\'s body and face. Is her back (shoulder blades, spine or buttocks) turned '
+              'toward the camera while her face also looks at the camera, so her head is twisted round over '
+              'her back like an owl? Answer ONLY JSON: {"face_over_back": true or false}')
+
 _MODEL = None
 _LOCK = threading.Lock()
 
@@ -161,7 +165,10 @@ def check(path):
             return True, "qa unavailable", {}
     try:
         counts = _ask(path, QA_PROMPT, 1024)
-        counts["head_turned_unnaturally"] = bool(_ask(path, TWIST_PROMPT, 2048).get("body_twisted_impossibly"))
+        # Confirmed by a second, concrete question: alone, the twist question rejected
+        # 14 good full-body MPT photos in two shoots (2026-10-17, hand-on-hip glam poses).
+        counts["head_turned_unnaturally"] = (bool(_ask(path, TWIST_PROMPT, 2048).get("body_twisted_impossibly"))
+                                             and bool(_ask(path, OWL_PROMPT, 2048).get("face_over_back")))
         ok, reason = verdict(counts)
         return ok, reason, counts
     except Exception as e:
