@@ -1133,9 +1133,13 @@ async function shootDone(env, p, state, shootId) {
   const b = (await st.bible(env, sh.character)) || { name: sh.character };
   const first = state.items[sh.ids[0]] || {};
   const posts = await captions.forPost(env, p, b, state, { ...first, kind: "photo" });
-  const urls = await Promise.all(sh.ids.map((id) => mediaLink(env, env.WORKER_ORIGIN, state.items[id]?.file_id, "jpg")));
   try {
-    sh.draft = await tiktok.photoDraft(env, p.slug, urls, posts.tiktok.text);
+    const photos = [];
+    for (const id of sh.ids) {
+      const f = await telegramFile(env, state.items[id]?.file_id);
+      if (f.ok) photos.push({ name: `${Date.now()}-${id}.jpg`, bytes: await f.arrayBuffer() });
+    }
+    sh.draft = await tiktok.photoDraft(env, p.slug, photos, posts.tiktok.text);
     await tg(env, "sendMessage", { chat_id: p.chat_id,
       text: `📥 ${b.name}'s shoot (${sh.ids.length} photos) is in the TikTok inbox as a draft -- add a sound and post.\n\n${posts.tiktok.text}` });
   } catch (e) {
