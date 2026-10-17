@@ -13,7 +13,7 @@ const MODEL = "@cf/mistralai/mistral-small-3.1-24b-instruct";
 const text = (r) => (typeof r.response === "string" ? r.response : JSON.stringify(r.response || ""));
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 
-function outfitFor(place, used) {
+function outfitFor(place, used, sexy = false) {
   const low = place.toLowerCase();
   let pool = null;
   for (const [kind, words] of IDEAS.place_kinds) {
@@ -22,12 +22,14 @@ function outfitFor(place, used) {
   if (!pool) {
     const excluded = new Set([...IDEAS.outfit_kinds.swim, ...IDEAS.outfit_kinds.sport, ...(IDEAS.outfit_kinds.snow || [])]);
     pool = IDEAS.outfits.filter((o) => !excluded.has(o));
+    // Sexy-style personas (MPT) draw mostly from the sexier list.
+    if (sexy && IDEAS.sexy_outfits) pool = [...IDEAS.sexy_outfits, ...IDEAS.sexy_outfits, ...pool];
   }
   const free = pool.filter((o) => !used.has(o));
   return pick(free.length ? free : pool);
 }
 
-function seeds(state, n, taken = []) {
+function seeds(state, n, taken = [], sexy = false) {
   const recent = state.recent.slice(-40).join(" ").toLowerCase();
   // `taken`: scenes already written in this batch -- their places and outfits are
   // not repeated (a shoot had the same pool and bikini twice, 2026-10-17).
@@ -37,7 +39,7 @@ function seeds(state, n, taken = []) {
     const free = IDEAS.places.filter((p) => !recent.includes(p.toLowerCase()) && !usedPlaces.has(p));
     const place = pick(free.length ? free : IDEAS.places);
     usedPlaces.add(place);
-    const outfit = outfitFor(place, usedOutfits);
+    const outfit = outfitFor(place, usedOutfits, sexy);
     usedOutfits.add(outfit);
     places.push(place); outfits.push(outfit);
   }
@@ -143,7 +145,7 @@ export async function write(env, b, state, n, { sexy = false } = {}) {
   const out = [], taken = [];
   while (out.length < n) {
     const k = Math.min(4, n - out.length);
-    const { places, outfits } = seeds({ ...state, recent: [...state.recent, ...out.map((s) => s.setting)] }, k, taken);
+    const { places, outfits } = seeds({ ...state, recent: [...state.recent, ...out.map((s) => s.setting)] }, k, taken, sexy);
     taken.push(...places.map((place, i) => ({ place, outfit: outfits[i] })));
     let got = null;
     for (let attempt = 0; attempt < 2 && !got; attempt++) {
@@ -157,6 +159,12 @@ export async function write(env, b, state, n, { sexy = false } = {}) {
     }
     out.push(...(got || fallback(places, outfits)));
   }
-  return assignGazes(out.slice(0, n));
+  const list = assignGazes(out.slice(0, n));
+  // Sexy style: most shots show her whole figure (asked for, 2026-10-17).
+  if (sexy) list.forEach((sc, i) => { if (i % 5 !== 4) sc.shot = pick(FULL_SHOTS); });
+  return list;
 }
+
+const FULL_SHOTS = ["full-body shot, head to toe, showing her whole figure", "three-quarter-body shot from head to knees",
+                    "full-body shot from a slightly low angle, head to toe"];
 

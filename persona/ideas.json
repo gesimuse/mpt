@@ -392,5 +392,20 @@
   ]
  ],
  "_angles_note": "Head angle [text, face-sheet portrait, weight] and expression [text, portrait when facing the camera], picked separately per scene (persona/scenes.py assign_gazes, worker/src/persona/scenes.js). No sad looks. No over-the-shoulder: the anatomy check flags every one as a twisted head, and told the pose is intended it also passed a real backwards head (2026-10-15).",
- "_style_note": "Instagram lane, 2026-10-16: glam but recommendable -- Instagram does not recommend sexually suggestive content to non-followers, so no lingerie-type outfits and no bed/bath scenes; swimwear only where the place calls for it (place_kinds). Sexier content belongs to the local Fanvue lane."
+ "_style_note": "Instagram lane, 2026-10-16: glam but recommendable -- Instagram does not recommend sexually suggestive content to non-followers, so no lingerie-type outfits and no bed/bath scenes; swimwear only where the place calls for it (place_kinds). Sexier content belongs to the local Fanvue lane.",
+ "sexy_outfits": [
+  "black lace bralette under an open blazer",
+  "sheer black blouse over a lace bralette",
+  "red string bikini",
+  "lingerie-inspired black satin bodysuit with a long coat",
+  "silk slip mini dress",
+  "micro mini skirt and a cropped corset top",
+  "white mesh crop top and a mini skirt",
+  "low-cut bodycon mini dress",
+  "leopard print bikini with a sheer sarong",
+  "satin corset top and leather mini skirt",
+  "backless halter mini dress",
+  "cut-out bodycon dress"
+ ],
+ "_sexy_note": "Extra outfits for sexy-style personas (MPT, 2026-10-17); never the Instagram-recommendable lane."
 }
