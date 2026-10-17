@@ -10,7 +10,6 @@
  * TIKTOK_REFRESH_TOKEN_AIBEAUTY); TIKTOK_CLIENT_KEY/SECRET are Worker secrets.
  */
 
-import { hostOnPages } from "../github.js";
 
 const TT = "https://open.tiktokapis.com/v2";
 
@@ -39,8 +38,36 @@ function b64(buf) {
   return btoa(bin);
 }
 
+/**
+ * Put every photo on gh-pages in ONE commit (git data API): one file per commit
+ * meant ten queued Pages builds, and they were not live within 4 minutes
+ * (2026-10-17, the first shoot's draft failed). Returns the photos' Pages URLs.
+ */
+async function hostAll(env, photos) {
+  const api = `https://api.github.com/repos/${env.GITHUB_OWNER}/${env.GITHUB_REPO}`;
+  const h = { Authorization: `Bearer ${env.GITHUB_TOKEN}`, Accept: "application/vnd.github+json",
+              "User-Agent": "mpt-persona-worker", "content-type": "application/json" };
+  const gh = async (path, method = "GET", body) => {
+    const r = await fetch(`${api}${path}`, { method, headers: h, body: body && JSON.stringify(body) });
+    if (!r.ok) throw new Error(`GitHub ${method} ${path}: ${r.status} ${(await r.text()).slice(0, 150)}`);
+    return r.json();
+  };
+  const ref = await gh("/git/ref/heads/gh-pages");
+  const head = await gh(`/git/commits/${ref.object.sha}`);
+  const tree = [];
+  for (const ph of photos) {
+    const blob = await gh("/git/blobs", "POST", { content: b64(ph.bytes), encoding: "base64" });
+    tree.push({ path: `media/${ph.name}`, mode: "100644", type: "blob", sha: blob.sha });
+  }
+  const t = await gh("/git/trees", "POST", { base_tree: head.tree.sha, tree });
+  const c = await gh("/git/commits", "POST", { message: `media: ${photos.length} shoot photos`, tree: t.sha, parents: [ref.object.sha] });
+  await gh("/git/refs/heads/gh-pages", "PATCH", { sha: c.sha });
+  const base = env.PAGES_BASE_URL.replace(/\/$/, "");
+  return photos.map((ph) => `${base}/media/${ph.name}`);
+}
+
 /** Wait until GitHub Pages serves every URL (TikTok's fetch fails on a 404). */
-async function waitLive(urls, timeoutMs = 240000) {
+async function waitLive(urls, timeoutMs = 480000) {
   const end = Date.now() + timeoutMs;
   while (Date.now() < end) {
     const codes = await Promise.all(urls.map((u) => fetch(u, { method: "HEAD" }).then((r) => r.status).catch(() => 0)));
@@ -55,8 +82,7 @@ async function waitLive(urls, timeoutMs = 240000) {
  * inbox draft (the account owner adds a sound and posts it from the app).
  */
 export async function photoDraft(env, slug, photos, caption) {
-  const urls = [];
-  for (const ph of photos.slice(0, 35)) urls.push(await hostOnPages(env, `media/${ph.name}`, b64(ph.bytes)));
+  const urls = await hostAll(env, photos.slice(0, 35));
   if (!(await waitLive(urls))) throw new Error("gh-pages did not serve the photos in time");
   const token = await accessToken(env, slug);
   const r = await fetch(`${TT}/post/publish/content/init/`, {
