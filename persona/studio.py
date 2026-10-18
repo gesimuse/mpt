@@ -110,7 +110,12 @@ class Studio:
             if only and stem not in only:
                 continue
             angled = stem in headpose.TARGETS
+            side = stem.rsplit("-", 1)[-1]
+            prof = out / f"profile-{side}.jpg"
+            # A three-quarter view drawn from her profile at that side inherits a turn;
+            # from the front refs it came back facing the camera.
             base = ([refs["03"]] + front[:1] if stem.startswith("profile") and "03" in refs
+                    else [prof] + front[:1] if stem.startswith("three-quarter") and results.get(f"profile-{side}", {}).get("ok")
                     else [refs["02"]] + front[:1] if stem.startswith("three-quarter") and "02" in refs
                     else front)
             prompt = scenes.sheet_prompt(char, scenes.SHEET_ANGLES.get(stem, text))
@@ -127,6 +132,11 @@ class Studio:
                 ok, info = faceid.check(path, ref_emb, min_sim=floor)
                 if ok and angled:
                     ok, got = headpose.matches(stem, path, front_pitch)
+                    if not ok and stem[-4:] in ("left", "ight"):
+                        # Turned the other way: the mirror image is this side.
+                        import cv2
+                        cv2.imwrite(str(path), cv2.flip(cv2.imread(str(path)), 1))
+                        ok, got = headpose.matches(stem, path, front_pitch)
                     info = {**info, "pose": got}
                     if not ok:
                         info["reason"] = f"head not turned ({got})"
@@ -252,7 +262,7 @@ class Studio:
                         # Her head must show the scene's angle (measured); on the last
                         # try a photo that only missed the angle is kept.
                         angle_ok, got = headpose.matches(scene.get("angle_sheet", "") if scene.get("angle") else None,
-                                                         path, front_pitch)
+                                                         path, front_pitch, either_side=True)
                         if angle_ok or attempt == tries - 1:
                             break
                         face_ok, info = False, {"reason": f"head not at {scene.get('angle_sheet') or 'front'} ({got})"}

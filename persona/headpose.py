@@ -12,15 +12,17 @@ import threading
 _APP = None
 _LOCK = threading.Lock()
 
-# (yaw range, pitch change from her front ref) each sheet stem must show.
+# (yaw range, pitch change from her front ref) each sheet stem must show. Left/right
+# is the image's: the edit model's "her left" came out either way (2026-10-18), so a
+# portrait turned the wrong way is mirrored (studio.make_sheet).
 TARGETS = {
     "": ((-12, 12), None),
-    "three-quarter-left": ((-45, -15), None),
-    "three-quarter-right": ((15, 45), None),
+    "three-quarter-left": ((-55, -15), None),
+    "three-quarter-right": ((15, 55), None),
     "profile-left": ((-90, -35), None),
     "profile-right": ((35, 90), None),
-    "looking-up": ((-30, 30), (8, 60)),
-    "looking-down": ((-30, 30), (-60, -8)),
+    "looking-up": ((-30, 30), (5, 60)),
+    "looking-down": ((-30, 30), (-60, -5)),
 }
 
 
@@ -46,7 +48,7 @@ def pose(path):
     return float(f.pose[0]), float(f.pose[1])
 
 
-def matches(stem, path, front_pitch=0.0):
+def matches(stem, path, front_pitch=0.0, either_side=False):
     """(ok, (pitch, yaw)). ok when the head shows the stem's angle, or when the stem
     has no target or no face is found (a profile can hide from the detector)."""
     if stem is None:
@@ -61,7 +63,7 @@ def matches(stem, path, front_pitch=0.0):
     if p is None:
         return True, None
     (lo, hi), dp = target
-    ok = lo <= p[1] <= hi
+    ok = lo <= p[1] <= hi or (either_side and -hi <= p[1] <= -lo)
     if dp:
         ok = ok and dp[0] <= p[0] - front_pitch <= dp[1]
     return ok, (round(p[0]), round(p[1]))
