@@ -331,6 +331,40 @@ REALISM = ("photorealistic Instagram model photo, professional photoshoot qualit
            "chest height with a 50mm lens, true-to-life head-to-body proportions")
 
 
+# Makeup that fits the scene (2026-10-18): glam for a night out or a fancy dress,
+# light for daytime out, none at home, in bed, the gym or the sauna. Her identity's
+# own makeup words (and the lane cue's) are taken out so they don't fight it.
+MAKEUP = {
+    "glam": "full glam makeup: defined eyeliner, long lashes, sculpted cheeks, bold or glossy lips",
+    "light": "light natural makeup: a touch of mascara, tinted lip balm, fresh dewy skin",
+    "none": "no makeup at all: bare natural face, natural brows and lips, visible natural skin texture, "
+            "no eyeliner, no eyeshadow, no lipstick",
+}
+_BARE = re.compile(r"\b(bed|bedroom|home|apartment|couch|sofa|kitchen|morning|breakfast|waking|sauna|spa|"
+                   r"gym|pilates|yoga|workout|hot tub|bath|pajamas?|loungewear|lounge set|hoodie|sweatpants|"
+                   r"sports bra|laundromat)\b", re.I)
+_GLAM = re.compile(r"\b(night|nightclub|club|bar|gala|casino|party|cocktail|red carpet|jazz|karaoke|evening|"
+                   r"opera|theat(er|re)|dinner|restaurant|sequins?|gown|festival|fashion week|premiere|"
+                   r"neon|limo|yacht party|ball)\b", re.I)
+_MAKEUP_WORDS = re.compile(r"makeup|eyeliner|lipstick|lip gloss|\b(red|nude|glossy|bold) lips\b", re.I)
+
+
+def makeup_for(scene):
+    if scene.get("makeup") in MAKEUP:
+        return scene["makeup"]
+    where = scene.get("setting", "")
+    what = " ".join(str(scene.get(k, "")) for k in ("outfit", "action", "light", "mood"))
+    if _BARE.search(where) or _BARE.search(scene.get("outfit", "")):
+        return "none"
+    if _GLAM.search(where) or _GLAM.search(what):
+        return "glam"
+    return "light"
+
+
+def _without_makeup(text):
+    return ", ".join(p.strip() for p in str(text).split(",") if not _MAKEUP_WORDS.search(p)).strip(" ,")
+
+
 def scene_prompt(char, scene, lane, n_refs, style="qwen"):
     """The prompt for one scene, rendered from her refs. Refs are numbered <imageN>
     in the order engine.image() passes them, which is character.refs() order."""
@@ -358,7 +392,8 @@ def scene_prompt(char, scene, lane, n_refs, style="qwen"):
     parts = [
         f"{scene['shot']} of {b['safety']['adult_anchor']}. {who}.",
         face,
-        f"{b.get('identity', '')}." if b.get("identity") else "",
+        f"{_without_makeup(b['identity'])}." if b.get("identity") else "",
+        f"Makeup: {MAKEUP[makeup_for(scene)]}.",
         f"Setting: {scene['setting']}.",
         f"She wears {scene['outfit']}.",
         f"She is {scene['action']}, {scene['mood']}.",
@@ -366,7 +401,7 @@ def scene_prompt(char, scene, lane, n_refs, style="qwen"):
          "not the references." if n_refs else ""),
         "She is the only person in the photo, nobody else in the frame or background.",
         f"Lighting: {scene['light']}.",
-        lane_cfg.get("cue", "") + ".",
+        _without_makeup(lane_cfg.get("cue", "")) + ".",
         REALISM + ".",
     ]
     return " ".join(p for p in parts if p and p != ".")
