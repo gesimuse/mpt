@@ -340,10 +340,10 @@ MAKEUP = {
     "none": "no makeup at all: bare natural face, natural brows and lips, visible natural skin texture, "
             "no eyeliner, no eyeshadow, no lipstick",
 }
-_BARE = re.compile(r"\b(bed|bedroom|home|apartment|couch|sofa|kitchen|morning|breakfast|waking|sauna|spa|"
+_BARE = re.compile(r"\b(bed|bedroom|home|apartment|couch|sofa|kitchen|in bed|waking up|sauna|spa|"
                    r"gym|pilates|yoga|workout|hot tub|bath|pajamas?|loungewear|lounge set|hoodie|sweatpants|"
                    r"sports bra|laundromat)\b", re.I)
-_GLAM = re.compile(r"\b(night|nightclub|club|bar|gala|casino|party|cocktail|red carpet|jazz|karaoke|evening|"
+_GLAM = re.compile(r"\b(night|nightclub|bar|gala|casino|party|cocktail|red carpet|jazz|karaoke|evening|"
                    r"opera|cinema|theat(er|re)|dinner|restaurant|sequins?|gown|festival|fashion week|premiere|"
                    r"neon|limo|yacht party|ball)\b", re.I)
 _MAKEUP_WORDS = re.compile(r"makeup|eyeliner|lipstick|lip gloss|\b(red|nude|glossy|bold) lips\b", re.I)
