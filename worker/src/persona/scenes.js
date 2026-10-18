@@ -171,6 +171,53 @@ export async function write(env, b, state, n, { sexy = false } = {}) {
   return list;
 }
 
+// The makeup level for a whole shoot, by the same rules as persona/scenes.py
+// makeup_for (glam out at night, none at home or the gym, light otherwise).
+const BARE = /\b(bed|bedroom|home|apartment|couch|sofa|kitchen|in bed|waking up|sauna|spa|gym|pilates|yoga|workout|hot tub|bath|pajamas?|loungewear|lounge set|hoodie|sweatpants|sports bra|laundromat)\b/i;
+const GLAM = /\b(night|nightclub|bar|gala|casino|party|cocktail|red carpet|jazz|karaoke|evening|opera|cinema|theat(er|re)|dinner|restaurant|sequins?|gown|festival|fashion week|premiere|neon|limo|yacht party|ball)\b/i;
+function makeupFor(place, outfit) {
+  if (BARE.test(place) || (BARE.test(outfit) && !GLAM.test(place))) return "none";
+  return GLAM.test(place) || GLAM.test(outfit) ? "glam" : "light";
+}
+
+/**
+ * One photoshoot: ONE place, ONE outfit, ONE day -- the photos of a carousel
+ * (2026-10-18: "1 carousel should be literally the same girl, same clothes, 1 day";
+ * a shoot of 9 places and 9 outfits read as 9 posts). The scenes move between spots
+ * of that place and change pose, framing and head angle; outfit and makeup are the
+ * same on every photo.
+ */
+export async function writeShoot(env, b, state, n, { sexy = false } = {}) {
+  const { places, outfits } = seeds(state, 1, [], sexy);
+  const place = places[0], outfit = outfits[0];
+  const p = `${prompt(b, state, [place], [outfit], sexy)}
+
+IMPORTANT, this replaces the count above: write ${n} photos of ONE photoshoot on ONE day at ${place}, all
+in the SAME outfit (${outfit}, the same colours in every photo). Each photo is a different spot of that
+same place or right next to it (e.g. the entrance, a table, a window, the terrace, the street outside),
+with a different pose and framing, in time order through that one outing. Return ONLY a JSON array of
+${n} objects with the keys above.`;
+  let list = null;
+  for (let attempt = 0; attempt < 2 && !list; attempt++) {
+    try {
+      const r = await env.AI.run(MODEL, { messages: [{ role: "user", content: p }], max_tokens: 3000, temperature: 0.9 });
+      list = parse(text(r), n);
+      if (list.length < Math.min(n, 4)) list = null;
+    } catch (e) {
+      console.log("shoot writing failed", String(e).slice(0, 150));
+    }
+  }
+  list = list || fallback(Array(n).fill(place), Array(n).fill(outfit));
+  while (list.length < n) list.push({ ...list[list.length % Math.max(1, list.length)] });
+  // The outfit word for word on every photo: the model drifted colours otherwise.
+  const outfitText = list[0].outfit || outfit;
+  const makeup = makeupFor([place, ...list.map((sc) => `${sc.setting} ${sc.light}`)].join(" "), outfitText);
+  list.forEach((sc) => { sc.outfit = outfitText; sc.makeup = makeup; sc.shoot_place = place; });
+  list = assignGazes(list.slice(0, n));
+  if (sexy) list.forEach((sc, i) => { if (i % 5 !== 4) sc.shot = pick(FULL_SHOTS); });
+  return list;
+}
+
 const FULL_SHOTS = ["full-body shot, head to toe, showing her whole figure", "three-quarter-body shot from head to knees",
                     "full-body shot from a slightly low angle, head to toe"];
 

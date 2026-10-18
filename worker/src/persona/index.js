@@ -1138,8 +1138,9 @@ async function shoot(env, p, who = null) {
   const b = await st.bible(env, character);
   if (!b) { await st.save(env, p.slug, state); return `${p.slug}: no bible for ${character} (persona.cli sync)`; }
   // MPT stays sexy (its girls' choice, 2026-10-17); Lena's Instagram lane does not.
-  const list = await scenes.write(env, b, state, Number(p.photos || 10), { sexy: p.style !== "recommendable" });
-  state.recent.push(...list.map((x) => `${x.setting} / ${x.outfit} / ${x.action}`));
+  // One photoshoot: one place, one outfit, one day -- a carousel.
+  const list = await scenes.writeShoot(env, b, state, Number(p.photos || 6), { sexy: p.style !== "recommendable" });
+  state.recent.push(`${list[0].shoot_place} / ${list[0].outfit}`, ...list.map((x) => `${x.setting} / ${x.action}`));
   const id = `shoot-${character}-${Date.now()}`;
   state.shoots = state.shoots || {};
   state.shoots[id] = { character, ids: [], started: Date.now() };
