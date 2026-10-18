@@ -84,30 +84,72 @@ class Studio:
 
     def make_sheet(self, char, only=None):
         """Her face sheet (scenes.FACE_SHEET) into refs/sheet/, rendered from her
-        front and three-quarter refs. Yields each result; a portrait whose face
-        drifts too far from her refs is not kept. `only` limits to some stems."""
-        if not char.has_refs():
-            raise ValueError("lock her master refs first")
+        refs. Yields each result; a portrait whose face drifts too far from her refs
+        is not kept. `only` limits to some stems.
+
+        Angle portraits must really show their angle (headpose.TARGETS, measured):
+        on 2026-10-18 most girls' "three-quarter"/"profile-right"/"up"/"down"
+        portraits faced the camera like her front ref, so all her photos did too.
+        Each gets up to SHEET_TRIES draws, starting from the ref closest to that
+        angle; a side that never turns is her other side mirrored."""
+        from . import headpose
         model = self.model("edit", lane="social")
-        base = [p for p in char.refs() if p.name.startswith(("01-", "02-"))] or char.refs()[:1]
+        refs = {p.name[:2]: p for p in char.refs()}
+        front = [refs[k] for k in ("01", "02") if k in refs] or char.refs()[:1]
         out = char.refs_dir / "sheet"
         out.mkdir(exist_ok=True)
         ref_emb = faceid.reference_embedding(char.refs())
+        front_pitch = 0.0
+        try:
+            front_pitch = (headpose.pose(refs.get("01", front[0])) or (0.0, 0.0))[0]
+        except Exception:
+            pass
+        tries = int(config.env("PERSONA_SHEET_TRIES", "4"))
+        results = {}
         for stem, text in scenes.FACE_SHEET:
             if only and stem not in only:
                 continue
-            try:
-                path = self.engine.image(model, scenes.sheet_prompt(char, text), out, stem, refs=base,
-                                         negative=scenes.negative(char, "social"))
-            except Exception as e:
-                yield {"stem": stem, "error": str(e)[:300]}
-                continue
-            # Side views score lower against front-heavy refs, so profiles get a lower bar.
-            floor = 0.3 if "profile" in stem or stem == "over-shoulder" else None
-            ok, info = faceid.check(path, ref_emb, min_sim=floor)
-            if not ok:
+            angled = stem in headpose.TARGETS
+            base = ([refs["03"]] + front[:1] if stem.startswith("profile") and "03" in refs
+                    else [refs["02"]] + front[:1] if stem.startswith("three-quarter") and "02" in refs
+                    else front)
+            prompt = scenes.sheet_prompt(char, scenes.SHEET_ANGLES.get(stem, text))
+            res = None
+            for attempt in range(tries if angled else 1):
+                try:
+                    path = self.engine.image(model, prompt, out, stem, refs=base,
+                                             negative=scenes.negative(char, "social"))
+                except Exception as e:
+                    res = {"stem": stem, "error": str(e)[:300]}
+                    continue
+                # Side views score lower against front-heavy refs, so profiles get a lower bar.
+                floor = 0.3 if "profile" in stem or stem == "over-shoulder" else None
+                ok, info = faceid.check(path, ref_emb, min_sim=floor)
+                if ok and angled:
+                    ok, got = headpose.matches(stem, path, front_pitch)
+                    info = {**info, "pose": got}
+                    if not ok:
+                        info["reason"] = f"head not turned ({got})"
+                res = {"stem": stem, "path": str(path), "ok": ok, "check": info}
+                if ok:
+                    break
                 path.unlink(missing_ok=True)
-            yield {"stem": stem, "path": str(path), "ok": ok, "check": info}
+            results[stem] = res
+        # A side that never turned: the other side, mirrored.
+        import cv2
+        for stem, other in (("profile-left", "profile-right"), ("profile-right", "profile-left"),
+                            ("three-quarter-left", "three-quarter-right"),
+                            ("three-quarter-right", "three-quarter-left")):
+            r, o = results.get(stem), results.get(other) or {}
+            src = out / f"{other}.jpg"
+            if r and not r.get("ok") and (o.get("ok") or (not results.get(other) and src.exists())):
+                dest = out / f"{stem}.jpg"
+                cv2.imwrite(str(dest), cv2.flip(cv2.imread(str(src)), 1))
+                ok, got = headpose.matches(stem, dest, front_pitch)
+                results[stem] = {"stem": stem, "path": str(dest), "ok": ok, "mirrored": True, "check": {"pose": got}}
+                if not ok:
+                    dest.unlink(missing_ok=True)
+        yield from results.values()
         shutil.rmtree(char.dir / "refs-heads", ignore_errors=True)
 
     def lock_refs(self, char):
@@ -165,6 +207,11 @@ class Studio:
             return [head(p) for p in chosen[: max(1, model.get("max_refs", 1))]]
 
         ref_emb = faceid.reference_embedding(char.refs())
+        from . import headpose
+        try:
+            front_pitch = (headpose.pose(front[0]) or (0.0, 0.0))[0]
+        except Exception:
+            front_pitch = 0.0
         two_step = config.flag("PERSONA_TWO_STEP", "0")
 
         def floor_for(scene):
@@ -202,7 +249,13 @@ class Studio:
                     # gets a lower floor (scenes.ANGLE_FLOOR), the age check stays.
                     face_ok, info = faceid.check(path, ref_emb, min_sim=floor_for(scene))
                     if face_ok:
-                        break
+                        # Her head must show the scene's angle (measured); on the last
+                        # try a photo that only missed the angle is kept.
+                        angle_ok, got = headpose.matches(scene.get("angle_sheet", "") if scene.get("angle") else None,
+                                                         path, front_pitch)
+                        if angle_ok or attempt == tries - 1:
+                            break
+                        face_ok, info = False, {"reason": f"head not at {scene.get('angle_sheet') or 'front'} ({got})"}
                     good, why = False, info.get("reason", "face check")
                     log(f"{item['id']}: face check FAILED {why}")
                 log(f"{item['id']}: anatomy check failed ({why}), attempt {attempt + 1}/{tries}")

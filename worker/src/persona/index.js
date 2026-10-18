@@ -682,6 +682,16 @@ async function onAdmin(request, env) {
     if (what === "post") return new Response(await post(env, p, Number(u.searchParams.get("slot") || 4)));
     if (what === "jobs") return new Response(await advanceJobs(env, p, u.origin));
     if (what === "shoot") return new Response(await shoot(env, p, u.searchParams.get("character")));
+    if (what === "ttstatus") {
+      const out = {};
+      for (const p of (await personas.list(env)).filter(isRoster)) {
+        const state = await st.load(env, p.slug);
+        for (const [id, sh] of Object.entries(state.shoots || {})) {
+          if (sh.draft && sh.draft !== "off") out[id] = await tiktok.draftStatus(env, p.slug, sh.draft).catch((e) => String(e));
+        }
+      }
+      return Response.json(out);
+    }
     if (what === "draft") {
       // now=1: the inbox was just cleared, so drafts waiting on TikTok go without the hourly wait.
       if (u.searchParams.get("now")) {

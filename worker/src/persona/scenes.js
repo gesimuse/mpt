@@ -127,11 +127,15 @@ function assignGazes(list) {
     list.forEach((s, i) => { [s.gaze, s.sheet] = g[(start + i * 3) % g.length]; });
     return list;
   }
-  const total = IDEAS.angles.reduce((a, x) => a + x[2], 0);
+  // Every head direction once before any repeats (2026-10-18: weighted random picks
+  // gave whole shoots the same angle): a shuffled deck of directions, dealt in turn.
+  const bySheet = {};
+  for (const a of IDEAS.angles) (bySheet[a[1]] = bySheet[a[1]] || []).push(a);
+  let deck = [];
   const used = new Set();
   for (const s of list) {
-    let r = Math.random() * total, angle = IDEAS.angles[0];
-    for (const a of IDEAS.angles) { if ((r -= a[2]) < 0) { angle = a; break; } }
+    if (!deck.length) deck = Object.keys(bySheet).sort(() => Math.random() - 0.5);
+    const angle = pick(bySheet[deck.shift()]);
     const free = IDEAS.expressions.filter((e) => !used.has(e[0]));
     const expr = pick(free.length ? free : IDEAS.expressions);
     used.add(expr[0]);

@@ -131,6 +131,23 @@ the place, never caught mid-action: no throwing, swinging, running or jumping),
 """
 
 
+# The angle portraits spelled out: "three-quarter view" alone came back facing the
+# camera (2026-10-18). Degrees and where the camera is are what turned the head.
+SHEET_ANGLES = {
+    "profile-left": "her head turned 90 degrees to her left: exact side profile, the camera sees only the right "
+                    "side of her face, one eye visible, nose in silhouette, neutral relaxed expression",
+    "profile-right": "her head turned 90 degrees to her right: exact side profile, the camera sees only the left "
+                     "side of her face, one eye visible, nose in silhouette, lips slightly parted",
+    "three-quarter-left": "her head turned about 35 degrees to her left, three-quarter view: both eyes visible, "
+                          "the far cheek partly hidden, nose pointing past the camera, soft smile",
+    "three-quarter-right": "her head turned about 35 degrees to her right, three-quarter view: both eyes visible, "
+                           "the far cheek partly hidden, nose pointing past the camera, dreamy expression",
+    "looking-up": "chin clearly raised about 25 degrees, face tilted up toward the sky, eyes looking up, the "
+                  "underside of her jaw visible, biting her lower lip",
+    "looking-down": "head clearly bowed about 25 degrees, chin toward her chest, eyes looking down at the floor, "
+                    "eyelids lowered, soft smile",
+}
+
 # Head angle and expression, rotated across a batch so at most one in four looks
 # straight into the lens. Without this every image copied the refs: front-facing,
 # same closed-mouth smile.
@@ -182,10 +199,15 @@ def assign_gazes(scenes):
         for i, sc in enumerate(scenes):
             sc["gaze"], sc["sheet"] = GAZES[(start + i * 3) % len(GAZES)]
         return scenes
-    weights = [a[2] for a in ANGLES]
-    used = set()
+    # Every head direction once before any repeats (as the Worker's assignGazes).
+    by_sheet = {}
+    for a in ANGLES:
+        by_sheet.setdefault(a[1], []).append(a)
+    deck, used = [], set()
     for sc in scenes:
-        angle, a_sheet, _ = random.choices(ANGLES, weights=weights)[0]
+        if not deck:
+            deck = random.sample(list(by_sheet), len(by_sheet))
+        angle, a_sheet, _ = random.choice(by_sheet[deck.pop()])
         free = [e for e in EXPRESSIONS if e[0] not in used] or EXPRESSIONS
         expr, e_sheet = random.choice(free)
         used.add(expr)
