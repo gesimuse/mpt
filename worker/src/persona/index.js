@@ -682,6 +682,16 @@ async function onAdmin(request, env) {
     if (what === "post") return new Response(await post(env, p, Number(u.searchParams.get("slot") || 4)));
     if (what === "jobs") return new Response(await advanceJobs(env, p, u.origin));
     if (what === "shoot") return new Response(await shoot(env, p, u.searchParams.get("character")));
+    if (what === "dropshoot") {
+      // A shoot that will never finish (its job is gone): removed from the state.
+      const p = await personas.get(env, u.searchParams.get("slug") || "mpt");
+      const state = await st.load(env, p.slug);
+      const id = u.searchParams.get("id");
+      if (!state.shoots?.[id] || state.shoots[id].finished) return new Response("no such unfinished shoot", { status: 404 });
+      delete state.shoots[id];
+      await st.save(env, p.slug, state);
+      return new Response(`dropped ${id}`);
+    }
     if (what === "ttstatus") {
       const out = {};
       for (const p of (await personas.list(env)).filter(isRoster)) {
