@@ -692,12 +692,25 @@ async function onAdmin(request, env) {
       await st.save(env, p.slug, state);
       return new Response(`dropped ${id}`);
     }
+    if (what === "skipdrafts") {
+      // Finished shoots started before `before` (ms) get no TikTok draft (an old backlog).
+      const before = Number(u.searchParams.get("before") || 0), out = [];
+      for (const p of (await personas.list(env)).filter(isRoster)) {
+        const state = await st.load(env, p.slug);
+        for (const [id, sh] of Object.entries(state.shoots || {})) {
+          if (!sh.draft && (sh.started || 0) < before) { sh.draft = "skipped"; out.push(id); }
+        }
+        await st.save(env, p.slug, state);
+      }
+      return Response.json(out);
+    }
+    if (what === "ttwho") return Response.json(await tiktok.whoami(env, u.searchParams.get("slug") || "mpt"));
     if (what === "ttstatus") {
       const out = {};
       for (const p of (await personas.list(env)).filter(isRoster)) {
         const state = await st.load(env, p.slug);
         for (const [id, sh] of Object.entries(state.shoots || {})) {
-          if (sh.draft && sh.draft !== "off") out[id] = await tiktok.draftStatus(env, p.slug, sh.draft).catch((e) => String(e));
+          if (sh.draft && !["off", "skipped"].includes(sh.draft)) out[id] = await tiktok.draftStatus(env, p.slug, sh.draft).catch((e) => String(e));
         }
       }
       return Response.json(out);

@@ -111,6 +111,14 @@ export async function draftStatus(env, slug, publishId) {
   return { ...(d.data || {}), error: d.error?.code !== "ok" ? d.error : undefined };
 }
 
+/** Which TikTok account the token posts to. */
+export async function whoami(env, slug) {
+  const token = await accessToken(env, slug);
+  // display_name needs user.info.basic (username would need user.info.profile).
+  const r = await fetch(`${TT}/user/info/?fields=open_id,display_name`, { headers: { Authorization: `Bearer ${token}` } });
+  return r.json();
+}
+
 /** TikTok's URL-prefix verification file, served at /persona/media/<name>.txt. */
 export async function verifyFile(env, name) {
   const body = await env.PERSONA.get(`ttverify:${name}`);

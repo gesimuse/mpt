@@ -132,5 +132,21 @@ if not r.ok:
 data = r.json()
 if "refresh_token" not in data:
     sys.exit(f"No refresh_token in response: {data}")
+# --worker <slug>: hand the token to the persona Worker (KV tt:<slug>) and .env's
+# TIKTOK_REFRESH_TOKEN_AIBEAUTY instead of printing it, then show which account it is.
+if "--worker" in sys.argv:
+    slug = sys.argv[sys.argv.index("--worker") + 1]
+    w = requests.post(f"{os.environ['PERSONA_WORKER_URL']}/persona/admin/tiktok?slug={slug}",
+                      headers={"Authorization": f"Bearer {os.environ['PERSONA_ADMIN_SECRET']}"},
+                      json={"refresh_token": data["refresh_token"]}, timeout=30)
+    print("worker:", w.status_code, w.text[:80])
+    lines = [l for l in _env.read_text().splitlines() if not l.startswith("TIKTOK_REFRESH_TOKEN_AIBEAUTY=")]
+    _env.write_text("\n".join(lines + [f"TIKTOK_REFRESH_TOKEN_AIBEAUTY={data['refresh_token']}"]) + "\n")
+    print(".env: TIKTOK_REFRESH_TOKEN_AIBEAUTY updated")
+    print("scopes:", data.get("scope"))
+    me = requests.get("https://open.tiktokapis.com/v2/user/info/?fields=display_name,username",
+                      headers={"Authorization": f"Bearer {data['access_token']}"}, timeout=30).json()
+    print("account:", me.get("data", {}).get("user"), me.get("error", {}).get("code"))
+    sys.exit(0)
 print(f"\nREFRESH TOKEN:\n{data['refresh_token']}")
 print("\nSave as TIKTOK_REFRESH_TOKEN_AIBEAUTY in .env (local) and GitHub secret.")
