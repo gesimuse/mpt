@@ -21,8 +21,8 @@ TARGETS = {
     "three-quarter-right": ((15, 55), None),
     "profile-left": ((-90, -35), None),
     "profile-right": ((35, 90), None),
-    "looking-up": ((-30, 30), (5, 60)),
-    "looking-down": ((-30, 30), (-60, -5)),
+    "looking-up": ((-40, 40), (5, 60)),
+    "looking-down": ((-40, 40), (-60, -5)),
 }
 
 
