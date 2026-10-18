@@ -75,17 +75,30 @@ def measure(path):
     return {"torso": round(torso, 2) if torso else None, "height": round(height, 2) if height else None}
 
 
-def check(path):
-    """(ok, reason, ratios). ok when in proportion or when it can't tell."""
+_REF = {}
+# Her own full-body ref's ratios scale the limits (2026-10-18: Lola's thick fringe
+# hides her brows, so her face measures short and good photos read "head too small";
+# her ref is 3.40 torso / 11.06 height against Lena's 2.96 / 9.82).
+_TYPICAL = (2.96, 9.82)
+
+
+def check(path, ref=None):
+    """(ok, reason, ratios). ok when in proportion or when it can't tell. `ref`: her
+    full-body ref photo, to judge against her own proportions."""
     try:
         m = measure(path)
+        if ref and str(ref) not in _REF:
+            _REF[str(ref)] = measure(ref) or {}
+        r = _REF.get(str(ref), {}) if ref else {}
     except Exception as e:
         return True, f"proportions unavailable ({type(e).__name__})", None
     if not m:
         return True, "", None
-    if (m["torso"] and m["torso"] < TORSO[0]) or (m["height"] and m["height"] < HEIGHT[0]):
+    kt = (r.get("torso") or _TYPICAL[0]) / _TYPICAL[0]
+    kh = (r.get("height") or _TYPICAL[1]) / _TYPICAL[1]
+    if (m["torso"] and m["torso"] < TORSO[0] * kt) or (m["height"] and m["height"] < HEIGHT[0] * kh):
         return False, "head too big for her body", m
-    if (m["torso"] and m["torso"] > TORSO[1]) or (m["height"] and m["height"] > HEIGHT[1]):
+    if (m["torso"] and m["torso"] > TORSO[1] * kt) or (m["height"] and m["height"] > HEIGHT[1] * kh):
         return False, "head too small for her body", m
     return True, "", m
 

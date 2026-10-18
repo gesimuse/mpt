@@ -282,7 +282,7 @@ def carousel(job, char, studio, out, inp):
                                        negative=scenes.negative(char, "social"))
             good, why, _ = qa.check(path)
             if good:
-                good, why, _ = proportions.check(path)
+                good, why, _ = proportions.check(path, ref=char.refs_dir / "04-full-body.jpg")
             if good and _background_drift(src, path) > 0.5:
                 good, why = False, "background changed"
             if good:

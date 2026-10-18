@@ -344,7 +344,7 @@ _BARE = re.compile(r"\b(bed|bedroom|home|apartment|couch|sofa|kitchen|morning|br
                    r"gym|pilates|yoga|workout|hot tub|bath|pajamas?|loungewear|lounge set|hoodie|sweatpants|"
                    r"sports bra|laundromat)\b", re.I)
 _GLAM = re.compile(r"\b(night|nightclub|club|bar|gala|casino|party|cocktail|red carpet|jazz|karaoke|evening|"
-                   r"opera|theat(er|re)|dinner|restaurant|sequins?|gown|festival|fashion week|premiere|"
+                   r"opera|cinema|theat(er|re)|dinner|restaurant|sequins?|gown|festival|fashion week|premiere|"
                    r"neon|limo|yacht party|ball)\b", re.I)
 _MAKEUP_WORDS = re.compile(r"makeup|eyeliner|lipstick|lip gloss|\b(red|nude|glossy|bold) lips\b", re.I)
 
@@ -354,7 +354,8 @@ def makeup_for(scene):
         return scene["makeup"]
     where = scene.get("setting", "")
     what = " ".join(str(scene.get(k, "")) for k in ("outfit", "action", "light", "mood"))
-    if _BARE.search(where) or _BARE.search(scene.get("outfit", "")):
+    # The place first: a cinema at night stays glam even in a sports bra.
+    if _BARE.search(where) or (_BARE.search(scene.get("outfit", "")) and not _GLAM.search(where)):
         return "none"
     if _GLAM.search(where) or _GLAM.search(what):
         return "glam"

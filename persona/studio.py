@@ -252,7 +252,7 @@ class Studio:
                     break
                 good, why, counts = qa.check(path)
                 if good:
-                    good, why, counts["proportions"] = proportions.check(path)
+                    good, why, counts["proportions"] = proportions.check(path, ref=char.refs_dir / "04-full-body.jpg")
                 log(f"{item['id']}: anatomy check {'passed' if good else 'FAILED'} {why} {counts}")
                 if good:
                     # Off-model faces are redrawn too, not just dropped. A turned head
