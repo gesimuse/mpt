@@ -70,9 +70,19 @@ def measure(path):
     # guessed ankles on the bottom edge.
     if min(s[10], s[13]) > 0.5 and max(k[10][1], k[13][1]) < 0.97 * img.shape[0]:
         height = float((k[10][1] + k[13][1]) / 2 - (k[43][1] + k[48][1]) / 2) / face
-    if torso is None and height is None:
+    # Shoulder width against face width (jaw points 24+0 / 24+16), only when she faces
+    # the camera: a turned head or body narrows one of them. Slim bodies came out with
+    # narrow shoulders under a full-size head (2026-10-18).
+    width = None
+    if min(s[24], s[40]) > 0.4 and abs(float(k[2][0] - k[5][0])) > 0.8 * float(np.linalg.norm(k[2] - k[5])):
+        jaw = float(np.linalg.norm(k[24] - k[40]))
+        nose_mid = abs(float(k[54][0] - (k[24][0] + k[40][0]) / 2)) < 0.15 * jaw
+        if nose_mid and jaw > 4:
+            width = float(np.linalg.norm(k[2] - k[5])) / jaw
+    if torso is None and height is None and width is None:
         return None
-    return {"torso": round(torso, 2) if torso else None, "height": round(height, 2) if height else None}
+    return {"torso": round(torso, 2) if torso else None, "height": round(height, 2) if height else None,
+            "width": round(width, 2) if width else None}
 
 
 _REF = {}
@@ -80,6 +90,8 @@ _REF = {}
 # hides her brows, so her face measures short and good photos read "head too small";
 # her ref is 3.40 torso / 11.06 height against Lena's 2.96 / 9.82).
 _TYPICAL = (2.96, 9.82)
+_TYPICAL_WIDTH = 1.96
+WIDTH = 1.62  # refs 1.9-2.1; 1.43-1.67 looked big-headed
 
 
 def check(path, ref=None):
@@ -94,6 +106,8 @@ def check(path, ref=None):
         return True, f"proportions unavailable ({type(e).__name__})", None
     if not m:
         return True, "", None
+    if m.get("width") and m["width"] < WIDTH * (r.get("width") or _TYPICAL_WIDTH) / _TYPICAL_WIDTH:
+        return False, "head too big for her shoulders", m
     kt = (r.get("torso") or _TYPICAL[0]) / _TYPICAL[0]
     kh = (r.get("height") or _TYPICAL[1]) / _TYPICAL[1]
     if (m["torso"] and m["torso"] < TORSO[0] * kt) or (m["height"] and m["height"] < HEIGHT[0] * kh):

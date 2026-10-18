@@ -328,7 +328,8 @@ def write(char, lane="social", hint="", n=1, chunk=4):
 # ------------------------------------------------------------------------ prompts
 REALISM = ("photorealistic Instagram model photo, professional photoshoot quality, flattering light, "
            "natural skin texture, shallow depth of field, sharp focus, no text, no watermark, camera at her "
-           "chest height with a 50mm lens, true-to-life head-to-body proportions")
+           "chest height with a 50mm lens, true-to-life head-to-body proportions, a naturally small head in "
+           "proportion to her body, shoulders about twice as wide as her face")
 
 
 # Makeup that fits the scene (2026-10-18): glam for a night out or a fancy dress,
@@ -366,6 +367,14 @@ def _without_makeup(text):
     return ", ".join(p.strip() for p in str(text).split(",") if not _MAKEUP_WORDS.search(p)).strip(" ,")
 
 
+def _skin(b):
+    """One skin tone, face to toes: Alina's "pale porcelain skin" came out as a pale
+    face on a tanned body (2026-10-18)."""
+    skin = next((p.strip() for p in str(b.get("identity", "")).split(",") if "skin" in p), "")
+    return (f"Skin: {skin or 'her natural skin tone'} on her face, neck, shoulders, arms, legs and body alike -- "
+            f"one even tone, her body no darker or more tanned than her face.")
+
+
 def scene_prompt(char, scene, lane, n_refs, style="qwen"):
     """The prompt for one scene, rendered from her refs. Refs are numbered <imageN>
     in the order engine.image() passes them, which is character.refs() order."""
@@ -395,6 +404,7 @@ def scene_prompt(char, scene, lane, n_refs, style="qwen"):
         face,
         f"{_without_makeup(b['identity'])}." if b.get("identity") else "",
         f"Makeup: {MAKEUP[makeup_for(scene)]}.",
+        _skin(b),
         f"Setting: {scene['setting']}.",
         f"She wears {scene['outfit']}.",
         f"She is {scene['action']}, {scene['mood']}.",
@@ -411,7 +421,8 @@ def scene_prompt(char, scene, lane, n_refs, style="qwen"):
 def negative(char, lane):
     b = char.bible
     neg = [b["safety"]["negative"], b["lanes"].get(lane, {}).get("negative", ""),
-           "deformed hands, extra fingers, blurry, cartoon, 3d render"]
+           "deformed hands, extra fingers, blurry, cartoon, 3d render, big head, oversized head, narrow shoulders, "
+           "tanned body with a paler face, mismatched skin tone between face and body"]
     return ", ".join(x for x in neg if x)
 
 

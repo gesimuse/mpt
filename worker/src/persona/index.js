@@ -1082,7 +1082,10 @@ async function laptopResult(request, env) {
     // becomes one TikTok draft.
     // (The draft itself is made by the next cron run: uploading the photos and
     // waiting for gh-pages takes minutes, longer than the laptop waits here.)
-    if (r.shoot && state.shoots?.[r.shoot]) state.shoots[r.shoot].finished = true;
+    if (r.shoot && state.shoots?.[r.shoot]) {
+      state.shoots[r.shoot].finished = true;
+      await postShootAlbum(env, p, state, r.shoot).catch((e) => console.error("album failed", String(e).slice(0, 200)));
+    }
   }
   else if (sent) { recordResult(state, r, item, sent); await carouselProgress(env, state, r); }
   else await postResult(env, state, b, r, item, file);
@@ -1147,13 +1150,37 @@ async function shoot(env, p, who = null) {
 
 /** Post one shoot photo to the channel and remember it under its shoot. */
 async function postShootPhoto(env, p, state, shootId, item, file, character) {
-  const b = (await st.bible(env, character)) || { name: character };
   const it = { ...item, character };
-  const sent = await sendMedia(env, "photo", p.chat_id, file, { caption: caption(b.name, it), buttons: buttons(it) });
-  remember(state, it, sent);
   const sh = (state.shoots = state.shoots || {})[shootId] || { character, ids: [] };
+  if (p.album === false) {
+    const b = (await st.bible(env, character)) || { name: character };
+    remember(state, it, await sendMedia(env, "photo", p.chat_id, file, { caption: caption(b.name, it), buttons: buttons(it) }));
+  } else {
+    // Kept until the shoot is done, then posted as ONE album -- a carousel a shoot,
+    // 5 a day, not each photo on its own with buttons (2026-10-18).
+    remember(state, it, null);
+    if (file?.fileId) state.items[item.id].file_id = file.fileId;
+    sh.media = [...(sh.media || []).filter((m) => m.id !== item.id), { id: item.id, ...(file?.fileId ? { fileId: file.fileId } : { url: file }) }];
+  }
   if (!sh.ids.includes(item.id)) sh.ids.push(item.id);
   state.shoots[shootId] = sh;
+}
+
+/** A finished shoot's photos as one Telegram album (its carousel). */
+async function postShootAlbum(env, p, state, shootId) {
+  const sh = state.shoots?.[shootId];
+  if (!sh || sh.album || !sh.media?.length) return;
+  const b = (await st.bible(env, sh.character)) || { name: sh.character };
+  const first = state.items[sh.media[0].id] || {};
+  const text = `👤 ${b.name} · ${sh.media.length} photos${first.caption ? `\n${first.caption}` : ""}\n#${shootId}`;
+  const msgs = await tg(env, "sendMediaGroup", { chat_id: p.chat_id, media: sh.media.slice(0, 10).map((m, i) => ({
+    type: "photo", media: m.fileId || m.url, ...(i === 0 ? { caption: text.slice(0, 1024) } : {}) })) });
+  // The album's own copies are what the TikTok draft downloads.
+  (msgs || []).forEach((msg, i) => {
+    const id = sh.media[i]?.id, ph = (msg.photo || []).slice(-1)[0];
+    if (id && ph && state.items[id]) state.items[id].file_id = ph.file_id;
+  });
+  sh.album = (msgs || [])[0]?.message_id || true;
 }
 
 /**
@@ -1242,7 +1269,8 @@ async function advanceShoots(env, p, state, laptopUp) {
           await postShootPhoto(env, p, state, run.id, item, files[`out/items/${r.id}.jpg`], run.character);
         } catch (e) { console.error("shoot photo post failed", r.id, String(e).slice(0, 200)); }
       }
-      await shootDone(env, p, state, run.id);
+      if (state.shoots?.[run.id]) state.shoots[run.id].finished = true;
+      await postShootAlbum(env, p, state, run.id).catch((e) => console.error("album failed", String(e).slice(0, 200)));
       state.kaggle_shoot = null;
       notes.push(`shoot ${run.id}: ${s}`);
     } else {
