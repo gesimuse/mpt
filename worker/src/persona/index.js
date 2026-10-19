@@ -509,6 +509,13 @@ async function onPhotoUpload(env, post, state) {
 async function onReply(env, p, post, state, origin) {
   const parent = post.reply_to_message;
   if (await albumRedo(env, p, post, state)) return;
+  // Any other reply to a shoot album is not a "how she moves" note for a video
+  // (2026-10-19: a "redo" sent before albumRedo existed made a video of photo 1).
+  if (state.album_msgs?.[parent.message_id] || /^#shoot-/m.test(parent.caption || "")) {
+    await tg(env, "sendMessage", { chat_id: post.chat.id, reply_to_message_id: post.message_id,
+      text: "To redraw photos of this carousel, reply: redo 3 (or redo 2 5)." }).catch(() => {});
+    return;
+  }
   // "👍" / "post" as a reply publishes any photo or video, including ones posted
   // without buttons (older 🎬 videos, hand-posted versions).
   // "🖼" / "carousel" as a reply: a carousel of any photo, including old posts
