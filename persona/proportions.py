@@ -27,11 +27,20 @@ def _model():
     global _WB
     with _LOCK:
         if _WB is None:
-            root = os.path.expanduser(os.environ.get("PERSONA_WAN2GP_DIR", "~/apps/Wan2GP"))
+            root = os.path.expanduser(os.environ.get("PERSONA_WAN2GP_DIR") or os.environ.get("WAN2GP_DIR")
+                                      or "~/apps/Wan2GP")
             pose = os.path.join(root, "ckpts", "pose")
             if not os.path.exists(os.path.join(pose, "dw-ll_ucoco_384.onnx")):
-                _WB = False
-                return _WB
+                # Kaggle's fresh Wan2GP has none: fetched from where Wan2GP's own
+                # preprocessing gets them (2026-10-19: Kaggle renders skipped this check).
+                try:
+                    from huggingface_hub import hf_hub_download
+                    for f in ("dw-ll_ucoco_384.onnx", "yolox_l.onnx"):
+                        hf_hub_download("DeepBeepMeep/Wan2.1", f"pose/{f}", local_dir=os.path.join(root, "ckpts"))
+                except Exception as e:
+                    print(f"[persona.proportions] pose model unavailable: {type(e).__name__}: {str(e)[:150]}", flush=True)
+                    _WB = False
+                    return _WB
             if root not in sys.path:
                 sys.path.insert(0, root)
             from preprocessing.dwpose.wholebody import Wholebody
@@ -91,7 +100,7 @@ _REF = {}
 # her ref is 3.40 torso / 11.06 height against Lena's 2.96 / 9.82).
 _TYPICAL = (2.96, 9.82)
 _TYPICAL_WIDTH = 1.96
-WIDTH = 1.62  # refs 1.9-2.1; 1.43-1.67 looked big-headed
+WIDTH = 1.72  # refs 1.9-2.1; 1.43-1.69 looked big-headed
 
 
 def check(path, ref=None):
