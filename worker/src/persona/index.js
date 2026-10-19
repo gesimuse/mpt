@@ -508,6 +508,7 @@ async function onPhotoUpload(env, post, state) {
 
 async function onReply(env, p, post, state, origin) {
   const parent = post.reply_to_message;
+  if (await albumRedo(env, p, post, state)) return;
   // "👍" / "post" as a reply publishes any photo or video, including ones posted
   // without buttons (older 🎬 videos, hand-posted versions).
   // "🖼" / "carousel" as a reply: a carousel of any photo, including old posts
@@ -816,6 +817,11 @@ async function laptopRenderItem(request, env) {
     // An MPT shoot photo: posted to the channel now (by its Telegram file).
     const p = await personas.get(env, r.persona || env.PERSONA_SLUG);
     const state = await st.load(env, p.slug);
+    if (r.replaces) {
+      await albumRedoDone(env, p, state, r, item, file_id);
+      await st.save(env, p.slug, state);
+      return new Response("posted");
+    }
     if (r.ok && item && file_id && !state.items[r.id]) {
       await postShootPhoto(env, p, state, r.shoot, item, { fileId: file_id }, r.character);
       await st.save(env, p.slug, state);
@@ -1178,7 +1184,8 @@ async function jobPayload(env, origin, state, batch) {
       jobs.push({ id: q.id, kind: "render", scenes: q.scenes, date: q.date, chat: q.chat, videos: q.videos ?? 0,
                   shoot: q.shoot || null });
     } else if (q.kind === "redo") {
-      jobs.push({ id: q.id, kind: "redo", scene: q.scene, chat: q.chat, message_id: q.message_id });
+      jobs.push({ id: q.id, kind: "redo", scene: q.scene, chat: q.chat, message_id: q.message_id,
+                  ...(q.shoot ? { shoot: q.shoot, replaces: q.replaces } : {}) });
     } else if (q.kind === "recreate") {
       jobs.push({ id: q.id, kind: "recreate", url: q.url, seconds: q.seconds, chat: q.chat, message_id: q.message_id,
                   video_url: q.file_id ? await fileLink(env, origin, q.file_id) : "" });
@@ -1272,6 +1279,58 @@ async function albumButtons(env, p, sh) {
     .catch((e) => console.error("album buttons", String(e).slice(0, 150)));
 }
 
+/**
+ * "redo 3" / "redo 2 5" as a reply to a shoot's album: those photos are drawn again
+ * and, when all are back, the album is posted again with them in place (asked for
+ * 2026-10-19 instead of buttons under the album).
+ */
+async function albumRedo(env, p, post, state) {
+  const a = state.album_msgs?.[post.reply_to_message?.message_id];
+  const m = /^\s*(?:redo|🔁)\s*([\d\s,]+)$/iu.exec(post.text || "");
+  if (!a || !m) return false;
+  const sh = state.shoots?.[a.shoot];
+  const nums = [...new Set(m[1].split(/[\s,]+/).filter(Boolean).map(Number))];
+  const picked = nums.map((n) => [n, sh?.media?.[n - 1]?.id]).filter(([, id]) => id && state.items[id]?.scene?.setting);
+  if (!sh || !picked.length) {
+    await tg(env, "sendMessage", { chat_id: post.chat.id, reply_to_message_id: post.message_id,
+      text: `⚠️ Can't: this album has photos 1-${sh?.media?.length || 0}.` }).catch(() => {});
+    return true;
+  }
+  for (const [, id] of picked) {
+    if (state.queue.some((q) => q.kind === "redo" && q.item === id)) continue;
+    state.queue.push({ id: `${id}-r${Date.now()}`, kind: "redo", item: id, scene: state.items[id].scene, chat: post.chat.id,
+                       message_id: post.message_id, shoot: a.shoot, replaces: id, character: sh.character });
+    sh.redo_wait = (sh.redo_wait || 0) + 1;
+  }
+  await tg(env, "sendMessage", { chat_id: post.chat.id, reply_to_message_id: post.message_id,
+    text: `🔁 Redrawing photo${picked.length > 1 ? "s" : ""} ${picked.map(([n]) => n).join(", ")} -- the carousel comes again with ${picked.length > 1 ? "them" : "it"} (~15-30 min).` }).catch(() => {});
+  return true;
+}
+
+/** One redrawn album photo back: swapped into the shoot; the last one reposts the album. */
+async function albumRedoDone(env, p, state, r, item, fileId) {
+  const sh = state.shoots?.[r.shoot];
+  state.queue = state.queue.filter((q) => q.id !== r.request);
+  state.lanes.laptop = (state.lanes.laptop || []).filter((q) => q.id !== r.request);
+  if (!sh) return;
+  if (r.ok && item && fileId) {
+    remember(state, { ...item, character: sh.character }, null);
+    state.items[r.id].file_id = fileId;
+    sh.media = (sh.media || []).map((x) => (x.id === r.replaces ? { id: r.id, fileId } : x));
+    sh.ids = sh.ids.map((x) => (x === r.replaces ? r.id : x));
+  }
+  sh.redo_wait = Math.max(0, (sh.redo_wait || 1) - 1);
+  if (sh.redo_wait) return;
+  // All back: the old album goes, the new one is posted.
+  for (const [mid, a] of Object.entries(state.album_msgs || {})) {
+    if (a.shoot !== r.shoot) continue;
+    await tg(env, "deleteMessage", { chat_id: p.chat_id, message_id: Number(mid) }).catch(() => {});
+    delete state.album_msgs[mid];
+  }
+  sh.album = null;
+  await postShootAlbum(env, p, state, r.shoot);
+}
+
 /** A finished shoot's photos as one Telegram album (its carousel). */
 async function postShootAlbum(env, p, state, shootId) {
   const sh = state.shoots?.[shootId];
@@ -1290,7 +1349,6 @@ async function postShootAlbum(env, p, state, shootId) {
     if (id) state.album_msgs[msg.message_id] = { shoot: shootId, item: id };
   });
   sh.album = (msgs || [])[0]?.message_id || true;
-  await albumButtons(env, p, sh);
   // Old album records go after 5 days.
   const keep = Object.entries(state.album_msgs);
   if (keep.length > 300) state.album_msgs = Object.fromEntries(keep.slice(-300));

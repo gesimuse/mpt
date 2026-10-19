@@ -44,7 +44,12 @@ def has_audio(path):
 
 def _reply(job):
     # character: which roster girl a result belongs to (MPT's shared channel).
-    return {"chat": job.get("chat"), "message_id": job.get("message_id"), "character": job.get("character")}
+    out = {"chat": job.get("chat"), "message_id": job.get("message_id"), "character": job.get("character")}
+    # A redo of a shoot photo comes back like a shoot photo (a Telegram file, no
+    # post of its own): the Worker puts it in the shoot and posts the album again.
+    if job.get("shoot"):
+        out.update(shoot=job["shoot"], replaces=job.get("replaces"), render=job.get("render") or "redo")
+    return out
 
 
 def download_clip(job, dest):
