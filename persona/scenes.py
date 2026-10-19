@@ -398,8 +398,10 @@ def scene_prompt(char, scene, lane, n_refs, style="qwen"):
     if scene.get("view") == "back":
         # From behind, for real: asked as "face not visible" alone, she was drawn with
         # her back AND her face to the camera, head twisted round (2026-10-19).
-        face = ("Seen completely from behind: the camera sees her back, the back of her head and her hair -- "
-                "NOT her face. Her head faces the same way as her body, away from the camera, toward the view.")
+        # Asked for 2026-10-19: her back to the camera, glancing back over her shoulder.
+        face = ("Seen from behind: her back to the camera. She glances back over her shoulder, her face in side "
+                "profile or a three-quarter view -- a natural turn of the head, never twisted round to face the "
+                f"camera straight on. Facial expression: {scene.get('expression', 'a soft smile')}.")
     elif scene.get("angle"):
         face = f"Head angle: {scene['angle']}. Facial expression: {scene['expression']}."
     else:
@@ -429,7 +431,7 @@ def negative(char, lane, scene=None):
            "deformed hands, extra fingers, blurry, cartoon, 3d render, big head, oversized head, narrow shoulders, "
            "tanned body with a paler face, mismatched skin tone between face and body"]
     if (scene or {}).get("view") == "back":
-        neg.append("face visible, looking at the camera, looking back over her shoulder, head turned toward the camera")
+        neg.append("head twisted round, face fully frontal over her back, chest and back both facing the camera")
     return ", ".join(x for x in neg if x)
 
 

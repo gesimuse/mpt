@@ -5,6 +5,7 @@ Every long operation is a generator that yields each result as soon as it exists
 so the bot can post image 1 while image 2 is still rendering.
 """
 import json
+import random
 from pathlib import Path
 import shutil
 import time
@@ -210,7 +211,8 @@ class Studio:
             # pulled the head round to the camera.
             full = char.refs_dir / "04-full-body.jpg"
             if scene.get("view") == "back" and full.exists():
-                return [full]
+                prof = char.refs_dir / "sheet" / f"{random.choice(['profile-left', 'profile-right'])}.jpg"
+                return [head(prof), full][: max(1, model.get("max_refs", 1))] if prof.exists() else [full]
             sheet = char.refs_dir / "sheet" / f"{scene.get('sheet', '')}.jpg"
             if scene.get("sheet") and sheet.exists():
                 # A turned head: its portrait FIRST, so the model takes the head angle
@@ -256,7 +258,8 @@ class Studio:
                     reason = str(e)[:300]
                     break
                 good, why, counts = qa.check(path)
-                if good:
+                # From behind her shoulders and face can't be measured against each other.
+                if good and scene.get("view") != "back":
                     good, why, counts["proportions"] = proportions.check(path, ref=char.refs_dir / "04-full-body.jpg")
                 log(f"{item['id']}: anatomy check {'passed' if good else 'FAILED'} {why} {counts}")
                 if good:
