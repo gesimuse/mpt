@@ -682,6 +682,7 @@ async function onAdmin(request, env) {
     if (what === "post") return new Response(await post(env, p, Number(u.searchParams.get("slot") || 4)));
     if (what === "jobs") return new Response(await advanceJobs(env, p, u.origin));
     if (what === "shoot") return new Response(await shoot(env, p, u.searchParams.get("character")));
+    if (what === "writeshoot") return new Response(String(await writeRequestedShoot(env, p)));
     if (what === "dropshoot") {
       // A shoot that will never finish (its job is gone): removed from the state.
       const p = await personas.get(env, u.searchParams.get("slug") || "mpt");
@@ -689,6 +690,7 @@ async function onAdmin(request, env) {
       const id = u.searchParams.get("id");
       if (!state.shoots?.[id] || state.shoots[id].finished) return new Response("no such unfinished shoot", { status: 404 });
       delete state.shoots[id];
+      state.queue = state.queue.filter((q) => q.shoot !== id);
       await st.save(env, p.slug, state);
       return new Response(`dropped ${id}`);
     }
@@ -1145,21 +1147,43 @@ async function jobPayload(env, origin, state, batch) {
  * more than Kaggle's 30h a week). Photos post to the channel as they come; the
  * finished shoot becomes one TikTok photo draft (shootDone).
  */
+/**
+ * Ask for a shoot: only recorded here (state.shoot_requests). Writing its scenes is
+ * an AI call that can take longer than a request may (Cloudflare cuts it at ~100s,
+ * and a shoot asked for that way vanished without a word, 2026-10-18/19), so the
+ * draft cron (onDraftSchedule, its own invocation every 15 min) writes them --
+ * writeRequestedShoot -- and queues the render.
+ */
 async function shoot(env, p, who = null) {
   const state = await st.load(env, p.slug);
   const character = who || nextCharacter(p, state);
-  const b = await st.bible(env, character);
-  if (!b) { await st.save(env, p.slug, state); return `${p.slug}: no bible for ${character} (persona.cli sync)`; }
-  // MPT stays sexy (its girls' choice, 2026-10-17); Lena's Instagram lane does not.
-  // One photoshoot: one place, one outfit, one day -- a carousel.
-  const list = await scenes.writeShoot(env, b, state, Number(p.photos || 6), { sexy: p.style !== "recommendable" });
-  state.recent.push(`${list[0].shoot_place} / ${list[0].outfit}`, ...list.map((x) => `${x.setting} / ${x.action}`));
-  const id = `shoot-${character}-${Date.now()}`;
-  state.shoots = state.shoots || {};
-  state.shoots[id] = { character, ids: [], started: Date.now() };
-  state.queue.push({ id, kind: "render", scenes: list, date: st.today(), chat: p.chat_id, videos: 0, character, shoot: id });
+  if (!(await st.bible(env, character))) { await st.save(env, p.slug, state); return `${p.slug}: no bible for ${character} (persona.cli sync)`; }
+  state.shoot_requests = [...(state.shoot_requests || []), { character, at: Date.now() }];
   await st.save(env, p.slug, state);
-  return `${p.slug}: shoot of ${character} queued (${list.length} scenes)`;
+  return `${p.slug}: shoot of ${character} requested (scenes written within 15 min)`;
+}
+
+/** One requested shoot: its scenes written and its render queued. True when it did one. */
+async function writeRequestedShoot(env, p) {
+  const req = (await st.load(env, p.slug)).shoot_requests?.[0];
+  if (!req) return false;
+  const b = await st.bible(env, req.character);
+  const recentState = await st.load(env, p.slug);
+  // One photoshoot: one place, one outfit, one day -- a carousel.
+  const list = b ? await scenes.writeShoot(env, b, recentState, Number(p.photos || 6), { sexy: p.style !== "recommendable" }) : null;
+  // Applied onto the state as it is now: other writers moved while the AI wrote.
+  const state = await st.load(env, p.slug);
+  state.shoot_requests = (state.shoot_requests || []).filter((r) => !(r.character === req.character && r.at === req.at));
+  if (list?.length) {
+    state.recent.push(`${list[0].shoot_place} / ${list[0].outfit}`, ...list.map((x) => `${x.setting} / ${x.action}`));
+    const id = `shoot-${req.character}-${Date.now()}`;
+    state.shoots = state.shoots || {};
+    state.shoots[id] = { character: req.character, ids: [], started: Date.now() };
+    state.queue.push({ id, kind: "render", scenes: list, date: st.today(), chat: p.chat_id, videos: 0, character: req.character, shoot: id });
+    console.log(`${p.slug}: shoot of ${req.character} queued (${list.length} scenes)`);
+  }
+  await st.save(env, p.slug, state);
+  return true;
 }
 
 /** Post one shoot photo to the channel and remember it under its shoot. */
@@ -1251,6 +1275,13 @@ async function shootDone(env, p, state, shootId) {
 export async function onDraftSchedule(event, env) {
   for (const p of await personas.list(env)) {
     if (!isRoster(p)) continue;
+    // A requested shoot's scenes first; that is this run's one step.
+    try {
+      if (await writeRequestedShoot(env, p)) return;
+    } catch (e) {
+      console.error("writing a requested shoot failed", String(e).slice(0, 200));
+      return;
+    }
     const state = await st.load(env, p.slug);
     const pending = Object.entries(state.shoots || {})
       .find(([, sh]) => sh.finished && !sh.draft && !sh.draft_error && !(sh.retry_at && Date.now() < sh.retry_at));
