@@ -206,6 +206,11 @@ class Studio:
         front = [p for p in default_refs if p.name.startswith("01-")] or default_refs[:1]
 
         def refs_for(scene):
+            # From behind: her full-body ref only (hair, figure, skin) -- her face refs
+            # pulled the head round to the camera.
+            full = char.refs_dir / "04-full-body.jpg"
+            if scene.get("view") == "back" and full.exists():
+                return [full]
             sheet = char.refs_dir / "sheet" / f"{scene.get('sheet', '')}.jpg"
             if scene.get("sheet") and sheet.exists():
                 # A turned head: its portrait FIRST, so the model takes the head angle
@@ -245,7 +250,7 @@ class Studio:
                                               [head(p) for p in default_refs])
                     else:
                         path = self.engine.image(model, prompt, char.dir / "items", item["id"], refs=refs,
-                                                 negative=scenes.negative(char, lane))
+                                                 negative=scenes.negative(char, lane, scene))
                 except Exception as e:
                     path = None
                     reason = str(e)[:300]

@@ -120,14 +120,18 @@ def deliver(work, r):
     if m.get("edit"):
         # 🔁: the redrawn photo replaces the old one in its own message.
         try:
-            sent = _telegram("editMessageMedia", {
-                "chat_id": m["chat"], "message_id": m["edit"], "reply_markup": json.dumps(m["buttons"]),
-                "media": json.dumps({"type": "photo", "media": "attach://file", "caption": m["caption"][:1024]})},
-                {"file": work / "items" / item["path"]})
+            # A photo inside an album gets no buttons (Telegram refuses them there).
+            fields = {"chat_id": m["chat"], "message_id": m["edit"],
+                      "media": json.dumps({"type": "photo", "media": "attach://file", "caption": (m["caption"] or "")[:1024]})}
+            if m.get("buttons"):
+                fields["reply_markup"] = json.dumps(m["buttons"])
+            sent = _telegram("editMessageMedia", fields, {"file": work / "items" / item["path"]})
             return _call("/persona/admin/laptop/result", {"result": r, "item": item, "sent": sent})
         except Exception as e:
             log(f"in-place replace failed ({e}); posting it instead")
-    fields = {"chat_id": m["chat"], "caption": m["caption"][:1024], "reply_markup": json.dumps(m["buttons"])}
+    fields = {"chat_id": m["chat"], "caption": (m["caption"] or "")[:1024]}
+    if m.get("buttons"):
+        fields["reply_markup"] = json.dumps(m["buttons"])
     if m.get("replyTo"):
         # Posted anyway if the message it answers was deleted (Telegram: "message to
         # be replied not found", 2026-10-16 -- the finished video was re-rendered twice).

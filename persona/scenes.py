@@ -395,7 +395,12 @@ def scene_prompt(char, scene, lane, n_refs, style="qwen"):
         who = f"The woman from {refs}, alone in the photo, with her exact face, facial features, hair and skin tone"
     else:
         who = "A single woman"
-    if scene.get("angle"):
+    if scene.get("view") == "back":
+        # From behind, for real: asked as "face not visible" alone, she was drawn with
+        # her back AND her face to the camera, head twisted round (2026-10-19).
+        face = ("Seen completely from behind: the camera sees her back, the back of her head and her hair -- "
+                "NOT her face. Her head faces the same way as her body, away from the camera, toward the view.")
+    elif scene.get("angle"):
         face = f"Head angle: {scene['angle']}. Facial expression: {scene['expression']}."
     else:
         face = f"Her head and face: {scene['gaze']}." if scene.get("gaze") else ""
@@ -418,11 +423,13 @@ def scene_prompt(char, scene, lane, n_refs, style="qwen"):
     return " ".join(p for p in parts if p and p != ".")
 
 
-def negative(char, lane):
+def negative(char, lane, scene=None):
     b = char.bible
     neg = [b["safety"]["negative"], b["lanes"].get(lane, {}).get("negative", ""),
            "deformed hands, extra fingers, blurry, cartoon, 3d render, big head, oversized head, narrow shoulders, "
            "tanned body with a paler face, mismatched skin tone between face and body"]
+    if (scene or {}).get("view") == "back":
+        neg.append("face visible, looking at the camera, looking back over her shoulder, head turned toward the camera")
     return ", ".join(x for x in neg if x)
 
 

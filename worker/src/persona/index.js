@@ -369,6 +369,21 @@ async function onTap(env, p, cq, state, origin) {
     } catch { /* unchanged markup */ }
     return;
   }
+  if (act === "sredo" || act === "svid") {
+    // A photo in a shoot's album, by its button under the album.
+    const it = state.items[itemId];
+    if (!it?.message_id) return answer(env, cq.id, "Can't: this photo isn't known any more.");
+    const at = { chat: { id: chat }, message_id: it.message_id };
+    if (act === "svid") {
+      queueVideo(state, itemId, at, it.file_id, "");
+      return answer(env, cq.id, "🎬 Queued. The video comes as a reply to the photo in ~40-60 min.");
+    }
+    if (!it.scene?.setting) return answer(env, cq.id, "Can't redo this one: its scene isn't known.");
+    if (state.queue.some((q) => q.kind === "redo" && q.item === itemId)) return answer(env, cq.id, "Already queued.");
+    state.queue.push({ id: `${itemId}-r${Date.now()}`, kind: "redo", item: itemId, scene: it.scene, chat, message_id: it.message_id,
+                       ...(it.character ? { character: it.character } : {}) });
+    return answer(env, cq.id, "🔁 Queued. The new photo replaces it in the album in ~15-30 min.");
+  }
   if (act === "vid") {
     const photo = (msg.photo || []).slice(-1)[0];
     if (!photo) return answer(env, cq.id, "That is not a photo.");
@@ -682,6 +697,23 @@ async function onAdmin(request, env) {
     if (what === "post") return new Response(await post(env, p, Number(u.searchParams.get("slot") || 4)));
     if (what === "jobs") return new Response(await advanceJobs(env, p, u.origin));
     if (what === "shoot") return new Response(await shoot(env, p, u.searchParams.get("character")));
+    if (what === "albumbuttons") {
+      // Albums posted before they had a button message: buttons now (album photos
+      // have consecutive message ids from the album's first).
+      const state = await st.load(env, p.slug), done = [];
+      for (const [id, sh] of Object.entries(state.shoots || {})) {
+        if (typeof sh.album !== "number" || sh.buttons || !sh.media?.length) continue;
+        state.album_msgs = state.album_msgs || {};
+        sh.media.forEach((m, i) => {
+          state.album_msgs[sh.album + i] = { shoot: id, item: m.id };
+          if (state.items[m.id]) state.items[m.id].message_id = sh.album + i;
+        });
+        await albumButtons(env, p, sh);
+        done.push(id);
+      }
+      await st.save(env, p.slug, state);
+      return Response.json(done);
+    }
     if (what === "writeshoot") return new Response(String(await writeRequestedShoot(env, p)));
     if (what === "dropshoot") {
       // A shoot that will never finish (its job is gone): removed from the state.
@@ -977,7 +1009,7 @@ function recordResult(state, r, item, sent) {
  * asked for it. `item` is the item JSON, `file` its photo/video (URL or Blob).
  */
 async function postResult(env, state, b, r, item, file) {
-  const m = resultMessage(b, r, item);
+  const m = albumAware(state, resultMessage(b, r, item));
   if (m.kind === "text") {
     await tg(env, "sendMessage", { chat_id: m.chat, reply_to_message_id: m.replyTo, text: m.text });
     await carouselProgress(env, state, r);
@@ -988,8 +1020,10 @@ async function postResult(env, state, b, r, item, file) {
     sent = await editPhoto(env, m.chat, m.edit, file, { caption: m.caption, buttons: m.buttons })
       .catch((e) => { console.error("in-place replace failed", String(e).slice(0, 200)); return null; });
   }
-  if (!sent) sent = await sendMedia(env, m.kind, m.chat, file, { caption: m.caption, buttons: m.buttons, replyTo: m.replyTo });
+  const replaced = !!sent;
+  if (!sent) sent = await sendMedia(env, m.kind, m.chat, file, { caption: m.caption, buttons: m.buttons || undefined, replyTo: m.replyTo });
   recordResult(state, r, item, sent);
+  if (replaced) swapAlbumPhoto(state, r, sent);
   await carouselProgress(env, state, r);
 }
 
@@ -1075,7 +1109,26 @@ async function laptopPrepare(request, env) {
   const { result: r, item } = await request.json();
   const p = await personas.get(env, r.persona || r.slug || env.PERSONA_SLUG || "lena");
   const b = (await st.bible(env, r.character || p.slug)) || { name: p.slug };
-  return Response.json(resultMessage(b, r, item));
+  return Response.json(albumAware(await st.load(env, p.slug), resultMessage(b, r, item)));
+}
+
+/** A redo of a photo inside an album: replaced in place, with no buttons (albums can't). */
+function albumAware(state, m) {
+  if (m.edit && state.album_msgs?.[m.edit]) return { ...m, buttons: null, caption: "" };
+  return m;
+}
+
+/** After an album photo was redrawn: the shoot (and its TikTok draft) uses the new one. */
+function swapAlbumPhoto(state, r, sent) {
+  const a = sent && r.ok && state.album_msgs?.[r.message_id];
+  if (!a || !(r.redo || r.replace)) return;
+  const sh = state.shoots?.[a.shoot];
+  if (sh) {
+    sh.ids = sh.ids.map((x) => (x === a.item ? r.id : x));
+    sh.media = (sh.media || []).map((x) => (x.id === a.item ? { ...x, id: r.id } : x));
+  }
+  if (state.items[r.id]) state.items[r.id].message_id = r.message_id;
+  state.album_msgs[r.message_id] = { ...a, item: r.id };
 }
 
 async function laptopResult(request, env) {
@@ -1102,7 +1155,7 @@ async function laptopResult(request, env) {
       await postShootAlbum(env, p, state, r.shoot).catch((e) => console.error("album failed", String(e).slice(0, 200)));
     }
   }
-  else if (sent) { recordResult(state, r, item, sent); await carouselProgress(env, state, r); }
+  else if (sent) { recordResult(state, r, item, sent); swapAlbumPhoto(state, r, sent); await carouselProgress(env, state, r); }
   else await postResult(env, state, b, r, item, file);
   state.done.push(resultKey(r));
   // Taken back from Kaggle's queue too, if it was handed over while the laptop
@@ -1204,6 +1257,21 @@ async function postShootPhoto(env, p, state, shootId, item, file, character) {
   state.shoots[shootId] = sh;
 }
 
+/**
+ * An album can't carry buttons, so they come in a message under it: 🔁 n redraws
+ * photo n in place, 🎬 n animates it (2026-10-19: "no options to redo").
+ */
+async function albumButtons(env, p, sh) {
+  const ids = sh.media.slice(0, 10).map((m) => m.id);
+  const row = (icon, act) => ids.map((id, i) => [`${icon}${i + 1}`, `pv:${act}:${id}`]);
+  const chunk = (r) => (r.length > 5 ? [r.slice(0, 5), r.slice(5)] : [r]);
+  await tg(env, "sendMessage", { chat_id: p.chat_id, text: "🔁 n redraws photo n · 🎬 n makes it a video",
+    reply_parameters: { message_id: sh.album, allow_sending_without_reply: true },
+    reply_markup: kb([...chunk(row("🔁", "sredo")), ...chunk(row("🎬", "svid"))]) })
+    .then(() => { sh.buttons = true; })
+    .catch((e) => console.error("album buttons", String(e).slice(0, 150)));
+}
+
 /** A finished shoot's photos as one Telegram album (its carousel). */
 async function postShootAlbum(env, p, state, shootId) {
   const sh = state.shoots?.[shootId];
@@ -1214,11 +1282,18 @@ async function postShootAlbum(env, p, state, shootId) {
   const msgs = await tg(env, "sendMediaGroup", { chat_id: p.chat_id, media: sh.media.slice(0, 10).map((m, i) => ({
     type: "photo", media: m.fileId || m.url, ...(i === 0 ? { caption: text.slice(0, 1024) } : {}) })) });
   // The album's own copies are what the TikTok draft downloads.
+  state.album_msgs = state.album_msgs || {};
   (msgs || []).forEach((msg, i) => {
     const id = sh.media[i]?.id, ph = (msg.photo || []).slice(-1)[0];
     if (id && ph && state.items[id]) state.items[id].file_id = ph.file_id;
+    if (id && state.items[id]) state.items[id].message_id = msg.message_id;
+    if (id) state.album_msgs[msg.message_id] = { shoot: shootId, item: id };
   });
   sh.album = (msgs || [])[0]?.message_id || true;
+  await albumButtons(env, p, sh);
+  // Old album records go after 5 days.
+  const keep = Object.entries(state.album_msgs);
+  if (keep.length > 300) state.album_msgs = Object.fromEntries(keep.slice(-300));
 }
 
 /**
@@ -1283,8 +1358,10 @@ export async function onDraftSchedule(event, env) {
       return;
     }
     const state = await st.load(env, p.slug);
+    // A finished shoot with no photos (a failed Kaggle run) never gets a draft; it
+    // used to be picked every run and stall every shoot behind it (2026-10-19).
     const pending = Object.entries(state.shoots || {})
-      .find(([, sh]) => sh.finished && !sh.draft && !sh.draft_error && !(sh.retry_at && Date.now() < sh.retry_at));
+      .find(([, sh]) => sh.finished && sh.ids?.length && !sh.draft && !sh.draft_error && !(sh.retry_at && Date.now() < sh.retry_at));
     if (!pending) continue;
     if (await shootDone(env, p, state, pending[0])) {
       // Saved onto the current state: other writers may have moved meanwhile.
