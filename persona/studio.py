@@ -257,7 +257,9 @@ class Studio:
                 if good:
                     # Off-model faces are redrawn too, not just dropped. A turned head
                     # gets a lower floor (scenes.ANGLE_FLOOR), the age check stays.
-                    face_ok, info = faceid.check(path, ref_emb, min_sim=floor_for(scene))
+                    # A photo from behind shows no face to check (2026-10-19, asked for).
+                    face_ok, info = ((True, {"reason": "from behind"}) if scene.get("view") == "back"
+                                     else faceid.check(path, ref_emb, min_sim=floor_for(scene)))
                     if face_ok:
                         # Her head must show the scene's angle (measured); on the last
                         # try a photo that only missed the angle is kept.
@@ -279,7 +281,8 @@ class Studio:
             if path is None:
                 yield char.update_item(item["id"], status="failed", ok=False, reason=reason)
                 continue
-            ok, info = faceid.check(path, ref_emb, min_sim=floor_for(scene))
+            ok, info = ((True, {"reason": "from behind"}) if scene.get("view") == "back"
+                        else faceid.check(path, ref_emb, min_sim=floor_for(scene)))
             if not ok:
                 path.unlink(missing_ok=True)
                 yield char.update_item(item["id"], status="rejected", ok=False, reason=info.get("reason"),

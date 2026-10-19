@@ -215,8 +215,23 @@ ${n} objects with the keys above.`;
   list.forEach((sc) => { sc.outfit = outfitText; sc.makeup = makeup; sc.shoot_place = place; });
   list = assignGazes(list.slice(0, n));
   if (sexy) list.forEach((sc, i) => { if (i % 5 !== 4) sc.shot = pick(FULL_SHOTS); });
+  // Body views (2026-10-19, asked for): one photo from behind and one side-on,
+  // the rest facing the camera. From behind her face is not seen (nothing to check
+  // or twist); side-on her head is in profile like her body.
+  if (n >= 4) {
+    const back = list[2], side = list[n - 2], dir = pick(["left", "right"]);
+    Object.assign(back, { view: "back", shot: pick(BACK_SHOTS), angle: "her back to the camera, head facing away, her face not visible",
+                          angle_sheet: "", sheet: "", gaze: "facing away from the camera" });
+    Object.assign(side, { view: "side", shot: `full-body side view, her whole body in profile facing ${dir === "left" ? "the left" : "the right"} of the frame`,
+                          angle: `face in side profile like her body, looking ahead`, angle_sheet: `profile-${dir}`, sheet: `profile-${dir}`,
+                          gaze: `side profile, looking ahead` });
+  }
   return list;
 }
+
+const BACK_SHOTS = ["full-body shot from behind, her back to the camera, looking out at the view",
+                    "full-body shot from behind as she walks away, her back to the camera",
+                    "three-quarter-body shot from behind, her back and hair to the camera, hand in her hair"];
 
 const FULL_SHOTS = ["full-body shot, head to toe, showing her whole figure", "three-quarter-body shot from head to knees",
                     "full-body shot from a slightly low angle, head to toe"];
