@@ -423,6 +423,8 @@ def scene_prompt(char, scene, lane, n_refs, style="qwen"):
          "not the references." if n_refs else ""),
         "She is the only person in the photo, nobody else in the frame or background.",
         f"Lighting: {scene['light']}.",
+        # A note from a "redo 3 <note>" reply: what to change this time.
+        f"Most important for this photo: {scene['note']}." if scene.get("note") else "",
         _without_makeup(lane_cfg.get("cue", "")) + ".",
         REALISM + ".",
     ]

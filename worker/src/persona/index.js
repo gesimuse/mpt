@@ -512,8 +512,8 @@ async function onReply(env, p, post, state, origin) {
   // Any other reply to a shoot album is not a "how she moves" note for a video
   // (2026-10-19: a "redo" sent before albumRedo existed made a video of photo 1).
   if (state.album_msgs?.[parent.message_id] || /^#shoot-/m.test(parent.caption || "")) {
-    await tg(env, "sendMessage", { chat_id: post.chat.id, reply_to_message_id: post.message_id,
-      text: "To redraw photos of this carousel, reply: redo 3 (or redo 2 5)." }).catch(() => {});
+    const a = state.album_msgs?.[parent.message_id], sh = a && state.shoots?.[a.shoot];
+    if (sh) await albumStatus(env, p, sh, "💡 to redraw: reply redo 3 (or redo 2 5)");
     return;
   }
   // "👍" / "post" as a reply publishes any photo or video, including ones posted
@@ -721,6 +721,11 @@ async function onAdmin(request, env) {
       }
       await st.save(env, p.slug, state);
       return Response.json(done);
+    }
+    if (what === "sharelink") {
+      const state = await st.load(env, p.slug);
+      const job = state.publish.find((j) => j.id === u.searchParams.get("j"));
+      return new Response(job ? await shareLink(env, u.origin, p, job) : "no such job", { status: job ? 200 : 404 });
     }
     if (what === "writeshoot") return new Response(String(await writeRequestedShoot(env, p)));
     if (what === "dropshoot") {
@@ -1293,25 +1298,44 @@ async function albumButtons(env, p, sh) {
  */
 async function albumRedo(env, p, post, state) {
   const a = state.album_msgs?.[post.reply_to_message?.message_id];
-  const m = /^\s*(?:redo|🔁)\s*([\d\s,]+)$/iu.exec(post.text || "");
+  // "redo 3" / "redo 2 5" / "redo 3 red lipstick, hair up" (a note added to the prompt).
+  const m = /^\s*(?:redo|🔁)\s*((?:\d+[\s,]*)+)(.*)$/isu.exec(post.text || "");
+  const note = (m?.[2] || "").trim().slice(0, 300);
   if (!a || !m) return false;
   const sh = state.shoots?.[a.shoot];
   const nums = [...new Set(m[1].split(/[\s,]+/).filter(Boolean).map(Number))];
   const picked = nums.map((n) => [n, sh?.media?.[n - 1]?.id]).filter(([, id]) => id && state.items[id]?.scene?.setting);
   if (!sh || !picked.length) {
-    await tg(env, "sendMessage", { chat_id: post.chat.id, reply_to_message_id: post.message_id,
-      text: `⚠️ Can't: this album has photos 1-${sh?.media?.length || 0}.` }).catch(() => {});
+    if (sh) await albumStatus(env, p, sh, `⚠️ redo: this album has photos 1-${sh.media?.length || 0}`);
+    await tidy(env, post);
     return true;
   }
   for (const [, id] of picked) {
     if (state.queue.some((q) => q.kind === "redo" && q.item === id)) continue;
-    state.queue.push({ id: `${id}-r${Date.now()}`, kind: "redo", item: id, scene: state.items[id].scene, chat: post.chat.id,
+    state.queue.push({ id: `${id}-r${Date.now()}`, kind: "redo", item: id,
+                       scene: { ...state.items[id].scene, ...(note ? { note } : {}) }, chat: post.chat.id,
                        message_id: post.message_id, shoot: a.shoot, replaces: id, character: sh.character });
     sh.redo_wait = (sh.redo_wait || 0) + 1;
   }
-  await tg(env, "sendMessage", { chat_id: post.chat.id, reply_to_message_id: post.message_id,
-    text: `🔁 Redrawing photo${picked.length > 1 ? "s" : ""} ${picked.map(([n]) => n).join(", ")} -- the carousel comes again with ${picked.length > 1 ? "them" : "it"} (~15-30 min).` }).catch(() => {});
+  await albumStatus(env, p, sh, `🔁 redrawing ${picked.map(([n]) => n).join(", ")}${note ? ` (${note.slice(0, 60)})` : ""} -- the carousel comes again (~15-30 min)`);
+  await tidy(env, post);
   return true;
+}
+
+/**
+ * A shoot's news (TikTok draft, redraws) as one line in its album's caption, edited
+ * in place -- not a new message each time (2026-10-20: "too much text in the channel").
+ */
+async function albumStatus(env, p, sh, line) {
+  sh.status = line;
+  if (typeof sh.album !== "number" || !sh.caption_text) return;
+  await tg(env, "editMessageCaption", { chat_id: p.chat_id, message_id: sh.album,
+    caption: `${sh.caption_text}\n${line}`.slice(0, 1024) }).catch(() => {});
+}
+
+/** A reply the bot has acted on goes, so the channel keeps only the posts. */
+async function tidy(env, post) {
+  await tg(env, "deleteMessage", { chat_id: post.chat.id, message_id: post.message_id }).catch(() => {});
 }
 
 /** One redrawn album photo back: swapped into the shoot; the last one reposts the album. */
@@ -1335,6 +1359,7 @@ async function albumRedoDone(env, p, state, r, item, fileId) {
     delete state.album_msgs[mid];
   }
   sh.album = null;
+  if (/^🔁/.test(sh.status || "")) sh.status = sh.tiktok_status || "";
   await postShootAlbum(env, p, state, r.shoot);
 }
 
@@ -1344,7 +1369,8 @@ async function postShootAlbum(env, p, state, shootId) {
   if (!sh || sh.album || !sh.media?.length) return;
   const b = (await st.bible(env, sh.character)) || { name: sh.character };
   const first = state.items[sh.media[0].id] || {};
-  const text = `👤 ${b.name} · ${sh.media.length} photos${first.caption ? `\n${first.caption}` : ""}\n#${shootId}`;
+  sh.caption_text = `👤 ${b.name} · ${sh.media.length} photos${first.caption ? `\n${first.caption}` : ""}\n#${shootId}`;
+  const text = sh.status ? `${sh.caption_text}\n${sh.status}` : sh.caption_text;
   const msgs = await tg(env, "sendMediaGroup", { chat_id: p.chat_id, media: sh.media.slice(0, 10).map((m, i) => ({
     type: "photo", media: m.fileId || m.url, ...(i === 0 ? { caption: text.slice(0, 1024) } : {}) })) });
   // The album's own copies are what the TikTok draft downloads.
@@ -1391,22 +1417,23 @@ async function shootDone(env, p, state, shootId) {
     const first = state.items[sh.ids[0]] || {};
     const posts = await captions.forPost(env, p, b, state, { ...first, kind: "photo" });
     sh.draft = await tiktok.photoDraft(env, p.slug, sh.urls, posts.tiktok.text);
-    await tg(env, "sendMessage", { chat_id: p.chat_id,
-      text: `📥 ${b.name}'s shoot (${sh.ids.length} photos) is in the TikTok inbox as a draft -- add a sound and post.\n\n${posts.tiktok.text}` });
+    sh.tiktok_status = "📥 TikTok: in the aiqube inbox -- add a sound and post";
+    await albumStatus(env, p, sh, sh.tiktok_status);
   } catch (e) {
     const msg = String(e.message || e).slice(0, 200);
     if (/too_many_pending|rate_limit|spam_risk/i.test(msg)) {
       // TikTok's inbox is full of unposted drafts: retried every hour until there
       // is room (post or delete drafts in the app), told once.
       if (!sh.retry_at) {
-        await tg(env, "sendMessage", { chat_id: p.chat_id,
-          text: `⏳ ${b.name}'s shoot waits for room in the TikTok inbox (too many unposted drafts). Post or delete some drafts in the app; it retries every hour.` }).catch(() => {});
+        sh.tiktok_status = "⏳ TikTok: waiting for a free draft slot (5 a day), retried hourly";
+        await albumStatus(env, p, sh, sh.tiktok_status);
       }
       sh.retry_at = Date.now() + 3600 * 1000;
       return true;
     }
     sh.draft_error = msg;
-    await tg(env, "sendMessage", { chat_id: p.chat_id, text: `❌ ${b.name}'s shoot: TikTok draft failed: ${sh.draft_error}` }).catch(() => {});
+    sh.tiktok_status = `❌ TikTok draft failed: ${msg.slice(0, 120)}`;
+    await albumStatus(env, p, sh, sh.tiktok_status);
   }
   return true;
 }
@@ -1433,7 +1460,8 @@ export async function onDraftSchedule(event, env) {
       const now = await st.load(env, p.slug);
       if (now.shoots?.[pending[0]]) {
         const sh = state.shoots[pending[0]];
-        Object.assign(now.shoots[pending[0]], { urls: sh.urls, draft: sh.draft, draft_error: sh.draft_error, retry_at: sh.retry_at });
+        Object.assign(now.shoots[pending[0]], { urls: sh.urls, draft: sh.draft, draft_error: sh.draft_error, retry_at: sh.retry_at,
+                                                status: sh.status, tiktok_status: sh.tiktok_status });
         await st.save(env, p.slug, now);
       }
     }
