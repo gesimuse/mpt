@@ -410,6 +410,10 @@ def scene_prompt(char, scene, lane, n_refs, style="qwen"):
         f"{scene['shot']} of {b['safety']['adult_anchor']}. {who}.",
         face,
         f"{_without_makeup(b['identity'])}." if b.get("identity") else "",
+        # From behind, round shapes on every girl (asked for 2026-10-20: Priya's came
+        # out flat with stick-thin legs). Only here: elsewhere "round" read as heavy.
+        ("From behind her figure is shapely: a round, perky, lifted butt, toned shapely thighs, a slim waist "
+         "and a natural hourglass curve." if scene.get("view") == "back" else ""),
         f"Makeup: {MAKEUP[makeup_for(scene)]}.",
         _skin(b),
         f"Setting: {scene['setting']}.",
@@ -431,7 +435,8 @@ def negative(char, lane, scene=None):
            "deformed hands, extra fingers, blurry, cartoon, 3d render, big head, oversized head, narrow shoulders, "
            "tanned body with a paler face, mismatched skin tone between face and body"]
     if (scene or {}).get("view") == "back":
-        neg.append("head twisted round, face fully frontal over her back, chest and back both facing the camera")
+        neg.append("head twisted round, face fully frontal over her back, chest and back both facing the camera, "
+                   "flat butt, bony stick-thin legs, saggy")
     return ", ".join(x for x in neg if x)
 
 
