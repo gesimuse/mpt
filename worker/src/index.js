@@ -590,7 +590,10 @@ export default {
       if (update.callback_query) await onCallback(env, update.callback_query);
       else if (post?.text?.trim().split(/[@\s]/)[0] === "/leaderboard") {
         await onLeaderboard(env, post.chat.id);
-      } else if (post?.reply_to_message && post.text) await onReply(env, post);
+      // A reply in a persona's channel is for the persona bot (redo/video/...): this
+      // bot answering it too posted its old "motion prompt" help on every reply
+      // in the MPT channel (2026-10-20).
+      } else if (post?.reply_to_message && post.text && !(await isPersonaChat(env, post.chat.id))) await onReply(env, post);
       // A photo in a persona's channel is for the persona bot (🖼 carousel), and must
       // not be hosted on the public gh-pages branch by this one (2026-10-16: two
       // photos sent for carousels were registered as aibeauty uploads instead).
