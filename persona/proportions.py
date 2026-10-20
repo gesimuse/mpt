@@ -152,6 +152,53 @@ def twisted(path):
     return bool(back_to_camera and frontal)
 
 
+def _person(path):
+    import cv2
+    import numpy as np
+    wb = _model()
+    if not wb:
+        return None
+    img = cv2.imread(str(path))
+    K, S, det = wb(img)
+    if not len(det):
+        return None
+    i = int(np.argmax([(d[2] - d[0]) * (d[3] - d[1]) for d in det]))
+    return K[i], S[i], det[i], img.shape[:2]
+
+
+def too_similar(a, b):
+    """True when photo b shows her in nearly the same pose, framing and head angle as
+    photo a -- a 🖼 carousel "new angle" that is a near copy (2026-10-20). None when
+    it can't tell. Pose: her body joints, centred on the neck and scaled by her
+    torso, compared joint by joint; framing: her size in the frame."""
+    import numpy as np
+    try:
+        pa, pb = _person(a), _person(b)
+    except Exception:
+        return None
+    if not pa or not pb:
+        return None
+    (ka, sa, da, ha), (kb, sb, db, hb) = pa, pb
+    joints = [j for j in range(18) if sa[j] > 0.4 and sb[j] > 0.4]
+    if len(joints) < 6 or sa[1] < 0.4 or sb[1] < 0.4:
+        return None
+
+    def norm(k):
+        hips = [j for j in (8, 11) if True]
+        torso = float(np.linalg.norm(k[1] - (k[8] + k[11]) / 2)) or 1.0
+        return (k[joints] - k[1]) / torso
+
+    pose = float(np.mean(np.linalg.norm(norm(ka) - norm(kb), axis=1)))
+    size = ((db[3] - db[1]) / hb[0]) / max(1e-6, (da[3] - da[1]) / ha[0])
+    from . import headpose
+    try:
+        ya, yb = headpose.pose(a), headpose.pose(b)
+        turn = abs(ya[1] - yb[1]) + abs(ya[0] - yb[0]) if ya and yb else 0.0
+    except Exception:
+        turn = 0.0
+    return pose < 0.18 and 0.85 < size < 1.18 and turn < 12
+
+
 if __name__ == "__main__":
     for f in sys.argv[1:]:
         print(f, check(f), "twisted:", twisted(f))

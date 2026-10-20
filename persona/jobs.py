@@ -281,17 +281,26 @@ def carousel(job, char, studio, out, inp):
                       "length, wearing shoes that fit the outfit and the place (never barefoot unless at the beach or "
                       f"pool), feet on the ground. She is {pose}, {e[0]}. She is the only person in the photo.")
         path, why = None, ""
+        # Her face sheet portrait at this angle as the face ref: with only her front
+        # ref the edit kept the original head and pose (2026-10-20, a near copy).
+        stamp = char.refs_dir / "sheet" / f"{a[1]}.jpg"
+        face_refs = [stamp] if (stamp.exists() and not full) else front
+        # A turned head scores lower against her front-heavy refs (scenes.ANGLE_FLOOR):
+        # a real profile was dropped at 0.38 < 0.5.
+        floor = min(0.5, scenes.ANGLE_FLOOR.get(a[1], 0.5)) - 0.05
         for attempt in range(3):
             path = studio.engine.image(model, prompt, char.dir / "items", item["id"],
-                                       refs=[str(src)] + [str(f) for f in front],
+                                       refs=[str(src)] + [str(f) for f in face_refs],
                                        negative=scenes.negative(char, "social"))
             good, why, _ = qa.check(path)
             if good:
                 good, why, _ = proportions.check(path, ref=char.refs_dir / "04-full-body.jpg")
             if good and _background_drift(src, path) > 0.5:
                 good, why = False, "background changed"
+            if good and proportions.too_similar(src, path):
+                good, why = False, "same pose as the original"
             if good:
-                ok, info = faceid.check(path, emb, min_sim=0.5)
+                ok, info = faceid.check(path, emb, min_sim=floor)
                 if ok:
                     break
                 why = info.get("reason", "face check")
