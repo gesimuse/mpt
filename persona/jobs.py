@@ -116,8 +116,17 @@ def recreate(job, char, out, inp, work_root, code_dir):
 
 
 def redo(job, char, studio, out):
+    """🔁: look at the photo, name what is wrong (extra hands, a third leg, fused
+    fingers...), and fix THAT in an edit of the same photo -- same girl, outfit, place
+    and pose -- verified afterwards; 3 failed fixes fall back to a fresh redraw of the
+    scene (2026-10-20: a redo used to redraw from scratch, and could bring new defects)."""
     results = []
-    for item in studio.render(char, lane="social", scene_list=[job["scene"]]):
+    fixed = _redo_fix(job, char, studio, out) if job.get("image_url") else None
+    if fixed:
+        results.append(fixed)
+        return results
+    scene = dict(job["scene"])
+    for item in studio.render(char, lane="social", scene_list=[scene]):
         if item.get("ok"):
             dest = out / Path(item["path"]).name
             shutil.copyfile(item["path"], dest)
@@ -127,6 +136,65 @@ def redo(job, char, studio, out):
                         "redo": True, "reason": item.get("reason"), "qa": item.get("qa"), **_reply(job)})
         log(f"redo {item['id']} for request {job['id']}: {'ok' if item.get('ok') else item.get('reason')}")
     return results
+
+
+def _redo_fix(job, char, studio, out):
+    from . import faceid, proportions, qa, scenes
+    src = out / f"{job['id']}-original.jpg"
+    try:
+        fetch(job["image_url"], src, timeout=120)
+    except Exception as e:
+        log(f"redo {job['id']}: couldn't fetch the photo ({e}); redrawing instead")
+        return None
+    scene = dict(job.get("scene") or {})
+    problems = qa.diagnose(src)
+    note = scene.get("note", "")
+    log(f"redo {job['id']}: problems seen {problems or 'none'}{f'; note: {note}' if note else ''}")
+    if not problems and not note:
+        problems = ["hands, arms and legs that don't look natural"]
+    model = studio.model("edit", lane="social")
+    front = [p for p in char.refs() if p.name.startswith("01-")][:1]
+    emb = faceid.reference_embedding(char.refs())
+    floor = min(0.5, scenes.ANGLE_FLOOR.get(scene.get("angle_sheet", ""), 0.5)) - 0.05
+    prompt = ("Image 1 is a photo of this woman. Make the same photo again -- the same woman, the same outfit "
+              "(same garments, colours and fit), the same place, light, pose and framing -- "
+              + (f"but fix these problems so she looks like a real human: {'; '.join(problems)}. " if problems else "")
+              + (f"Also: {note}. " if note else "")
+              + "She has exactly two arms, two hands with five natural fingers each, and two legs, all correctly "
+                "attached and in natural positions. Keep everything else exactly as in image 1. She is the only "
+                "person in the photo.")
+    item = char.new_item(kind="image", lane="social", model=model["id"], scene=scene, prompt=prompt,
+                         tags=scene.get("tags", []), caption=scene.get("caption", ""))
+    fails = []
+    for attempt in range(3):
+        path = studio.engine.image(model, prompt, char.dir / "items", item["id"], refs=[str(src)] + [str(f) for f in front],
+                                   negative=scenes.negative(char, "social", scene))
+        good, why, _ = qa.check(path)
+        if good and scene.get("view") != "back":
+            good, why, _ = proportions.check(path, ref=char.refs_dir / "04-full-body.jpg")
+        if good and qa.still_has(path, problems):
+            good, why = False, "the problem is still there"
+        info = {}
+        if good and scene.get("view") != "back":
+            good, info = faceid.check(path, emb, min_sim=floor)
+            why = why if good else info.get("reason", "face check")
+        if good:
+            item = char.update_item(item["id"], status="review", ok=True, path=str(path), check=info,
+                                    fixed=problems, qa={"keys": scenes.learn_keys(scene), "fails": fails, "ok": True})
+            dest = out / Path(path).name
+            shutil.copyfile(path, dest)
+            item["path"] = dest.name
+            (out / f"{item['id']}.json").write_text(json.dumps(item, ensure_ascii=False))
+            log(f"redo {item['id']} for request {job['id']}: fixed by edit (attempt {attempt + 1})")
+            return {"request": job["id"], "id": item["id"], "ok": True, "kind": "image", "redo": True,
+                    "qa": item.get("qa"), **_reply(job)}
+        fails.append(str(why)[:80])
+        log(f"redo {job['id']}: fix attempt {attempt + 1} failed ({why})")
+        Path(path).unlink(missing_ok=True)
+    # Redrawn instead -- told what went wrong before.
+    if problems:
+        job["scene"] = dict(scene, note="; ".join(filter(None, [note, "avoid: " + "; ".join(problems)])))
+    return None
 
 
 def video(job, char, studio, out, inp):

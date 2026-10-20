@@ -1242,7 +1242,11 @@ async function jobPayload(env, origin, state, batch) {
       jobs.push({ id: q.id, kind: "render", scenes: q.scenes, date: q.date, chat: q.chat, videos: q.videos ?? 0,
                   shoot: q.shoot || null });
     } else if (q.kind === "redo") {
+      // The photo itself goes along: the laptop looks at what is wrong with it and
+      // fixes that in an edit of the same photo (2026-10-20).
+      const fid = q.file_id || state.items[q.item]?.file_id;
       jobs.push({ id: q.id, kind: "redo", scene: q.scene, chat: q.chat, message_id: q.message_id,
+                  ...(fid ? { image_url: await fileLink(env, origin, fid) } : {}),
                   ...(q.shoot ? { shoot: q.shoot, replaces: q.replaces } : {}) });
     } else if (q.kind === "recreate") {
       jobs.push({ id: q.id, kind: "recreate", url: q.url, seconds: q.seconds, chat: q.chat, message_id: q.message_id,

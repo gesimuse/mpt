@@ -200,6 +200,38 @@ def rate(path):
         return 5.0
 
 
+DIAGNOSE_PROMPT = ('Look very closely at the woman in this photo, as a photo retoucher would, and list everything '
+                   'about her that does not look like a real human: extra or missing arms, hands, legs or fingers; '
+                   'fused, bent or malformed fingers or hands; a hand or foot without a clear arm or leg; limbs '
+                   'bent the wrong way or impossibly long or short; a twisted neck or torso; a distorted face or '
+                   'eyes; anything melted or duplicated. Be specific about where (e.g. "a third hand on her left '
+                   'hip"). Answer ONLY JSON: {"problems": ["...", "..."]} -- an empty list if she looks fully real.')
+
+
+def diagnose(path):
+    """What looks wrong with her in this photo, in words (for a 🔁 redo), [] when
+    nothing or the model can't run."""
+    if not enabled() or config.flag("PERSONA_QA_SUBPROCESS", "0"):
+        return []
+    try:
+        got = _ask(path, DIAGNOSE_PROMPT, 2048).get("problems") or []
+        return [str(x)[:140] for x in got if str(x).strip()][:5]
+    except Exception:
+        return []
+
+
+def still_has(path, problems):
+    """True when the redone photo still shows any of `problems`."""
+    if not problems or not enabled() or config.flag("PERSONA_QA_SUBPROCESS", "0"):
+        return False
+    q = ("Does this photo of a woman show ANY of these problems: " + "; ".join(problems) +
+         '? Look closely at her hands, arms and legs. Answer ONLY JSON: {"still": true or false}')
+    try:
+        return bool(_ask(path, q, 2048).get("still"))
+    except Exception:
+        return False
+
+
 def _worker_main():
     """`python -m persona.qa --worker`: one JSON request per stdin line, one
     QA_RESULT line back. Everything else it prints is ordinary log output."""
