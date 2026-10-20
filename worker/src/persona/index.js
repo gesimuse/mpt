@@ -1329,9 +1329,11 @@ async function albumRedo(env, p, post, state) {
   if (a && /^\s*(post|tiktok|tik tok|send|👍)\s*[.!]*\s*$/iu.test(post.text || "")) {
     const sh = state.shoots?.[a.shoot];
     if (sh) {
-      if (sh.draft && !["skipped", "off"].includes(sh.draft)) await albumStatus(env, p, sh, sh.tiktok_status || "📥 TikTok: already sent");
-      else {
-        Object.assign(sh, { send_tiktok: true, draft: null, draft_error: null, retry_at: null });
+      if (sh.draft && !["skipped", "off"].includes(sh.draft) && !sh.changed_after_draft) {
+        await albumStatus(env, p, sh, sh.tiktok_status || "📥 TikTok: already sent");
+      } else {
+        // Redone since it was sent: the new photos go up (urls cleared) as a new draft.
+        Object.assign(sh, { send_tiktok: true, draft: null, draft_error: null, retry_at: null, urls: null, changed_after_draft: false });
         sh.tiktok_status = "📤 TikTok: sending to the aiqube inbox (~15-45 min)";
         await albumStatus(env, p, sh, sh.tiktok_status);
       }
@@ -1404,6 +1406,11 @@ async function albumRedoDone(env, p, state, r, item, fileId) {
   }
   sh.redo_wait = Math.max(0, (sh.redo_wait || 1) - 1);
   if (sh.redo_wait) return;
+  if (sh.draft && !["skipped", "off"].includes(sh.draft)) {
+    sh.changed_after_draft = true;
+    sh.tiktok_status = "↻ TikTok has the old version -- reply post to send this one";
+    sh.status = sh.tiktok_status;
+  }
   // All back: the old album goes, the new one is posted.
   for (const [mid, a] of Object.entries(state.album_msgs || {})) {
     if (a.shoot !== r.shoot) continue;
@@ -1411,7 +1418,7 @@ async function albumRedoDone(env, p, state, r, item, fileId) {
     delete state.album_msgs[mid];
   }
   sh.album = null;
-  if (/^🔁/.test(sh.status || "")) sh.status = sh.tiktok_status || "";
+  if (/^🔁/.test(sh.status || "")) sh.status = sh.tiktok_status || "reply post → TikTok · redo 3 · video 3";
   await postShootAlbum(env, p, state, r.shoot);
 }
 
