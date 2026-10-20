@@ -59,7 +59,7 @@ function caption(name, item) {
   if (item.caption) lines.push(`📝 ${item.caption}`);
   if (item.scene?.setting) lines.push(`🎞 ${item.scene.setting}`);
   if (item.check?.sim !== undefined) lines.push(`face ${item.check.sim} · age≈${item.check.age}`);
-  if (item.kind !== "video") lines.push("🎬 video (or reply with how she moves) · 🔁 redraw");
+  if (item.kind !== "video") lines.push("reply: redo <note> · video <how she moves> · carousel · post");
   lines.push(`#${item.id}`);
   return lines.join("\n");
 }
@@ -388,7 +388,8 @@ async function onTap(env, p, cq, state, origin) {
     const photo = (msg.photo || []).slice(-1)[0];
     if (!photo) return answer(env, cq.id, "That is not a photo.");
     queueVideo(state, itemId, msg, photo.file_id, "");
-    return answer(env, cq.id, "🎬 Queued. The video comes as a reply here in ~40-60 min.");
+    await noteOnPost(env, msg, "🎬 making a video -- it comes as a reply (~40-60 min)");
+    return answer(env, cq.id, "🎬 Queued");
   }
   if (act === "car") {
     const scene = state.items[itemId]?.scene;
@@ -398,7 +399,8 @@ async function onTap(env, p, cq, state, origin) {
     if (!fileId) return answer(env, cq.id, "Can't: Telegram didn't give this photo.");
     state.queue.push({ id: `${itemId}-car${Date.now()}`, kind: "carousel", item: itemId, scene, file_id: fileId, count: 2,
                        chat, message_id: msg.message_id });
-    return answer(env, cq.id, "🖼 Making 2 more angles of this scene for a carousel (~20-30 min).");
+    await noteOnPost(env, msg, "🖼 making 2 more angles for a carousel (~10-20 min)");
+    return answer(env, cq.id, "🖼 Queued");
   }
   if (act === "carpub") return publishCarousel(env, p, state, cq, itemId);
   // Which carousel a shot belongs to: its own mark, else the carousel sets (shots
@@ -433,7 +435,8 @@ async function onTap(env, p, cq, state, origin) {
     if (state.queue.some((q) => q.kind === "redo" && q.item === itemId)) return answer(env, cq.id, "Already queued.");
     state.queue.push({ id: `${itemId}-r${Date.now()}`, kind: "redo", item: itemId, scene,
                        chat, message_id: msg.message_id });
-    return answer(env, cq.id, "🔁 Queued. The redrawn photo comes as a reply here in ~30-50 min.");
+    await noteOnPost(env, msg, "🔁 redrawing -- it replaces this photo (~15-30 min)");
+    return answer(env, cq.id, "🔁 Queued");
   }
   return answer(env, cq.id, "");
 }
@@ -513,41 +516,62 @@ async function onReply(env, p, post, state, origin) {
   // (2026-10-19: a "redo" sent before albumRedo existed made a video of photo 1).
   if (state.album_msgs?.[parent.message_id] || /^#shoot-/m.test(parent.caption || "")) {
     const a = state.album_msgs?.[parent.message_id], sh = a && state.shoots?.[a.shoot];
-    if (sh) await albumStatus(env, p, sh, "💡 to redraw: reply redo 3 (or redo 2 5)");
+    if (sh) await albumStatus(env, p, sh, "💡 reply: redo 3 <note> · video 3 <how she moves>");
+    await tidy(env, post);
     return;
   }
-  // "👍" / "post" as a reply publishes any photo or video, including ones posted
-  // without buttons (older 🎬 videos, hand-posted versions).
-  // "🖼" / "carousel" as a reply: a carousel of any photo, including old posts
-  // without the 🖼 button.
-  if (CAROUSEL_WORDS.test(post.text) && parent.photo) {
-    const itemId = itemIdFrom(parent) || `msg-${parent.message_id}`;
-    const fileId = parent.photo.slice(-1)[0].file_id;
-    state.items[itemId] = { kind: "image", tags: [], scene: {}, caption: "", ...(state.items[itemId] || {}), file_id: fileId };
+  // Replies to a single post (Lena's channel, and any old single photos): one word
+  // says what to do -- the same words as on MPT albums (2026-10-20: any other text
+  // used to become a video's motion prompt, so "redo 3 ..." made a video).
+  const text = post.text.trim();
+  const itemId = itemIdFrom(parent) || `msg-${parent.message_id}`;
+  const photo = (parent.photo || []).slice(-1)[0];
+  if (CAROUSEL_WORDS.test(text) && photo) {
+    state.items[itemId] = { kind: "image", tags: [], scene: {}, caption: "", ...(state.items[itemId] || {}), file_id: photo.file_id };
     const busy = state.queue.some((q) => q.kind === "carousel" && q.item === itemId);
     if (!busy) {
       state.queue.push({ id: `${itemId}-car${Date.now()}`, kind: "carousel", item: itemId, scene: state.items[itemId].scene || {},
-                         file_id: fileId, count: 2, chat: post.chat.id, message_id: parent.message_id });
+                         file_id: photo.file_id, count: 2, chat: post.chat.id, message_id: parent.message_id });
     }
-    await tg(env, "sendMessage", { chat_id: post.chat.id, reply_to_message_id: parent.message_id,
-      text: busy ? "🖼 Already making this carousel." : "🖼 Making 2 more shots of this photo for a carousel (~5-10 min on the laptop)." });
-    return;
+    await noteOnPost(env, parent, busy ? "🖼 already making this carousel" : "🖼 making 2 more angles for a carousel (~10-20 min)");
+    return tidy(env, post);
   }
-  if (PUBLISH_WORDS.test(post.text) && (parent.photo || parent.video)) {
-    const itemId = itemIdFrom(parent) || `msg-${parent.message_id}`;
+  if (PUBLISH_WORDS.test(text) && (parent.photo || parent.video)) {
     const res = await queuePublish(env, p, state, { message: parent }, itemId);
     if (res === true && !state.voted.includes(itemId)) state.voted.push(itemId);
-    await tg(env, "sendMessage", { chat_id: post.chat.id, reply_to_message_id: parent.message_id,
-      text: res === true ? "👍 Publishing…" : `⚠️ Not published: ${res || "no Instagram/TikTok linked"}.` });
+    if (res !== true) await noteOnPost(env, parent, `⚠️ not published: ${res || "no Instagram/TikTok linked"}`);
     if (res === true) await advancePublish(env, p, state, origin);
-    return;
+    return tidy(env, post);
   }
-  const itemId = itemIdFrom(parent);
-  const photo = (parent.photo || []).slice(-1)[0];
-  if (!itemId || !photo) return;
-  queueVideo(state, itemId, parent, photo.file_id, post.text.trim());
-  await tg(env, "sendMessage", { chat_id: post.chat.id, reply_to_message_id: post.message_id,
-    text: "🎬 Queued with your motion prompt. The video comes as a reply here in ~40-60 min." });
+  const redo = /^\s*(?:redo|🔁)\b\s*(.*)$/isu.exec(text);
+  if (redo && photo) {
+    const note = redo[1].trim().slice(0, 300);
+    const scene = state.items[itemId]?.scene;
+    if (!scene?.setting) {
+      await noteOnPost(env, parent, "⚠️ can't redo this one: its scene wasn't recorded (older post)");
+      return tidy(env, post);
+    }
+    if (!state.queue.some((q) => q.kind === "redo" && q.item === itemId)) {
+      state.queue.push({ id: `${itemId}-r${Date.now()}`, kind: "redo", item: itemId, scene: { ...scene, ...(note ? { note } : {}) },
+                         chat: post.chat.id, message_id: parent.message_id });
+    }
+    await noteOnPost(env, parent, `🔁 redrawing${note ? ` (${note.slice(0, 60)})` : ""} -- it replaces this photo (~15-30 min)`);
+    return tidy(env, post);
+  }
+  const video = /^\s*(?:video|🎬)\b\s*(.*)$/isu.exec(text);
+  if (video && photo) {
+    queueVideo(state, itemId, parent, photo.file_id, video[1].trim());
+    await noteOnPost(env, parent, "🎬 making a video -- it comes as a reply (~40-60 min)");
+    return tidy(env, post);
+  }
+  // Anything else is left alone (a note to yourself, a question): nothing happens.
+}
+
+/** A one-line status at the end of a post's caption, its buttons kept. */
+async function noteOnPost(env, msg, line) {
+  const base = (msg.caption || "").replace(/\n(?:🔁|🎬|🖼|⚠️)[^\n]*$/u, "");
+  await tg(env, "editMessageCaption", { chat_id: msg.chat.id, message_id: msg.message_id,
+    caption: `${base}\n${line}`.slice(0, 1024), ...(msg.reply_markup ? { reply_markup: msg.reply_markup } : {}) }).catch(() => {});
 }
 
 export async function onPersonaWebhook(request, env) {
@@ -1300,12 +1324,23 @@ async function albumButtons(env, p, sh) {
  */
 async function albumRedo(env, p, post, state) {
   const a = state.album_msgs?.[post.reply_to_message?.message_id];
-  // "redo 3" / "redo 2 5" / "redo 3 red lipstick, hair up" (a note added to the prompt).
-  const m = /^\s*(?:redo|🔁)\s*((?:\d+[\s,]*)+)(.*)$/isu.exec(post.text || "");
-  const note = (m?.[2] || "").trim().slice(0, 300);
+  // "redo 3" / "redo 2 5" / "redo 3 red lipstick, hair up" (a note added to the prompt);
+  // "video 3" / "video 3 she spins slowly" (how she moves).
+  const m = /^\s*(redo|🔁|video|🎬)\s*((?:\d+[\s,]*)+)(.*)$/isu.exec(post.text || "");
+  const note = (m?.[3] || "").trim().slice(0, 300);
   if (!a || !m) return false;
   const sh = state.shoots?.[a.shoot];
-  const nums = [...new Set(m[1].split(/[\s,]+/).filter(Boolean).map(Number))];
+  if (/video|🎬/iu.test(m[1])) {
+    const ids = [...new Set(m[2].split(/[\s,]+/).filter(Boolean).map(Number))].map((n) => [n, sh?.media?.[n - 1]?.id]).filter(([, id]) => id);
+    for (const [, id] of ids) {
+      const it = state.items[id];
+      if (it?.file_id) queueVideo(state, id, { chat: { id: post.chat.id }, message_id: it.message_id || sh.album }, it.file_id, note);
+    }
+    if (ids.length) await albumStatus(env, p, sh, `🎬 making a video of ${ids.map(([n]) => n).join(", ")} -- it comes as a reply (~40-60 min)`);
+    await tidy(env, post);
+    return true;
+  }
+  const nums = [...new Set(m[2].split(/[\s,]+/).filter(Boolean).map(Number))];
   const picked = nums.map((n) => [n, sh?.media?.[n - 1]?.id]).filter(([, id]) => id && state.items[id]?.scene?.setting);
   if (!sh || !picked.length) {
     if (sh) await albumStatus(env, p, sh, `⚠️ redo: this album has photos 1-${sh.media?.length || 0}`);
