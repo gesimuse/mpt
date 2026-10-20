@@ -184,6 +184,22 @@ def check(path):
         return True, "qa unavailable", {}
 
 
+RATE_PROMPT = ('Rate this photo as a professional Instagram model photo, from 1 to 10: how attractive and sexy '
+               'she looks, how flattering the pose and framing are, how natural her body and hands look, and how '
+               'sharp and well lit it is. Answer ONLY JSON: {"score": <1-10>}')
+
+
+def rate(path):
+    """1-10, for picking the best of several candidates that all passed (studio best
+    of N). 5 when the model can't answer."""
+    if not enabled() or config.flag("PERSONA_QA_SUBPROCESS", "0"):
+        return 5.0
+    try:
+        return float(_ask(path, RATE_PROMPT, 1024).get("score", 5))
+    except Exception:
+        return 5.0
+
+
 def _worker_main():
     """`python -m persona.qa --worker`: one JSON request per stdin line, one
     QA_RESULT line back. Everything else it prints is ordinary log output."""

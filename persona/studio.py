@@ -243,54 +243,86 @@ class Studio:
                                  tags=scene.get("tags", []), caption=scene.get("caption", ""),
                                  commercial=bool(model.get("commercial")))
             tries = 1 + int(config.env("PERSONA_QA_RETRIES", "1"))
-            for attempt in range(tries):
-                try:
-                    # Two-step first; its retry is one-step, so a two-step result that
-                    # does not look enough like her still ends in a usable photo.
-                    if two_step and attempt == 0:
-                        path = self._two_step(char, model, scene, lane, item["id"],
-                                              [head(p) for p in default_refs])
-                    else:
-                        # From behind: if the glance over her shoulder came out twisted, the
-                        # retry is a true back view, her face turned away (2026-10-20).
-                        if scene.get("view") == "back" and attempt > 0:
-                            prompt = scenes.scene_prompt(char, dict(scene, view="back-away"), lane, len(refs),
-                                                         style=model.get("prompt_style", "qwen"))
-                        path = self.engine.image(model, prompt, char.dir / "items", item["id"], refs=refs,
-                                                 negative=scenes.negative(char, lane, scene))
-                except Exception as e:
-                    path = None
-                    reason = str(e)[:300]
-                    break
-                good, why, counts = qa.check(path)
-                # From behind her shoulders and face can't be measured against each other.
-                if good and scene.get("view") != "back":
-                    good, why, counts["proportions"] = proportions.check(path, ref=char.refs_dir / "04-full-body.jpg")
-                log(f"{item['id']}: anatomy check {'passed' if good else 'FAILED'} {why} {counts}")
-                if good:
-                    # Off-model faces are redrawn too, not just dropped. A turned head
-                    # gets a lower floor (scenes.ANGLE_FLOOR), the age check stays.
-                    # A photo from behind shows no face to check (2026-10-19, asked for).
-                    face_ok, info = ((True, {"reason": "from behind"}) if scene.get("view") == "back"
-                                     else faceid.check(path, ref_emb, min_sim=floor_for(scene)))
-                    if face_ok:
-                        # Her head must show the scene's angle (measured); on the last
-                        # try a photo that only missed the angle is kept.
-                        angle_ok, got = headpose.matches(scene.get("angle_sheet", "") if scene.get("angle") else None,
-                                                         path, front_pitch, either_side=True)
-                        if angle_ok or attempt == tries - 1:
-                            break
-                        face_ok, info = False, {"reason": f"head not at {scene.get('angle_sheet') or 'front'} ({got})"}
-                    good, why = False, info.get("reason", "face check")
-                    log(f"{item['id']}: face check FAILED {why}")
-                log(f"{item['id']}: anatomy check failed ({why}), attempt {attempt + 1}/{tries}")
-                # Kept (local only, last 40) so rejections can be looked at later.
-                rej = char.dir / "rejected"
-                rej.mkdir(exist_ok=True)
-                shutil.move(str(path), rej / f"{item['id']}-{attempt}.jpg")
-                for old in sorted(rej.glob("*.jpg"), key=lambda f: f.stat().st_mtime)[:-40]:
-                    old.unlink(missing_ok=True)
-                path, reason = None, f"anatomy check: {why}"
+
+            def draw(stem, prompt=prompt):
+                """One candidate that passes every check, or (None, reason)."""
+                path, reason = None, ""
+                for attempt in range(tries):
+                    try:
+                        # Two-step first; its retry is one-step, so a two-step result that
+                        # does not look enough like her still ends in a usable photo.
+                        if two_step and attempt == 0:
+                            path = self._two_step(char, model, scene, lane, stem,
+                                                  [head(p) for p in default_refs])
+                        else:
+                            # From behind: if the glance over her shoulder came out twisted, the
+                            # retry is a true back view, her face turned away (2026-10-20).
+                            if scene.get("view") == "back" and attempt > 0:
+                                prompt = scenes.scene_prompt(char, dict(scene, view="back-away"), lane, len(refs),
+                                                             style=model.get("prompt_style", "qwen"))
+                            path = self.engine.image(model, prompt, char.dir / "items", stem, refs=refs,
+                                                     negative=scenes.negative(char, lane, scene))
+                    except Exception as e:
+                        path = None
+                        reason = str(e)[:300]
+                        break
+                    good, why, counts = qa.check(path)
+                    # From behind her shoulders and face can't be measured against each other.
+                    if good and scene.get("view") != "back":
+                        good, why, counts["proportions"] = proportions.check(path, ref=char.refs_dir / "04-full-body.jpg")
+                    log(f"{item['id']}: anatomy check {'passed' if good else 'FAILED'} {why} {counts}")
+                    if good:
+                        # Off-model faces are redrawn too, not just dropped. A turned head
+                        # gets a lower floor (scenes.ANGLE_FLOOR), the age check stays.
+                        # A photo from behind shows no face to check (2026-10-19, asked for).
+                        face_ok, info = ((True, {"reason": "from behind"}) if scene.get("view") == "back"
+                                         else faceid.check(path, ref_emb, min_sim=floor_for(scene)))
+                        if face_ok:
+                            # Her head must show the scene's angle (measured); on the last
+                            # try a photo that only missed the angle is kept.
+                            angle_ok, got = headpose.matches(scene.get("angle_sheet", "") if scene.get("angle") else None,
+                                                             path, front_pitch, either_side=True)
+                            if angle_ok or attempt == tries - 1:
+                                break
+                            face_ok, info = False, {"reason": f"head not at {scene.get('angle_sheet') or 'front'} ({got})"}
+                        good, why = False, info.get("reason", "face check")
+                        log(f"{item['id']}: face check FAILED {why}")
+                    log(f"{item['id']}: anatomy check failed ({why}), attempt {attempt + 1}/{tries}")
+                    # Kept (local only, last 40) so rejections can be looked at later.
+                    rej = char.dir / "rejected"
+                    rej.mkdir(exist_ok=True)
+                    shutil.move(str(path), rej / f"{stem}-{attempt}.jpg")
+                    for old in sorted(rej.glob("*.jpg"), key=lambda f: f.stat().st_mtime)[:-40]:
+                        old.unlink(missing_ok=True)
+                    path, reason = None, f"anatomy check: {why}"
+                return path, reason
+
+            # Best of N (2026-10-20, "always get good photos"): N candidates that pass
+            # every check, the best kept -- scored by the vision model as an Instagram
+            # photo, plus her face match -- the others dropped unseen. The first one
+            # that merely passed used to be posted. PERSONA_BEST_OF (Kaggle: 1).
+            best_of = max(1, int(config.env("PERSONA_BEST_OF", "2")))
+            cands, reason = [], ""
+            for k in range(best_of):
+                path, why_not = draw(item["id"] if k == 0 else f"{item['id']}-b{k}")
+                if path:
+                    cands.append(path)
+                else:
+                    reason = why_not
+            path = None
+            if cands:
+                def score(pth):
+                    sim = 0.0 if scene.get("view") == "back" else (faceid.check(pth, ref_emb)[1].get("sim") or 0.0)
+                    return qa.rate(pth) / 10 + sim
+                scored = sorted(((score(c), c) for c in cands), key=lambda x: -x[0]) if len(cands) > 1 else [(0, cands[0])]
+                if len(scored) > 1:
+                    log(f"{item['id']}: best of {len(scored)}: " + ", ".join(f"{c.name} {sc:.2f}" for sc, c in scored))
+                path = scored[0][1]
+                for _, other in scored[1:]:
+                    other.unlink(missing_ok=True)
+                final = char.dir / "items" / f"{item['id']}{path.suffix}"
+                if path != final:
+                    path = Path(shutil.move(str(path), final))
             if path is None:
                 yield char.update_item(item["id"], status="failed", ok=False, reason=reason)
                 continue

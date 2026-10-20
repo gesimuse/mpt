@@ -12,6 +12,7 @@ Kaggle; persona/agent.py on the laptop, one job per process:
 """
 import base64
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -332,7 +333,17 @@ def run(jobs, char, studio_factory, out, inp, work_root, code_dir):
         elif job.get("kind") == "carousel":
             results.extend(carousel(job, char, studio, out, inp))
         elif job.get("kind") == "redo":
-            results.extend(redo(job, char, studio, out))
+            # You asked for this one: more tries before it gives up (a back shot failed
+            # its twist check twice and the redraw came back with nothing, 2026-10-20).
+            prev = os.environ.get("PERSONA_QA_RETRIES")
+            os.environ["PERSONA_QA_RETRIES"] = "3"
+            try:
+                results.extend(redo(job, char, studio, out))
+            finally:
+                if prev is None:
+                    os.environ.pop("PERSONA_QA_RETRIES", None)
+                else:
+                    os.environ["PERSONA_QA_RETRIES"] = prev
         else:
             results.append(video(job, char, studio, out, inp))
     return results
