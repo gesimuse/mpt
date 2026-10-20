@@ -352,6 +352,7 @@ async function onTap(env, p, cq, state, origin) {
     const item = state.items[itemId] || { tags: [] };
     const d = act === "up" ? 1 : -1;
     for (const t of item.tags || []) state.votes.tags[t] = (state.votes.tags[t] || 0) + d;
+    learnFrom(state, item, d, { taste: d > 0 });
     if (act === "up" && item.beat) state.story.push({ t: Date.now(), beat: item.beat, item: itemId });
     state.voted.push(itemId);
     const res = act === "up" ? await queuePublish(env, p, state, cq, itemId) : false;
@@ -433,6 +434,7 @@ async function onTap(env, p, cq, state, origin) {
       return answer(env, cq.id, "Can't redo this one: its scene isn't known.");
     }
     if (state.queue.some((q) => q.kind === "redo" && q.item === itemId)) return answer(env, cq.id, "Already queued.");
+    learnFrom(state, state.items[itemId], -1);
     state.queue.push({ id: `${itemId}-r${Date.now()}`, kind: "redo", item: itemId, scene,
                        chat, message_id: msg.message_id });
     await noteOnPost(env, msg, "🔁 redrawing -- it replaces this photo (~15-30 min)");
@@ -552,6 +554,7 @@ async function onReply(env, p, post, state, origin) {
       return tidy(env, post);
     }
     if (!state.queue.some((q) => q.kind === "redo" && q.item === itemId)) {
+      learnFrom(state, state.items[itemId], -1);
       state.queue.push({ id: `${itemId}-r${Date.now()}`, kind: "redo", item: itemId, scene: { ...scene, ...(note ? { note } : {}) },
                          chat: post.chat.id, message_id: parent.message_id });
     }
@@ -746,6 +749,10 @@ async function onAdmin(request, env) {
       await st.save(env, p.slug, state);
       return Response.json(done);
     }
+    if (what === "prefs") {
+      const prefs = (await st.load(env, p.slug)).prefs || {};
+      return Response.json(Object.fromEntries(Object.entries(prefs).sort((a, b) => b[1] - a[1])));
+    }
     if (what === "sendtiktok") {
       // The same as replying "post" to the album (also after a redo).
       const state = await st.load(env, p.slug), sh = state.shoots?.[u.searchParams.get("id")];
@@ -865,6 +872,8 @@ async function laptopRenderItem(request, env) {
     // An MPT shoot photo: posted to the channel now (by its Telegram file).
     const p = await personas.get(env, r.persona || env.PERSONA_SLUG);
     const state = await st.load(env, p.slug);
+    learnQA(state, r.qa);
+    if (!r.ok && !r.replaces) { await st.save(env, p.slug, state); return new Response("noted"); }
     if (r.replaces) {
       await albumRedoDone(env, p, state, r, item, file_id);
       await st.save(env, p.slug, state);
@@ -1198,6 +1207,7 @@ async function laptopResult(request, env) {
   const p = (await personas.get(env, r.persona || r.slug || env.PERSONA_SLUG || "lena"));
   const state = await st.load(env, p.slug);
   if (state.done.includes(resultKey(r))) return new Response("already posted");
+  learnQA(state, r.qa);
   const b = (await st.bible(env, r.character || p.slug)) || { name: p.slug };
   if (r.kind === "render-done") {
     // The photos came in one by one (laptop/render-item); a finished MPT shoot
@@ -1328,6 +1338,43 @@ async function albumButtons(env, p, sh) {
 }
 
 /**
+ * Learning from you (2026-10-20, "always"): a redo counts against what that photo
+ * was (its place, outfit, head direction, body view, pose), a carousel you send on
+ * or a 👍 counts for it. scenes.js weights its picks by state.prefs.
+ */
+function learnFrom(state, item, delta, { taste = false } = {}) {
+  // Risk keys (what tends to break anatomy): pose, expression, framing, view, head
+  // direction. Taste keys (place, outfit) only ever go UP, from what you send on, so
+  // learning can't narrow the variety (2026-10-20: "not always the same pics").
+  const sc = item?.scene || {};
+  const keys = [sc.action && `pose:${scenes.poseKey(sc.action)}`, sc.expression && `expr:${sc.expression}`,
+                sc.shot && `shot:${String(sc.shot).toLowerCase().split(/\s+/).slice(0, 3).join(" ")}`,
+                `view:${sc.view || "front"}`, `angle:${sc.angle_sheet || ""}`].filter(Boolean);
+  if (taste && delta > 0) keys.push(...[sc.shoot_place && `place:${sc.shoot_place}`, sc.outfit && `outfit:${sc.outfit}`].filter(Boolean));
+  bump(state, keys, delta);
+}
+
+function bump(state, keys, delta) {
+  state.prefs = state.prefs || {};
+  for (const k of keys) state.prefs[k] = Math.max(-5, Math.min(5, (state.prefs[k] || 0) + delta));
+  const all = Object.keys(state.prefs);
+  if (all.length > 400) for (const k of all.sort((x, y) => Math.abs(state.prefs[x]) - Math.abs(state.prefs[y])).slice(0, all.length - 400)) delete state.prefs[k];
+}
+
+/**
+ * The checks as teacher (the main signal): every attempt that failed for anatomy --
+ * extra/broken limbs, hands holding too much, a twisted head, head size -- counts
+ * against what that photo was asked to be; a photo that passed first time counts for
+ * it. `qa` = {keys, fails, ok} from the laptop (persona/scenes.learn_keys).
+ */
+function learnQA(state, qa) {
+  if (!qa?.keys?.length) return;
+  const anatomy = (qa.fails || []).filter((w) => /limb|hand|arm|finger|object|head|twist|proportion|shoulder/i.test(w)).length;
+  if (anatomy) bump(state, qa.keys, -0.5 * anatomy);
+  else if (qa.ok && !(qa.fails || []).length) bump(state, qa.keys, 0.2);
+}
+
+/**
  * "redo 3" / "redo 2 5" as a reply to a shoot's album: those photos are drawn again
  * and, when all are back, the album is posted again with them in place (asked for
  * 2026-10-19 instead of buttons under the album).
@@ -1366,6 +1413,7 @@ async function albumRedo(env, p, post, state) {
         // Redone since it was sent: the new photos go up (urls cleared) as a new draft.
         Object.assign(sh, { send_tiktok: true, draft: null, draft_error: null, retry_at: null, urls: null, changed_after_draft: false });
         sh.tiktok_status = "📤 TikTok: sending to the aiqube inbox (~15-45 min)";
+        if (!sh.learned) { for (const id of sh.ids) learnFrom(state, state.items[id], 0.5, { taste: true }); sh.learned = true; }
         await albumStatus(env, p, sh, sh.tiktok_status, state);
       }
     }
@@ -1397,6 +1445,7 @@ async function albumRedo(env, p, post, state) {
   }
   for (const [, id] of picked) {
     if (state.queue.some((q) => q.kind === "redo" && q.item === id)) continue;
+    learnFrom(state, state.items[id], -1);
     state.queue.push({ id: `${id}-r${Date.now()}`, kind: "redo", item: id,
                        scene: { ...state.items[id].scene, ...(note ? { note } : {}) }, chat: post.chat.id,
                        message_id: post.message_id, shoot: a.shoot, replaces: id, character: sh.character });

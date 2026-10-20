@@ -17,7 +17,7 @@ const pick = (a) => a[Math.floor(Math.random() * a.length)];
 // without what Instagram demotes (lingerie, see-through).
 const IG_SAFE = (o) => !/lingerie|bralette|sheer|mesh|see-through|bodysuit/i.test(o);
 
-function outfitFor(place, used, sexy = false) {
+function outfitFor(place, used, sexy = false, state = null) {
   const low = place.toLowerCase();
   let pool = null;
   for (const [kind, words] of IDEAS.place_kinds) {
@@ -34,8 +34,28 @@ function outfitFor(place, used, sexy = false) {
     pool = IDEAS.outfits.filter((o) => !excluded.has(o));
   }
   const free = pool.filter((o) => !used.has(o));
-  return pick(free.length ? free : pool);
+  return state ? pickPref(state, free.length ? free : pool, (o) => `outfit:${o}`) : pick(free.length ? free : pool);
 }
+
+/**
+ * What you liked and redid (state.prefs, learnFrom in index.js): "place:…", "outfit:…",
+ * "view:…", "angle:…", "pose:…" -> a score; each redo -1, each photo sent on +0.5.
+ * Picks are weighted by it, so what you redo comes less and what you send comes more
+ * -- never banned, so nothing disappears for good on a few votes.
+ */
+const prefW = (state, key) => {
+  const v = (state.prefs || {})[key] || 0;
+  // Places and outfits are only ever pushed up (variety stays); risk keys both ways.
+  const lo = /^(place|outfit):/.test(key) ? 0 : -3;
+  return Math.exp(Math.max(lo, Math.min(3, v)) * 0.5);
+};
+function pickPref(state, list, key) {
+  const w = list.map((x) => prefW(state, key(x)));
+  let r = Math.random() * w.reduce((a, b) => a + b, 0);
+  for (let i = 0; i < list.length; i++) if ((r -= w[i]) < 0) return list[i];
+  return list[list.length - 1];
+}
+export const poseKey = (action) => String(action || "").toLowerCase().replace(/[^a-z ]/g, "").split(" ").filter((w) => w.length > 3).slice(0, 3).join(" ");
 
 function seeds(state, n, taken = [], sexy = false) {
   const recent = state.recent.slice(-40).join(" ").toLowerCase();
@@ -45,9 +65,9 @@ function seeds(state, n, taken = [], sexy = false) {
         usedOutfits = new Set(taken.map((t) => t.outfit));
   for (let i = 0; i < n; i++) {
     const free = IDEAS.places.filter((p) => !recent.includes(p.toLowerCase()) && !usedPlaces.has(p));
-    const place = pick(free.length ? free : IDEAS.places);
+    const place = pickPref(state, free.length ? free : IDEAS.places, (x) => `place:${x}`);
     usedPlaces.add(place);
-    const outfit = outfitFor(place, usedOutfits, sexy);
+    const outfit = outfitFor(place, usedOutfits, sexy, state);
     usedOutfits.add(outfit);
     places.push(place); outfits.push(outfit);
   }
@@ -96,7 +116,8 @@ ${recent}
 
 Return ONLY a JSON array of ${n} objects with these keys:
 "setting" (the place, specific), "outfit" (the given outfit, with colours), "action" (what she is
-doing, her hands doing ONE simple thing: on her hip, in her hair, holding one drink; never several
+doing, saying where BOTH of her hands are, e.g. "one hand on her hip, the other relaxed at her side"
+or "holding a glass in her right hand, her left hand in her hair"; at most ONE object; never several
 objects; her body facing roughly toward the camera, no twisting; she is POSING for the photo at the place, never
 caught mid-action: no throwing, swinging, running or jumping), "shot" (camera framing), "light",
 "mood", "motion" (one sentence: how she moves slowly in a 5-second video), "caption" (first-person
@@ -133,7 +154,9 @@ function fallback(places, outfits) {
  * are turned, each with its face-sheet portrait. The old mild gazes made nearly
  * every photo face the camera.
  */
-function assignGazes(list) {
+let prefState = {};
+function assignGazes(list, state = {}) {
+  prefState = state;
   if (!IDEAS.angles?.length) {
     const g = IDEAS.gazes, start = Math.floor(Math.random() * g.length);
     list.forEach((s, i) => { [s.gaze, s.sheet] = g[(start + i * 3) % g.length]; });
@@ -147,9 +170,11 @@ function assignGazes(list) {
   const used = new Set();
   for (const s of list) {
     if (!deck.length) deck = Object.keys(bySheet).sort(() => Math.random() - 0.5);
+    // A direction you keep redoing goes to the back of the deck (seen less in short shoots).
+    deck.sort((x, y) => prefW(prefState, `angle:${y}`) - prefW(prefState, `angle:${x}`) + (Math.random() - 0.5) * 0.6);
     const angle = pick(bySheet[deck.shift()]);
     const free = IDEAS.expressions.filter((e) => !used.has(e[0]));
-    const expr = pick(free.length ? free : IDEAS.expressions);
+    const expr = pickPref(prefState, free.length ? free : IDEAS.expressions, (e) => `expr:${e[0]}`);
     used.add(expr[0]);
     s.angle = angle[0]; s.expression = expr[0]; s.angle_sheet = angle[1];
     s.gaze = `${angle[0]}; ${expr[0]}`;
@@ -199,12 +224,21 @@ function makeupFor(place, outfit) {
  * of that place and change pose, framing and head angle; outfit and makeup are the
  * same on every photo.
  */
+/** The poses you send on and the ones you redo, for the scene writer. */
+function poseNotes(state) {
+  const poses = Object.entries(state.prefs || {}).filter(([k]) => k.startsWith("pose:")).sort((a, b) => b[1] - a[1]);
+  const good = poses.filter(([, v]) => v >= 1).slice(0, 5).map(([k]) => k.slice(5));
+  const bad = poses.filter(([, v]) => v <= -1).slice(-5).map(([k]) => k.slice(5));
+  if (!good.length && !bad.length) return "";
+  return `${good.length ? `Poses that worked well before (use similar ones): ${good.join("; ")}.\n` : ""}${bad.length ? `Poses that did NOT work (avoid): ${bad.join("; ")}.\n` : ""}\n`;
+}
+
 export async function writeShoot(env, b, state, n, { sexy = false } = {}) {
   const { places, outfits } = seeds(state, 1, [], sexy);
   const place = places[0], outfit = outfits[0];
   const p = `${prompt(b, state, [place], [outfit], sexy)}
 
-IMPORTANT, this replaces the count above: write ${n} photos of ONE photoshoot on ONE day at ${place}, all
+${poseNotes(state)}IMPORTANT, this replaces the count above: write ${n} photos of ONE photoshoot on ONE day at ${place}, all
 in the SAME outfit (${outfit}, the same colours in every photo). Each photo is a different spot of that
 same place or right next to it (e.g. the entrance, a table, a window, the terrace, the street outside),
 with a different pose and framing, in time order through that one outing. Return ONLY a JSON array of
@@ -225,8 +259,8 @@ ${n} objects with the keys above.`;
   const outfitText = list[0].outfit || outfit;
   const makeup = makeupFor([place, ...list.map((sc) => `${sc.setting} ${sc.light}`)].join(" "), outfitText);
   list.forEach((sc) => { sc.outfit = outfitText; sc.makeup = makeup; sc.shoot_place = place; });
-  list = assignGazes(list.slice(0, n));
-  if (sexy) list.forEach((sc, i) => { if (i % 5 !== 4) sc.shot = pick(FULL_SHOTS); });
+  list = assignGazes(list.slice(0, n), state);
+  if (sexy) list.forEach((sc, i) => { if (i % 5 !== 4) sc.shot = pickPref(state, FULL_SHOTS, (x) => `shot:${x.toLowerCase().split(/\s+/).slice(0, 3).join(" ")}`); });
   // Body views (2026-10-19, asked for): one photo from behind and one side-on,
   // the rest facing the camera. From behind her face is not seen (nothing to check
   // or twist); side-on her head is in profile like her body.

@@ -350,6 +350,16 @@ _GLAM = re.compile(r"\b(night|nightclub|bar|gala|casino|party|cocktail|red carpe
 _MAKEUP_WORDS = re.compile(r"makeup|eyeliner|lipstick|lip gloss|\b(red|nude|glossy|bold) lips\b", re.I)
 
 
+def learn_keys(scene):
+    """What a photo was asked to be, for learning which prompt parts give clean
+    anatomy (the Worker's learnFrom / scenes.js poseKey use the same keys)."""
+    words = [w for w in re.sub(r"[^a-z ]", "", str(scene.get("action", "")).lower()).split() if len(w) > 3][:3]
+    keys = [f"pose:{' '.join(words)}" if words else "", f"expr:{scene.get('expression', '')}" if scene.get("expression") else "",
+            f"shot:{' '.join(str(scene.get('shot', '')).lower().split()[:3])}", f"view:{scene.get('view') or 'front'}",
+            f"angle:{scene.get('angle_sheet') or ''}"]
+    return [k for k in keys if k]
+
+
 def makeup_for(scene, boost=False):
     """`boost` (bible makeup_boost, Lena): a notch up -- glam out, light at home, never bare."""
     if not boost:
@@ -455,7 +465,8 @@ def negative(char, lane, scene=None):
     neg = [b["safety"]["negative"], b["lanes"].get(lane, {}).get("negative", ""),
            "deformed hands, extra fingers, blurry, cartoon, 3d render, big head, oversized head, narrow shoulders, "
            "tanned body with a paler face, mismatched skin tone between face and body, chubby, thick waist, "
-           "thick arms, heavy thighs, bulky body, flat butt"]
+           "thick arms, heavy thighs, bulky body, flat butt, extra arms, extra hands, extra legs, three arms, "
+           "duplicated limbs, fused fingers, a hand without an arm"]
     if str((scene or {}).get("view", "")).startswith("back"):
         neg.append("head twisted round, face fully frontal over her back, chest and back both facing the camera, "
                    "flat butt, bony stick-thin legs, saggy")

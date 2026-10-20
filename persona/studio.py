@@ -244,6 +244,8 @@ class Studio:
                                  commercial=bool(model.get("commercial")))
             tries = 1 + int(config.env("PERSONA_QA_RETRIES", "1"))
 
+            qa_log = []   # every attempt's outcome, for learning (scenes.learn_keys)
+
             def draw(stem, prompt=prompt):
                 """One candidate that passes every check, or (None, reason)."""
                 path, reason = None, ""
@@ -288,6 +290,7 @@ class Studio:
                         good, why = False, info.get("reason", "face check")
                         log(f"{item['id']}: face check FAILED {why}")
                     log(f"{item['id']}: anatomy check failed ({why}), attempt {attempt + 1}/{tries}")
+                    qa_log.append(str(why)[:80])
                     # Kept (local only, last 40) so rejections can be looked at later.
                     rej = char.dir / "rejected"
                     rej.mkdir(exist_ok=True)
@@ -324,7 +327,8 @@ class Studio:
                 if path != final:
                     path = Path(shutil.move(str(path), final))
             if path is None:
-                yield char.update_item(item["id"], status="failed", ok=False, reason=reason)
+                yield char.update_item(item["id"], status="failed", ok=False, reason=reason,
+                                       qa={"keys": scenes.learn_keys(scene), "fails": qa_log, "ok": False})
                 continue
             ok, info = ((True, {"reason": "from behind"}) if scene.get("view") == "back"
                         else faceid.check(path, ref_emb, min_sim=floor_for(scene)))
@@ -333,7 +337,8 @@ class Studio:
                 yield char.update_item(item["id"], status="rejected", ok=False, reason=info.get("reason"),
                                        check=info)
                 continue
-            yield char.update_item(item["id"], status="review", ok=True, path=str(path), check=info)
+            yield char.update_item(item["id"], status="review", ok=True, path=str(path), check=info,
+                                   qa={"keys": scenes.learn_keys(scene), "fails": qa_log, "ok": True})
 
     def _two_step(self, char, model, scene, lane, stem, faces):
         """Pose first, then her: the scene is drawn WITHOUT her face photos -- with them
