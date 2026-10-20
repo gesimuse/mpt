@@ -1324,6 +1324,21 @@ async function albumButtons(env, p, sh) {
  */
 async function albumRedo(env, p, post, state) {
   const a = state.album_msgs?.[post.reply_to_message?.message_id];
+  // "post" / "tiktok" / 👍: this carousel goes to TikTok as a draft (2026-10-20: sent
+  // only when asked, after any redos, so the 5 daily slots go to approved ones).
+  if (a && /^\s*(post|tiktok|tik tok|send|👍)\s*[.!]*\s*$/iu.test(post.text || "")) {
+    const sh = state.shoots?.[a.shoot];
+    if (sh) {
+      if (sh.draft && !["skipped", "off"].includes(sh.draft)) await albumStatus(env, p, sh, sh.tiktok_status || "📥 TikTok: already sent");
+      else {
+        Object.assign(sh, { send_tiktok: true, draft: null, draft_error: null, retry_at: null });
+        sh.tiktok_status = "📤 TikTok: sending to the aiqube inbox (~15-45 min)";
+        await albumStatus(env, p, sh, sh.tiktok_status);
+      }
+    }
+    await tidy(env, post);
+    return true;
+  }
   // "redo 3" / "redo 2 5" / "redo 3 red lipstick, hair up" (a note added to the prompt);
   // "video 3" / "video 3 she spins slowly" (how she moves).
   const m = /^\s*(redo|🔁|video|🎬)\s*((?:\d+[\s,]*)+)(.*)$/isu.exec(post.text || "");
@@ -1407,6 +1422,7 @@ async function postShootAlbum(env, p, state, shootId) {
   const b = (await st.bible(env, sh.character)) || { name: sh.character };
   const first = state.items[sh.media[0].id] || {};
   sh.caption_text = `👤 ${b.name} · ${sh.media.length} photos${first.caption ? `\n${first.caption}` : ""}\n#${shootId}`;
+  if (!sh.status && !p.tiktok_auto) sh.status = "reply post → TikTok · redo 3 · video 3";
   const text = sh.status ? `${sh.caption_text}\n${sh.status}` : sh.caption_text;
   const msgs = await tg(env, "sendMediaGroup", { chat_id: p.chat_id, media: sh.media.slice(0, 10).map((m, i) => ({
     type: "photo", media: m.fileId || m.url, ...(i === 0 ? { caption: text.slice(0, 1024) } : {}) })) });
@@ -1490,7 +1506,8 @@ export async function onDraftSchedule(event, env) {
     // A finished shoot with no photos (a failed Kaggle run) never gets a draft; it
     // used to be picked every run and stall every shoot behind it (2026-10-19).
     const pending = Object.entries(state.shoots || {})
-      .find(([, sh]) => sh.finished && sh.ids?.length && !sh.draft && !sh.draft_error && !(sh.retry_at && Date.now() < sh.retry_at));
+      .find(([, sh]) => sh.finished && sh.ids?.length && (sh.send_tiktok || p.tiktok_auto) && !sh.draft && !sh.draft_error
+                        && !(sh.retry_at && Date.now() < sh.retry_at));
     if (!pending) continue;
     if (await shootDone(env, p, state, pending[0])) {
       // Saved onto the current state: other writers may have moved meanwhile.
