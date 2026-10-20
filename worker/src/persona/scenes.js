@@ -77,11 +77,13 @@ People did not like: ${disliked.join(", ") || "no data yet"}.
 ${sexy === "flirty" ? `She is a glamorous, sexy Instagram model and every photo is a flattering shoot of HER, not a
 travel photo: she is the subject, filling most of the frame. Outfits are figure-flattering and a
 little revealing -- bodycon and mini dresses, crop tops, low-cut and backless tops, bikinis at the
-beach or pool -- but never lingerie, underwear or see-through. Poses are confident, flirty and
-model-like, never explicit (Instagram must still recommend her to people who don't follow her).` : sexy ? `She is a glamorous, sexy social-media model and every photo is a flattering shoot of HER, not a
+beach or pool -- but never lingerie, underwear or see-through. Poses are alluring, flirty and
+model-like -- hip popped, back slightly arched, a hand in her hair, a sultry gaze or a teasing smile --
+never explicit (Instagram must still recommend her to people who don't follow her).` : sexy ? `She is a glamorous, sexy social-media model and every photo is a flattering shoot of HER, not a
 travel photo: she is the subject, filling most of the frame. Outfits are figure-flattering and
-revealing (bikinis, crop tops, mini dresses, low-cut tops), but there is NO nudity. Poses are
-confident, model-like and flirty.` : `She is a glamorous Instagram fashion and travel model and every photo is a flattering shoot of
+revealing and show off her body (micro bikinis, tiny crop tops, micro mini dresses, plunging necklines,
+cut-outs, backless), but there is NO nudity. Poses are seductive and model-like: hip popped, back
+arched, hands in her hair or tracing her waist, looking over her shoulder, a sultry, seductive gaze.` : `She is a glamorous Instagram fashion and travel model and every photo is a flattering shoot of
 HER, not a travel photo: she is the subject, filling most of the frame. Outfits are stylish and
 flattering -- never lingerie, underwear or see-through; swimwear only at the beach or pool. Poses
 are confident and elegant, never sexual, never lying in bed (Instagram does not recommend

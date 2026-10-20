@@ -417,6 +417,15 @@ def scene_prompt(char, scene, lane, n_refs, style="qwen"):
         f"{scene['shot']} of {b['safety']['adult_anchor']}. {who}.",
         face,
         f"{_without_makeup(b['identity'])}." if b.get("identity") else "",
+        # Body perfection for every girl (asked for 2026-10-20). Model-physique words,
+        # never "curvy"/"round" (those read as heavy twice -- memory mpt-body-shape).
+        # Roundness too (asked for the same day): round only at bust and butt, with the
+        # waist, stomach, arms and legs held slim in the same sentence -- "round" alone
+        # made them bulky on 2026-10-18.
+        ("Her body is a flawless, toned model physique in perfect proportion: a full, round, perky bust and a "
+         "round, lifted, perky butt, with a slim narrow waist, a flat toned stomach, slim arms and long slim toned "
+         "legs -- an hourglass figure, slim everywhere except bust and hips. Smooth glowing skin and an elegant, "
+         "confident posture."),
         # From behind, round shapes on every girl (asked for 2026-10-20: Priya's came
         # out flat with stick-thin legs). Only here: elsewhere "round" read as heavy.
         ("From behind her figure is shapely: a round, perky, lifted butt, toned shapely thighs, a slim waist "
@@ -442,7 +451,8 @@ def negative(char, lane, scene=None):
     b = char.bible
     neg = [b["safety"]["negative"], b["lanes"].get(lane, {}).get("negative", ""),
            "deformed hands, extra fingers, blurry, cartoon, 3d render, big head, oversized head, narrow shoulders, "
-           "tanned body with a paler face, mismatched skin tone between face and body"]
+           "tanned body with a paler face, mismatched skin tone between face and body, chubby, thick waist, "
+           "thick arms, heavy thighs, bulky body, flat butt"]
     if (scene or {}).get("view") == "back":
         neg.append("head twisted round, face fully frontal over her back, chest and back both facing the camera, "
                    "flat butt, bony stick-thin legs, saggy")
