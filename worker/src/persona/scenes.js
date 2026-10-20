@@ -115,11 +115,13 @@ Recent scenes -- do NOT repeat these:
 ${recent}
 
 Return ONLY a JSON array of ${n} objects with these keys:
-"setting" (the place, specific), "outfit" (the given outfit, with colours), "action" (what she is
+"setting" (the place, specific), "outfit" (the given outfit, with colours, fabric and fit, e.g. "a black satin slip mini dress with thin straps, softly clinging"), "action" (what she is
 doing, saying where BOTH of her hands are, e.g. "one hand on her hip, the other relaxed at her side"
 or "holding a glass in her right hand, her left hand in her hair"; at most ONE object; never several
 objects; her body facing roughly toward the camera, no twisting; she is POSING for the photo at the place, never
-caught mid-action: no throwing, swinging, running or jumping), "shot" (camera framing), "light",
+caught mid-action: no throwing, swinging, running or jumping), "shot" (camera framing), "light" (where
+the light comes from and what it does, e.g. "warm low sun from her left, a soft glow on her cheek and a
+long shadow behind her"),
 "mood", "motion" (one sentence: how she moves slowly in a 5-second video), "caption" (first-person
 social caption, max 20 words, 1-2 emojis, no hashtags), "beat" (one past-tense sentence for her
 storyline), "tags" (3-5 short lowercase tags).`;

@@ -326,10 +326,20 @@ def write(char, lane="social", hint="", n=1, chunk=4):
 
 
 # ------------------------------------------------------------------------ prompts
-REALISM = ("photorealistic Instagram model photo, professional photoshoot quality, flattering light, "
-           "natural skin texture, shallow depth of field, sharp focus, no text, no watermark, camera at her "
-           "chest height with a 50mm lens, true-to-life head-to-body proportions, a naturally small head in "
-           "proportion to her body, shoulders about twice as wide as her face")
+# Phrased as what the photo IS: Qwen 2.1 runs at guidance 1 (the 8-step Pruna profile),
+# where the negative prompt is not used at all (found 2026-10-20 -- every "avoid"
+# list had done nothing). Photo anchors as Civitai's top Qwen 2.1 photo prompts use
+# them: camera, lens, aperture, skin detail.
+REALISM = ("a real photograph from a professional Instagram photoshoot, shot on a full-frame camera with an 85mm "
+           "lens at f/2.0 from her chest height, sharp focus on her, softly blurred background, natural skin with "
+           "fine pores and subtle texture, true-to-life head-to-body proportions with a naturally small head and "
+           "shoulders about twice as wide as her face, no text or watermark")
+
+# Anatomy said positively, for the same reason (the main defects: extra or broken
+# hands, arms and legs).
+ANATOMY = ("She has a completely natural human body: exactly two arms and two legs, each correctly attached and "
+           "bending only at the elbows and knees, and exactly two hands, each with five slender, separate fingers "
+           "and a natural grip. Her whole body is one person, every limb clearly hers.")
 
 
 # Makeup that fits the scene (2026-10-18): glam for a night out or a fancy dress,
@@ -443,6 +453,8 @@ def scene_prompt(char, scene, lane, n_refs, style="qwen"):
         # out flat with stick-thin legs). Only here: elsewhere "round" read as heavy.
         ("From behind her figure is shapely: a round, perky, lifted butt, toned shapely thighs, a slim waist "
          "and a natural hourglass curve." if str(scene.get("view", "")).startswith("back") else ""),
+        ("Her chest, hips and feet face away from the camera, and her head turns no further than her shoulder."
+         if scene.get("view") == "back" else ""),
         f"Makeup: {MAKEUP[makeup_for(scene, boost=b.get('makeup_boost', False))]}.",
         _skin(b),
         f"Setting: {scene['setting']}.",
@@ -451,6 +463,7 @@ def scene_prompt(char, scene, lane, n_refs, style="qwen"):
         ("The reference photos only show who she is; her head angle, expression and pose follow this scene, "
          "not the references." if n_refs else ""),
         "She is the only person in the photo, nobody else in the frame or background.",
+        ANATOMY,
         f"Lighting: {scene['light']}.",
         # A note from a "redo 3 <note>" reply: what to change this time.
         f"Most important for this photo: {scene['note']}." if scene.get("note") else "",
