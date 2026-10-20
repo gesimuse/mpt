@@ -209,10 +209,12 @@ class Studio:
         def refs_for(scene):
             # From behind: her full-body ref only (hair, figure, skin) -- her face refs
             # pulled the head round to the camera.
-            full = char.refs_dir / "04-full-body.jpg"
-            if scene.get("view") == "back" and full.exists():
+            # From behind: her profile portrait only. Her full-body ref (t-shirt and
+            # jeans) put her in trousers instead of the shoot's gown (Alina, 2026-10-20).
+            if scene.get("view") == "back":
                 prof = char.refs_dir / "sheet" / f"{random.choice(['profile-left', 'profile-right'])}.jpg"
-                return [head(prof), full][: max(1, model.get("max_refs", 1))] if prof.exists() else [full]
+                if prof.exists():
+                    return [head(prof)]
             sheet = char.refs_dir / "sheet" / f"{scene.get('sheet', '')}.jpg"
             if scene.get("sheet") and sheet.exists():
                 # A turned head: its portrait FIRST, so the model takes the head angle
