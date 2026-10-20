@@ -13,6 +13,7 @@ Kaggle; persona/agent.py on the laptop, one job per process:
 import base64
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -121,7 +122,11 @@ def redo(job, char, studio, out):
     and pose -- verified afterwards; 3 failed fixes fall back to a fresh redraw of the
     scene (2026-10-20: a redo used to redraw from scratch, and could bring new defects)."""
     results = []
-    fixed = _redo_fix(job, char, studio, out) if job.get("image_url") else None
+    # A note about the clothes means the old photo's outfit is wrong: an edit keeps
+    # what is there, so it is drawn again instead (Alina's gown, 2026-10-20).
+    clothes = re.search(r"\b(dress|gown|outfit|wear|wearing|skirt|trousers|pants|jeans|top|bikini|shirt|shorts|"
+                        r"clothes|heels|shoes)\b", (job.get("scene") or {}).get("note", ""), re.I)
+    fixed = _redo_fix(job, char, studio, out) if job.get("image_url") and not clothes else None
     if fixed:
         results.append(fixed)
         return results
@@ -158,12 +163,16 @@ def _redo_fix(job, char, studio, out):
     front = [p for p in char.refs() if p.name.startswith("01-")][:1]
     emb = faceid.reference_embedding(char.refs())
     floor = min(0.5, scenes.ANGLE_FLOOR.get(scene.get("angle_sheet", ""), 0.5)) - 0.05
-    prompt = ("Image 1 is a photo of this woman. Make the same photo again -- the same woman, the same outfit "
-              "(same garments, colours and fit), the same place, light, pose and framing -- "
-              + (f"but fix these problems so she looks like a real human: {'; '.join(problems)}. " if problems else "")
-              + (f"Also: {note}. " if note else "")
+    # The outfit is the SHOOT's, from its scene text -- "the same outfit as image 1"
+    # kept a wrong outfit (Alina's trousers instead of her gown) even when the note
+    # asked for the gown (2026-10-20). The note comes first: it is what you asked.
+    outfit = scene.get("outfit") or "the same outfit as in image 1"
+    prompt = ((f"MOST IMPORTANT: {note}. " if note else "")
+              + "Image 1 is a photo of this woman. Make this photo again -- the same woman in the same place, "
+                f"light, pose and framing, wearing {outfit} -- "
+              + (f"and fix these problems so she looks like a real human: {'; '.join(problems)}. " if problems else "")
               + "She has exactly two arms, two hands with five natural fingers each, and two legs, all correctly "
-                "attached and in natural positions. Keep everything else exactly as in image 1. She is the only "
+                "attached and in natural positions. Keep everything else as in image 1. She is the only "
                 "person in the photo.")
     item = char.new_item(kind="image", lane="social", model=model["id"], scene=scene, prompt=prompt,
                          tags=scene.get("tags", []), caption=scene.get("caption", ""))
@@ -353,6 +362,7 @@ def carousel(job, char, studio, out, inp):
                       "length, wearing shoes that fit the outfit and the place (never barefoot unless at the beach or "
                       f"pool), feet on the ground. She is {pose}, {e[0]}. She is the only person in the photo.")
         path, why = None, ""
+        spare = list(poses)   # retries take another pose: the same one came back the same
         # Her face sheet portrait at this angle as the face ref: with only her front
         # ref the edit kept the original head and pose (2026-10-20, a near copy).
         stamp = char.refs_dir / "sheet" / f"{a[1]}.jpg"
@@ -361,6 +371,10 @@ def carousel(job, char, studio, out, inp):
         # a real profile was dropped at 0.38 < 0.5.
         floor = min(0.5, scenes.ANGLE_FLOOR.get(a[1], 0.5)) - 0.05
         for attempt in range(3):
+            if attempt and why == "same pose as the original" and spare:
+                prompt = prompt.replace(pose, spare[-1]) + (" Her pose, body angle and head direction are clearly "
+                                                            "different from image 1.")
+                pose = spare.pop()
             path = studio.engine.image(model, prompt, char.dir / "items", item["id"],
                                        refs=[str(src)] + [str(f) for f in face_refs],
                                        negative=scenes.negative(char, "social"))
