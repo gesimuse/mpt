@@ -759,6 +759,7 @@ async function onAdmin(request, env) {
     if (what === "publish") {
       // Move every publish job along now (incl. the Buffer queue recheck).
       const state = await st.load(env, p.slug);
+      if (u.searchParams.get("force")) for (const j of state.publish) for (const k of ["ig", "tt"]) if (j[k]?.mode === "queued") delete j[k].checked_at;
       const changed = await advancePublish(env, p, state, u.origin);
       if (changed) await st.save(env, p.slug, state);
       return Response.json(state.publish.slice(-12).map((j) => ({ id: j.id, ig: j.ig && { mode: j.ig.mode, status: j.ig.status, final: j.ig.final, note: j.ig.note, link: j.ig.link } })));

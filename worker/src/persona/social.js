@@ -172,8 +172,19 @@ export function needsRecheck(job) {
 
 async function recheck(env, p, job, key) {
   const r = job[key];
-  const d = await gql(env, p.slug, STATUS, { input: { id: r.post } });
-  const post = d.post || {};
+  let post;
+  try {
+    post = (await gql(env, p.slug, STATUS, { input: { id: r.post } })).post;
+  } catch (e) {
+    if (/too many requests|rate limit|429/i.test(String(e))) throw e;
+    post = null;
+  }
+  if (!post) {
+    // Gone from Buffer (failed and removed, or deleted there): shown on the post with
+    // a 🔁 Retry posting button, so you see which and can send it again.
+    job[key] = { ...r, status: "failed", note: "not in Buffer any more -- tap 🔁 Retry posting", final: true };
+    return;
+  }
   if (post.status === "sent") job[key] = { ...r, final: true, link: post.externalLink || "", checked_at: Date.now() };
   else if (post.status === "error") job[key] = undefined;   // made again below, with a fresh link
   else job[key] = { ...r, checked_at: Date.now() };
