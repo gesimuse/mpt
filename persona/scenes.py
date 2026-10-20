@@ -402,7 +402,10 @@ def scene_prompt(char, scene, lane, n_refs, style="qwen"):
         who = f"The woman from {refs}, alone in the photo, with her exact face, facial features, hair and skin tone"
     else:
         who = "A single woman"
-    if scene.get("view") == "back":
+    if scene.get("view") == "back-away":
+        face = ("Seen completely from behind: the camera sees her back, the back of her head and her hair, NOT her "
+                "face. Her head faces the same way as her body, away from the camera, toward the view.")
+    elif scene.get("view") == "back":
         # From behind, for real: asked as "face not visible" alone, she was drawn with
         # her back AND her face to the camera, head twisted round (2026-10-19).
         # Asked for 2026-10-19: her back to the camera, glancing back over her shoulder.
@@ -429,7 +432,7 @@ def scene_prompt(char, scene, lane, n_refs, style="qwen"):
         # From behind, round shapes on every girl (asked for 2026-10-20: Priya's came
         # out flat with stick-thin legs). Only here: elsewhere "round" read as heavy.
         ("From behind her figure is shapely: a round, perky, lifted butt, toned shapely thighs, a slim waist "
-         "and a natural hourglass curve." if scene.get("view") == "back" else ""),
+         "and a natural hourglass curve." if str(scene.get("view", "")).startswith("back") else ""),
         f"Makeup: {MAKEUP[makeup_for(scene, boost=b.get('makeup_boost', False))]}.",
         _skin(b),
         f"Setting: {scene['setting']}.",
@@ -453,7 +456,7 @@ def negative(char, lane, scene=None):
            "deformed hands, extra fingers, blurry, cartoon, 3d render, big head, oversized head, narrow shoulders, "
            "tanned body with a paler face, mismatched skin tone between face and body, chubby, thick waist, "
            "thick arms, heavy thighs, bulky body, flat butt"]
-    if (scene or {}).get("view") == "back":
+    if str((scene or {}).get("view", "")).startswith("back"):
         neg.append("head twisted round, face fully frontal over her back, chest and back both facing the camera, "
                    "flat butt, bony stick-thin legs, saggy")
     return ", ".join(x for x in neg if x)

@@ -251,6 +251,11 @@ class Studio:
                         path = self._two_step(char, model, scene, lane, item["id"],
                                               [head(p) for p in default_refs])
                     else:
+                        # From behind: if the glance over her shoulder came out twisted, the
+                        # retry is a true back view, her face turned away (2026-10-20).
+                        if scene.get("view") == "back" and attempt > 0:
+                            prompt = scenes.scene_prompt(char, dict(scene, view="back-away"), lane, len(refs),
+                                                         style=model.get("prompt_style", "qwen"))
                         path = self.engine.image(model, prompt, char.dir / "items", item["id"], refs=refs,
                                                  negative=scenes.negative(char, lane, scene))
                 except Exception as e:
