@@ -133,7 +133,8 @@ def redo(job, char, studio, out):
             item["path"] = dest.name
             (out / f"{item['id']}.json").write_text(json.dumps(item, ensure_ascii=False))
         results.append({"request": job["id"], "id": item["id"], "ok": bool(item.get("ok")), "kind": "image",
-                        "redo": True, "reason": item.get("reason"), "qa": item.get("qa"), **_reply(job)})
+                        "redo": True, "reason": item.get("reason"), "qa": item.get("qa"), "how": "redrawn",
+                        "fixed": job.get("seen_problems") or [], **_reply(job)})
         log(f"redo {item['id']} for request {job['id']}: {'ok' if item.get('ok') else item.get('reason')}")
     return results
 
@@ -148,6 +149,7 @@ def _redo_fix(job, char, studio, out):
         return None
     scene = dict(job.get("scene") or {})
     problems = qa.diagnose(src)
+    seen = bool(problems)
     note = scene.get("note", "")
     log(f"redo {job['id']}: problems seen {problems or 'none'}{f'; note: {note}' if note else ''}")
     if not problems and not note:
@@ -187,13 +189,14 @@ def _redo_fix(job, char, studio, out):
             (out / f"{item['id']}.json").write_text(json.dumps(item, ensure_ascii=False))
             log(f"redo {item['id']} for request {job['id']}: fixed by edit (attempt {attempt + 1})")
             return {"request": job["id"], "id": item["id"], "ok": True, "kind": "image", "redo": True,
-                    "qa": item.get("qa"), **_reply(job)}
+                    "qa": item.get("qa"), "fixed": problems if seen else [], "how": "fixed", **_reply(job)}
         fails.append(str(why)[:80])
         log(f"redo {job['id']}: fix attempt {attempt + 1} failed ({why})")
         Path(path).unlink(missing_ok=True)
     # Redrawn instead -- told what went wrong before.
     if problems:
         job["scene"] = dict(scene, note="; ".join(filter(None, [note, "avoid: " + "; ".join(problems)])))
+    job["seen_problems"] = problems if seen else []
     return None
 
 

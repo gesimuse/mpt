@@ -113,6 +113,11 @@ export async function advance(env, p, job, mediaUrl) {
   // and after that at most every 5 minutes; a rate limit waits and retries.
   if (job.retry_at && now < job.retry_at) return job;
   for (const [key, platform] of [["ig", "instagram"], ["tt", "tiktok"]]) {
+    try {
+      if (job[key]?.mode === "queued" && needsRecheck({ [key]: job[key] })) await recheck(env, p, job, key);
+    } catch (e) {
+      if (/too many requests|rate limit|429/i.test(String(e))) { job.retry_at = now + 60 * 60 * 1000; continue; }
+    }
     const cur = job[key];
     try {
       if (!cur) job[key] = await start(env, p, job, platform, mediaUrl);
@@ -144,6 +149,29 @@ const METRICS = `query($input: PostInput!) { post(input: $input) { status metric
 /** Buffer's numbers for a post: {status, metrics: [{type, value}]}. */
 export async function metrics(env, p, postId) {
   return (await gql(env, p.slug, METRICS, { input: { id: postId } })).post;
+}
+
+/**
+ * A post handed to Buffer's queue is looked at again every 6h until Buffer has sent
+ * it (for 14 days): one that failed at its slot (an expired media link, 2026-10-20)
+ * is made again with a fresh link.
+ */
+export function needsRecheck(job) {
+  const now = Date.now();
+  return ["ig", "tt"].some((k) => {
+    const r = job[k];
+    return r?.mode === "queued" && !r.final && r.post && now - (r.sent_at || 0) < 14 * 86400 * 1000
+      && now - (r.checked_at || r.sent_at || 0) > 6 * 3600 * 1000;
+  });
+}
+
+async function recheck(env, p, job, key) {
+  const r = job[key];
+  const d = await gql(env, p.slug, STATUS, { input: { id: r.post } });
+  const post = d.post || {};
+  if (post.status === "sent") job[key] = { ...r, final: true, link: post.externalLink || "", checked_at: Date.now() };
+  else if (post.status === "error") job[key] = undefined;   // made again below, with a fresh link
+  else job[key] = { ...r, checked_at: Date.now() };
 }
 
 export const finished = (job) => ["ig", "tt"].every((k) => job[k] && job[k].status !== "processing");

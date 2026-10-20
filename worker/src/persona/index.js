@@ -104,7 +104,10 @@ async function fileLink(env, origin, fileId) {
 
 /** For Buffer to fetch: typed by extension (Instagram wants a real image/jpeg), 24h. */
 async function mediaLink(env, origin, fileId, ext) {
-  const exp = Math.floor(Date.now() / 1000) + 24 * 3600;
+  // 45 days: Buffer fetches the media when its queue slot comes, which can be days
+  // after 👍 -- with 24h the link was dead by then ("Please update the media URL to be
+  // publicly accessible", 2026-10-20). Telegram file ids don't expire.
+  const exp = Math.floor(Date.now() / 1000) + 45 * 86400;
   return `${origin}/persona/media/${encodeURIComponent(fileId)}.${ext}?e=${exp}&s=${await sign(env, `${fileId}.${exp}`)}`;
 }
 
@@ -269,7 +272,7 @@ function nextSlot(env, state) {
 
 async function advancePublish(env, p, state, origin) {
   let changed = false;
-  for (const job of state.publish.filter((j) => !social.finished(j))) {
+  for (const job of state.publish.filter((j) => !social.finished(j) || social.needsRecheck(j))) {
     // Buffer said "too many requests": no more calls this round, for any post.
     if (state.publish.some((j) => j.retry_at && Date.now() < j.retry_at)) break;
     const url = job.file_ids
@@ -988,7 +991,7 @@ function resultMessage(b, r, item) {
   }
   if (r.ok && r.kind === "image") {
     return { kind: "photo", chat: r.chat, replyTo: r.message_id, edit: r.redo ? r.message_id : null,
-             caption: "🔁 " + caption(b.name, item), buttons: buttons(item) };
+             caption: `🔁 ${r.redo ? `${redoSummary(r)}\n` : ""}${caption(b.name, item)}`, buttons: buttons(item) };
   }
   if (r.ok) {
     const cap = r.recreate ? `🎭 ${b.name} · recreated${faceLine(item?.face)}` : `🎬 ${b.name}\n${(r.motion || "").slice(0, 300)}`;
@@ -1483,6 +1486,13 @@ async function tidy(env, post) {
   await tg(env, "deleteMessage", { chat_id: post.chat.id, message_id: post.message_id }).catch(() => {});
 }
 
+/** What a redo did, in words for the post: what it saw and fixed, or that it redrew it. */
+function redoSummary(r) {
+  const fixed = (r.fixed || []).slice(0, 3).join("; ");
+  if (r.how === "fixed") return fixed ? `fixed: ${fixed}` : "no defect seen -- edited per your note";
+  return fixed ? `redrawn (couldn't fix: ${fixed})` : "redrawn from scratch";
+}
+
 /** One redrawn album photo back: swapped into the shoot; the last one reposts the album. */
 async function albumRedoDone(env, p, state, r, item, fileId) {
   const sh = state.shoots?.[r.shoot];
@@ -1490,6 +1500,10 @@ async function albumRedoDone(env, p, state, r, item, fileId) {
   state.lanes.laptop = (state.lanes.laptop || []).filter((q) => q.id !== r.request);
   if (!sh) return;
   if (!r.ok) sh.redo_failed = [...(sh.redo_failed || []), (sh.media || []).findIndex((x) => x.id === r.replaces) + 1];
+  if (r.ok) {
+    const n = (sh.media || []).findIndex((x) => x.id === r.replaces) + 1;
+    sh.redo_notes = [...(sh.redo_notes || []), `🔁 photo ${n} redone -- ${redoSummary(r)}`];
+  }
   if (r.ok && item && fileId) {
     remember(state, { ...item, character: sh.character }, null);
     state.items[r.id].file_id = fileId;
@@ -1517,7 +1531,11 @@ async function albumRedoDone(env, p, state, r, item, fileId) {
     delete state.album_msgs[mid];
   }
   sh.album = null;
-  if (/^🔁/.test(sh.status || "")) sh.status = sh.tiktok_status || "reply post → TikTok · redo 3 · video 3";
+  if (/^🔁/.test(sh.status || "")) {
+    const notes = (sh.redo_notes || []).join("\n");
+    sh.status = [notes, sh.tiktok_status || "reply post → TikTok · redo 3 · video 3"].filter(Boolean).join("\n");
+  }
+  sh.redo_notes = [];
   await postShootAlbum(env, p, state, r.shoot);
 }
 

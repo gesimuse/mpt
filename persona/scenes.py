@@ -188,9 +188,11 @@ EXPRESSIONS = _IDEAS.get("expressions", [])
 # How far a turned face may drop below the usual face floor and still be her:
 # InsightFace scores side views lower against her front-heavy refs, so profiles
 # were redrawn until they faced the camera again.
-ANGLE_FLOOR = {"profile-left": 0.45, "profile-right": 0.45,
-               "three-quarter-left": 0.55, "three-quarter-right": 0.55, "looking-up": 0.55,
-               "looking-down": 0.55}
+# Lowered 2026-10-20: good side profiles (Harper, face away from the camera) were
+# dropped at 0.44 < 0.45.
+ANGLE_FLOOR = {"profile-left": 0.38, "profile-right": 0.38,
+               "three-quarter-left": 0.50, "three-quarter-right": 0.50, "looking-up": 0.52,
+               "looking-down": 0.52}
 
 
 def assign_gazes(scenes):
