@@ -13,6 +13,10 @@ const MODEL = "@cf/mistralai/mistral-small-3.1-24b-instruct";
 const text = (r) => (typeof r.response === "string" ? r.response : JSON.stringify(r.response || ""));
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 
+// Lena's Instagram lane (2026-10-20, "not as sexy as she used to be"): the sexy list
+// without what Instagram demotes (lingerie, see-through).
+const IG_SAFE = (o) => !/lingerie|bralette|sheer|mesh|see-through|bodysuit/i.test(o);
+
 function outfitFor(place, used, sexy = false) {
   const low = place.toLowerCase();
   let pool = null;
@@ -22,7 +26,9 @@ function outfitFor(place, used, sexy = false) {
   // Sexy-style personas (MPT): the sexier list everywhere except swim spots, which
   // keep their swimwear and only they get bikinis (2026-10-17: "more sexy" -- a vineyard got a hoodie, a golf
   // course a gym set).
-  if (sexy && IDEAS.sexy_outfits && pool !== IDEAS.outfit_kinds.swim) pool = IDEAS.sexy_outfits.filter((o) => !/bikini|swim/i.test(o));
+  if (sexy && IDEAS.sexy_outfits && pool !== IDEAS.outfit_kinds.swim) {
+    pool = IDEAS.sexy_outfits.filter((o) => !/bikini|swim/i.test(o) && (sexy !== "flirty" || IG_SAFE(o)));
+  }
   if (!pool) {
     const excluded = new Set([...IDEAS.outfit_kinds.swim, ...IDEAS.outfit_kinds.sport, ...(IDEAS.outfit_kinds.snow || [])]);
     pool = IDEAS.outfits.filter((o) => !excluded.has(o));
@@ -68,7 +74,11 @@ ${story}
 People liked: ${liked.join(", ") || "no data yet"}.
 People did not like: ${disliked.join(", ") || "no data yet"}.
 
-${sexy ? `She is a glamorous, sexy social-media model and every photo is a flattering shoot of HER, not a
+${sexy === "flirty" ? `She is a glamorous, sexy Instagram model and every photo is a flattering shoot of HER, not a
+travel photo: she is the subject, filling most of the frame. Outfits are figure-flattering and a
+little revealing -- bodycon and mini dresses, crop tops, low-cut and backless tops, bikinis at the
+beach or pool -- but never lingerie, underwear or see-through. Poses are confident, flirty and
+model-like, never explicit (Instagram must still recommend her to people who don't follow her).` : sexy ? `She is a glamorous, sexy social-media model and every photo is a flattering shoot of HER, not a
 travel photo: she is the subject, filling most of the frame. Outfits are figure-flattering and
 revealing (bikinis, crop tops, mini dresses, low-cut tops), but there is NO nudity. Poses are
 confident, model-like and flirty.` : `She is a glamorous Instagram fashion and travel model and every photo is a flattering shoot of

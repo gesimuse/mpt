@@ -790,7 +790,8 @@ async function render(env, p, force = false) {
   const b = await st.bible(env, p.slug);
   if (!b) return `${p.slug}: no bible in KV -- run \`python -m persona.cli sync\` on the laptop`;
   const n = Number(env.PERSONA_CLOUD_IMAGES || 10);
-  const list = await scenes.write(env, b, state, n);
+  // Her Instagram lane: flirty, Instagram-safe (persona entry style, default "flirty").
+  const list = await scenes.write(env, b, state, n, { sexy: p.style === "recommendable" ? false : p.style || "flirty" });
   state.recent.push(...list.map((s) => `${s.setting} / ${s.outfit} / ${s.action}`));
   state.render_date = st.today();
   // The laptop renders when it is open (its GPU, no Kaggle quota); Kaggle otherwise,

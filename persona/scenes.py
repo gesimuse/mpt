@@ -350,7 +350,14 @@ _GLAM = re.compile(r"\b(night|nightclub|bar|gala|casino|party|cocktail|red carpe
 _MAKEUP_WORDS = re.compile(r"makeup|eyeliner|lipstick|lip gloss|\b(red|nude|glossy|bold) lips\b", re.I)
 
 
-def makeup_for(scene):
+def makeup_for(scene, boost=False):
+    """`boost` (bible makeup_boost, Lena): a notch up -- glam out, light at home, never bare."""
+    if not boost:
+        return _makeup_level(scene)
+    return {"none": "light", "light": "glam", "glam": "glam"}[_makeup_level(scene)]
+
+
+def _makeup_level(scene):
     if scene.get("makeup") in MAKEUP:
         return scene["makeup"]
     where = scene.get("setting", "")
@@ -414,7 +421,7 @@ def scene_prompt(char, scene, lane, n_refs, style="qwen"):
         # out flat with stick-thin legs). Only here: elsewhere "round" read as heavy.
         ("From behind her figure is shapely: a round, perky, lifted butt, toned shapely thighs, a slim waist "
          "and a natural hourglass curve." if scene.get("view") == "back" else ""),
-        f"Makeup: {MAKEUP[makeup_for(scene)]}.",
+        f"Makeup: {MAKEUP[makeup_for(scene, boost=b.get('makeup_boost', False))]}.",
         _skin(b),
         f"Setting: {scene['setting']}.",
         f"She wears {scene['outfit']}.",
