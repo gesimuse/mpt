@@ -156,6 +156,11 @@ export async function metrics(env, p, postId) {
  * it (for 14 days): one that failed at its slot (an expired media link, 2026-10-20)
  * is made again with a fresh link.
  */
+/** One GraphQL call, for admin checks. */
+export async function raw(env, p, query, variables) {
+  try { return await gql(env, p.slug, query, variables); } catch (e) { return { error: String(e) }; }
+}
+
 export function needsRecheck(job) {
   const now = Date.now();
   return ["ig", "tt"].some((k) => {

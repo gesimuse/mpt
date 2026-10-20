@@ -752,6 +752,17 @@ async function onAdmin(request, env) {
       await st.save(env, p.slug, state);
       return Response.json(done);
     }
+    if (what === "bufferpost") {
+      return Response.json(await social.raw(env, p, `query($input: PostInput!) { post(input: $input) { id status dueAt sentAt error { message } } }`,
+                                             { input: { id: u.searchParams.get("id") } }));
+    }
+    if (what === "publish") {
+      // Move every publish job along now (incl. the Buffer queue recheck).
+      const state = await st.load(env, p.slug);
+      const changed = await advancePublish(env, p, state, u.origin);
+      if (changed) await st.save(env, p.slug, state);
+      return Response.json(state.publish.slice(-12).map((j) => ({ id: j.id, ig: j.ig && { mode: j.ig.mode, status: j.ig.status, final: j.ig.final, note: j.ig.note, link: j.ig.link } })));
+    }
     if (what === "prefs") {
       const prefs = (await st.load(env, p.slug)).prefs || {};
       return Response.json(Object.fromEntries(Object.entries(prefs).sort((a, b) => b[1] - a[1])));
@@ -1143,7 +1154,7 @@ async function laptopClaim(request, env, origin) {
   // channel shows "posted" a minute after 👍 rather than at the next 15-min cron.
   for (const p of all) {
     const state = await st.load(env, p.slug);
-    if (state.publish.some((j) => !social.finished(j)) && (await advancePublish(env, p, state, origin))) {
+    if (state.publish.some((j) => !social.finished(j) || social.needsRecheck(j)) && (await advancePublish(env, p, state, origin))) {
       await st.save(env, p.slug, state);
     }
   }
@@ -1802,7 +1813,7 @@ export async function onPersonaSchedule(event, env) {
       else if (POST_HOURS.includes(h) && m < 15) console.log(await post(env, p, POST_HOURS.indexOf(h)));
       console.log(await advanceJobs(env, p, origin));
       const state = await st.load(env, p.slug);
-      let dirty = state.publish.some((j) => !social.finished(j)) && (await advancePublish(env, p, state, origin));
+      let dirty = state.publish.some((j) => !social.finished(j) || social.needsRecheck(j)) && (await advancePublish(env, p, state, origin));
       // Numbers settle slowly: scoring once an hour is plenty.
       if (m < 15) dirty = (await learnFromPosts(env, p, state)) || dirty;
       if (dirty) await st.save(env, p.slug, state);
