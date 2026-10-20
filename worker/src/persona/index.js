@@ -746,6 +746,16 @@ async function onAdmin(request, env) {
       await st.save(env, p.slug, state);
       return Response.json(done);
     }
+    if (what === "sendtiktok") {
+      // The same as replying "post" to the album (also after a redo).
+      const state = await st.load(env, p.slug), sh = state.shoots?.[u.searchParams.get("id")];
+      if (!sh) return new Response("no such shoot", { status: 404 });
+      Object.assign(sh, { send_tiktok: true, draft: null, draft_error: null, retry_at: null, urls: null, changed_after_draft: false });
+      sh.tiktok_status = "📤 TikTok: sending to the aiqube inbox (~15-45 min)";
+      await albumStatus(env, p, sh, sh.tiktok_status);
+      await st.save(env, p.slug, state);
+      return new Response("sending");
+    }
     if (what === "sharelink") {
       const state = await st.load(env, p.slug);
       const job = state.publish.find((j) => j.id === u.searchParams.get("j"));
