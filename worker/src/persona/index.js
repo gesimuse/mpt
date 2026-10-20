@@ -514,8 +514,8 @@ async function onReply(env, p, post, state, origin) {
   if (await albumRedo(env, p, post, state)) return;
   // Any other reply to a shoot album is not a "how she moves" note for a video
   // (2026-10-19: a "redo" sent before albumRedo existed made a video of photo 1).
-  if (state.album_msgs?.[parent.message_id] || /^#shoot-/m.test(parent.caption || "")) {
-    const a = state.album_msgs?.[parent.message_id], sh = a && state.shoots?.[a.shoot];
+  if (albumOf(state, parent)) {
+    const a = albumOf(state, parent), sh = a && state.shoots?.[a.shoot];
     if (sh) await albumStatus(env, p, sh, "💡 reply: redo 3 <note> · video 3 <how she moves>");
     await tidy(env, post);
     return;
@@ -1332,11 +1332,30 @@ async function albumButtons(env, p, sh) {
  * and, when all are back, the album is posted again with them in place (asked for
  * 2026-10-19 instead of buttons under the album).
  */
+/**
+ * Which shoot album a message belongs to: the saved map, else the album's own
+ * message range (its photos have consecutive ids from sh.album) -- the map lost
+ * older albums once (2026-10-20, "post" did nothing on them).
+ */
+function albumOf(state, msg) {
+  const id = msg?.message_id;
+  if (!id) return null;
+  if (state.album_msgs?.[id]) return state.album_msgs[id];
+  for (const [shoot, sh] of Object.entries(state.shoots || {})) {
+    const n = sh.media?.length || sh.ids?.length || 0;
+    if (typeof sh.album === "number" && id >= sh.album && id < sh.album + n) {
+      return { shoot, item: (sh.media || [])[id - sh.album]?.id || sh.ids[id - sh.album] };
+    }
+  }
+  const tag = /#(shoot-[\w-]+)/.exec(msg.caption || "")?.[1];
+  return tag && state.shoots?.[tag] ? { shoot: tag, item: null } : null;
+}
+
 async function albumRedo(env, p, post, state) {
-  const a = state.album_msgs?.[post.reply_to_message?.message_id];
+  const a = albumOf(state, post.reply_to_message);
   // "post" / "tiktok" / 👍: this carousel goes to TikTok as a draft (2026-10-20: sent
   // only when asked, after any redos, so the 5 daily slots go to approved ones).
-  if (a && /^\s*(post|tiktok|tik tok|send|👍)\s*[.!]*\s*$/iu.test(post.text || "")) {
+  if (a && /^\s*(post|tiktok|tik tok|send|publish|👍)\b/iu.test(post.text || "") && !/\d/.test(post.text || "")) {
     const sh = state.shoots?.[a.shoot];
     if (sh) {
       if (sh.draft && !["skipped", "off"].includes(sh.draft) && !sh.changed_after_draft) {
