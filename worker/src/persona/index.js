@@ -745,7 +745,8 @@ async function onAdmin(request, env) {
       for (const p of (await personas.list(env)).filter(isRoster)) {
         const state = await st.load(env, p.slug);
         for (const [id, sh] of Object.entries(state.shoots || {})) {
-          if (!sh.draft && (sh.started || 0) < before) { sh.draft = "skipped"; out.push(id); }
+          const only = u.searchParams.get("id");
+          if (!sh.draft && (only ? id === only : (sh.started || 0) < before)) { sh.draft = "skipped"; out.push(id); }
         }
         await st.save(env, p.slug, state);
       }
