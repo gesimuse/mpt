@@ -41,7 +41,7 @@ const CREATE = `mutation($input: CreatePostInput!) { createPost(input: $input) {
   ... on NotFoundError { message } ... on UnauthorizedError { message } ... on UnexpectedError { message }
   ... on LimitReachedError { message } ... on InvalidInputError { message } } }`;
 
-const STATUS = `query($input: PostInput!) { post(input: $input) { id status externalLink error { message } } }`;
+const STATUS = `query($input: PostInput!) { post(input: $input) { id status dueAt externalLink error { message } } }`;
 
 export function accounts(p) {
   return { instagram: !!p.buffer?.instagram, tiktok: !!p.buffer?.tiktok };
@@ -85,7 +85,7 @@ async function start(env, p, job, platform, mediaUrl) {
   } });
   const res = d.createPost;
   if (res.__typename !== "PostActionSuccess") throw new Error(`${res.__typename}: ${res.message || ""}`);
-  if (queue) return { mode: "queued", post: res.post.id, status: "done", sent_at: Date.now() };
+  if (queue) return { mode: "queued", post: res.post.id, status: "done", sent_at: Date.now(), links: 2 };
   return settle({ mode, post: res.post.id }, res.post);
 }
 
@@ -114,9 +114,10 @@ export async function advance(env, p, job, mediaUrl) {
   if (job.retry_at && now < job.retry_at) return job;
   for (const [key, platform] of [["ig", "instagram"], ["tt", "tiktok"]]) {
     try {
-      if (job[key]?.mode === "queued" && needsRecheck({ [key]: job[key] })) await recheck(env, p, job, key);
+      if (job[key]?.mode === "queued" && needsRecheck({ [key]: job[key] })) await recheck(env, p, job, key, mediaUrl);
     } catch (e) {
       if (/too many requests|rate limit|429/i.test(String(e))) { job.retry_at = now + 60 * 60 * 1000; continue; }
+      if (job[key]) job[key] = { ...job[key], recheck_error: String(e.message || e).slice(0, 200), checked_at: now };
     }
     const cur = job[key];
     try {
@@ -170,7 +171,42 @@ export function needsRecheck(job) {
   });
 }
 
-async function recheck(env, p, job, key) {
+const EDIT = `mutation($input: EditPostInput!) { editPost(input: $input) {
+  __typename
+  ... on PostActionSuccess { post { id status dueAt } }
+  ... on NotFoundError { message } ... on UnauthorizedError { message } ... on UnexpectedError { message }
+  ... on InvalidInputError { message } } }`;
+
+function assetsFor(job, urls, alt) {
+  return job.kind === "video" ? [{ video: { url: urls[0] } }] : urls.map((url) => ({ image: { url, metadata: { altText: alt } } }));
+}
+
+/**
+ * Fresh media links on a post already in Buffer, keeping its place: a queued post
+ * whose link was made before links lasted 45 days (they died after 24h), or one that
+ * failed at its slot -- that one is sent now (2026-10-21: a re-created post went to
+ * the back of the queue, days later).
+ */
+async function refresh(env, p, job, key, mediaUrl, post, sendNow) {
+  const urls = Array.isArray(mediaUrl) ? mediaUrl : [mediaUrl];
+  const alt = (job.posts?.alt || (job.posts?.instagram?.text || job.caption || "").split("\n")[0]).slice(0, 200);
+  const when = sendNow ? { mode: "shareNow" } : { mode: "customScheduled", dueAt: post.dueAt };
+  const metadata = key === "ig"
+    ? { instagram: { type: job.kind === "video" ? "reel" : "post", shouldShareToFeed: true, isAiGenerated: true } }
+    : { tiktok: { title: (job.posts?.tiktok?.text || job.caption || "").split("\n")[0].slice(0, 90) } };
+  const d = await gql(env, p.slug, EDIT, { input: { id: job[key].post, assets: assetsFor(job, urls, alt), metadata, ...when } });
+  const res = d.editPost;
+  if (res.__typename !== "PostActionSuccess") throw new Error(`${res.__typename}: ${res.message || ""}`);
+  job[key] = { ...job[key], links: 2, checked_at: Date.now(), ...(sendNow ? { resent: (job[key].resent || 0) + 1 } : {}) };
+}
+
+/** Admin: a queued post goes out now. */
+export async function sendNow(env, p, job, key, mediaUrl) {
+  const post = (await gql(env, p.slug, STATUS, { input: { id: job[key].post } })).post || {};
+  await refresh(env, p, job, key, mediaUrl, post, true);
+}
+
+async function recheck(env, p, job, key, mediaUrl) {
   const r = job[key];
   let post;
   try {
@@ -186,7 +222,10 @@ async function recheck(env, p, job, key) {
     return;
   }
   if (post.status === "sent") job[key] = { ...r, final: true, link: post.externalLink || "", checked_at: Date.now() };
-  else if (post.status === "error") job[key] = undefined;   // made again below, with a fresh link
+  else if (post.status === "error") {
+    if ((r.resent || 0) >= 2) job[key] = { ...r, status: "failed", final: true, note: post.error?.message || "Buffer error" };
+    else await refresh(env, p, job, key, mediaUrl, post, true);
+  } else if (r.links !== 2) await refresh(env, p, job, key, mediaUrl, post, false);
   else job[key] = { ...r, checked_at: Date.now() };
 }
 

@@ -752,17 +752,32 @@ async function onAdmin(request, env) {
       await st.save(env, p.slug, state);
       return Response.json(done);
     }
+    if (what === "buffermutations") {
+      const t = u.searchParams.get("type");
+      return Response.json(await social.raw(env, p, t ? `{ __type(name: "${t.replace(/[^\w]/g, "")}") { inputFields { name type { name kind ofType { name } } } } }`
+                                                      : `{ __schema { mutationType { fields { name args { name type { name ofType { name } } } } } } }`, {}));
+    }
     if (what === "bufferpost") {
       return Response.json(await social.raw(env, p, `query($input: PostInput!) { post(input: $input) { id status dueAt sentAt error { message } } }`,
                                              { input: { id: u.searchParams.get("id") } }));
     }
+    if (what === "postnow") {
+      const state = await st.load(env, p.slug);
+      const job = state.publish.find((j) => j.id === u.searchParams.get("j"));
+      if (!job?.ig?.post) return new Response("no such queued post", { status: 404 });
+      const url = job.file_ids ? await Promise.all(job.file_ids.map((f) => mediaLink(env, u.origin, f, "jpg")))
+        : await mediaLink(env, u.origin, job.file_id, job.kind === "video" ? "mp4" : "jpg");
+      await social.sendNow(env, p, job, "ig", url);
+      await st.save(env, p.slug, state);
+      return new Response("sent now");
+    }
     if (what === "publish") {
       // Move every publish job along now (incl. the Buffer queue recheck).
       const state = await st.load(env, p.slug);
-      if (u.searchParams.get("force")) for (const j of state.publish) for (const k of ["ig", "tt"]) if (j[k]?.mode === "queued") delete j[k].checked_at;
+      if (u.searchParams.get("force")) for (const j of state.publish) for (const k of ["ig", "tt"]) if (j[k]?.mode === "queued" && !j[k].final) { delete j[k].checked_at; j[k].sent_at = Math.min(j[k].sent_at || Date.now(), Date.now() - 7 * 3600 * 1000); }
       const changed = await advancePublish(env, p, state, u.origin);
       if (changed) await st.save(env, p.slug, state);
-      return Response.json(state.publish.slice(-12).map((j) => ({ id: j.id, ig: j.ig && { mode: j.ig.mode, status: j.ig.status, final: j.ig.final, note: j.ig.note, link: j.ig.link } })));
+      return Response.json(state.publish.slice(-12).map((j) => ({ id: j.id, retry_at: j.retry_at, ig: j.ig && { mode: j.ig.mode, status: j.ig.status, links: j.ig.links, resent: j.ig.resent, err: j.ig.recheck_error, note: j.ig.note } })));
     }
     if (what === "prefs") {
       const prefs = (await st.load(env, p.slug)).prefs || {};
