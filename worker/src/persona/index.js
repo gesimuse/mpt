@@ -757,6 +757,26 @@ async function onAdmin(request, env) {
       return Response.json(await social.raw(env, p, t ? `{ __type(name: "${t.replace(/[^\w]/g, "")}") { inputFields { name type { name kind ofType { name } } } } }`
                                                       : `{ __schema { mutationType { fields { name args { name type { name ofType { name } } } } } } }`, {}));
     }
+    if (what === "bufferposts") {
+      // Every post in her Buffer channel (any status), to find what fills the queue.
+      const org = (await social.raw(env, p, `{ account { organizations { id } } }`, {}))?.account?.organizations?.[0]?.id;
+      return Response.json(await social.raw(env, p, `query($i: PostsInput!) { posts(input: $i, first: 50) { edges { node { id status dueAt text error { message } } } } }`,
+        { i: { organizationId: org, filter: { channelIds: [p.buffer?.instagram].filter(Boolean) } } }));
+    }
+    if (what === "attach") {
+      // A publish job whose Buffer post exists but the job lost it: linked again (its
+      // links refreshed by the next recheck), so it stops making new copies.
+      const state = await st.load(env, p.slug);
+      const job = state.publish.find((j) => j.id === u.searchParams.get("j"));
+      if (!job) return new Response("no such job", { status: 404 });
+      job.ig = { mode: "queued", status: "done", post: u.searchParams.get("post"), sent_at: Date.now() - 7 * 3600 * 1000, links: 1 };
+      delete job.retry_at;
+      await st.save(env, p.slug, state);
+      return new Response("attached");
+    }
+    if (what === "bufferdelete") {
+      return Response.json(await social.raw(env, p, `mutation($i: DeletePostInput!) { deletePost(input: $i) { __typename } }`, { i: { id: u.searchParams.get("id") } }));
+    }
     if (what === "bufferpost") {
       return Response.json(await social.raw(env, p, `query($input: PostInput!) { post(input: $input) { id status dueAt sentAt error { message } } }`,
                                              { input: { id: u.searchParams.get("id") } }));
@@ -767,7 +787,8 @@ async function onAdmin(request, env) {
       if (!job?.ig?.post) return new Response("no such queued post", { status: 404 });
       const url = job.file_ids ? await Promise.all(job.file_ids.map((f) => mediaLink(env, u.origin, f, "jpg")))
         : await mediaLink(env, u.origin, job.file_id, job.kind === "video" ? "mp4" : "jpg");
-      await social.sendNow(env, p, job, "ig", url);
+      if (u.searchParams.get("at")) await social.moveTo(env, p, job, "ig", url, u.searchParams.get("at"));
+      else await social.sendNow(env, p, job, "ig", url);
       await st.save(env, p.slug, state);
       return new Response("sent now");
     }
