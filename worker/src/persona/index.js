@@ -80,6 +80,7 @@ function remember(state, item, sent) {
                            scene: item.scene || {}, caption: item.caption || "",
                            audio: !!item.audio, recreate: !!item.recreate,
                            file_id: media?.file_id || state.items[item.id]?.file_id || "",
+                           ...(sent?.message_id ? { message_id: sent.message_id } : state.items[item.id]?.message_id ? { message_id: state.items[item.id].message_id } : {}),
                            character: item.character || state.items[item.id]?.character || undefined };
 }
 
@@ -604,7 +605,8 @@ async function handleUpdates(env, updates, origin) {
   for (const update of updates) {
     const cq = update.callback_query;
     const post = update.channel_post || update.message;
-    const chatId = String(cq?.message?.chat?.id ?? post?.chat?.id ?? "");
+    const rc = update.message_reaction_count;
+    const chatId = String(cq?.message?.chat?.id ?? post?.chat?.id ?? rc?.chat?.id ?? "");
     const p = byChat.get(chatId);
     console.log("update", update.update_id, cq ? `tap ${cq.data}` : post?.photo ? "photo" : post?.video ? "video" : post?.text ? `text "${post.text.slice(0, 40)}"` : "other",
                 "chat", chatId, post?.chat?.title || cq?.message?.chat?.title || "", p ? `-> ${p.slug}` : "-> no persona channel, ignored");
@@ -622,7 +624,8 @@ async function handleUpdates(env, updates, origin) {
       try {
         // MPT: photos sent by hand stay private (never processed in the cloud).
         if (isRoster(p) && post?.photo && !post.reply_to_message && !post.reply_markup) continue;
-        if (cq?.data?.startsWith("pv:")) { await onTap(env, p, cq, state, origin); changed = true; }
+        if (update.message_reaction_count) { if (await onReaction(env, p, update.message_reaction_count, state, origin)) changed = true; }
+        else if (cq?.data?.startsWith("pv:")) { await onTap(env, p, cq, state, origin); changed = true; }
         // A TikTok/Facebook link or video counts as 🎭 even when it is sent as a reply.
         else if (post && (await onRecreateRequest(env, post, state))) changed = true;
         // A photo uploaded into her channel (not by the bot): 🖼 a carousel of it.
@@ -1458,6 +1461,40 @@ async function albumRedo(env, p, post, state) {
   // "post" / "tiktok" / 👍: this carousel goes to TikTok as a draft (2026-10-20: sent
   // only when asked, after any redos, so the 5 daily slots go to approved ones).
   if (a && /^\s*(post|tiktok|tik tok|send|publish|👍)\b/iu.test(post.text || "") && !/\d/.test(post.text || "")) {
+    await sendAlbum(env, p, state, a);
+    await tidy(env, post);
+    return true;
+  }
+  return albumRedoCommands(env, p, post, state, a);
+}
+
+/**
+ * A reaction in the channel (Telegram sends channels only the counts): 👍 ❤️ 🔥 on
+ * an MPT album sends it to TikTok; on a Lena post it publishes it, like the 👍 button.
+ */
+const LIKES = new Set(["👍", "❤", "❤️", "🔥", "😍", "🥰"]);
+async function onReaction(env, p, rc, state, origin) {
+  const liked = (rc.reactions || []).some((r) => r.type?.type === "emoji" && LIKES.has(r.type.emoji) && r.total_count > 0);
+  if (!liked) return false;
+  const msg = { message_id: rc.message_id, chat: rc.chat };
+  const a = albumOf(state, msg);
+  if (a) {
+    const sh = state.shoots?.[a.shoot];
+    if (sh?.send_tiktok || (sh?.draft && !["skipped", "off"].includes(sh.draft) && !sh.changed_after_draft)) return false;
+    await sendAlbum(env, p, state, a);
+    return true;
+  }
+  if (isRoster(p)) return false;
+  // Lena: the post's item from what we sent it as.
+  const itemId = Object.entries(state.items || {}).find(([, it]) => it.message_id === rc.message_id)?.[0];
+  if (!itemId || state.voted.includes(itemId)) return false;
+  const res = await queuePublish(env, p, state, { message: msg }, itemId);
+  if (res === true) { state.voted.push(itemId); await advancePublish(env, p, state, origin); }
+  return true;
+}
+
+/** An album to TikTok: a "post" reply or a 👍/❤️/🔥 reaction on it. */
+async function sendAlbum(env, p, state, a) {
     const sh = state.shoots?.[a.shoot];
     if (sh) {
       if (sh.send_tiktok && !sh.draft && !sh.draft_error) {
@@ -1472,9 +1509,9 @@ async function albumRedo(env, p, post, state) {
         await albumStatus(env, p, sh, sh.tiktok_status, state);
       }
     }
-    await tidy(env, post);
-    return true;
-  }
+}
+
+async function albumRedoCommands(env, p, post, state, a) {
   // "redo 3" / "redo 2 5" / "redo 3 red lipstick, hair up" (a note added to the prompt);
   // "video 3" / "video 3 she spins slowly" (how she moves).
   const m = /^\s*(redo|🔁|video|🎬)\s*((?:\d+[\s,]*)+)(.*)$/isu.exec(post.text || "");
