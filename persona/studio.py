@@ -376,6 +376,7 @@ class Studio:
                             scene=item.get("scene", {}), commercial=bool(model.get("commercial")))
         path = self.engine.video(model, item["path"], prompt, char.dir / "items", vid["id"])
         path = slow_down(path, model.get("slowdown"))
+        path = head_in_proportion(char, path)
         return char.update_item(vid["id"], status="review", ok=True, path=str(path))
 
 
@@ -401,6 +402,22 @@ def calm_prompt(motion):
     if motion.startswith("(at "):
         return motion
     return f"{motion}, slow subtle natural movement, realistic, camera static"
+
+
+def head_in_proportion(char, path):
+    """Her head scaled back toward her own proportions (persona/headscale.py): a
+    photo with narrow shoulders under a full-size head animated into a video where
+    the head looked too big (2026-10-22). PERSONA_HEADSCALE=0 turns it off."""
+    if not config.flag("PERSONA_HEADSCALE", "1"):
+        return path
+    from . import headscale
+    path = Path(path)
+    fixed = path.with_name(path.stem + "-head.mp4")
+    if headscale.fix(path, fixed, ref=char.refs_dir / "04-full-body.jpg") == 1.0:
+        fixed.unlink(missing_ok=True)
+        return path
+    fixed.replace(path)
+    return path
 
 
 def slow_down(path, factor=None):

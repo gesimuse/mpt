@@ -220,6 +220,13 @@ def recreate(src, out_dir, seconds=None):
             joined = swapped
         else:
             log(f"face swap failed ({r.returncode}); posting Viggle's faces")
+    if config.flag("PERSONA_HEADSCALE", "1"):
+        # The dancer's body stays, so her head can read too small or too big for it
+        # (2026-10-22: Lena's face looked small on a long-bodied dancer).
+        r = subprocess.run([sys.executable, "-m", "persona.headscale", str(joined), str(out_dir / "head.mp4"),
+                            "--ref", str(_char().refs_dir / "04-full-body.jpg")], cwd=str(config.REPO))
+        if r.returncode == 0 and (out_dir / "head.mp4").exists():
+            joined = out_dir / "head.mp4"
     out = out_dir / "recreated.mp4"
     # The original clip's audio, cut to the video's length.
     subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(joined), "-i", str(clip), "-map", "0:v", "-map", "1:a?",
