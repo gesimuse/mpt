@@ -404,6 +404,12 @@ def _skin(b):
             f"one even tone, her body no darker or more tanned than her face.")
 
 
+# Words that mean her outfit covers her below the waist (see scene_prompt).
+BOTTOMS = re.compile(r"\b(shorts|skirt|jeans|trousers|pants|leggings|dress|gown|bodysuit|jumpsuit|romper|bikini|"
+                     r"swimsuit|one-piece|set|co-ord|playsuit|catsuit|joggers|briefs|bottoms|culottes|slip|onesie|"
+                     r"unitard|overalls|tracksuit|tights|sundress|ski suit|suit|robe|towel|sarong)\b", re.I)
+
+
 def scene_prompt(char, scene, lane, n_refs, style="qwen"):
     """The prompt for one scene, rendered from her refs. Refs are numbered <imageN>
     in the order engine.image() passes them, which is character.refs() order."""
@@ -461,6 +467,11 @@ def scene_prompt(char, scene, lane, n_refs, style="qwen"):
         _skin(b),
         f"Setting: {scene['setting']}.",
         f"She wears {scene['outfit']}.",
+        # Social lane: an outfit naming only a top ("black lace bralette under an open
+        # blazer") came out with nothing below it -- Harper naked from the waist down,
+        # a whole shoot (2026-10-22).
+        ("Below the waist she wears matching bottoms that fully cover her hips, like tailored shorts or a "
+         "mini skirt." if lane != "fanvue" and not BOTTOMS.search(scene.get("outfit", "")) else ""),
         # A "redo n cover the boob" note: with a full bust, a tiny bandeau in side view
         # left a breast spilling out, nipple showing, through three redos (Chloe, 2026-10-22).
         ("Her top fits snugly and fully covers her whole bust and both nipples; nothing slips out of it."

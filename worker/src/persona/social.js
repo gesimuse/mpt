@@ -200,6 +200,11 @@ async function refresh(env, p, job, key, mediaUrl, post, sendNow) {
   job[key] = { ...job[key], links: 2, checked_at: Date.now(), ...(sendNow ? { resent: (job[key].resent || 0) + 1 } : {}) };
 }
 
+/** Admin: a queued post moves to `dueAt` (ISO). */
+export async function moveTo(env, p, job, key, mediaUrl, dueAt) {
+  await refresh(env, p, job, key, mediaUrl, { dueAt }, false);
+}
+
 /** Admin: a queued post goes out now. */
 export async function sendNow(env, p, job, key, mediaUrl) {
   const post = (await gql(env, p.slug, STATUS, { input: { id: job[key].post } })).post || {};
