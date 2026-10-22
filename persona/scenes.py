@@ -461,6 +461,11 @@ def scene_prompt(char, scene, lane, n_refs, style="qwen"):
         _skin(b),
         f"Setting: {scene['setting']}.",
         f"She wears {scene['outfit']}.",
+        # A "redo n cover the boob" note: with a full bust, a tiny bandeau in side view
+        # left a breast spilling out, nipple showing, through three redos (Chloe, 2026-10-22).
+        ("Her top fits snugly and fully covers her whole bust and both nipples; nothing slips out of it."
+         if re.search(r"\b(cover|covered|boobs?|breasts?|nipples?|tits?|bra|bandeau|chest)\b",
+                      scene.get("note", ""), re.I) else ""),
         f"She is {scene['action']}, {scene['mood']}.",
         ("The reference photos only show who she is; her head angle, expression and pose follow this scene, "
          "not the references." if n_refs else ""),

@@ -123,9 +123,10 @@ def redo(job, char, studio, out):
     scene (2026-10-20: a redo used to redraw from scratch, and could bring new defects)."""
     results = []
     # A note about the clothes means the old photo's outfit is wrong: an edit keeps
-    # what is there, so it is drawn again instead (Alina's gown, 2026-10-20).
+    # what is there, so it is drawn again instead (Alina's gown, 2026-10-20). Same for
+    # "cover the boob": three edits in a row kept the bare breast (Chloe, 2026-10-22).
     clothes = re.search(r"\b(dress|gown|outfit|wear|wearing|skirt|trousers|pants|jeans|top|bikini|shirt|shorts|"
-                        r"clothes|heels|shoes)\b", (job.get("scene") or {}).get("note", ""), re.I)
+                        r"clothes|heels|shoes|bra|bandeau|cover|covered|boobs?|breasts?|nipples?|tits?|chest)\b", (job.get("scene") or {}).get("note", ""), re.I)
     fixed = _redo_fix(job, char, studio, out) if job.get("image_url") and not clothes else None
     if fixed:
         results.append(fixed)

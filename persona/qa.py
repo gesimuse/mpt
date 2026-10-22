@@ -32,12 +32,6 @@ TWIST_PROMPT = ('Is this woman\'s head or torso rotated further than a real pers
                 'example her face pointing backwards over her back)? Answer ONLY JSON: '
                 '{"body_twisted_impossibly": true or false}')
 
-# Asked on its own: inside a bigger question the model also flagged good photos
-# for "holding several things". Alone, it caught the head turned almost backwards.
-TWIST_PROMPT = ('Is this woman\'s head or torso rotated further than a real person physically can (for '
-                'example her face pointing backwards over her back)? Answer ONLY JSON: '
-                '{"body_twisted_impossibly": true or false}')
-
 OWL_PROMPT = ('Look at this woman\'s body and face. Is her back (shoulder blades, spine or buttocks) turned '
               'toward the camera while her face also looks at the camera, so her head is twisted round over '
               'her back like an owl? Answer ONLY JSON: {"face_over_back": true or false}')
