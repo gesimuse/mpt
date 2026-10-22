@@ -132,8 +132,12 @@ async function sharePage(request, env) {
   if (!jid || !e || Number(e) < Date.now() / 1000 || u.searchParams.get("s") !== await sign(env, `share.${jid}.${e}`)) {
     return new Response("This link has expired.", { status: 403 });
   }
-  const job = (await st.load(env, slug)).publish.find((j) => j.id === jid);
-  if (!job) return new Response("Not found.", { status: 404 });
+  const state = await st.load(env, slug);
+  // The publish job can be gone from the state (a lost update, or pruned) while its
+  // link is still in the channel -- the item itself has the video (pub-<item>-<ms>).
+  const item = state.items?.[(/^pub-([^-]+)-/.exec(jid) || [])[1]];
+  const job = state.publish.find((j) => j.id === jid) || (item?.file_id && { file_id: item.file_id, caption: item.caption });
+  if (!job) return new Response("This post is no longer in Lena's list -- save the video from the channel instead.", { status: 404 });
   const video = await mediaLink(env, u.origin, job.file_id, "mp4");
   const caption = job.posts?.instagram?.text || job.caption || "";
   const html = `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -163,7 +167,9 @@ document.getElementById("share").onclick=async(e)=>{
 }
 
 async function telegramFile(env, fileId) {
-  const info = await tg(env, "getFile", { file_id: fileId });
+  // Retried once: a busy bot gets "Too Many Requests" now and then.
+  const info = await tg(env, "getFile", { file_id: fileId })
+    .catch(() => new Promise((r) => setTimeout(r, 1500)).then(() => tg(env, "getFile", { file_id: fileId })));
   return fetch(`https://api.telegram.org/file/bot${env.PERSONA_BOT_TOKEN}/${info.file_path}`);
 }
 
@@ -187,9 +193,21 @@ async function serveMedia(request, env) {
     return new Response("forbidden", { status: 403 });
   }
   const file = await telegramFile(env, f);
-  const headers = { "content-type": ext === "mp4" ? "video/mp4" : "image/jpeg" };
+  const headers = { "content-type": ext === "mp4" ? "video/mp4" : "image/jpeg", "accept-ranges": "bytes" };
+  if (!file.ok) return new Response(`media unavailable (${file.status})`, { status: 502 });
+  // iPhones play a video only when asked-for byte ranges come back as 206 partial content.
+  const range = /^bytes=(\d*)-(\d*)$/.exec(request.headers.get("range") || "");
+  if (range) {
+    const buf = new Uint8Array(await file.arrayBuffer()), n = buf.length;
+    let a = range[1] === "" ? n - Number(range[2]) : Number(range[1]);
+    let b = range[1] !== "" && range[2] !== "" ? Math.min(Number(range[2]), n - 1) : n - 1;
+    a = Math.max(0, a);
+    if (a > b || a >= n) return new Response(null, { status: 416, headers: { "content-range": `bytes */${n}` } });
+    return new Response(buf.subarray(a, b + 1), { status: 206,
+      headers: { ...headers, "content-range": `bytes ${a}-${b}/${n}`, "content-length": String(b - a + 1) } });
+  }
   if (file.headers.get("content-length")) headers["content-length"] = file.headers.get("content-length");
-  return new Response(file.body, { status: file.status, headers });
+  return new Response(file.body, { status: 200, headers });
 }
 
 // ------------------------------------------------------------------ publish
