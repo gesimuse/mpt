@@ -336,8 +336,13 @@ def carousel(job, char, studio, out, inp):
     poses = random.sample(CAROUSEL_POSES, len(CAROUSEL_POSES))
     front = [p for p in char.refs() if p.name.startswith("01-")][:1]
     emb = faceid.reference_embedding(char.refs())
-    results = []
-    for a, e in list(zip(picked, exprs))[: int(job.get("count", 2))]:
+    results, failed = [], []
+    # A failed angle is replaced by the next one, so the carousel gets its `count`
+    # (2026-10-22: asked for 2, one usually failed the head-size check -> only 1).
+    want = int(job.get("count", 2))
+    for tried, (a, e) in enumerate(list(zip(picked, exprs))[: want + 2]):
+        if len(results) >= want:
+            break
         item = char.new_item(kind="image", lane="social", model=model["id"],
                              scene=dict(base, angle=a[0], expression=e[0], angle_sheet=a[1]),
                              tags=base.get("tags", []), caption=base.get("caption", ""))
@@ -345,7 +350,7 @@ def carousel(job, char, studio, out, inp):
         # The first extra shot of a carousel is full body (asked for, 2026-10-17):
         # zoomed out from the same spot, natural proportions; the drift check still
         # applies, so a full-body shot that invents a new place is redrawn.
-        full = len(results) == 0 and job.get("full_body", True)
+        full = tried == 0 and job.get("full_body", True)
         # Pose and camera change too: told to keep "body and framing", the edit only
         # turned her head and the rest of the photo stayed identical (2026-10-16).
         # The camera stays where it was: asked to move it ("a step to her left"), the
@@ -398,11 +403,15 @@ def carousel(job, char, studio, out, inp):
             shutil.copyfile(path, dest)
             item = char.update_item(item["id"], status="review", ok=True, path=dest.name)
             (out / f"{item['id']}.json").write_text(json.dumps(item, ensure_ascii=False))
-        results.append({"request": job["id"], "id": item["id"], "ok": bool(path), "kind": "image",
-                        "carousel": job["item"], "replace": job.get("replace"), "reason": None if path else why,
-                        **_reply(job)})
+        (results if path else failed).append({"request": job["id"], "id": item["id"], "ok": bool(path), "kind": "image",
+                                              "carousel": job["item"], "replace": job.get("replace"),
+                                              "reason": None if path else why, "of": want, **_reply(job)})
         log(f"carousel angle {item['id']} of {job['item']}: {'ok' if path else why}")
-    return results
+    # Failures are only reported when nothing came out. `of`: how many this set has,
+    # so the Worker offers the carousel once all of them are posted.
+    for r in results:
+        r["of"] = len(results)
+    return results or failed[:1]
 
 
 def run(jobs, char, studio_factory, out, inp, work_root, code_dir):

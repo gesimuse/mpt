@@ -420,9 +420,9 @@ async function onTap(env, p, cq, state, origin) {
     if (state.queue.some((q) => q.kind === "carousel" && q.item === itemId)) return answer(env, cq.id, "Already queued.");
     const fileId = (msg.photo || []).slice(-1)[0]?.file_id || state.items[itemId]?.file_id;
     if (!fileId) return answer(env, cq.id, "Can't: Telegram didn't give this photo.");
-    state.queue.push({ id: `${itemId}-car${Date.now()}`, kind: "carousel", item: itemId, scene, file_id: fileId, count: 2,
+    state.queue.push({ id: `${itemId}-car${Date.now()}`, kind: "carousel", item: itemId, scene, file_id: fileId, count: 3,
                        chat, message_id: msg.message_id });
-    await noteOnPost(env, msg, "🖼 making 2 more angles for a carousel (~10-20 min)");
+    await noteOnPost(env, msg, "🖼 making 3 more angles for a carousel (~10-20 min)");
     return answer(env, cq.id, "🖼 Queued");
   }
   if (act === "carpub") return publishCarousel(env, p, state, cq, itemId);
@@ -527,7 +527,7 @@ async function onPhotoUpload(env, post, state) {
   const itemId = `msg-${post.message_id}`;
   const fileId = post.photo.slice(-1)[0].file_id;
   state.items[itemId] = { kind: "image", tags: [], scene: {}, caption: post.caption || "", file_id: fileId };
-  state.queue.push({ id: `${itemId}-car${Date.now()}`, kind: "carousel", item: itemId, scene: {}, file_id: fileId, count: 2,
+  state.queue.push({ id: `${itemId}-car${Date.now()}`, kind: "carousel", item: itemId, scene: {}, file_id: fileId, count: 3,
                      chat: post.chat.id, message_id: post.message_id });
   await tg(env, "sendMessage", { chat_id: post.chat.id, reply_to_message_id: post.message_id,
     text: "🖼 Making 2 more shots of this photo for a carousel (~5-10 min). Only photos of her pass the face check." });
@@ -555,9 +555,9 @@ async function onReply(env, p, post, state, origin) {
     const busy = state.queue.some((q) => q.kind === "carousel" && q.item === itemId);
     if (!busy) {
       state.queue.push({ id: `${itemId}-car${Date.now()}`, kind: "carousel", item: itemId, scene: state.items[itemId].scene || {},
-                         file_id: photo.file_id, count: 2, chat: post.chat.id, message_id: parent.message_id });
+                         file_id: photo.file_id, count: 3, chat: post.chat.id, message_id: parent.message_id });
     }
-    await noteOnPost(env, parent, busy ? "🖼 already making this carousel" : "🖼 making 2 more angles for a carousel (~10-20 min)");
+    await noteOnPost(env, parent, busy ? "🖼 already making this carousel" : "🖼 making 3 more angles for a carousel (~10-20 min)");
     return tidy(env, post);
   }
   if (PUBLISH_WORDS.test(text) && (parent.photo || parent.video)) {
@@ -1086,7 +1086,7 @@ async function carouselProgress(env, state, r) {
     // A shot that failed its checks: offer the carousel with the shots that worked.
     set.failed = (set.failed || 0) + 1;
     state.carousels[r.carousel] = set;
-    if (set.ids.length && !set.offered && set.ids.length + set.failed >= 2) {
+    if (set.ids.length && !set.offered && set.ids.length + set.failed >= (r.of || 2)) {
       set.offered = true;
       await tg(env, "sendMessage", { chat_id: r.chat, reply_to_message_id: r.message_id,
         text: `🖼 Carousel ready: this photo + ${set.ids.length} more. Tap to post them as one Instagram carousel.`,
@@ -1104,7 +1104,7 @@ async function carouselProgress(env, state, r) {
   }
   if (!set.ids.includes(r.id)) set.ids.push(r.id);
   state.carousels[r.carousel] = set;
-  if (set.ids.length + (set.failed || 0) < 2 || set.offered) return;
+  if (set.ids.length + (set.failed || 0) < (r.of || 2) || set.offered) return;
   set.offered = true;
   await tg(env, "sendMessage", { chat_id: r.chat, reply_to_message_id: r.message_id,
     text: `🖼 Carousel ready: this photo + ${set.ids.length} more angles. Tap to post them as one Instagram carousel.`,
@@ -1308,7 +1308,7 @@ async function jobPayload(env, origin, state, batch) {
   for (const q of batch) {
     const before = jobs.length;
     if (q.kind === "carousel") {
-      jobs.push({ id: q.id, kind: "carousel", item: q.item, scene: q.scene, count: q.count || 2, replace: q.replace || null,
+      jobs.push({ id: q.id, kind: "carousel", item: q.item, scene: q.scene, count: q.count || 3, replace: q.replace || null,
                   image_url: await fileLink(env, origin, q.file_id), chat: q.chat, message_id: q.message_id });
     } else if (q.kind === "render") {
       jobs.push({ id: q.id, kind: "render", scenes: q.scenes, date: q.date, chat: q.chat, videos: q.videos ?? 0,
