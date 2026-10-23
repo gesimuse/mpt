@@ -46,6 +46,10 @@ const dataset = (env, slug) => `${env.KAGGLE_USERNAME}/mpt-persona-${slug}`;
  * item.character), and her own Kaggle dataset and bible are used for it.
  */
 const isRoster = (p) => Array.isArray(p.characters) && p.characters.length > 0;
+// Her content comes as shoots (one place, one outfit, an album a day): every roster,
+// and a single persona whose entry says shoots:true (Lena, 2026-10-23: "the same
+// thing we do on mpt with the carousels").
+const byShoots = (p) => isRoster(p) || p.shoots === true;
 const charOf = (p, q) => q?.character || p.slug;
 
 function basePayload(env, p, slug) {
@@ -326,7 +330,7 @@ async function advancePublish(env, p, state, origin) {
       : kb([[["✓ 👍 published", `pv:noop:${job.item}`]]]);
     try {
       await tg(env, job.text ? "editMessageText" : "editMessageCaption", { chat_id: job.chat, message_id: job.message_id,
-        ...(job.text ? { text: cap.slice(0, 4096) } : { caption: cap }), reply_markup: markup });
+        ...(job.text ? { text: cap.slice(0, 4096) } : { caption: cap }), ...(job.album ? {} : { reply_markup: markup }) });
     } catch (e) {
       console.error("caption update failed", String(e).slice(0, 200));
     }
@@ -417,7 +421,12 @@ async function onTap(env, p, cq, state, origin) {
     }
     if (!it.scene?.setting) return answer(env, cq.id, "Can't redo this one: its scene isn't known.");
     if (state.queue.some((q) => q.kind === "redo" && q.item === itemId)) return answer(env, cq.id, "Already queued.");
+    // Its shoot, so the redraw is swapped into the album (without it the new photo
+    // came as a post of its own).
+    const shootId = Object.entries(state.shoots || {}).find(([, x]) => (x.ids || []).includes(itemId))?.[0];
+    if (shootId) state.shoots[shootId].redo_wait = (state.shoots[shootId].redo_wait || 0) + 1;
     state.queue.push({ id: `${itemId}-r${Date.now()}`, kind: "redo", item: itemId, scene: it.scene, chat, message_id: it.message_id,
+                       ...(shootId ? { shoot: shootId, replaces: itemId } : {}),
                        ...(it.character ? { character: it.character } : {}) });
     return answer(env, cq.id, "🔁 Queued. The new photo replaces it in the album in ~15-30 min.");
   }
@@ -1139,6 +1148,27 @@ async function carouselProgress(env, state, r) {
     reply_markup: kb([[["🖼 Post carousel", `pv:carpub:${r.carousel}`]]]) });
 }
 
+const albumHint = (p) => `reply post → ${!isRoster(p) && p.buffer?.instagram ? "Instagram carousel" : "TikTok"} · redo 3 · video 3`;
+
+/** A shoot album to her Instagram as one carousel (its first 10 photos): a "post" reply or a 👍. */
+async function publishAlbum(env, p, state, shootId) {
+  const sh = state.shoots?.[shootId];
+  if (!sh) return;
+  const fileIds = (sh.media || []).map((m) => state.items[m.id]?.file_id).filter(Boolean).slice(0, 10);
+  if (fileIds.length < 2) return albumStatus(env, p, sh, "⚠️ can't post: the album's photos aren't known", state);
+  if (state.publish.some((j) => j.item === `car-${shootId}` && !["failed"].includes(j.ig?.status))) {
+    return albumStatus(env, p, sh, "📤 Instagram: already queued", state);
+  }
+  const b = (await st.bible(env, p.slug)) || { name: p.slug };
+  const first = state.items[sh.media[0].id] || {};
+  const posts = await captions.forPost(env, p, b, state, { ...first, kind: "photo" });
+  if (!sh.learned) { for (const id of sh.ids) learnFrom(state, state.items[id], 0.5, { taste: true }); sh.learned = true; }
+  state.publish.push({ id: `pub-car-${shootId}-${Date.now()}`, item: `car-${shootId}`, kind: "carousel", file_ids: fileIds,
+    created: Date.now(), due: nextSlot(env, state), audio: false, posts, caption: posts.instagram.text, story: feedFull(env, state),
+    chat: p.chat_id, message_id: sh.album, album: true, base: sh.caption_text || `👤 ${b.name}` });
+  await advancePublish(env, p, state, env.WORKER_ORIGIN);
+}
+
 /** 🖼 Post carousel: the original photo and its angles, one Instagram post. */
 async function publishCarousel(env, p, state, cq, itemId) {
   const set = state.carousels?.[itemId];
@@ -1383,7 +1413,7 @@ async function jobPayload(env, origin, state, batch) {
  */
 async function shoot(env, p, who = null) {
   const state = await st.load(env, p.slug);
-  const character = who || nextCharacter(p, state);
+  const character = who || (isRoster(p) ? nextCharacter(p, state) : p.slug);
   if (!(await st.bible(env, character))) { await st.save(env, p.slug, state); return `${p.slug}: no bible for ${character} (persona.cli sync)`; }
   state.shoot_requests = [...(state.shoot_requests || []), { character, at: Date.now() }];
   await st.save(env, p.slug, state);
@@ -1397,7 +1427,8 @@ async function writeRequestedShoot(env, p) {
   const b = await st.bible(env, req.character);
   const recentState = await st.load(env, p.slug);
   // One photoshoot: one place, one outfit, one day -- a carousel.
-  const list = b ? await scenes.writeShoot(env, b, recentState, Number(p.photos || 6), { sexy: p.style !== "recommendable" }) : null;
+  const list = b ? await scenes.writeShoot(env, b, recentState, Number(p.photos || 6),
+    { sexy: p.style === "recommendable" ? false : p.style || (isRoster(p) ? true : "flirty") }) : null;
   // Applied onto the state as it is now: other writers moved while the AI wrote.
   const state = await st.load(env, p.slug);
   state.shoot_requests = (state.shoot_requests || []).filter((r) => !(r.character === req.character && r.at === req.at));
@@ -1546,6 +1577,7 @@ async function onReaction(env, p, rc, state, origin) {
 
 /** An album to TikTok: a "post" reply or a 👍/❤️/🔥 reaction on it. */
 async function sendAlbum(env, p, state, a) {
+    if (!isRoster(p) && p.buffer?.instagram) return publishAlbum(env, p, state, a.shoot);
     const sh = state.shoots?.[a.shoot];
     if (sh) {
       if (sh.send_tiktok && !sh.draft && !sh.draft_error) {
@@ -1670,7 +1702,7 @@ async function albumRedoDone(env, p, state, r, item, fileId, url = null) {
   sh.album = null;
   if (/^🔁/.test(sh.status || "")) {
     const notes = (sh.redo_notes || []).join("\n");
-    sh.status = [notes, sh.tiktok_status || "reply post → TikTok · redo 3 · video 3"].filter(Boolean).join("\n");
+    sh.status = [notes, sh.tiktok_status || albumHint(p)].filter(Boolean).join("\n");
   }
   sh.redo_notes = [];
   await postShootAlbum(env, p, state, r.shoot);
@@ -1683,7 +1715,7 @@ async function postShootAlbum(env, p, state, shootId) {
   const b = (await st.bible(env, sh.character)) || { name: sh.character };
   const first = state.items[sh.media[0].id] || {};
   sh.caption_text = `👤 ${b.name} · ${sh.media.length} photos${first.caption ? `\n${first.caption}` : ""}\n#${shootId}`;
-  if (!sh.status && !p.tiktok_auto) sh.status = "reply post → TikTok · redo 3 · video 3";
+  if (!sh.status && !p.tiktok_auto) sh.status = albumHint(p);
   const text = sh.status ? `${sh.caption_text}\n${sh.status}` : sh.caption_text;
   const msgs = await tg(env, "sendMediaGroup", { chat_id: p.chat_id, media: sh.media.slice(0, 10).map((m, i) => ({
     type: "photo", media: m.fileId || m.url, ...(i === 0 ? { caption: text.slice(0, 1024) } : {}) })) });
@@ -1696,6 +1728,15 @@ async function postShootAlbum(env, p, state, shootId) {
     if (id) state.album_msgs[msg.message_id] = { shoot: shootId, item: id };
   });
   sh.album = (msgs || [])[0]?.message_id || true;
+  // A single persona's shoot (Lena): its first photos also become Reels, as replies
+  // to the album (her old daily render made PERSONA_DAILY_REELS a day).
+  if (!isRoster(p) && !sh.reels_queued) {
+    sh.reels_queued = true;
+    for (const m of sh.media.slice(0, dailyReels(env))) {
+      const it = state.items[m.id];
+      if (it?.file_id) queueVideo(state, m.id, { chat: { id: p.chat_id }, message_id: it.message_id || sh.album }, it.file_id, "");
+    }
+  }
   // Old album records go after 5 days.
   const keep = Object.entries(state.album_msgs);
   if (keep.length > 300) state.album_msgs = Object.fromEntries(keep.slice(-300));
@@ -1755,7 +1796,7 @@ async function shootDone(env, p, state, shootId) {
 /** The draft cron: one step of one finished shoot's TikTok draft per run. */
 export async function onDraftSchedule(event, env) {
   for (const p of await personas.list(env)) {
-    if (!isRoster(p)) continue;
+    if (!byShoots(p)) continue;
     // A requested shoot's scenes first; that is this run's one step.
     try {
       if (await writeRequestedShoot(env, p)) return;
@@ -1852,12 +1893,12 @@ async function advanceJobs(env, p, origin) {
     notes.push("laptop quiet: its job goes to Kaggle");
   }
   if (laptopUp && state.queue.length) notes.push("laptop up: new jobs wait for it");
-  if (isRoster(p)) {
+  if (byShoots(p)) {
     const n = await advanceShoots(env, p, state, laptopUp);
     if (n.length) { notes.push(...n); changed = true; }
   }
   // The day's render waiting for a laptop that went quiet: Kaggle renders it.
-  const renderJob = !isRoster(p) && state.queue.find((q) => q.kind === "render");
+  const renderJob = !isRoster(p) && state.queue.find((q) => q.kind === "render" && !q.shoot);
   if (renderJob && !laptopUp) {
     await pushRender(env, p, renderJob.scenes);
     state.queue = state.queue.filter((q) => q !== renderJob);
@@ -1933,7 +1974,7 @@ export async function onPersonaSchedule(event, env) {
   }
   for (const p of await personas.list(env)) {
     try {
-      if (isRoster(p)) {
+      if (byShoots(p)) {
         if ((p.shoot_hours || [5, 7, 9, 11, 13]).includes(h) && m < 15) console.log(await shoot(env, p));
       } else if ((h === 2 && m >= 30) || (h === 3 && m < 30)) console.log(await render(env, p));
       else if (POST_HOURS.includes(h) && m < 15) console.log(await post(env, p, POST_HOURS.indexOf(h)));
