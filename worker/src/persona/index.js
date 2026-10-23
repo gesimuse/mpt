@@ -155,10 +155,12 @@ textarea{width:100%;box-sizing:border-box;height:110px;background:#222;color:#ee
 small{color:#999}</style>
 <video src="${esc(video)}" controls playsinline loop muted></video>
 <button id="copy">1 · Copy caption</button>
-<button id="share">2 · Share to Instagram</button>
-<small>Pick <b>Instagram → Reels</b>, tap ♫ to add a trending song, paste the caption, share.</small>
+<button id="share">2 · Save the video</button>
+<small>In the menu pick <b>Save video</b> / <b>Save to gallery</b> (not Instagram: its Reels
+share opens the feed with nothing in it, 2026-10-23). Then in Instagram: <b>+ → Reel</b>, pick the
+video, tap ♫ for a trending song, paste the caption, share.</small>
 <textarea readonly>${esc(caption)}</textarea>
-<a class="b" href="${esc(video)}" download="lena.mp4">Or save the video</a>
+<a class="b" href="${esc(video)}" download="lena.mp4">Or download it</a>
 <script>
 const url=${JSON.stringify(video)}, cap=${JSON.stringify(caption)};
 let file=null; fetch(url).then(r=>r.blob()).then(b=>file=new File([b],"lena.mp4",{type:"video/mp4"}));
