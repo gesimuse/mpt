@@ -627,6 +627,15 @@ async function noteOnPost(env, msg, line) {
 export async function onPersonaWebhook(request, env, ctx) {
   const u = new URL(request.url);
   if (u.pathname === "/persona/ig/webhook") return instagram.onWebhook(request, env, ctx);
+  if (u.pathname === "/persona/privacy") {
+    // The privacy policy URL Meta asks for before an app goes Live.
+    return new Response(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Privacy</title>
+<body style="font:16px/1.5 system-ui;max-width:640px;margin:40px auto;padding:0 16px">
+<h1>Privacy policy</h1><p>This app answers comments and direct messages on its owner's own Instagram account.
+It reads the text of a comment or message only to write a reply, and stores nothing but the id of what it answered
+(for 30 days, so nothing is answered twice). No data is sold or shared. To have anything removed, message the account.</p>`,
+      { headers: { "content-type": "text/html; charset=utf-8" } });
+  }
   if (u.pathname === "/persona/file") return serveFile(request, env);
   if (u.pathname.startsWith("/persona/media/")) return serveMedia(request, env);
   if (u.pathname === "/persona/share") return sharePage(request, env);
