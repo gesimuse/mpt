@@ -57,6 +57,26 @@ function pickPref(state, list, key) {
 }
 export const poseKey = (action) => String(action || "").toLowerCase().replace(/[^a-z ]/g, "").split(" ").filter((w) => w.length > 3).slice(0, 3).join(" ");
 
+/**
+ * The real season in Prague (northern hemisphere), and the places that would look
+ * wrong in it: 2026-10-23 her October feed had summer bikinis, a sunflower field and a
+ * Christmas market next to each other, which read as random reposts, not one person.
+ */
+export function season(now = new Date()) {
+  const m = now.getUTCMonth() + 1, d = now.getUTCDate();
+  const name = m === 12 || m <= 2 ? "winter" : m <= 5 ? "spring" : m <= 8 ? "summer" : "autumn";
+  return { name, month: now.toLocaleString("en-GB", { month: "long", timeZone: "Europe/Prague" }),
+           christmas: (m === 11 && d >= 20) || m === 12 };
+}
+const OUT_OF_SEASON = {
+  winter: /sunflower|lavender|cherry blossom|music festival|beach bonfire|rooftop picnic|autumn forest|farmers market/i,
+  spring: /christmas|ski|snow|chalet|autumn forest|sunflower/i,
+  summer: /christmas|ski|snow|chalet|fireplace|autumn forest|cozy cabin/i,
+  autumn: /sunflower|lavender|cherry blossom|music festival|ski|snow|rooftop picnic/i,
+};
+const inSeason = (place, sn = season()) => !OUT_OF_SEASON[sn.name].test(place) && (sn.christmas || !/christmas/i.test(place));
+const isSwim = (place) => IDEAS.place_kinds.find(([k]) => k === "swim")[1].some((w) => place.toLowerCase().includes(w));
+
 function seeds(state, n, taken = [], sexy = false) {
   const recent = state.recent.slice(-40).join(" ").toLowerCase();
   // `taken`: scenes already written in this batch -- their places and outfits are
@@ -64,8 +84,12 @@ function seeds(state, n, taken = [], sexy = false) {
   const places = [], outfits = [], usedPlaces = new Set(taken.map((t) => t.place)),
         usedOutfits = new Set(taken.map((t) => t.outfit));
   for (let i = 0; i < n; i++) {
-    const free = IDEAS.places.filter((p) => !recent.includes(p.toLowerCase()) && !usedPlaces.has(p));
-    const place = pickPref(state, free.length ? free : IDEAS.places, (x) => `place:${x}`);
+    // In season only; and outside summer, Lena's Instagram (flirty) gets at most one
+    // pool/beach scene per batch -- a warm trip now and then, not every other photo.
+    const swimDone = sexy === "flirty" && season().name !== "summer" && [...usedPlaces].some(isSwim);
+    const ok = IDEAS.places.filter((p) => inSeason(p) && !(swimDone && isSwim(p)));
+    const free = ok.filter((p) => !recent.includes(p.toLowerCase()) && !usedPlaces.has(p));
+    const place = pickPref(state, free.length ? free : ok, (x) => `place:${x}`);
     usedPlaces.add(place);
     const outfit = outfitFor(place, usedOutfits, sexy, state);
     usedOutfits.add(outfit);
@@ -86,10 +110,15 @@ function prompt(b, state, places, outfits, sexy = false) {
   const recent = state.recent.slice(-30).map((r) => `- ${r}`).join("\n") || "- (none yet)";
   const pairs = places.map((p, i) => `${p} wearing a ${outfits[i]}`).join("; ");
   const n = places.length;
+  const sn = season();
   return `You plan photos for ${b.name}, a fictional social-media persona.
 Who she is: ${b.age}-year-old woman, ${b.identity || ""}.
 Personality: ${b.personality}. Lives in ${b.home_city}.
-Her story so far (oldest first):
+It is ${sn.month} now (${sn.name} in ${b.home_city}): outfits, light and setting fit this time of year.
+${sexy === "flirty" ? `She is ONE real person with ONE life: a place that is not obviously abroad is in ${b.home_city}
+(say so in "setting", e.g. "a cozy bookstore loft in ${b.home_city}'s Old Town"); a beach or a city abroad is a
+short trip she is on right now, and its caption says so.
+` : ""}Her story so far (oldest first):
 ${story}
 People liked: ${liked.join(", ") || "no data yet"}.
 People did not like: ${disliked.join(", ") || "no data yet"}.
@@ -123,18 +152,23 @@ caught mid-action: no throwing, swinging, running or jumping), "shot" (camera fr
 the light comes from and what it does, e.g. "warm low sun from her left, a soft glow on her cheek and a
 long shadow behind her"),
 "mood", "motion" (one sentence: how she moves slowly in a 5-second video), "caption" (first-person
-social caption, max 20 words, 1-2 emojis, no hashtags), "beat" (one past-tense sentence for her
-storyline), "tags" (3-5 short lowercase tags).`;
+social caption, max 20 words, 1-2 emojis, no hashtags; never starting with "Sun's out", "Summer vibes",
+"Who's ready" or "Who's joining"), "hook" (2-6 words of on-screen text for the first second of her Reel,
+in her voice, that makes a stranger stop scrolling: a tease, a confession or a POV, e.g. "POV: our first
+date", "he said I wouldn't wear it", "guess where I woke up"; no emojis, no hashtags, never asking people
+to like, comment or follow), "beat" (one past-tense sentence for her storyline), "tags" (3-5 short
+lowercase tags).`;
 }
 
 function parse(text, n) {
   const m = /\[[\s\S]*\]/.exec(text || "");
   if (!m) throw new Error("no JSON array");
   const arr = JSON.parse(m[0].replace(/,\s*([\]}])/g, "$1"));
-  const keys = ["setting", "outfit", "action", "shot", "light", "mood", "motion", "caption", "beat", "tags"];
+  const keys = ["setting", "outfit", "action", "shot", "light", "mood", "motion", "caption", "hook", "beat", "tags"];
   const good = arr.filter((s) => s && s.setting && s.outfit && s.action).map((s) => {
     for (const k of keys) if (s[k] === undefined) s[k] = k === "tags" ? [] : "";
     s.tags = (Array.isArray(s.tags) ? s.tags : []).map((t) => String(t).toLowerCase().trim()).filter(Boolean).slice(0, 6);
+    s.hook = String(s.hook || "").replace(/[#\p{Extended_Pictographic}]/gu, "").trim().split(/\s+/).slice(0, 7).join(" ");
     return s;
   });
   if (!good.length) throw new Error("no usable scenes");

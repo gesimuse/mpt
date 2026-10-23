@@ -56,7 +56,8 @@ async function start(env, p, job, platform, mediaUrl) {
   const alt = (job.posts?.alt || text.split("\n")[0]).slice(0, 200);
   const urls = Array.isArray(mediaUrl) ? mediaUrl : [mediaUrl];
   // A carousel is an Instagram "post" with several images.
-  const assets = job.kind === "video" ? [{ video: { url: urls[0] } }] : urls.map((url) => ({ image: { url, metadata: { altText: alt } } }));
+  const assets = job.kind === "video" ? [{ video: { url: urls[0] } }]
+    : (platform === "instagram" && job.story ? urls.slice(0, 1) : urls).map((url) => ({ image: { url, metadata: { altText: alt } } }));
   let mode = "automatic", metadata;
   if (platform === "instagram") {
     // A silent video is shared from the phone instead: a viral song can only be added
@@ -64,7 +65,10 @@ async function start(env, p, job, platform, mediaUrl) {
     // the Reel muted or blocked). The channel post gets a "Post on Instagram" button
     // (index.js sharePage) that hands the video to Instagram via the share sheet.
     if (job.kind === "video" && !job.audio) return { status: "done", mode: "phone" };
-    metadata = { instagram: { type: job.kind === "video" ? "reel" : "post", shouldShareToFeed: true, isAiGenerated: true } };
+    // Over the week's feed cap (index.js feedFull) a photo or carousel becomes a Story
+    // instead: the feed is kept for Reels, which reach people who don't follow her.
+    metadata = { instagram: job.story ? { type: "story", isAiGenerated: true }
+      : { type: job.kind === "video" ? "reel" : "post", shouldShareToFeed: true, isAiGenerated: true } };
   } else {
     // Without sound it goes to the phone, to add a song before posting.
     if (!(job.kind === "video" && job.audio)) mode = "notification";
@@ -252,6 +256,7 @@ export function statusLine(job) {
   return [
     line("Instagram", job.ig, (r) => r.mode === "phone"
       ? "📲 Instagram: tap «Post on Instagram» below on your phone, add a trending song, share"
+      : r.mode === "queued" && job.story ? "🗓 Instagram Story: in Buffer's queue (this week's feed is kept for Reels)"
       : r.mode === "queued" ? "🗓 Instagram: in Buffer's queue -- posts at her next Buffer time slot"
       : "✅ Instagram: posted"),
     line("TikTok", job.tt, (r) => r.mode === "notification"

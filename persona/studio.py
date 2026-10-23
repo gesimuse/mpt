@@ -377,6 +377,7 @@ class Studio:
         path = self.engine.video(model, item["path"], prompt, char.dir / "items", vid["id"])
         path = slow_down(path, model.get("slowdown"))
         path = head_in_proportion(char, path)
+        path = to_reel(path, item.get("scene", {}).get("hook", ""))
         return char.update_item(vid["id"], status="review", ok=True, path=str(path))
 
 
@@ -420,20 +421,85 @@ def head_in_proportion(char, path):
     return path
 
 
+REEL_FONTS = ["/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+              "/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf"]
+
+
+def _hook_lines(hook, width=16):
+    """The hook in at most two lines of about `width` characters."""
+    words, lines = hook.split(), [""]
+    for w in words:
+        if lines[-1] and len(lines[-1]) + 1 + len(w) > width and len(lines) < 2:
+            lines.append(w)
+        else:
+            lines[-1] = f"{lines[-1]} {w}".strip()
+    return lines
+
+
+def to_reel(path, hook=""):
+    """The clip as a full-size Reel: 1080x1920 (9:16, cropped from Wan's 480x832),
+    Lanczos-upscaled and lightly sharpened, and its hook (the scene writer's 2-6 words)
+    written over the first 2.5s. Instagram and TikTok show a 480p upload soft and
+    rank Reels on whether people stop in the first second (Lena's Reels, 2026-10-23).
+    PERSONA_REEL=0 turns it off, PERSONA_REEL_HOOK=0 keeps the size but drops the text.
+    Falls back to the clip as it was."""
+    import subprocess
+    import tempfile
+    if not config.flag("PERSONA_REEL", "1"):
+        return path
+    path = Path(path)
+    vf = ["scale=1080:1920:force_original_aspect_ratio=increase:flags=lanczos", "crop=1080:1920",
+          "unsharp=5:5:0.6:5:5:0.0"]
+    font = next((f for f in REEL_FONTS if Path(f).exists()), None)
+    tmp = []
+    if hook and font and config.flag("PERSONA_REEL_HOOK", "1"):
+        lines = _hook_lines(hook)
+        for i, line in enumerate(lines):
+            t = tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False)
+            t.write(line)
+            t.close()
+            tmp.append(t.name)
+            # Below her face (top third) and above Instagram's caption and buttons;
+            # fades out from 2.0s to 2.5s.
+            vf.append(f"drawtext=fontfile={font}:textfile={t.name}:fontsize=74:fontcolor=white:"
+                      f"box=1:boxcolor=black@0.55:boxborderw=22:x=(w-text_w)/2:y=h*0.6+{i}*112:"
+                      "alpha='if(lt(t,2),1,max(0,(2.5-t)/0.5))':enable='lt(t,2.5)'")
+    out = path.with_name(path.stem + "-reel.mp4")
+
+    def run(filters):
+        return subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(path), "-vf", ",".join(filters),
+                               "-map", "0:v", "-map", "0:a?", "-c:v", "libx264", "-preset", "slow", "-crf", "18",
+                               "-pix_fmt", "yuv420p", "-c:a", "copy", "-movflags", "+faststart", str(out)],
+                              capture_output=True, text=True)
+    r = run(vf)
+    if r.returncode != 0 and len(vf) > 3:
+        print(f"[persona.studio] reel text failed, size only: {r.stderr[-300:]}", flush=True)
+        r = run(vf[:3])
+    for t in tmp:
+        Path(t).unlink(missing_ok=True)
+    if r.returncode != 0 or not out.exists():
+        print(f"[persona.studio] reel export failed, keeping the clip: {r.stderr[-300:]}", flush=True)
+        out.unlink(missing_ok=True)
+        return path
+    out.replace(path)
+    return path
+
+
 def slow_down(path, factor=None):
-    """Motion-interpolate the clip to 24fps and play it PERSONA_VIDEO_SLOWDOWN times
-    slower (default 1.6: Wan's 5s at 16fps becomes ~8s at 24fps, smoother and calmer).
+    """Motion-interpolate the clip to 30fps and play it PERSONA_VIDEO_SLOWDOWN times
+    slower (default 1.6: Wan's 5s at 16fps becomes ~8s at 30fps, smoother and calmer).
     Falls back to the original if ffmpeg is missing or fails."""
     import subprocess
     # A model may set its own (the calm model is slow already); the env var wins.
     factor = float(config.env("PERSONA_VIDEO_SLOWDOWN") or (factor if factor is not None else 1.6))
-    # No slow-down still gets interpolated to 24fps: Wan renders 16fps, and Instagram
+    # No slow-down still gets interpolated to 30fps: Wan renders 16fps, and Instagram
     # refuses Reels under 23fps ("Video frame rate must be at least 23 fps", 2026-10-14).
-    filt = (f"minterpolate=fps=32:mi_mode=mci:mc_mode=aobmc:vsbmc=1,setpts={factor}*PTS" if factor > 1
-            else "minterpolate=fps=24:mi_mode=mci:mc_mode=aobmc:vsbmc=1")
+    # 30fps out (Reels' native rate): interpolated to 30*factor, then slowed.
+    filt = (f"minterpolate=fps={round(30 * factor)}:mi_mode=mci:mc_mode=aobmc:vsbmc=1,setpts={factor}*PTS" if factor > 1
+            else "minterpolate=fps=30:mi_mode=mci:mc_mode=aobmc:vsbmc=1")
     out = path.with_name(path.stem + "-slow.mp4")
     r = subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(path), "-filter:v", filt,
-                        "-r", "24", "-an", "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p", str(out)],
+                        "-r", "30", "-an", "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p", str(out)],
                        capture_output=True, text=True)
     if r.returncode != 0 or not out.exists():
         print(f"[persona.studio] slow-down failed, keeping the original: {r.stderr[-300:]}", flush=True)

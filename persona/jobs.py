@@ -219,7 +219,7 @@ def video(job, char, studio, out, inp):
     else:
         src.write_bytes(base64.b64decode(job["image_b64"]))
     photo = char.new_item(kind="image", lane="social", path=str(src), model="telegram",
-                          scene={"motion": job.get("motion") or ""}, tags=job.get("tags", []))
+                          scene={"motion": job.get("motion") or "", "hook": job.get("hook") or ""}, tags=job.get("tags", []))
     try:
         vid = studio.animate(char, photo, job.get("motion") or None)
     except Exception as e:

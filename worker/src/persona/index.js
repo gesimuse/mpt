@@ -259,12 +259,24 @@ async function queuePublish(env, p, state, cq, itemId) {
   const posts = await captions.forPost(env, p, b, state, { ...known, kind: isPhoto ? "photo" : "video" });
   state.publish.push({
     id: `pub-${itemId}-${Date.now()}`, item: itemId, kind: isPhoto ? "photo" : "video",
-    created: Date.now(), due: nextSlot(env, state), recreate: !!known.recreate,
+    created: Date.now(), due: nextSlot(env, state), recreate: !!known.recreate, story: isPhoto && feedFull(env, state),
     file_id: fileId, audio: !!known.audio || !!known.recreate,
     posts, caption: posts.instagram.text,
     chat, message_id: msg.message_id, base: (msg.caption ?? fwdCaption ?? "").split("\n\n━━")[0],
   });
   return true;
+}
+
+/**
+ * Photos and carousels in her Instagram feed this week are at PERSONA_IG_FEED_PER_WEEK
+ * (default 3): the next one goes to her Story. A new account's photos are shown
+ * almost only to followers, Reels to strangers -- Lena's 10-14..10-22 photos and
+ * carousels got 2-45 views each (2026-10-23), so the feed is kept mostly for Reels.
+ */
+function feedFull(env, state) {
+  const week = state.publish.filter((j) => (j.kind === "photo" || j.kind === "carousel") && !j.story &&
+                                         Date.now() - (j.created || 0) < 7 * 86400 * 1000);
+  return week.length >= Number(env.PERSONA_IG_FEED_PER_WEEK ?? 3);
 }
 
 /**
@@ -336,6 +348,8 @@ async function learnFromPosts(env, p, state) {
     for (const [key, platform] of [["ig", "instagram"], ["tt", "tiktok"]]) {
       const rec = job[key];
       if (!rec?.post || rec.status !== "done" || rec.learned || now - (rec.sent_at || now) < 48 * 3600 * 1000) continue;
+      // A Story's views aren't comparable with feed posts: not scored.
+      if (key === "ig" && job.story) { rec.learned = "story"; changed = true; continue; }
       try {
         const post = await social.metrics(env, p, rec.post);
         const value = captions.postValue(post?.metrics);
@@ -1122,9 +1136,11 @@ async function publishCarousel(env, p, state, cq, itemId) {
   const posts = await captions.forPost(env, p, b, state, { ...known, kind: "photo" });
   state.publish.push({ id: `pub-car-${itemId}-${Date.now()}`, item: `car-${itemId}`, kind: "carousel", file_ids: fileIds,
     created: Date.now(), due: nextSlot(env, state), audio: false, posts, caption: posts.instagram.text,
-    chat: cq.message.chat.id, message_id: cq.message.message_id, base: cq.message.text || "🖼 Carousel", text: true });
+    story: feedFull(env, state), chat: cq.message.chat.id, message_id: cq.message.message_id, base: cq.message.text || "🖼 Carousel", text: true });
   await advancePublish(env, p, state, env.WORKER_ORIGIN);
-  return answer(env, cq.id, `🖼 Carousel of ${fileIds.length} queued for Instagram.`);
+  return answer(env, cq.id, state.publish.at(-1).story
+    ? "🖼 This week's feed is full (kept for Reels): its first photo goes to her Story."
+    : `🖼 Carousel of ${fileIds.length} queued for Instagram.`);
 }
 
 /** One job can return several results (🖼 carousel angles): each is posted once. */
@@ -1326,6 +1342,7 @@ async function jobPayload(env, origin, state, batch) {
     } else {
       jobs.push({ id: q.id, image_url: await fileLink(env, origin, q.file_id), motion: q.motion || "",
                   caption: state.items[q.item]?.caption || "", tags: state.items[q.item]?.tags || [],
+                  hook: state.items[q.item]?.scene?.hook || "",
                   chat: q.chat, message_id: q.message_id });
     }
     if (jobs.length > before && q.character) jobs[jobs.length - 1].character = q.character;

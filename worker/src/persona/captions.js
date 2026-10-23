@@ -63,9 +63,14 @@ function templateCaption(item) {
  * follow/share" asks are engagement bait, which Instagram demotes). Alt text is read
  * too.
  */
-async function write(env, b, item) {
+// Openers her feed wore out (2026-10-23: a third of her captions began like these).
+const STALE = /^\s*(sun'?s out|summer (vibes|nights)|who'?s (ready|joining)|just another|new city, new vibes)/i;
+
+async function write(env, b, item, recent = []) {
+  const month = new Date().toLocaleString("en-GB", { month: "long", timeZone: "Europe/Prague" });
   const prompt = `You write Instagram posts for ${b.name}, a ${b.age}-year-old fictional social-media persona from ${b.home_city}.
-Personality: ${b.personality}.
+Personality: ${b.personality}. It is ${month} now.
+${recent.length ? `Her last captions began like this -- start differently, with new words:\n${recent.map((r) => `- ${r}`).join("\n")}\n` : ""}
 The post: ${describe(item)}.${item.caption ? `\nA draft caption: "${item.caption}"` : ""}
 Return ONLY JSON:
 {"caption": "first line: a hook that names THIS post's own place, outfit or vibe in words people actually search for, then one short flirty line in her voice, optionally ending with a light, natural question. 12-30 words, 1-2 emojis, no hashtags. Never ask people to like, comment, follow, share or tag.",
@@ -76,7 +81,7 @@ Return ONLY JSON:
     try {
       const d = await ask(env, prompt);
       const caption = okCaption(d.caption) || okCaption(item.caption);
-      if (!caption || BAIT.test(caption)) continue;
+      if (!caption || BAIT.test(caption) || STALE.test(caption)) continue;
       return { caption, tiktok: okCaption(d.tiktok) || caption, alt: String(d.alt || "").slice(0, 200),
                tags: (Array.isArray(d.tags) ? d.tags : []).map(clean).filter((t) => t.length >= 3).slice(0, 8) };
     } catch (e) {
@@ -144,7 +149,8 @@ function choose(stats, pools) {
  * holds her per-platform tag scores.
  */
 export async function forPost(env, p, b, state, item) {
-  const w = await write(env, b, item);
+  const recent = (state.publish || []).slice(-10).map((j) => String(j.caption || "").split("\n")[0].split(/\s+/).slice(0, 6).join(" ")).filter(Boolean);
+  const w = await write(env, b, item, recent);
   const core = await coreTags(env, p, b);
   const trend = JSON.parse((await env.PERSONA.get(`trend_tags:${p.slug}`)) || "[]").map(clean);
   const stats = state.hashtags || {};
