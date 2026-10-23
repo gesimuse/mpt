@@ -10,9 +10,12 @@ full-body ref -- torso/face (face too small when long) and shoulders/face width
 the way (SOFTEN) and at most MAX_CHANGE, since a full correction distorts her hair
 and neck more than the error it fixes.
 
-How: every frame, her head (insightface's face box, smoothed over time so it does
-not wobble) is magnified around its centre by the factor, fading back to 1 over a
-ring around it -- like a phone app's reshape tool. Audio is kept.
+How: her head (insightface's face box) is found on every frame first, then the
+boxes are smoothed over half a second and their size held at the clip's median --
+a box re-found each frame jumped a few pixels, and the warp bent the background
+with it (2026-10-23, "the background bends and her shoulders move weird"). Each
+frame is magnified around that centre by the factor, back to 1 within a ring
+that stays above her shoulders. Audio is kept.
 """
 import shutil
 import subprocess
@@ -59,7 +62,8 @@ def factor(video, ref, samples=10):
 
 
 def _warp(img, cx, cy, fh, s, maps):
-    """Magnify by `s` inside 1.3 face-heights of (cx, cy), back to 1 at 2.4."""
+    """Magnify by `s` inside 0.9 face-heights of (cx, cy), back to 1 at 1.7 (a ring
+    out to 2.4 reached her shoulders and moved them)."""
     import cv2
     import numpy as np
     h, w = img.shape[:2]
@@ -68,11 +72,27 @@ def _warp(img, cx, cy, fh, s, maps):
     yy, xx = maps["grid"]
     dx, dy = xx - cx, yy - cy
     d = np.sqrt(dx * dx + dy * dy)
-    r0, r1 = 1.3 * fh, 2.4 * fh
+    r0, r1 = 0.9 * fh, 1.7 * fh
     t = np.clip((d - r0) / (r1 - r0), 0, 1)
     t = t * t * (3 - 2 * t)
     m = s + (1 - s) * t  # magnification at this distance
     return cv2.remap(img, cx + dx / m, cy + dy / m, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
+
+
+def _smooth(boxes, win):
+    """Gaps filled from the nearest found box, centres averaged over `win` frames,
+    size held at the clip's median (a pulsing size read as her head breathing)."""
+    import statistics
+    found = [i for i, b in enumerate(boxes) if b]
+    if not found:
+        return boxes
+    filled = [boxes[min(found, key=lambda j: abs(j - i))] for i in range(len(boxes))]
+    fh = statistics.median(b[2] for b in filled)
+    out = []
+    for i in range(len(filled)):
+        part = filled[max(0, i - win // 2): i + win // 2 + 1]
+        out.append((sum(b[0] for b in part) / len(part), sum(b[1] for b in part) / len(part), fh))
+    return out
 
 
 def apply(src, dest, s):
@@ -83,25 +103,35 @@ def apply(src, dest, s):
     fps = cap.get(cv2.CAP_PROP_FPS) or 24
     with tempfile.TemporaryDirectory() as tmp:
         raw = Path(tmp) / "raw.mp4"
-        out, box, maps, n, seen = None, None, {}, 0, 0
+        # Pass 1: her face box on every frame (None where not found).
+        boxes = []
         while True:
+            ok, img = cap.read()
+            if not ok:
+                break
+            faces = app.get(img)
+            if faces:
+                x1, y1, x2, y2 = max(faces, key=lambda f: f.det_score).bbox
+                # Centre a little above the face's: her head is face plus hair.
+                boxes.append(((x1 + x2) / 2, (y1 + y2) / 2 - 0.15 * (y2 - y1), y2 - y1))
+            else:
+                boxes.append(None)
+        cap.release()
+        n, seen = len(boxes), sum(b is not None for b in boxes)
+        if not n:
+            raise RuntimeError("no frames")
+        smooth = _smooth(boxes, win=max(3, int(fps * 0.5)))
+        # Pass 2: the warp along the smoothed track.
+        cap = cv2.VideoCapture(str(src))
+        out, maps = None, {}
+        for box in smooth:
             ok, img = cap.read()
             if not ok:
                 break
             if out is None:
                 out = cv2.VideoWriter(str(raw), cv2.VideoWriter_fourcc(*"mp4v"), fps, (img.shape[1], img.shape[0]))
-            faces = app.get(img)
-            if faces:
-                x1, y1, x2, y2 = max(faces, key=lambda f: f.det_score).bbox
-                # Centre a little above the face's: her head is face plus hair.
-                new = ((x1 + x2) / 2, (y1 + y2) / 2 - 0.15 * (y2 - y1), y2 - y1)
-                box = new if box is None else tuple(0.6 * a + 0.4 * b for a, b in zip(box, new))
-                seen += 1
             out.write(_warp(img, *box, s, maps) if box else img)
-            n += 1
         cap.release()
-        if out is None:
-            raise RuntimeError("no frames")
         out.release()
         subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(raw), "-i", str(src), "-map", "0:v", "-map", "1:a?",
                         "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p", "-c:a", "copy", "-shortest",
@@ -110,10 +140,15 @@ def apply(src, dest, s):
     return dest
 
 
-def fix(src, dest, ref=None):
-    """Writes `dest` (scaled, or a plain copy when she is in proportion); returns the factor."""
+def fix(src, dest, ref=None, only_down=False):
+    """Writes `dest` (scaled, or a plain copy when she is in proportion); returns the
+    factor. only_down: a photo animation only ever had too big a head; a "too small"
+    reading there came from a cropped body and made it bigger (x1.12, 2026-10-23)."""
     try:
         s = factor(src, ref)
+        if only_down and s > 1:
+            log(f"{Path(src).name}: would grow the head, left as it is")
+            s = 1.0
         if s != 1.0:
             apply(src, dest, s)
             return s

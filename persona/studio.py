@@ -414,7 +414,7 @@ def head_in_proportion(char, path):
     from . import headscale
     path = Path(path)
     fixed = path.with_name(path.stem + "-head.mp4")
-    if headscale.fix(path, fixed, ref=char.refs_dir / "04-full-body.jpg") == 1.0:
+    if headscale.fix(path, fixed, ref=char.refs_dir / "04-full-body.jpg", only_down=True) == 1.0:
         fixed.unlink(missing_ok=True)
         return path
     fixed.replace(path)
