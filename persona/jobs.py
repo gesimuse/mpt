@@ -127,7 +127,13 @@ def redo(job, char, studio, out):
     # "cover the boob": three edits in a row kept the bare breast (Chloe, 2026-10-22).
     clothes = re.search(r"\b(dress|gown|outfit|wear|wearing|skirt|trousers|pants|jeans|top|bikini|shirt|shorts|"
                         r"clothes|heels|shoes|bra|bandeau|cover|covered|boobs?|breasts?|nipples?|tits?|chest)\b", (job.get("scene") or {}).get("note", ""), re.I)
-    fixed = _redo_fix(job, char, studio, out) if job.get("image_url") and not clothes else None
+    # A note asking for a different pose or a new photo: an edit keeps the pose, and
+    # 3-4 redos of one MPT photo came back the same (2026-10-23, "legs are in weird
+    # position. Change the position of the legs").
+    change = re.search(r"\b(change|changed|different|differently|completely|totally|new|another|instead|pose|position|"
+                       r"posture|sit|sitting|stand|standing|lying|kneel|kneeling|turn|turned|angle|background|place|"
+                       r"from scratch|again)\b", (job.get("scene") or {}).get("note", ""), re.I)
+    fixed = _redo_fix(job, char, studio, out) if job.get("image_url") and not clothes and not change else None
     if fixed:
         results.append(fixed)
         return results
@@ -181,6 +187,12 @@ def _redo_fix(job, char, studio, out):
     for attempt in range(3):
         path = studio.engine.image(model, prompt, char.dir / "items", item["id"], refs=[str(src)] + [str(f) for f in front],
                                    negative=scenes.negative(char, "social", scene))
+        # An edit that changed next to nothing is no redo: straight to a redraw.
+        if _barely_changed(src, path):
+            log(f"redo {job['id']}: the edit came back almost the same photo; redrawing instead")
+            Path(path).unlink(missing_ok=True)
+            fails.append("barely changed")
+            break
         good, why, _ = qa.check(path)
         if good and scene.get("view") != "back":
             good, why, _ = proportions.check(path, ref=char.refs_dir / "04-full-body.jpg")
@@ -208,6 +220,18 @@ def _redo_fix(job, char, studio, out):
         job["scene"] = dict(scene, note="; ".join(filter(None, [note, "avoid: " + "; ".join(problems)])))
     job["seen_problems"] = problems if seen else []
     return None
+
+
+def _barely_changed(a, b, limit=14.0):
+    """Mean pixel difference (0-255) of the two photos at 256px grey, under `limit`: Gia's
+    redos that kept the pose measured 9-10, different photos 25+ (2026-10-23)."""
+    try:
+        import numpy as np
+        from PIL import Image
+        x, y = (np.asarray(Image.open(f).convert("L").resize((256, 256)), dtype=np.float32) for f in (a, b))
+        return float(np.abs(x - y).mean()) < limit
+    except Exception:
+        return False
 
 
 def video(job, char, studio, out, inp):
