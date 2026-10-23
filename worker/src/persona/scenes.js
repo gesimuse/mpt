@@ -160,6 +160,11 @@ to like, comment or follow), "beat" (one past-tense sentence for her storyline),
 lowercase tags).`;
 }
 
+// Gloves read as extra arms (Lena's black opera gloves, 2026-10-23): dropped from
+// every outfit the model writes; persona/scenes.py no_gloves does the same.
+const GLOVES = /(?:,\s*|\s+(?:with|and|plus)\s+)[^,;.]*?\b(?:gloves?|mittens?|arm[- ]warmers?|gauntlets?)\b[^,;.]*/gi;
+export const noGloves = (o) => String(o || "").replace(GLOVES, "").replace(/^[\s,;]+|[\s,;]+$/g, "") || o;
+
 function parse(text, n) {
   const m = /\[[\s\S]*\]/.exec(text || "");
   if (!m) throw new Error("no JSON array");
@@ -168,6 +173,7 @@ function parse(text, n) {
   const good = arr.filter((s) => s && s.setting && s.outfit && s.action).map((s) => {
     for (const k of keys) if (s[k] === undefined) s[k] = k === "tags" ? [] : "";
     s.tags = (Array.isArray(s.tags) ? s.tags : []).map((t) => String(t).toLowerCase().trim()).filter(Boolean).slice(0, 6);
+    s.outfit = noGloves(s.outfit);
     s.hook = String(s.hook || "").replace(/[#\p{Extended_Pictographic}]/gu, "").trim().split(/\s+/).slice(0, 7).join(" ");
     return s;
   });

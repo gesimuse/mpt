@@ -410,6 +410,16 @@ BOTTOMS = re.compile(r"\b(shorts|skirt|jeans|trousers|pants|leggings|dress|gown|
                      r"unitard|overalls|tracksuit|tights|sundress|ski suit|suit|robe|towel|sarong)\b", re.I)
 
 
+# Gloves read as extra arms: Lena's black opera gloves came out as a third black
+# arm next to a bare hand, and redraws of the same outfit text repeated it
+# (2026-10-23). Any glove phrase is dropped from an outfit.
+GLOVES = re.compile(r"(?:,\s*|\s+(?:with|and|plus)\s+)[^,;.]*?\b(?:gloves?|mittens?|arm[- ]warmers?|gauntlets?)\b[^,;.]*", re.I)
+
+
+def no_gloves(outfit):
+    return GLOVES.sub("", outfit or "").strip(" ,;") or outfit
+
+
 def scene_prompt(char, scene, lane, n_refs, style="qwen"):
     """The prompt for one scene, rendered from her refs. Refs are numbered <imageN>
     in the order engine.image() passes them, which is character.refs() order."""
@@ -466,7 +476,7 @@ def scene_prompt(char, scene, lane, n_refs, style="qwen"):
         f"Makeup: {MAKEUP[makeup_for(scene, boost=b.get('makeup_boost', False))]}.",
         _skin(b),
         f"Setting: {scene['setting']}.",
-        f"She wears {scene['outfit']}.",
+        f"She wears {no_gloves(scene['outfit'])}. Her arms and hands are bare.",
         # Social lane: an outfit naming only a top ("black lace bralette under an open
         # blazer") came out with nothing below it -- Harper naked from the waist down,
         # a whole shoot (2026-10-22).

@@ -173,7 +173,7 @@ def _redo_fix(job, char, studio, out):
     # The outfit is the SHOOT's, from its scene text -- "the same outfit as image 1"
     # kept a wrong outfit (Alina's trousers instead of her gown) even when the note
     # asked for the gown (2026-10-20). The note comes first: it is what you asked.
-    outfit = scene.get("outfit") or "the same outfit as in image 1"
+    outfit = scenes.no_gloves(scene.get("outfit")) or "the same outfit as in image 1"
     prompt = ((f"MOST IMPORTANT: {note}. " if note else "")
               + "Image 1 is a photo of this woman. Make this photo again -- the same woman in the same place, "
                 f"light, pose and framing, wearing {outfit} -- "
