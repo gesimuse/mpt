@@ -1802,15 +1802,20 @@ async function shootDone(env, p, state, shootId) {
 
 /** The draft cron: one step of one finished shoot's TikTok draft per run. */
 export async function onDraftSchedule(event, env) {
-  for (const p of await personas.list(env)) {
-    if (!byShoots(p)) continue;
-    // A requested shoot's scenes first; that is this run's one step.
+  // A requested shoot's scenes first, for every persona (one AI call each): a
+  // persona later in the list was starved while the one before it had a draft
+  // step every run (Lena's shoot waited behind MPT's, 2026-10-23).
+  let wrote = false;
+  for (const p of (await personas.list(env)).filter(byShoots)) {
     try {
-      if (await writeRequestedShoot(env, p)) return;
+      wrote = (await writeRequestedShoot(env, p)) || wrote;
     } catch (e) {
       console.error("writing a requested shoot failed", String(e).slice(0, 200));
-      return;
     }
+  }
+  if (wrote) return;
+  for (const p of await personas.list(env)) {
+    if (!byShoots(p)) continue;
     const state = await st.load(env, p.slug);
     // A finished shoot with no photos (a failed Kaggle run) never gets a draft; it
     // used to be picked every run and stall every shoot behind it (2026-10-19).
