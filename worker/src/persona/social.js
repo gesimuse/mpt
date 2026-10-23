@@ -67,7 +67,7 @@ async function start(env, p, job, platform, mediaUrl) {
     if (job.kind === "video" && !job.audio) return { status: "done", mode: "phone" };
     // Over the week's feed cap (index.js feedFull) a photo or carousel becomes a Story
     // instead: the feed is kept for Reels, which reach people who don't follow her.
-    metadata = { instagram: job.story ? { type: "story", isAiGenerated: true }
+    metadata = { instagram: job.story ? { type: "story", shouldShareToFeed: false, isAiGenerated: true }
       : { type: job.kind === "video" ? "reel" : "post", shouldShareToFeed: true, isAiGenerated: true } };
   } else {
     // Without sound it goes to the phone, to add a song before posting.
