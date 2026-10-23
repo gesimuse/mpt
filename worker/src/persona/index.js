@@ -770,6 +770,20 @@ async function onAdmin(request, env) {
     if (what === "post") return new Response(await post(env, p, Number(u.searchParams.get("slot") || 4)));
     if (what === "jobs") return new Response(await advanceJobs(env, p, u.origin));
     if (what === "shoot") return new Response(await shoot(env, p, u.searchParams.get("character")));
+    if (what === "albumswap") {
+      // A redo that came back as a photo of its own: put it into its album
+      // (?shoot=&old=&new=, and &drop=<message id> of the stray photo).
+      const state = await st.load(env, slug);
+      const [shoot, oldId, newId] = ["shoot", "old", "new"].map((k) => u.searchParams.get(k));
+      const sh = state.shoots?.[shoot], it = state.items[newId];
+      if (!sh || !it?.file_id || !(sh.ids || []).includes(oldId)) return new Response("unknown shoot/photo", { status: 404 });
+      sh.redo_wait = 1;
+      await albumRedoDone(env, p, state, { ok: true, shoot, replaces: oldId, id: newId, request: "albumswap", how: "redrawn" },
+                          { ...it, id: newId }, it.file_id);
+      if (u.searchParams.get("drop")) await tg(env, "deleteMessage", { chat_id: p.chat_id, message_id: Number(u.searchParams.get("drop")) }).catch(() => {});
+      await st.save(env, slug, state);
+      return new Response(`album ${sh.album}`);
+    }
     if (what === "albumbuttons") {
       // Albums posted before they had a button message: buttons now (album photos
       // have consecutive message ids from the album's first).
@@ -1178,7 +1192,7 @@ async function postResult(env, state, b, r, item, file) {
   await carouselProgress(env, state, r);
 }
 
-async function postResults(env, state, b, kernel) {
+async function postResults(env, p, state, b, kernel) {
   const files = await kaggle.outputs(env, kernel).catch(() => ({}));
   const status = files["status.json"] ? await kaggle.fetchJson(files["status.json"]).catch(() => ({})) : {};
   let changed = false;
@@ -1187,8 +1201,10 @@ async function postResults(env, state, b, kernel) {
     try {
       const item = r.ok ? await kaggle.fetchJson(files[`out/items/${r.id}.json`]) : null;
       const file = item ? files[`out/items/${r.kind === "image" ? `${r.id}.jpg` : item.path}`] : null;
-      const rb = r.character ? (await st.bible(env, r.character)) || b : b;
-      await postResult(env, state, rb, r, item, file);
+      // A redo of an MPT album photo: swapped into the album like the laptop's
+      // (2026-10-23: Kaggle's came back as a photo of its own, the album unchanged).
+      if (r.shoot && r.replaces) await albumRedoDone(env, p, state, r, item, null, file);
+      else await postResult(env, state, r.character ? (await st.bible(env, r.character)) || b : b, r, item, file);
     } catch (e) {
       console.error("job result post failed", r.request, String(e));
       continue;
@@ -1614,7 +1630,7 @@ function redoSummary(r) {
 }
 
 /** One redrawn album photo back: swapped into the shoot; the last one reposts the album. */
-async function albumRedoDone(env, p, state, r, item, fileId) {
+async function albumRedoDone(env, p, state, r, item, fileId, url = null) {
   const sh = state.shoots?.[r.shoot];
   state.queue = state.queue.filter((q) => q.id !== r.request);
   state.lanes.laptop = (state.lanes.laptop || []).filter((q) => q.id !== r.request);
@@ -1624,10 +1640,11 @@ async function albumRedoDone(env, p, state, r, item, fileId) {
     const n = (sh.media || []).findIndex((x) => x.id === r.replaces) + 1;
     sh.redo_notes = [...(sh.redo_notes || []), `🔁 photo ${n} redone -- ${redoSummary(r)}`];
   }
-  if (r.ok && item && fileId) {
+  if (r.ok && item && (fileId || url)) {
     remember(state, { ...item, character: sh.character }, null);
-    state.items[r.id].file_id = fileId;
-    sh.media = (sh.media || []).map((x) => (x.id === r.replaces ? { id: r.id, fileId } : x));
+    // A Kaggle result comes as its output URL: the album's repost gives it a file_id.
+    if (fileId) state.items[r.id].file_id = fileId;
+    sh.media = (sh.media || []).map((x) => (x.id === r.replaces ? { id: r.id, ...(fileId ? { fileId } : { url }) } : x));
     sh.ids = sh.ids.map((x) => (x === r.replaces ? r.id : x));
   }
   sh.redo_wait = Math.max(0, (sh.redo_wait || 1) - 1);
@@ -1820,7 +1837,7 @@ async function advanceJobs(env, p, origin) {
   if ((state.running || []).length) {
     const s = await kaggle.status(env, jobKernel(env, p));
     if (s === "COMPLETE" || s === "ERROR") {
-      changed = (await postResults(env, state, b, jobKernel(env, p))) || changed;
+      changed = (await postResults(env, p, state, b, jobKernel(env, p))) || changed;
       state.running = [];
       changed = true;
     } else notes.push(`legacy ${s}`);
@@ -1873,7 +1890,7 @@ async function advanceJobs(env, p, origin) {
       }
       if (s === "RUNNING" || s === "QUEUED") { notes.push(`${name} ${s}`); continue; }
       if (s === "COMPLETE" || s === "ERROR") {
-        changed = (await postResults(env, state, b, kernel)) || changed;
+        changed = (await postResults(env, p, state, b, kernel)) || changed;
         state.lanes[name] = [];
         changed = true;
       } else if (s.includes("No runs found")) {
