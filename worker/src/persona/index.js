@@ -797,6 +797,21 @@ async function onAdmin(request, env) {
     if (what === "post") return new Response(await post(env, p, Number(u.searchParams.get("slot") || 4)));
     if (what === "jobs") return new Response(await advanceJobs(env, p, u.origin));
     if (what === "shoot") return new Response(await shoot(env, p, u.searchParams.get("character")));
+    if (what === "drop") {
+      // Messages taken out of her channel (?ids=1,2,3), and a dropped shoot forgotten
+      // (&shoot=), e.g. a bad album and its Reels.
+      const ids = (u.searchParams.get("ids") || "").split(",").map(Number).filter(Boolean);
+      const gone = [];
+      for (const id of ids) if (await tg(env, "deleteMessage", { chat_id: p.chat_id, message_id: id }).then(() => true).catch(() => false)) gone.push(id);
+      const shoot = u.searchParams.get("shoot");
+      if (shoot) {
+        const state = await st.load(env, slug);
+        delete state.shoots?.[shoot];
+        for (const [mid, a] of Object.entries(state.album_msgs || {})) if (a.shoot === shoot) delete state.album_msgs[mid];
+        await st.save(env, slug, state);
+      }
+      return Response.json({ deleted: gone });
+    }
     if (what === "albumswap") {
       // A redo that came back as a photo of its own: put it into its album
       // (?shoot=&old=&new=, and &drop=<message id> of the stray photo).
