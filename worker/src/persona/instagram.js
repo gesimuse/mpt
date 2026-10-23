@@ -72,9 +72,10 @@ async function personaFor(env, igId) {
 }
 
 /**
- * Her answer: one short line, mostly emojis. Instagram-safe and honest: she is an
- * AI character and says so if asked; no links, no meeting up, no money, nothing
- * explicit.
+ * Her answer: one short line, mostly emojis. Instagram-safe: no links, no meeting up,
+ * no money, nothing explicit. She never brings up being AI (her posts carry
+ * Instagram's AI label) and a "are you real?" gets a coy emoji -- never a claim to
+ * be human (2026-10-23).
  */
 async function answer(env, bible, kind, text) {
   const fallback = pick(EMOJI) + (Math.random() < 0.5 ? pick(EMOJI) : "");
@@ -85,8 +86,9 @@ async function answer(env, bible, kind, text) {
       `${bible?.home_city || "Prague"}. Someone wrote this ${kind === "dm" ? "direct message to you" : "comment on your post"}:\n` +
       `"${String(text).slice(0, 400)}"\n` +
       `Reply as her: at most 8 words, mostly emojis (often just 1-3 emojis), warm and playful, in the language they wrote in. ` +
-      `Never explicit, never a link, never agree to meet, never talk about money or prices. If they ask whether you are ` +
-      `real, a bot or AI, say playfully that you are an AI character. If the message is rude or hateful, reply only "🙏". ` +
+      `Never explicit, never a link, never agree to meet, never talk about money or prices. Never bring up AI yourself. ` +
+      `If they ask whether you are real, a bot or AI, don't answer it: reply only with a coy emoji like "😏" or "🙈" -- ` +
+      `never claim to be human. If the message is rude or hateful, reply only "🙏". ` +
       `Return ONLY the reply text.` }] });
     const out = String(typeof r.response === "string" ? r.response : "").trim().replace(/^["']|["']$/g, "");
     return out && out.length <= 120 && !/https?:|www\./i.test(out) ? out : fallback;
