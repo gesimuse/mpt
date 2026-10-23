@@ -51,6 +51,7 @@ export function accounts(p) {
 async function start(env, p, job, platform, mediaUrl) {
   const channelId = p.buffer?.[platform];
   if (!channelId) return { status: "skipped", note: "not linked" };
+  if (job.story && platform !== "instagram") return { status: "skipped", note: "a Story is Instagram only" };
   // Her caption and hashtags for this platform (captions.js).
   const text = job.posts?.[platform]?.text || job.caption;
   const alt = (job.posts?.alt || text.split("\n")[0]).slice(0, 200);

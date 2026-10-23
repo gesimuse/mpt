@@ -528,10 +528,10 @@ export default {
     if (event.cron === "7,22,37,52 * * * *") return onDraftSchedule(event, env);
     await onPersonaSchedule(event, env);
   },
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     // The persona studio has its own routes and secrets (see persona/index.js);
     // its signed photo links are GETs, so this comes before the POST-only gate.
-    if (new URL(request.url).pathname.startsWith("/persona")) return onPersonaWebhook(request, env);
+    if (new URL(request.url).pathname.startsWith("/persona")) return onPersonaWebhook(request, env, ctx);
     if (request.method !== "POST") return new Response("ok");
     // The Worker URL is public. Without this check anyone who finds it could dispatch
     // workflows and rewrite posted.json, so it is verified before the body is parsed.

@@ -31,6 +31,7 @@ import * as personas from "./personas.js";
 import * as social from "./social.js";
 import * as captions from "./captions.js";
 import * as tiktok from "./tiktok.js";
+import * as instagram from "./instagram.js";
 import { tg, answer, sendMedia, editPhoto, kb } from "./telegram.js";
 
 const POST_HOURS = [6, 9, 12, 15, 18];
@@ -321,6 +322,7 @@ async function advancePublish(env, p, state, origin) {
     if (JSON.stringify([job.ig, job.tt, job.retry_at]) === before) continue;
     changed = true;
     if (job.retry_at && Date.now() < job.retry_at) continue;  // rate-limited: nothing to show yet
+    if (job.quiet || !job.chat) continue;  // a daily Story: no post of its own to mark
     // Mark the post in the channel: what happened on each platform.
     const cap = `${job.base}\n\n━━ published ━━\n${social.statusLine(job)}`.slice(0, 1024);
     const failed = ["ig", "tt"].some((k) => job[k]?.status === "failed");
@@ -622,8 +624,9 @@ async function noteOnPost(env, msg, line) {
     caption: `${base}\n${line}`.slice(0, 1024), ...(msg.reply_markup ? { reply_markup: msg.reply_markup } : {}) }).catch(() => {});
 }
 
-export async function onPersonaWebhook(request, env) {
+export async function onPersonaWebhook(request, env, ctx) {
   const u = new URL(request.url);
+  if (u.pathname === "/persona/ig/webhook") return instagram.onWebhook(request, env, ctx);
   if (u.pathname === "/persona/file") return serveFile(request, env);
   if (u.pathname.startsWith("/persona/media/")) return serveMedia(request, env);
   if (u.pathname === "/persona/share") return sharePage(request, env);
@@ -754,6 +757,10 @@ async function onAdmin(request, env) {
     if (t.refresh_token) await env.PERSONA.put(`tt:${slug}`, JSON.stringify({ refresh_token: t.refresh_token }));
     if (t.verify_name) await env.PERSONA.put(`ttverify:${t.verify_name}`, t.verify_body || "");
     return new Response("ok");
+  }
+  if (u.pathname === "/persona/admin/igtoken" && request.method === "POST") {
+    // Her long-lived Instagram token (comment and DM replies, instagram.js); never returned.
+    return Response.json(await instagram.setToken(env, slug, (await request.text()).trim()));
   }
   if (u.pathname === "/persona/admin/buffer-token" && request.method === "POST") {
     // Her own Buffer account's API key; never returned by any endpoint.
@@ -1961,6 +1968,30 @@ async function advanceJobs(env, p, origin) {
   return `${p.slug}: ${notes.join("; ") || "idle"}`;
 }
 
+/**
+ * A single persona's daily Story (Lena, 2026-10-23): a shoot photo of the last 3 days
+ * that went to Instagram neither as a post nor a Story, through Buffer. Daily
+ * Stories keep a new account looking active between feed posts.
+ */
+async function dailyStory(env, p, origin) {
+  if (isRoster(p) || !p.buffer?.instagram || p.daily_story === false) return `${p.slug}: no daily story`;
+  const state = await st.load(env, p.slug);
+  const day = st.today();
+  if (state.story_date === day) return `${p.slug}: story already today`;
+  const used = new Set(state.publish.flatMap((j) => [j.file_id, ...(j.file_ids || [])]).filter(Boolean));
+  const fresh = Object.values(state.shoots || {}).filter((sh) => Date.now() - (sh.started || 0) < 3 * 86400 * 1000)
+    .flatMap((sh) => (sh.media || []).map((m) => ({ id: m.id, fileId: state.items[m.id]?.file_id })))
+    .filter((x) => x.fileId && !used.has(x.fileId));
+  state.story_date = day;
+  if (!fresh.length) { await st.save(env, p.slug, state); return `${p.slug}: no unused photo for a story`; }
+  const x = fresh[Math.floor(Math.random() * fresh.length)];
+  state.publish.push({ id: `pub-story-${x.id}-${Date.now()}`, item: x.id, kind: "photo", story: true, quiet: true,
+                       created: Date.now(), file_id: x.fileId, audio: false, caption: "", posts: {} });
+  await advancePublish(env, p, state, origin);
+  await st.save(env, p.slug, state);
+  return `${p.slug}: story ${x.id} queued`;
+}
+
 // ---------------------------------------------------------------- schedule
 export async function onPersonaSchedule(event, env) {
   if (!env.PERSONA_BOT_TOKEN || !env.KAGGLE_API_TOKEN) return;
@@ -1972,10 +2003,12 @@ export async function onPersonaSchedule(event, env) {
   } catch (err) {
     console.error("persona poll failed", String(err));
   }
+  if (h === 4 && m < 15) await instagram.refreshTokens(env);
   for (const p of await personas.list(env)) {
     try {
       if (byShoots(p)) {
         if ((p.shoot_hours || [5, 7, 9, 11, 13]).includes(h) && m < 15) console.log(await shoot(env, p));
+        if (h === Number(p.story_hour ?? 16) && m < 15) console.log(await dailyStory(env, p, origin));
       } else if ((h === 2 && m >= 30) || (h === 3 && m < 30)) console.log(await render(env, p));
       else if (POST_HOURS.includes(h) && m < 15) console.log(await post(env, p, POST_HOURS.indexOf(h)));
       console.log(await advanceJobs(env, p, origin));
