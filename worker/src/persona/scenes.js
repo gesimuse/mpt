@@ -147,7 +147,8 @@ Return ONLY a JSON array of ${n} objects with these keys:
 "setting" (the place, specific), "outfit" (the given outfit, with colours, fabric and fit, e.g. "a black satin slip mini dress with thin straps, softly clinging"), "action" (what she is
 doing, saying where BOTH of her hands are, e.g. "one hand on her hip, the other relaxed at her side"
 or "holding a glass in her right hand, her left hand in her hair"; at most ONE object; never several
-objects; her body facing roughly toward the camera, no twisting; she is POSING for the photo at the place, never
+objects; at most ONE hand touches something that is not her own body (the other rests on her hip or thigh,
+or hangs at her side); never lifting, holding or adjusting her dress, skirt or gown; her body facing roughly toward the camera, no twisting; she is POSING for the photo at the place, never
 caught mid-action: no throwing, swinging, running or jumping), "shot" (camera framing), "light" (where
 the light comes from and what it does, e.g. "warm low sun from her left, a soft glow on her cheek and a
 long shadow behind her"),
@@ -165,6 +166,10 @@ lowercase tags).`;
 const GLOVES = /(?:,\s*|\s+(?:with|and|plus)\s+)[^,;.]*?\b(?:gloves?|mittens?|arm[- ]warmers?|gauntlets?)\b[^,;.]*/gi;
 export const noGloves = (o) => String(o || "").replace(GLOVES, "").replace(/^[\s,;]+|[\s,;]+$/g, "") || o;
 
+// Poses that came out with a third hand (2026-10-23): a hand lifting or adjusting
+// her gown is drawn as two, and a second hand elsewhere becomes a third.
+const TWO_HANDED = /\b(lift|lifts|lifted|lifting|hold|holds|holding|adjust|adjusts|adjusted|adjusting|gather|gathers|gathering|grab|grabs|grabbing|tug|tugs|tugging|pull|pulls|pulling|smooth|smooths|smoothing)\b[^,;.]*\b(dress|gown|skirt|hem|fabric|slit)\b/i;
+
 function parse(text, n) {
   const m = /\[[\s\S]*\]/.exec(text || "");
   if (!m) throw new Error("no JSON array");
@@ -174,6 +179,7 @@ function parse(text, n) {
     for (const k of keys) if (s[k] === undefined) s[k] = k === "tags" ? [] : "";
     s.tags = (Array.isArray(s.tags) ? s.tags : []).map((t) => String(t).toLowerCase().trim()).filter(Boolean).slice(0, 6);
     s.outfit = noGloves(s.outfit);
+    if (TWO_HANDED.test(s.action)) s.action = pick(IDEAS.simple_actions);
     s.hook = String(s.hook || "").replace(/[#\p{Extended_Pictographic}]/gu, "").trim().split(/\s+/).slice(0, 7).join(" ");
     return s;
   });

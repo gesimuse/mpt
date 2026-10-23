@@ -89,6 +89,8 @@ def main():
         subprocess.run([sys.executable, "-m", "pip", "install", "-q", "-r", "requirements.txt"],
                        cwd=WAN2GP_DIR, check=True)
         subprocess.run([sys.executable, "-m", "pip", "uninstall", "-y", "-q", "torchao"], check=True)
+        # The hand detector (persona/hands.py); without it that check is skipped.
+        subprocess.run([sys.executable, "-m", "pip", "install", "-q", "ultralytics"], check=False)
         # The anatomy check (persona/qa.py, Qwen2.5-VL-7B in 4-bit) gets its own venv:
         # tested 2026-10-07, it fails on the T4 under Wan2GP's torch 2.10+cu130 with a
         # CUDA JIT error, and runs fine under torch 2.11+cu128 (Kaggle's stock build).

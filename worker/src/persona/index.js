@@ -797,6 +797,16 @@ async function onAdmin(request, env) {
     if (what === "post") return new Response(await post(env, p, Number(u.searchParams.get("slot") || 4)));
     if (what === "jobs") return new Response(await advanceJobs(env, p, u.origin));
     if (what === "shoot") return new Response(await shoot(env, p, u.searchParams.get("character")));
+    if (what === "albumcmd") {
+      // An album reply sent from here (?shoot=&text=redo 5 / video 1 2), as if typed under it.
+      const state = await st.load(env, slug);
+      const shoot = u.searchParams.get("shoot");
+      if (!state.shoots?.[shoot]) return new Response("unknown shoot", { status: 404 });
+      const done = await albumRedoCommands(env, p, { text: u.searchParams.get("text") || "", chat: { id: p.chat_id }, message_id: 0 },
+                                           state, { shoot, item: null });
+      await st.save(env, slug, state);
+      return Response.json({ done, queue: state.queue.map((q) => q.id) });
+    }
     if (what === "drop") {
       // Messages taken out of her channel (?ids=1,2,3), and a dropped shoot forgotten
       // (&shoot=), e.g. a bad album and its Reels.

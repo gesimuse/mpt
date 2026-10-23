@@ -148,7 +148,20 @@ def _worker_check(path):
 
 
 def check(path):
-    """(ok, reason, counts). Fails open (ok, 'qa unavailable') if the model cannot run."""
+    """(ok, reason, counts). Fails open (ok, 'qa unavailable') if the model cannot run.
+    Her hands are also counted by a hand detector (persona/hands.py): this model
+    missed a third hand on a door twice (2026-10-23)."""
+    ok, reason, counts = _check(path)
+    if ok and config.flag("PERSONA_HAND_CHECK", "1"):
+        from . import hands
+        extra = hands.extra(path)
+        if extra:
+            log(f"{path}: {extra}")
+            return False, extra, {**(counts or {}), "hand_detector": extra}
+    return ok, reason, counts
+
+
+def _check(path):
     if not enabled():
         return True, "qa off", {}
     if config.flag("PERSONA_QA_SUBPROCESS", "0"):
@@ -205,13 +218,16 @@ DIAGNOSE_PROMPT = ('Look very closely at the woman in this photo, as a photo ret
 def diagnose(path):
     """What looks wrong with her in this photo, in words (for a 🔁 redo), [] when
     nothing or the model can't run."""
+    from . import hands
+    found = [hands.extra(path)] if config.flag("PERSONA_HAND_CHECK", "1") else []
+    found = [x for x in found if x]
     if not enabled() or config.flag("PERSONA_QA_SUBPROCESS", "0"):
-        return []
+        return found
     try:
         got = _ask(path, DIAGNOSE_PROMPT, 2048).get("problems") or []
-        return [str(x)[:140] for x in got if str(x).strip()][:5]
+        return (found + [str(x)[:140] for x in got if str(x).strip()])[:5]
     except Exception:
-        return []
+        return found
 
 
 def still_has(path, problems):

@@ -408,8 +408,11 @@ def calm_prompt(motion):
 def head_in_proportion(char, path):
     """Her head scaled back toward her own proportions (persona/headscale.py): a
     photo with narrow shoulders under a full-size head animated into a video where
-    the head looked too big (2026-10-22). PERSONA_HEADSCALE=0 turns it off."""
-    if not config.flag("PERSONA_HEADSCALE", "1"):
+    the head looked too big (2026-10-22). OFF by default since 2026-10-23: its
+    measurement came out x1.12 on one Reel and x0.88 on the next ("the head is too
+    small"); a Reel keeps the photo's head, which passed proportions.check.
+    PERSONA_HEADSCALE=1 turns it back on."""
+    if not config.flag("PERSONA_HEADSCALE", "0"):
         return path
     from . import headscale
     path = Path(path)
