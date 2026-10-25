@@ -802,6 +802,8 @@ async function onAdmin(request, env) {
       const state = await st.load(env, slug);
       const shoot = u.searchParams.get("shoot");
       if (!state.shoots?.[shoot]) return new Response("unknown shoot", { status: 404 });
+      // &reset=1: a redo that died on the laptop (out of memory) left the album waiting for it.
+      if (u.searchParams.get("reset")) Object.assign(state.shoots[shoot], { redo_wait: 0, redo_failed: [] });
       const done = await albumRedoCommands(env, p, { text: u.searchParams.get("text") || "", chat: { id: p.chat_id }, message_id: 0 },
                                            state, { shoot, item: null });
       await st.save(env, slug, state);

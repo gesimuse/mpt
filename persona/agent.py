@@ -177,15 +177,26 @@ def run_job(job):
     except Exception as e:
         log(f"could not inhibit sleep ({e})")
     try:
-        proc = subprocess.Popen([sys.executable, "-m", "persona.jobs", str(work / "job.json"), str(work)],
-                                cwd=str(config.REPO))
-        heartbeat_while(proc, job["id"])
         results_file = work / "results.json"
+        # Killed by the kernel for lack of RAM (exit -9): run again once memory has
+        # settled -- two MPT redos died that way one after the other and were lost
+        # (2026-10-25).
+        for attempt in range(3):
+            proc = subprocess.Popen([sys.executable, "-m", "persona.jobs", str(work / "job.json"), str(work)],
+                                    cwd=str(config.REPO))
+            heartbeat_while(proc, job["id"])
+            if results_file.exists() or proc.returncode != -9 or attempt == 2:
+                break
+            log(f"job {job['id']} killed (out of memory?); again in 60s")
+            time.sleep(60)
         if not results_file.exists():
-            results_file.write_text(json.dumps([
-                {"request": job["id"], "ok": False, "kind": "image" if job.get("kind") == "redo" else "video",
-                 "recreate": job.get("kind") == "recreate", "reason": f"laptop job exited {proc.returncode}",
-                 "chat": job.get("chat"), "message_id": job.get("message_id")}]))
+            fail = {"request": job["id"], "ok": False, "kind": "image" if job.get("kind") == "redo" else "video",
+                    "recreate": job.get("kind") == "recreate", "reason": f"laptop job exited {proc.returncode}",
+                    "chat": job.get("chat"), "message_id": job.get("message_id"), "character": job.get("character")}
+            # A shoot photo's redo: the album stops waiting for it.
+            if job.get("shoot"):
+                fail.update(shoot=job["shoot"], replaces=job.get("replaces"), render=job.get("render") or "redo")
+            results_file.write_text(json.dumps([fail]))
         results = json.loads(results_file.read_text())
         for r in results:
             r["slug"] = job.get("slug", "")
