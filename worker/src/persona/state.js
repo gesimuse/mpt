@@ -32,8 +32,12 @@ export async function save(env, slug, s) {
   s.recent = s.recent.slice(-200);
   s.voted = s.voted.slice(-500);
   s.done = s.done.slice(-300);
-  const ids = Object.keys(s.items);
-  for (const id of ids.slice(0, Math.max(0, ids.length - 400))) delete s.items[id];
+  // Oldest first, but never a photo of a kept shoot (its TikTok draft and redos need
+  // it). An all-digits id ("61213512") is listed before every other key, whatever its
+  // age: such photos were dropped a day after their shoot (2026-10-26).
+  const kept = new Set(Object.values(s.shoots || {}).flatMap((sh) => [...(sh.ids || []), ...(sh.media || []).map((m) => m.id)]));
+  const ids = Object.keys(s.items).filter((id) => !kept.has(id));
+  for (const id of ids.slice(0, Math.max(0, Object.keys(s.items).length - 400))) delete s.items[id];
   await env.PERSONA.put(`state:${slug}`, JSON.stringify(s));
 }
 

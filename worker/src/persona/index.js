@@ -1804,7 +1804,10 @@ async function shootDone(env, p, state, shootId) {
     if (!sh.urls) {
       const photos = [];
       for (const id of sh.ids) {
-        const f = await telegramFile(env, state.items[id]?.file_id);
+        // The album keeps each photo too (a Kaggle one as its output URL).
+        const m = (sh.media || []).find((x) => x.id === id) || {};
+        const fileId = state.items[id]?.file_id || m.fileId;
+        const f = fileId ? await telegramFile(env, fileId) : m.url ? await fetch(m.url) : { ok: false };
         if (f.ok) photos.push({ name: `${Date.now()}-${id}.jpg`, bytes: await f.arrayBuffer() });
       }
       sh.urls = await tiktok.hostAll(env, photos.slice(0, 35));
