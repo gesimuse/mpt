@@ -99,6 +99,19 @@ export async function photoDraft(env, slug, urls, caption) {
   return d.data?.publish_id;
 }
 
+/** A video inbox draft from a video already live on gh-pages (🎙 talks). */
+export async function videoDraft(env, slug, url) {
+  const token = await accessToken(env, slug);
+  const r = await fetch(`${TT}/post/publish/inbox/video/init/`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "content-type": "application/json; charset=UTF-8" },
+    body: JSON.stringify({ source_info: { source: "PULL_FROM_URL", video_url: url } }),
+  });
+  const d = await r.json();
+  if (d.error?.code && d.error.code !== "ok") throw new Error(`TikTok video draft: ${d.error.code} ${d.error.message || ""}`.slice(0, 300));
+  return d.data?.publish_id;
+}
+
 /** What TikTok did with a draft: {status, fail_reason, ...} (post/publish/status/fetch). */
 export async function draftStatus(env, slug, publishId) {
   const token = await accessToken(env, slug);

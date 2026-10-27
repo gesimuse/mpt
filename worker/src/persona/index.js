@@ -399,6 +399,16 @@ async function onTap(env, p, cq, state, origin) {
     learnFrom(state, item, d, { taste: d > 0 });
     if (act === "up" && item.beat) state.story.push({ t: Date.now(), beat: item.beat, item: itemId });
     state.voted.push(itemId);
+    if (act === "up" && isRoster(p) && item.talk) {
+      // 🎙 An MPT talk: to the aiqube TikTok inbox as a video draft (onDraftSchedule).
+      const fileId = msg.video?.file_id || item.file_id;
+      state.tt_videos = [...(state.tt_videos || []), { item: itemId, file_id: fileId, line: item.line || "",
+        character: item.character, chat, message_id: msg.message_id, created: Date.now(),
+        caption: (msg.caption || "").replace(/\n(?:📤|📥|⏳|❌)[^\n]*$/u, ""), markup: msg.reply_markup || null }];
+      await answer(env, cq.id, "👍 Going to the aiqube TikTok inbox (~15-45 min)");
+      await noteOnPost(env, msg, "📤 TikTok: sending to the aiqube inbox (~15-45 min)");
+      return;
+    }
     const res = act === "up" ? await queuePublish(env, p, state, cq, itemId) : false;
     const publishing = res === true;
     await answer(env, cq.id, act === "dn" ? "Noted 👎" : publishing ? "👍 Added to Buffer's queue for Instagram"
@@ -525,6 +535,106 @@ function queueVideo(state, itemId, msg, fileId, motion) {
                      chat: msg.chat.id, message_id: msg.message_id });
 }
 
+// ------------------------------------------------------------------ 🎙 talks
+/**
+ * Talking videos (2026-10-27): each girl talks about one topic on a podcast set,
+ * the line rewritten from a popular short on that topic (persona/talk.py). Persona
+ * entry keys: talk_hours (UTC hours, one talk each), talkers (roster girls who do
+ * talks, default all), talk_topics ({slug: {topic, sources}} overrides),
+ * talk_cross (another persona's slug: each talk is also posted in its channel).
+ * Laptop only (local_only): InfiniteTalk + LTX don't fit Kaggle.
+ */
+const TALK_TOPICS = {
+  lena: { topic: "dating truths for women", sources: ["tiktok:@shetalks.truth", "relationship advice for women podcast clip"] },
+  "mpt-gia": { topic: "confidence and self-love", sources: ["self love women motivation podcast clip"] },
+  "mpt-freya": { topic: "healing after a breakup", sources: ["healing after breakup advice podcast clip"] },
+  "mpt-aiko": { topic: "female psychology men don't understand", sources: ["female psychology facts about women podcast"] },
+  "mpt-leila": { topic: "high-value woman standards", sources: ["high value woman standards podcast clip"] },
+  "mpt-skye": { topic: "red flags and situationships", sources: ["dating red flags situationship advice podcast"] },
+  "mpt-chloe": { topic: "love and romance truths", sources: ["deep love quotes relationship truth podcast"] },
+  "mpt-priya": { topic: "marriage and husbands", sources: ["marriage advice husband wife podcast clip"] },
+  "mpt-harper": { topic: "motivation and discipline", sources: ["motivational speech discipline women podcast"] },
+  "mpt-alina": { topic: "money and ambition for women", sources: ["women money mindset ambition podcast clip"] },
+  "mpt-sofia": { topic: "what a real man does for his woman", sources: ["how a man should treat a woman podcast clip"] },
+  "mpt-lola": { topic: "toxic exes and moving on", sources: ["moving on from toxic ex advice podcast clip"] },
+};
+
+function talkTopic(p, who) {
+  return p.talk_topics?.[who] || TALK_TOPICS[who] || { topic: "relationships and self-worth", sources: ["relationship advice podcast clip"] };
+}
+
+/** One 🎙 talk queued for the laptop: the next talker in rotation (MPT) or her (Lena). */
+function queueTalk(p, state) {
+  // The laptop was off: don't pile up a day's worth.
+  if (state.queue.filter((q) => q.kind === "talk").length >= 3) return `${p.slug}: talks already waiting`;
+  let who = p.slug;
+  if (isRoster(p)) {
+    const pool = (p.talkers?.length ? p.talkers : p.characters);
+    who = pool[(state.talk_rotation || 0) % pool.length];
+    state.talk_rotation = (state.talk_rotation || 0) + 1;
+  }
+  const t = talkTopic(p, who);
+  state.queue.push({ id: `talk-${who}-${Date.now()}`, kind: "talk", character: who, topic: t.topic, sources: t.sources,
+                     chat: p.chat_id, local_only: true });
+  return `${p.slug}: 🎙 talk queued for ${who} (${t.topic})`;
+}
+
+/**
+ * A talk posted: its source is not used again, and with talk_cross it is posted in
+ * that persona's channel too (Lena's talks in MPT's, for the aiqube TikTok).
+ */
+async function talkDone(env, p, state, r, item, sent) {
+  if (r.source) state.talk_used = [...(state.talk_used || []), r.source].slice(-300);
+  const it = state.items[r.id];
+  if (it) Object.assign(it, { talk: true, line: r.line || "", topic: r.topic || "", character: r.character || p.slug });
+  const to = p.talk_cross && (await personas.get(env, p.talk_cross));
+  const fileId = sent?.video?.file_id;
+  if (!to || !fileId) return;
+  const b = (await st.bible(env, r.character || p.slug)) || { name: p.slug };
+  const m = resultMessage(b, { ...r, chat: to.chat_id, message_id: null }, item);
+  try {
+    const x = await tg(env, "sendVideo", { chat_id: to.chat_id, video: fileId, caption: m.caption, reply_markup: m.buttons });
+    const other = await st.load(env, to.slug);
+    other.items[r.id] = { kind: "video", tags: [r.topic || ""], scene: {}, caption: item?.caption || "", file_id: fileId,
+                          message_id: x.message_id, talk: true, line: r.line || "", topic: r.topic || "",
+                          character: r.character || p.slug };
+    await st.save(env, to.slug, other);
+  } catch (e) {
+    console.error("talk cross-post failed", String(e).slice(0, 200));
+  }
+}
+
+/** The line of a talk, rewritten from a popular short's transcript into her words. */
+async function talkLine(request, env) {
+  const { persona, character, topic, transcript, title } = await request.json();
+  const p = await personas.get(env, persona || "lena");
+  const b = (await st.bible(env, character || persona)) || { name: character };
+  const prompt =
+    `You write one short spoken line for ${b.name}, ${b.age || 24}, ${b.personality || "warm and confident"}, ` +
+    `talking softly on a podcast about: ${topic}.\n` +
+    (transcript ? `A popular short on this topic says:\n"""${String(transcript).slice(0, 2500)}"""\n` +
+                  `Take its strongest single idea and say it in her own words -- do NOT copy its sentences.\n`
+                : `Pick one idea on this topic that many people relate to and argue about.\n`) +
+    `Rules: 22-38 words, 2-4 short sentences, plain spoken English, a hook in the first 5 words, ` +
+    `a punchline at the end. Never explicit, no hashtags, no emojis, no names, no "subscribe"/"follow". ` +
+    `Return JSON: {"line": "...", "keywords": ["3-6 single words from the line to highlight"], ` +
+    `"caption": "a one-line TikTok/Instagram caption, max 90 chars, no hashtags"}`;
+  for (let i = 0; i < 3; i++) {
+    try {
+      const out = await captions.ask(env, prompt, 300);
+      const line = String(out.line || "").replace(/\s+/g, " ").trim();
+      const n = line.split(" ").length;
+      if (n >= 15 && n <= 50 && !/#|https?:/.test(line)) {
+        return Response.json({ line, keywords: (out.keywords || []).slice(0, 6).map(String),
+                               caption: String(out.caption || "").slice(0, 120) });
+      }
+    } catch (e) {
+      console.error("talk line", String(e).slice(0, 200));
+    }
+  }
+  return Response.json({ line: "" });
+}
+
 const PUBLISH_WORDS = /^\s*(👍|post|publish|post it)\s*[.!]*\s*$/iu;
 // Any short reply mentioning a carousel ("carousel please", "make carousel 🖼", ...).
 const CAROUSEL_WORDS = /^(?=.{0,60}$).*(🖼|car+ou?s+el+|carusel)/isu;
@@ -621,7 +731,7 @@ async function onReply(env, p, post, state, origin) {
 
 /** A one-line status at the end of a post's caption, its buttons kept. */
 async function noteOnPost(env, msg, line) {
-  const base = (msg.caption || "").replace(/\n(?:🔁|🎬|🖼|⚠️)[^\n]*$/u, "");
+  const base = (msg.caption || "").replace(/\n(?:🔁|🎬|🖼|⚠️|📤|📥|⏳|❌)[^\n]*$/u, "");
   await tg(env, "editMessageCaption", { chat_id: msg.chat.id, message_id: msg.message_id,
     caption: `${base}\n${line}`.slice(0, 1024), ...(msg.reply_markup ? { reply_markup: msg.reply_markup } : {}) }).catch(() => {});
 }
@@ -923,6 +1033,14 @@ async function onAdmin(request, env) {
       return new Response(job ? await shareLink(env, u.origin, p, job) : "no such job", { status: job ? 200 : 404 });
     }
     if (what === "writeshoot") return new Response(String(await writeRequestedShoot(env, p)));
+    if (what === "talk") {
+      // A 🎙 talk now (&who= a roster girl, else the next in rotation).
+      const state = await st.load(env, p.slug);
+      const who = u.searchParams.get("who");
+      const msg = who ? queueTalk({ ...p, talkers: [who] }, state) : queueTalk(p, state);
+      await st.save(env, p.slug, state);
+      return new Response(msg);
+    }
     if (what === "dropshoot") {
       // A shoot that will never finish (its job is gone): removed from the state.
       const p = await personas.get(env, u.searchParams.get("slug") || "mpt");
@@ -976,6 +1094,7 @@ async function onAdmin(request, env) {
   if (u.pathname === "/persona/admin/laptop/result" && request.method === "POST") return laptopResult(request, env);
   if (u.pathname === "/persona/admin/laptop/prepare" && request.method === "POST") return laptopPrepare(request, env);
   if (u.pathname === "/persona/admin/laptop/render-item" && request.method === "POST") return laptopRenderItem(request, env);
+  if (u.pathname === "/persona/admin/laptop/talkline" && request.method === "POST") return talkLine(request, env);
   return new Response("not found", { status: 404 });
 }
 
@@ -1143,6 +1262,14 @@ function resultMessage(b, r, item) {
   if (r.ok && r.kind === "image") {
     return { kind: "photo", chat: r.chat, replyTo: r.message_id, edit: r.redo ? r.message_id : null,
              caption: `🔁 ${r.redo ? `${redoSummary(r)}\n` : ""}${caption(b.name, item)}`, buttons: buttons(item) };
+  }
+  if (r.ok && r.talk) {
+    return { kind: "video", chat: r.chat, replyTo: r.message_id,
+             caption: `🎙 ${b.name} · ${r.topic || "talk"}\n“${String(r.line || "").slice(0, 600)}”\n#${r.id}`,
+             buttons: kb([[["👍", `pv:up:${r.id}`], ["👎", `pv:dn:${r.id}`]]]) };
+  }
+  if (!r.ok && r.talk) {
+    return { kind: "text", chat: r.chat, replyTo: r.message_id, text: `❌ 🎙 Talk failed: ${String(r.reason).slice(0, 300)}` };
   }
   if (r.ok) {
     const cap = r.recreate ? `🎭 ${b.name} · recreated${faceLine(item?.face)}` : `🎬 ${b.name}\n${(r.motion || "").slice(0, 300)}`;
@@ -1398,7 +1525,12 @@ async function laptopResult(request, env) {
       await postShootAlbum(env, p, state, r.shoot).catch((e) => console.error("album failed", String(e).slice(0, 200)));
     }
   }
-  else if (sent) { recordResult(state, r, item, sent); swapAlbumPhoto(state, r, sent); await carouselProgress(env, state, r); }
+  else if (sent) {
+    recordResult(state, r, item, sent);
+    swapAlbumPhoto(state, r, sent);
+    await carouselProgress(env, state, r);
+    if (r.talk && r.ok) await talkDone(env, p, state, r, item, sent);
+  }
   else await postResult(env, state, b, r, item, file);
   state.done.push(resultKey(r));
   // Taken back from Kaggle's queue too, if it was handed over while the laptop
@@ -1427,6 +1559,9 @@ async function jobPayload(env, origin, state, batch) {
       jobs.push({ id: q.id, kind: "redo", scene: q.scene, chat: q.chat, message_id: q.message_id,
                   ...(fid ? { image_url: await fileLink(env, origin, fid) } : {}),
                   ...(q.shoot ? { shoot: q.shoot, replaces: q.replaces } : {}) });
+    } else if (q.kind === "talk") {
+      jobs.push({ id: q.id, kind: "talk", topic: q.topic, sources: q.sources, chat: q.chat,
+                  used: (state.talk_used || []).slice(-300) });
     } else if (q.kind === "recreate") {
       jobs.push({ id: q.id, kind: "recreate", url: q.url, seconds: q.seconds, chat: q.chat, message_id: q.message_id,
                   video_url: q.file_id ? await fileLink(env, origin, q.file_id) : "" });
@@ -1841,6 +1976,51 @@ async function shootDone(env, p, state, shootId) {
   return true;
 }
 
+/**
+ * A 👍'd 🎙 talk to the TikTok inbox, one step per call like shootDone: the video goes
+ * to gh-pages (TikTok pulls only from the verified domain), then, once Pages serves
+ * it, the draft is made. TikTok's 5 pending drafts a day: retried hourly. Saved onto
+ * the current state. Returns true when it did something.
+ */
+async function talkDraftStep(env, p, state) {
+  const i = (state.tt_videos || []).findIndex((v) => !v.draft && !v.error && !(v.retry_at && Date.now() < v.retry_at));
+  if (i < 0) return false;
+  const v = state.tt_videos[i];
+  let note = null;
+  try {
+    if (!v.url) {
+      const f = await telegramFile(env, v.file_id);
+      if (!f.ok) throw new Error(`telegram file ${f.status}`);
+      [v.url] = await tiktok.hostAll(env, [{ name: `${Date.now()}-${v.item}.mp4`, bytes: await f.arrayBuffer() }]);
+    } else if (!(await tiktok.live([v.url]))) {
+      if (Date.now() - v.created > 24 * 3600 * 1000) throw new Error("gh-pages never served the video");
+      return false;
+    } else {
+      v.draft = await tiktok.videoDraft(env, p.slug, v.url);
+      note = "📥 TikTok: in the aiqube inbox -- add a sound/caption and post";
+    }
+  } catch (e) {
+    const msg = String(e.message || e).slice(0, 200);
+    if (/too_many_pending|rate_limit|spam_risk/i.test(msg)) {
+      if (!v.retry_at) note = "⏳ TikTok: waiting for a free draft slot (5 a day), retried hourly";
+      v.retry_at = Date.now() + 3600 * 1000;
+    } else {
+      v.error = msg;
+      note = `❌ TikTok draft failed: ${msg.slice(0, 120)}`;
+    }
+  }
+  const now = await st.load(env, p.slug);
+  const j = (now.tt_videos || []).findIndex((x) => x.item === v.item && x.created === v.created);
+  if (j >= 0) now.tt_videos[j] = v;
+  now.tt_videos = (now.tt_videos || []).filter((x) => Date.now() - x.created < 14 * 86400 * 1000);
+  await st.save(env, p.slug, now);
+  if (note && v.message_id) {
+    await noteOnPost(env, { chat: { id: v.chat }, message_id: v.message_id, caption: v.caption || "",
+                            ...(v.markup ? { reply_markup: v.markup } : {}) }, note);
+  }
+  return true;
+}
+
 /** The draft cron: one step of one finished shoot's TikTok draft per run. */
 export async function onDraftSchedule(event, env) {
   // A requested shoot's scenes first, for every persona (one AI call each): a
@@ -1863,7 +2043,10 @@ export async function onDraftSchedule(event, env) {
     const pending = Object.entries(state.shoots || {})
       .find(([, sh]) => sh.finished && sh.ids?.length && (sh.send_tiktok || p.tiktok_auto) && !sh.draft && !sh.draft_error
                         && !(sh.retry_at && Date.now() < sh.retry_at));
-    if (!pending) continue;
+    if (!pending) {
+      if (await talkDraftStep(env, p, state)) return;
+      continue;
+    }
     if (await shootDone(env, p, state, pending[0])) {
       // Saved onto the current state: other writers may have moved meanwhile.
       const now = await st.load(env, p.slug);
@@ -2055,6 +2238,11 @@ export async function onPersonaSchedule(event, env) {
       if (byShoots(p)) {
         if ((p.shoot_hours || [5, 7, 9, 11, 13]).includes(h) && m < 15) console.log(await shoot(env, p));
         if (h === Number(p.story_hour ?? 16) && m < 15) console.log(await dailyStory(env, p, origin));
+        if ((p.talk_hours || []).includes(h) && m < 15) {
+          const state = await st.load(env, p.slug);
+          console.log(queueTalk(p, state));
+          await st.save(env, p.slug, state);
+        }
       } else if ((h === 2 && m >= 30) || (h === 3 && m < 30)) console.log(await render(env, p));
       else if (POST_HOURS.includes(h) && m < 15) console.log(await post(env, p, POST_HOURS.indexOf(h)));
       console.log(await advanceJobs(env, p, origin));

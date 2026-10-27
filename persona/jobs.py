@@ -259,6 +259,29 @@ def video(job, char, studio, out, inp):
             **_reply(job)}
 
 
+def talk(job, char, studio, out):
+    """🎙 A talking video on her topic (persona/talk.py)."""
+    from . import talk as talking
+    work = config.home() / ".talk-work" / job["id"]
+    try:
+        final, info = talking.make(job, char, studio, work)
+    except Exception as e:
+        log(f"talk {job['id']} failed: {e}")
+        return {"request": job["id"], "ok": False, "talk": True, "reason": f"{type(e).__name__}: {e}"[:300], **_reply(job)}
+    vid = char.new_item(kind="video", lane="social", path=str(final), model="infinitetalk",
+                        scene={"talk": info["line"], "topic": job.get("topic", "")}, tags=[job.get("topic", "")],
+                        caption=info.get("caption", ""))
+    dest = out / f"{vid['id']}.mp4"
+    shutil.copyfile(final, dest)
+    shutil.rmtree(work, ignore_errors=True)
+    vid.update({"path": dest.name, "request": job["id"], "audio": True, "caption": info.get("caption", "")})
+    (out / f"{vid['id']}.json").write_text(json.dumps(vid, ensure_ascii=False))
+    log(f"talk {vid['id']} for request {job['id']}: {info['line']!r}")
+    return {"request": job["id"], "id": vid["id"], "ok": True, "kind": "video", "talk": True, "line": info["line"],
+            "topic": job.get("topic", ""), "source": info.get("source", ""), "source_title": info.get("source_title", ""),
+            **_reply(job)}
+
+
 def render(job, char, studio, out):
     """The daily render on the laptop (the Worker gives it to the laptop when it is
     open at render time, Kaggle otherwise): the day's scenes, each photo a result."""
@@ -451,6 +474,8 @@ def run(jobs, char, studio_factory, out, inp, work_root, code_dir):
             results.extend(render(job, char, studio, out))
         elif job.get("kind") == "carousel":
             results.extend(carousel(job, char, studio, out, inp))
+        elif job.get("kind") == "talk":
+            results.append(talk(job, char, studio, out))
         elif job.get("kind") == "redo":
             # You asked for this one: more tries before it gives up (a back shot failed
             # its twist check twice and the redraw came back with nothing, 2026-10-20).

@@ -26,7 +26,7 @@ const ALWAYS = "aigenerated";
 const clean = (t) => String(t).toLowerCase().replace(/^#/, "").replace(/[^a-z0-9_]/g, "");
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 
-async function ask(env, prompt, maxTokens = 400) {
+export async function ask(env, prompt, maxTokens = 400) {
   const r = await env.AI.run(MODEL, { messages: [{ role: "user", content: prompt }], max_tokens: maxTokens, temperature: 0.8 });
   const m = /\{[\s\S]*\}/.exec(text(r));
   if (!m) throw new Error("no JSON");
@@ -35,6 +35,8 @@ async function ask(env, prompt, maxTokens = 400) {
 
 function describe(item) {
   const s = item.scene || {};
+  // 🎙 A talk: what she says is what the caption is about.
+  if (item.talk || s.talk) return `a short podcast-style video of her talking about ${item.topic || s.topic || "dating"}; she says: "${item.line || s.talk}"`;
   if (s.setting) return `a ${item.kind === "video" ? "short video" : "photo"} of her: ${s.setting}, wearing ${s.outfit || "an outfit"}, ${s.action || ""}, mood ${s.mood || ""}`;
   if (item.recreate) return "a short video of her doing a popular TikTok trend";
   return `a ${item.kind === "video" ? "short video" : "photo"} of her`;
