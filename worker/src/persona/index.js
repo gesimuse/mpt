@@ -567,20 +567,21 @@ function queueVideo(state, itemId, msg, fileId, motion) {
 // melrobbins 27k/338, drewafualo 432k/871, hardtruthtalks 17k/219, shetalks.truth
 // 10k/148, yourrichbff 11k/65; the user's picks voicebloom1 (top 471k views/9.6k shares)
 // and therealtruth93 (top 1.3M/17k shares), riseshine.7 (median 54k views/815 shares,
-// top 2.1M/23.5k shares/37k saves), thelasthopeofficial06 (median 42k/419 shares). A YouTube search last, when none of them has one.
+// top 2.1M/23.5k shares/37k saves), thelasthopeofficial06 (median 42k/419 shares),
+// mindfuel_028 (median 120k views/1.3k shares/1.6k saves). A YouTube search last, when none of them has one.
 const T = (handles, yt) => [...handles.map((h) => `tiktok:@${h}`), yt];
 const TALK_TOPICS = {
-  lena: { topic: "dating truths for women", sources: T(["shetalks.truth", "riseshine.7", "voicebloom1", "therealtruth93", "hardtruthtalks", "jayshetty"], "relationship advice for women podcast clip") },
-  "mpt-gia": { topic: "confidence and self-love", sources: T(["riseshine.7", "melrobbins", "kindpush343", "jayshetty"], "self love women motivation podcast clip") },
-  "mpt-freya": { topic: "healing after a breakup", sources: T(["riseshine.7", "hardtruthtalks", "jayshetty", "melrobbins"], "healing after breakup advice podcast clip") },
+  lena: { topic: "dating truths for women", sources: T(["shetalks.truth", "mindfuel_028", "riseshine.7", "voicebloom1", "therealtruth93", "hardtruthtalks", "jayshetty"], "relationship advice for women podcast clip") },
+  "mpt-gia": { topic: "confidence and self-love", sources: T(["mindfuel_028", "riseshine.7", "melrobbins", "kindpush343", "jayshetty"], "self love women motivation podcast clip") },
+  "mpt-freya": { topic: "healing after a breakup", sources: T(["riseshine.7", "mindfuel_028", "hardtruthtalks", "jayshetty", "melrobbins"], "healing after breakup advice podcast clip") },
   "mpt-aiko": { topic: "female psychology men don't understand", sources: T(["therealtruth93", "voicebloom1", "shetalks.truth", "hardtruthtalks"], "female psychology facts about women podcast") },
-  "mpt-leila": { topic: "high-value woman standards", sources: T(["riseshine.7", "thelasthopeofficial06", "shetalks.truth", "kindpush343", "drewafualo"], "high value woman standards podcast clip") },
+  "mpt-leila": { topic: "high-value woman standards", sources: T(["mindfuel_028", "riseshine.7", "thelasthopeofficial06", "shetalks.truth", "kindpush343", "drewafualo"], "high value woman standards podcast clip") },
   "mpt-skye": { topic: "red flags and situationships", sources: T(["drewafualo", "therealtruth93", "hardtruthtalks", "shetalks.truth"], "dating red flags situationship advice podcast") },
-  "mpt-chloe": { topic: "love and romance truths", sources: T(["riseshine.7", "jayshetty", "voicebloom1", "hardtruthtalks", "shetalks.truth"], "deep love quotes relationship truth podcast") },
+  "mpt-chloe": { topic: "love and romance truths", sources: T(["riseshine.7", "mindfuel_028", "jayshetty", "voicebloom1", "hardtruthtalks", "shetalks.truth"], "deep love quotes relationship truth podcast") },
   "mpt-priya": { topic: "marriage and husbands", sources: T(["voicebloom1", "jayshetty", "2bebetterpodcast", "hardtruthtalks"], "marriage advice husband wife podcast clip") },
-  "mpt-harper": { topic: "motivation and discipline", sources: T(["thelasthopeofficial06", "melrobbins", "jayshetty", "kindpush343"], "motivational speech discipline women podcast") },
-  "mpt-alina": { topic: "money and ambition for women", sources: T(["yourrichbff", "thelasthopeofficial06", "melrobbins"], "women money mindset ambition podcast clip") },
-  "mpt-sofia": { topic: "what a real man does for his woman", sources: T(["therealtruth93", "riseshine.7", "thelasthopeofficial06", "voicebloom1", "shetalks.truth", "hardtruthtalks"], "how a man should treat a woman podcast clip") },
+  "mpt-harper": { topic: "motivation and discipline", sources: T(["thelasthopeofficial06", "mindfuel_028", "melrobbins", "jayshetty", "kindpush343"], "motivational speech discipline women podcast") },
+  "mpt-alina": { topic: "money and ambition for women", sources: T(["mindfuel_028", "yourrichbff", "thelasthopeofficial06", "melrobbins"], "women money mindset ambition podcast clip") },
+  "mpt-sofia": { topic: "what a real man does for his woman", sources: T(["mindfuel_028", "therealtruth93", "riseshine.7", "thelasthopeofficial06", "voicebloom1", "shetalks.truth", "hardtruthtalks"], "how a man should treat a woman podcast clip") },
   "mpt-lola": { topic: "toxic exes and moving on", sources: T(["riseshine.7", "thelasthopeofficial06", "hardtruthtalks", "drewafualo", "melrobbins"], "moving on from toxic ex advice podcast clip") },
 };
 
