@@ -77,7 +77,10 @@ def _search(source, limit=40):
             continue
         found.append({"id": e["id"], "url": e.get("url") or e.get("webpage_url") or "",
                       "views": e.get("view_count") or 0, "seconds": e.get("duration") or 0,
-                      "title": (e.get("title") or e.get("description") or "")[:200]})
+                      "title": (e.get("title") or e.get("description") or "")[:200],
+                      # A TikTok account listing carries every video's numbers already.
+                      "counts": {k: e.get(k) for k in ("like_count", "comment_count", "repost_count", "save_count")}
+                                if e.get("like_count") is not None else None})
     return found
 
 
@@ -89,11 +92,14 @@ def _engagement(c):
     url = c["url"] or c["id"]
     if not url.startswith("http"):
         url = f"https://www.youtube.com/shorts/{c['id']}"
-    out = subprocess.run([sys.executable, "-m", "yt_dlp", "-q", "--no-warnings", "--skip-download", "-J", url],
-                         capture_output=True, text=True, timeout=120)
-    if out.returncode != 0:
-        return None
-    d = json.loads(out.stdout)
+    if c.get("counts"):
+        d = {**c["counts"], "view_count": c["views"]}
+    else:
+        out = subprocess.run([sys.executable, "-m", "yt_dlp", "-q", "--no-warnings", "--skip-download", "-J", url],
+                             capture_output=True, text=True, timeout=120)
+        if out.returncode != 0:
+            return None
+        d = json.loads(out.stdout)
     views = d.get("view_count") or c["views"] or 0
     likes, comments = d.get("like_count") or 0, d.get("comment_count") or 0
     shares = d.get("repost_count") or d.get("share_count") or 0
@@ -131,7 +137,7 @@ def find_line(job, work):
     for src in job.get("sources") or []:
         found = [c for c in _search(src) if c["id"] not in used and 8 <= (c["seconds"] or 30) <= 90]
         scored = []
-        for c in sorted(found, key=lambda c: -c["views"])[:10]:
+        for c in sorted(found, key=lambda c: -c["views"])[:15]:
             s = _engagement(c)
             if s:
                 scored.append((s, c))
