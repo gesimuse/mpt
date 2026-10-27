@@ -261,7 +261,8 @@ async function queuePublish(env, p, state, cq, itemId) {
   }
   if (!fileId) return "can't publish this one: Telegram didn't give its photo/video";
   const isPhoto = photo ? true : (video || fwdVideo) ? false : known.kind !== "video";
-  const b = (await st.bible(env, p.slug)) || { name: p.slug };
+  // MPT: the caption is in the voice of the girl in it.
+  const b = (await st.bible(env, known.character || p.slug)) || (await st.bible(env, p.slug)) || { name: p.slug };
   // A caption and hashtags for each platform, never empty (captions.js).
   const posts = await captions.forPost(env, p, b, state, { ...known, kind: isPhoto ? "photo" : "video" });
   state.publish.push({
@@ -411,8 +412,10 @@ async function onTap(env, p, cq, state, origin) {
     learnFrom(state, item, d, { taste: d > 0 });
     if (act === "up" && item.beat) state.story.push({ t: Date.now(), beat: item.beat, item: itemId });
     state.voted.push(itemId);
-    if (act === "up" && isRoster(p) && item.talk) {
-      // 🎙 An MPT talk: to the aiqube TikTok inbox as a video draft (onDraftSchedule).
+    if (act === "up" && isRoster(p) && item.talk && !p.buffer?.tiktok) {
+      // 🎙 An MPT talk without a Buffer TikTok channel: to the aiqube TikTok inbox as a
+      // video draft (onDraftSchedule) -- no caption possible there. With one (entry
+      // buffer.tiktok, 2026-10-27) it is posted through Buffer like Lena's Reels.
       const fileId = msg.video?.file_id || item.file_id;
       // The vote shows on the message at once (the buttons became "✓ 👍").
       const markup = kb([[["✓ 👍 · TikTok", `pv:noop:${itemId}`]]]);
@@ -425,7 +428,7 @@ async function onTap(env, p, cq, state, origin) {
     }
     const res = act === "up" ? await queuePublish(env, p, state, cq, itemId) : false;
     const publishing = res === true;
-    await answer(env, cq.id, act === "dn" ? "Noted 👎" : publishing ? "👍 Added to Buffer's queue for Instagram"
+    await answer(env, cq.id, act === "dn" ? "Noted 👎" : publishing ? `👍 Added to Buffer's queue for ${social.accounts(p).instagram ? "Instagram" : "TikTok"}`
       : typeof res === "string" ? `Noted 👍 -- ${res}` : "Noted 👍");
     if (typeof res === "string" && res.startsWith("can't")) {
       await tg(env, "sendMessage", { chat_id: chat, reply_to_message_id: msg.message_id, text: `⚠️ 👍 noted, but ${res}.` }).catch(() => {});
