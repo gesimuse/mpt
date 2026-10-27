@@ -278,8 +278,9 @@ def _ass_time(s):
     return f"{int(h)}:{int(m):02d}:{s:05.2f}"
 
 
-def captions(video, keywords, work, dest):
-    """Three words at a time, centre of the frame, keywords in yellow; 1080x1920."""
+def captions(video, keywords, work, dest, bw=False):
+    """Three words at a time, centre of the frame, keywords in yellow; 1080x1920.
+    `bw`: graded black and white (the A/B test of 2026-10-27), captions still in colour."""
     wav = work / "final.wav"
     _ff("-i", video, "-vn", "-ac", "1", "-ar", "16000", wav)
     words = _transcribe(wav, words=True)
@@ -308,7 +309,8 @@ def captions(video, keywords, work, dest):
                    "Style: Cap,Lato Black,88,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,1,1,0,0,100,100,0,0,1,4,3,5,60,60,0,1\n"
                    "[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
                    + "\n".join(lines) + "\n")
-    _ff("-i", video, "-vf", f"scale=1080:-2:flags=lanczos,crop=1080:1920,ass={ass}", "-c:v", "libx264", "-crf", "18",
+    grade = "hue=s=0,eq=contrast=1.12:brightness=-0.02," if bw else ""
+    _ff("-i", video, "-vf", f"{grade}scale=1080:-2:flags=lanczos,crop=1080:1920,ass={ass}", "-c:v", "libx264", "-crf", "18",
         "-preset", "medium", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", dest)
     return dest
 
@@ -322,5 +324,5 @@ def make(job, char, studio, work):
     ref = voice_ref(char, studio, face)
     voice = speak(char, studio, face, ref, info["line"], work)
     video = animate(studio, face, voice, work)
-    final = captions(video, info.get("keywords"), work, work / "final.mp4")
+    final = captions(video, info.get("keywords"), work, work / "final.mp4", bw=bool(job.get("bw")))
     return final, info

@@ -267,6 +267,7 @@ async function queuePublish(env, p, state, cq, itemId) {
   state.publish.push({
     id: `pub-${itemId}-${Date.now()}`, item: itemId, kind: isPhoto ? "photo" : "video",
     created: Date.now(), due: nextSlot(env, state), recreate: !!known.recreate, story: isPhoto && feedFull(env, state),
+    ...(known.talk ? { talk: true, bw: !!known.bw } : {}),
     file_id: fileId, audio: !!known.audio || !!known.recreate,
     posts, caption: posts.instagram.text,
     chat, message_id: msg.message_id, base: (msg.caption ?? fwdCaption ?? "").split("\n\n━━")[0],
@@ -402,7 +403,7 @@ async function onTap(env, p, cq, state, origin) {
     if (act === "up" && isRoster(p) && item.talk) {
       // 🎙 An MPT talk: to the aiqube TikTok inbox as a video draft (onDraftSchedule).
       const fileId = msg.video?.file_id || item.file_id;
-      state.tt_videos = [...(state.tt_videos || []), { item: itemId, file_id: fileId, line: item.line || "",
+      state.tt_videos = [...(state.tt_videos || []), { item: itemId, file_id: fileId, line: item.line || "", bw: !!item.bw,
         character: item.character, chat, message_id: msg.message_id, created: Date.now(),
         caption: (msg.caption || "").replace(/\n(?:📤|📥|⏳|❌)[^\n]*$/u, ""), markup: msg.reply_markup || null }];
       await answer(env, cq.id, "👍 Going to the aiqube TikTok inbox (~15-45 min)");
@@ -581,8 +582,11 @@ function queueTalk(p, state) {
     state.talk_rotation = (state.talk_rotation || 0) + 1;
   }
   const t = talkTopic(p, who);
+  // A/B (2026-10-27): every other talk in black and white, like the advice accounts.
+  const bw = !!((state.talk_n || 0) % 2);
+  state.talk_n = (state.talk_n || 0) + 1;
   state.queue.push({ id: `talk-${who}-${Date.now()}`, kind: "talk", character: who, topic: t.topic, sources: t.sources,
-                     chat: p.chat_id, local_only: true });
+                     chat: p.chat_id, local_only: true, bw });
   return `${p.slug}: 🎙 talk queued for ${who} (${t.topic})`;
 }
 
@@ -594,7 +598,7 @@ async function talkDone(env, p, state, r, item, sent) {
   if (r.source) state.talk_used = [...(state.talk_used || []), r.source].slice(-300);
   if (r.line) state.talk_lines = [...(state.talk_lines || []), r.line].slice(-80);
   const it = state.items[r.id];
-  if (it) Object.assign(it, { talk: true, line: r.line || "", topic: r.topic || "", character: r.character || p.slug });
+  if (it) Object.assign(it, { talk: true, line: r.line || "", topic: r.topic || "", character: r.character || p.slug, bw: !!r.bw });
   const to = p.talk_cross && (await personas.get(env, p.talk_cross));
   const fileId = sent?.video?.file_id;
   if (!to || !fileId) return;
@@ -605,7 +609,7 @@ async function talkDone(env, p, state, r, item, sent) {
     const other = await st.load(env, to.slug);
     if (r.line) other.talk_lines = [...(other.talk_lines || []), r.line].slice(-80);
     other.items[r.id] = { kind: "video", tags: [r.topic || ""], scene: {}, caption: item?.caption || "", file_id: fileId,
-                          message_id: x.message_id, talk: true, line: r.line || "", topic: r.topic || "",
+                          message_id: x.message_id, talk: true, line: r.line || "", topic: r.topic || "", bw: !!r.bw,
                           character: r.character || p.slug };
     await st.save(env, to.slug, other);
   } catch (e) {
@@ -1051,6 +1055,17 @@ async function onAdmin(request, env) {
       return new Response(job ? await shareLink(env, u.origin, p, job) : "no such job", { status: job ? 200 : 404 });
     }
     if (what === "writeshoot") return new Response(String(await writeRequestedShoot(env, p)));
+    if (what === "abtest") {
+      // 🎙 colour vs black and white: Instagram numbers of posted talks (Buffer), TikTok drafts sent.
+      const state = await st.load(env, p.slug);
+      const rows = [];
+      for (const j of state.publish.filter((x) => x.talk && x.ig?.post)) {
+        const post = await social.metrics(env, p, j.ig.post).catch(() => null);
+        rows.push({ bw: j.bw, created: new Date(j.created).toISOString().slice(0, 10),
+                    metrics: Object.fromEntries((post?.metrics || []).map((m) => [m.type, m.value])) });
+      }
+      return Response.json({ instagram: rows, tiktok_drafts: (state.tt_videos || []).map((v) => ({ bw: v.bw, draft: !!v.draft })) });
+    }
     if (what === "talk") {
       // A 🎙 talk now (&who= a roster girl, else the next in rotation).
       const state = await st.load(env, p.slug);
@@ -1283,7 +1298,7 @@ function resultMessage(b, r, item) {
   }
   if (r.ok && r.talk) {
     return { kind: "video", chat: r.chat, replyTo: r.message_id,
-             caption: `🎙 ${b.name} · ${r.topic || "talk"}\n“${String(r.line || "").slice(0, 600)}”\n#${r.id}`,
+             caption: `🎙 ${b.name} · ${r.topic || "talk"} · ${r.bw ? "⚫ B&W" : "🎨 colour"}\n“${String(r.line || "").slice(0, 600)}”\n#${r.id}`,
              buttons: kb([[["👍", `pv:up:${r.id}`], ["👎", `pv:dn:${r.id}`]]]) };
   }
   if (!r.ok && r.talk) {
@@ -1578,7 +1593,7 @@ async function jobPayload(env, origin, state, batch) {
                   ...(fid ? { image_url: await fileLink(env, origin, fid) } : {}),
                   ...(q.shoot ? { shoot: q.shoot, replaces: q.replaces } : {}) });
     } else if (q.kind === "talk") {
-      jobs.push({ id: q.id, kind: "talk", topic: q.topic, sources: q.sources, chat: q.chat,
+      jobs.push({ id: q.id, kind: "talk", topic: q.topic, sources: q.sources, chat: q.chat, bw: !!q.bw,
                   used: (state.talk_used || []).slice(-300) });
     } else if (q.kind === "recreate") {
       jobs.push({ id: q.id, kind: "recreate", url: q.url, seconds: q.seconds, chat: q.chat, message_id: q.message_id,

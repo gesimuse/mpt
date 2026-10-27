@@ -279,6 +279,7 @@ def talk(job, char, studio, out):
     log(f"talk {vid['id']} for request {job['id']}: {info['line']!r}")
     return {"request": job["id"], "id": vid["id"], "ok": True, "kind": "video", "talk": True, "line": info["line"],
             "topic": job.get("topic", ""), "source": info.get("source", ""), "source_title": info.get("source_title", ""),
+            "bw": bool(job.get("bw")),
             **_reply(job)}
 
 
