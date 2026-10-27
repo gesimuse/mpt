@@ -1094,6 +1094,22 @@ async function onAdmin(request, env) {
       await st.save(env, p.slug, state);
       return new Response("sent now");
     }
+    if (what === "postitem") {
+      // One posted item (&item=) through Buffer now, as its 👍 would (a vote made before
+      // the persona's Buffer channel was linked).
+      const state = await st.load(env, p.slug);
+      const id = u.searchParams.get("item"), it = state.items[id];
+      if (!it?.file_id) return new Response("unknown item", { status: 404 });
+      // &replace=1: forget its earlier publish job (its Buffer post deleted separately).
+      if (u.searchParams.get("replace")) state.publish = state.publish.filter((x) => x.item !== id);
+      const cq = { message: { chat: { id: p.chat_id }, message_id: it.message_id,
+                              ...(it.kind === "video" ? { video: { file_id: it.file_id } } : {}) } };
+      const res = await queuePublish(env, p, state, cq, id);
+      if (res === true) await advancePublish(env, p, state, u.origin);
+      await st.save(env, p.slug, state);
+      const j = state.publish.find((x) => x.item === id);
+      return Response.json({ res, caption: j?.posts?.tiktok?.text, tt: j?.tt });
+    }
     if (what === "publish") {
       // Move every publish job along now (incl. the Buffer queue recheck).
       const state = await st.load(env, p.slug);

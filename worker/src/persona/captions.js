@@ -68,7 +68,33 @@ function templateCaption(item) {
 // Openers her feed wore out (2026-10-23: a third of her captions began like these).
 const STALE = /^\s*(sun'?s out|summer (vibes|nights)|who'?s (ready|joining)|just another|new city, new vibes)/i;
 
+/** 🎙 A talk's caption: about what she says, not a place or an outfit (Gia's first got
+ * "Fall vibes in a cozy sweater", 2026-10-27). */
+async function writeTalk(env, b, item) {
+  const line = item.line || item.scene?.talk || "";
+  const topic = item.topic || item.scene?.topic || "relationships";
+  const prompt = `${b.name} says this in a short podcast-style video about ${topic}:\n"${line}"\n` +
+    `Return ONLY JSON: {"caption": "one short line that makes people stop and relate: the idea of what she says in ` +
+    `other words, 8-20 words, 0-1 emoji, no hashtags, no question bait, never ask to like/comment/follow/share/save", ` +
+    `"tags": ["6 lowercase hashtags people search for this idea (e.g. relationshipadvice, selflove, datingtips, ` +
+    `mindset), no # sign"]}`;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const d = await ask(env, prompt, 250);
+      const caption = okCaption(d.caption);
+      if (!caption || BAIT.test(caption)) continue;
+      return { caption, tiktok: caption, alt: `${b.name} talking on a podcast about ${topic}`,
+               tags: (Array.isArray(d.tags) ? d.tags : []).map(clean).filter((t) => t.length >= 3).slice(0, 8), talk: true };
+    } catch (e) {
+      console.log("talk caption failed", String(e).slice(0, 120));
+    }
+  }
+  const caption = okCaption(line.split(/(?<=[.!?])\s/)[0]) || `${b.name} on ${topic}`;
+  return { caption, tiktok: caption, alt: `${b.name} talking about ${topic}`, tags: ["relationshipadvice", "mindset", "podcast"], talk: true };
+}
+
 async function write(env, b, item, recent = []) {
+  if (item.talk || item.scene?.talk) return writeTalk(env, b, item);
   const month = new Date().toLocaleString("en-GB", { month: "long", timeZone: "Europe/Prague" });
   const prompt = `You write Instagram posts for ${b.name}, a ${b.age}-year-old fictional social-media persona from ${b.home_city}.
 Personality: ${b.personality}. It is ${month} now.
@@ -158,7 +184,8 @@ export async function forPost(env, p, b, state, item) {
   const stats = state.hashtags || {};
   const out = { alt: w.alt };
   for (const platform of ["instagram", "tiktok"]) {
-    const tags = choose(stats[platform] || {}, { scene: w.tags, trend, core });
+    // A talk's tags are about its idea; her glam niche tags don't fit it.
+    const tags = w.talk ? [...w.tags.slice(0, PER_POST - 1), ALWAYS] : choose(stats[platform] || {}, { scene: w.tags, trend, core });
     const text = platform === "tiktok" ? w.tiktok : w.caption;
     out[platform] = { tags, text: `${text}\n\n${tags.map((t) => "#" + t).join(" ")}` };
   }
