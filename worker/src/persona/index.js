@@ -403,11 +403,13 @@ async function onTap(env, p, cq, state, origin) {
     if (act === "up" && isRoster(p) && item.talk) {
       // 🎙 An MPT talk: to the aiqube TikTok inbox as a video draft (onDraftSchedule).
       const fileId = msg.video?.file_id || item.file_id;
+      // The vote shows on the message at once (the buttons became "✓ 👍").
+      const markup = kb([[["✓ 👍 · TikTok", `pv:noop:${itemId}`]]]);
       state.tt_videos = [...(state.tt_videos || []), { item: itemId, file_id: fileId, line: item.line || "", bw: !!item.bw,
         character: item.character, chat, message_id: msg.message_id, created: Date.now(),
-        caption: (msg.caption || "").replace(/\n(?:📤|📥|⏳|❌)[^\n]*$/u, ""), markup: msg.reply_markup || null }];
+        caption: (msg.caption || "").replace(/\n(?:📤|📥|⏳|❌)[^\n]*$/u, ""), markup }];
       await answer(env, cq.id, "👍 Going to the aiqube TikTok inbox (~15-45 min)");
-      await noteOnPost(env, msg, "📤 TikTok: sending to the aiqube inbox (~15-45 min)");
+      await noteOnPost(env, { ...msg, reply_markup: markup }, "📤 TikTok: sending to the aiqube inbox (~15-45 min)");
       return;
     }
     const res = act === "up" ? await queuePublish(env, p, state, cq, itemId) : false;
