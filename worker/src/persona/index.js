@@ -585,6 +585,7 @@ function queueTalk(p, state) {
  */
 async function talkDone(env, p, state, r, item, sent) {
   if (r.source) state.talk_used = [...(state.talk_used || []), r.source].slice(-300);
+  if (r.line) state.talk_lines = [...(state.talk_lines || []), r.line].slice(-80);
   const it = state.items[r.id];
   if (it) Object.assign(it, { talk: true, line: r.line || "", topic: r.topic || "", character: r.character || p.slug });
   const to = p.talk_cross && (await personas.get(env, p.talk_cross));
@@ -595,6 +596,7 @@ async function talkDone(env, p, state, r, item, sent) {
   try {
     const x = await tg(env, "sendVideo", { chat_id: to.chat_id, video: fileId, caption: m.caption, reply_markup: m.buttons });
     const other = await st.load(env, to.slug);
+    if (r.line) other.talk_lines = [...(other.talk_lines || []), r.line].slice(-80);
     other.items[r.id] = { kind: "video", tags: [r.topic || ""], scene: {}, caption: item?.caption || "", file_id: fileId,
                           message_id: x.message_id, talk: true, line: r.line || "", topic: r.topic || "",
                           character: r.character || p.slug };
@@ -609,6 +611,9 @@ async function talkLine(request, env) {
   const { persona, character, topic, transcript, title } = await request.json();
   const p = await personas.get(env, persona || "lena");
   const b = (await st.bible(env, character || persona)) || { name: character };
+  // Never the same idea twice: her persona's last lines (every girl of the roster),
+  // and the lines Lena's talks posted into it.
+  const said = [...((await st.load(env, p?.slug || persona || "lena")).talk_lines || []).slice(-40)];
   const prompt =
     `You write one short spoken line for ${b.name}, ${b.age || 24}, ${b.personality || "warm and confident"}, ` +
     `talking softly on a podcast about: ${topic}.\n` +
@@ -616,6 +621,7 @@ async function talkLine(request, env) {
                   `If it has no clear idea about ${topic}, return {"on_topic": false}. Otherwise take its strongest ` +
                   `single idea and say it in her own words -- do NOT copy its sentences.\n`
                 : `Pick one idea on this topic that many people relate to and argue about.\n`) +
+    (said.length ? `Already said (pick a DIFFERENT idea, not a rewording of any of these):\n- ${said.join("\n- ")}\n` : "") +
     `The line must be a clear, relatable truth or piece of advice that makes sense on its own to a stranger ` +
     `scrolling TikTok -- like "A man who really wants you never makes you guess. He texts back. He shows up. ` +
     `So if you're confused, that's your answer." No inside jokes, no slang puzzles, no rambling. ` +

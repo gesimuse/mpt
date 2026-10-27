@@ -81,6 +81,31 @@ def _search(source, limit=40):
     return found
 
 
+def _engagement(c):
+    """A short's numbers (full yt-dlp info: likes, comments, shares/reposts, saves),
+    scored by what people do with it, not only how many saw it: shares and saves
+    weigh most (the user, 2026-10-27: "sayings people share, send, save"). None
+    when it isn't viral enough: under 50k views or under 2% interacting."""
+    url = c["url"] or c["id"]
+    if not url.startswith("http"):
+        url = f"https://www.youtube.com/shorts/{c['id']}"
+    out = subprocess.run([sys.executable, "-m", "yt_dlp", "-q", "--no-warnings", "--skip-download", "-J", url],
+                         capture_output=True, text=True, timeout=120)
+    if out.returncode != 0:
+        return None
+    d = json.loads(out.stdout)
+    views = d.get("view_count") or c["views"] or 0
+    likes, comments = d.get("like_count") or 0, d.get("comment_count") or 0
+    shares = d.get("repost_count") or d.get("share_count") or 0
+    saves = d.get("save_count") or d.get("collect_count") or 0
+    acts = likes + 3 * comments + 5 * shares + 4 * saves
+    if views < 50_000 or acts < 0.02 * views:
+        return None
+    c.update(views=views, likes=likes, comments=comments, shares=shares, saves=saves,
+             title=(d.get("title") or d.get("description") or c["title"])[:200], url=d.get("webpage_url") or url)
+    return acts
+
+
 def _transcribe(wav, words=False):
     """Whisper large-v3 (Wan2GP's copy; the tokenizer comes from the Hub)."""
     import torch
@@ -105,7 +130,12 @@ def find_line(job, work):
     # first within each: mixed together, an off-topic 6.8M-view short won (2026-10-27).
     for src in job.get("sources") or []:
         found = [c for c in _search(src) if c["id"] not in used and 8 <= (c["seconds"] or 30) <= 90]
-        cands += sorted(found, key=lambda c: -c["views"])[:4]
+        scored = []
+        for c in sorted(found, key=lambda c: -c["views"])[:10]:
+            s = _engagement(c)
+            if s:
+                scored.append((s, c))
+        cands += [c for _, c in sorted(scored, key=lambda x: -x[0])[:4]]
     for c in cands[:8]:
         audio = work / f"src-{c['id']}.wav"
         try:
@@ -120,7 +150,7 @@ def find_line(job, work):
             continue
         if len(text.split()) < 15:
             continue
-        log(f"source {c['id']} ({c['views']} views): {c['title'][:60]!r}")
+        log(f"source {c['id']} ({c['views']} views, {c.get('shares', 0)} shares, {c.get('saves', 0)} saves, {c.get('likes', 0)} likes): {c['title'][:60]!r}")
         r = _worker("/persona/admin/laptop/talkline", {"persona": job.get("persona"), "character": job.get("character"),
                                                         "topic": job.get("topic"), "transcript": text[:3000],
                                                         "title": c["title"]})
