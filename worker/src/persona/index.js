@@ -393,7 +393,14 @@ async function onTap(env, p, cq, state, origin) {
     return answer(env, cq.id, "🔁 Posting again…");
   }
   if (act === "up" || act === "dn") {
-    if (state.voted.includes(itemId)) return answer(env, cq.id, "Already voted.");
+    if (state.voted.includes(itemId)) {
+      // A talk voted before its buttons showed it (2026-10-27): show it now.
+      if (isRoster(p) && state.items[itemId]?.talk && (state.tt_videos || []).some((v) => v.item === itemId)) {
+        await tg(env, "editMessageReplyMarkup", { chat_id: chat, message_id: msg.message_id,
+          reply_markup: kb([[["✓ 👍 · TikTok", `pv:noop:${itemId}`]]]) }).catch(() => {});
+      }
+      return answer(env, cq.id, "Already voted.");
+    }
     const item = state.items[itemId] || { tags: [] };
     const d = act === "up" ? 1 : -1;
     for (const t of item.tags || []) state.votes.tags[t] = (state.votes.tags[t] || 0) + d;
