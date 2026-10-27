@@ -77,7 +77,7 @@ def _search(source, limit=40):
             continue
         found.append({"id": e["id"], "url": e.get("url") or e.get("webpage_url") or "",
                       "views": e.get("view_count") or 0, "seconds": e.get("duration") or 0,
-                      "title": (e.get("title") or e.get("description") or "")[:200],
+                      "title": (e.get("description") or e.get("title") or "")[:600],
                       # A TikTok account listing carries every video's numbers already.
                       "counts": {k: e.get(k) for k in ("like_count", "comment_count", "repost_count", "save_count")}
                                 if e.get("like_count") is not None else None})
@@ -178,7 +178,7 @@ def find_line(job, work):
                                                         "topic": job.get("topic"), "transcript": text[:3000],
                                                         "title": c["title"]})
         if r.get("line"):
-            return {**r, "source": c["id"], "source_title": c["title"], "source_views": c["views"]}
+            return {**r, "source": c["id"], "source_title": c["title"], "source_views": c["views"], "source_url": c["url"]}
         log(f"source {c['id']} skipped: {r.get('why', 'off topic')}")
     # Nothing usable found: the Worker writes one on the topic by itself.
     r = _worker("/persona/admin/laptop/talkline", {"persona": job.get("persona"), "character": job.get("character"),

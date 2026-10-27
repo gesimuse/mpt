@@ -652,7 +652,10 @@ async function talkDone(env, p, state, r, item, sent) {
   if (r.source) state.talk_used = [...(state.talk_used || []), r.source].slice(-300);
   if (r.line) state.talk_lines = [...(state.talk_lines || []), r.line].slice(-80);
   const it = state.items[r.id];
-  if (it) Object.assign(it, { talk: true, line: r.line || "", topic: r.topic || "", character: r.character || p.slug, bw: !!r.bw });
+  // The source's own description and account: its caption style and hashtags are copied.
+  const src = { source_desc: String(r.source_title || "").slice(0, 600),
+                source_account: (/tiktok\.com\/@([\w.]+)/.exec(r.source_url || "") || [])[1] || "" };
+  if (it) Object.assign(it, { talk: true, line: r.line || "", topic: r.topic || "", character: r.character || p.slug, bw: !!r.bw, ...src });
   const to = p.talk_cross && (await personas.get(env, p.talk_cross));
   const fileId = sent?.video?.file_id;
   if (!to || !fileId) return;
@@ -663,7 +666,7 @@ async function talkDone(env, p, state, r, item, sent) {
     const other = await st.load(env, to.slug);
     if (r.line) other.talk_lines = [...(other.talk_lines || []), r.line].slice(-80);
     other.items[r.id] = { kind: "video", tags: [r.topic || ""], scene: {}, caption: item?.caption || "", file_id: fileId,
-                          message_id: x.message_id, talk: true, line: r.line || "", topic: r.topic || "", bw: !!r.bw,
+                          message_id: x.message_id, talk: true, line: r.line || "", topic: r.topic || "", bw: !!r.bw, ...src,
                           character: r.character || p.slug };
     await st.save(env, to.slug, other);
   } catch (e) {

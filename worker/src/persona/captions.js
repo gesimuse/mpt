@@ -73,7 +73,15 @@ const STALE = /^\s*(sun'?s out|summer (vibes|nights)|who'?s (ready|joining)|just
 async function writeTalk(env, b, item) {
   const line = item.line || item.scene?.talk || "";
   const topic = item.topic || item.scene?.topic || "relationships";
+  // The viral source's own description: its style and its hashtags are what worked.
+  const desc = String(item.source_desc || "");
+  const brand = clean(item.source_account || "").replace(/_/g, "");
+  const srcTags = [...desc.matchAll(/#([\p{L}\p{N}_]+)/gu)].map((m) => clean(m[1]))
+    .filter((t) => t.length >= 3 && !(brand && (t.includes(brand) || brand.includes(t))));
+  const example = desc.replace(/#[\p{L}\p{N}_]+/gu, "").replace(/\s+/g, " ").trim();
   const prompt = `${b.name} says this in a short podcast-style video about ${topic}:\n"${line}"\n` +
+    (example ? `A viral TikTok with the same idea was captioned: "${example.slice(0, 300)}" -- write in that same ` +
+               `style, length and punctuation (not its words).\n` : "") +
     `Return ONLY JSON: {"caption": "one short line that makes people stop and relate: the idea of what she says in ` +
     `other words, 8-20 words, 0-1 emoji, no hashtags, no question bait, never ask to like/comment/follow/share/save", ` +
     `"tags": ["6 lowercase hashtags people search for this idea (e.g. relationshipadvice, selflove, datingtips, ` +
@@ -83,14 +91,17 @@ async function writeTalk(env, b, item) {
       const d = await ask(env, prompt, 250);
       const caption = okCaption(d.caption);
       if (!caption || BAIT.test(caption)) continue;
-      return { caption, tiktok: caption, alt: `${b.name} talking on a podcast about ${topic}`,
-               tags: (Array.isArray(d.tags) ? d.tags : []).map(clean).filter((t) => t.length >= 3).slice(0, 8), talk: true };
+      const own = (Array.isArray(d.tags) ? d.tags : []).map(clean).filter((t) => t.length >= 3);
+      // Its source's hashtags first (up to 3), then ours.
+      const tags = [...new Set([...srcTags.slice(0, 3), ...own])].slice(0, 8);
+      return { caption, tiktok: caption, alt: `${b.name} talking on a podcast about ${topic}`, tags, talk: true };
     } catch (e) {
       console.log("talk caption failed", String(e).slice(0, 120));
     }
   }
   const caption = okCaption(line.split(/(?<=[.!?])\s/)[0]) || `${b.name} on ${topic}`;
-  return { caption, tiktok: caption, alt: `${b.name} talking about ${topic}`, tags: ["relationshipadvice", "mindset", "podcast"], talk: true };
+  return { caption, tiktok: caption, alt: `${b.name} talking about ${topic}`,
+           tags: [...new Set([...srcTags.slice(0, 3), "relationshipadvice", "mindset", "podcast"])], talk: true };
 }
 
 async function write(env, b, item, recent = []) {
