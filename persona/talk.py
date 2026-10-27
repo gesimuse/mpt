@@ -133,8 +133,10 @@ def find_line(job, work):
     ask = {"persona": job.get("persona"), "character": job.get("character"), "topic": job.get("topic")}
     # Asked for in the channel: the user's own quote, said as written ...
     if job.get("given_line"):
-        r = _worker("/persona/admin/laptop/talkline", {**ask, "given": job["given_line"]})
-        return {**r, "source": "", "source_title": "quote sent in Telegram"}
+        # On Kaggle the Worker wrote it all already (no call back: no secret there).
+        r = ({"line": job["given_line"], "keywords": job.get("given_keywords") or [], "caption": job.get("given_caption", "")}
+             if "given_keywords" in job else _worker("/persona/admin/laptop/talkline", {**ask, "given": job["given_line"]}))
+        return {**r, "source": "", "source_title": job.get("given_desc") or "quote sent in Telegram"}
     # ... or the video they sent: its idea, in her words.
     if job.get("given_url"):
         audio = work / "given.wav"

@@ -263,6 +263,7 @@ def talk(job, char, studio, out):
     """🎙 A talking video on her topic (persona/talk.py)."""
     from . import talk as talking
     work = config.home() / ".talk-work" / job["id"]
+    had = all((char.dir / "talk" / f).exists() for f in ("portrait.jpg", "voice_ref.wav"))
     try:
         final, info = talking.make(job, char, studio, work)
     except Exception as e:
@@ -274,6 +275,13 @@ def talk(job, char, studio, out):
     dest = out / f"{vid['id']}.mp4"
     shutil.copyfile(final, dest)
     shutil.rmtree(work, ignore_errors=True)
+    if not had and not os.environ.get("KAGGLE_KERNEL_RUN_TYPE"):
+        # Her new portrait and voice to her Kaggle dataset, for a talk made there.
+        try:
+            from . import kaggle as kg
+            log(kg.sync(char))
+        except Exception as e:
+            log(f"talk assets to Kaggle failed: {e}")
     vid.update({"path": dest.name, "request": job["id"], "audio": True, "caption": info.get("caption", "")})
     (out / f"{vid['id']}.json").write_text(json.dumps(vid, ensure_ascii=False))
     log(f"talk {vid['id']} for request {job['id']}: {info['line']!r}")

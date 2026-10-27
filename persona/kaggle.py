@@ -90,6 +90,11 @@ def sync(char):
             shutil.copyfile(ref, tmp / f"refs__{ref.name}")
         for ref in sorted((char.refs_dir / "sheet").glob("*.jpg")):
             shutil.copyfile(ref, tmp / f"refs__sheet__{ref.name}")
+        # Her 🎙 podcast portrait and reference voice, so a talk made on Kaggle (the
+        # laptop off for a day) looks and sounds like the ones made on the laptop.
+        for f in ("portrait.jpg", "voice_ref.wav"):
+            if (char.dir / "talk" / f).exists():
+                shutil.copyfile(char.dir / "talk" / f, tmp / f"talk__{f}")
         (tmp / "dataset-metadata.json").write_text(json.dumps(
             {"title": f"mpt-persona-{char.slug}", "id": ds, "licenses": [{"name": "other"}]}))
         # A dataset that does not exist answers `status` with 403, same as one we
@@ -130,6 +135,9 @@ def restore_layout(char_dir):
     (char_dir / "refs" / "sheet").mkdir(exist_ok=True)
     for f in char_dir.glob("refs__*"):
         f.rename(char_dir / "refs" / f.name[len("refs__"):].replace("sheet__", "sheet/", 1))
+    for f in char_dir.glob("talk__*"):
+        (char_dir / "talk").mkdir(exist_ok=True)
+        f.rename(char_dir / "talk" / f.name[len("talk__"):])
     (char_dir / "dataset-metadata.json").unlink(missing_ok=True)
 
 

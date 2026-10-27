@@ -676,7 +676,11 @@ async function talkDone(env, p, state, r, item, sent) {
 
 /** The line of a talk, rewritten from a popular short's transcript into her words. */
 async function talkLine(request, env) {
-  const { persona, character, topic, transcript, title, given, any_topic } = await request.json();
+  return Response.json(await writeTalkLine(env, await request.json()));
+}
+
+async function writeTalkLine(env, body) {
+  const { persona, character, topic, transcript, title, given, any_topic } = body;
   if (given) {
     // The user's own quote: said as written; only its keywords and a caption are made.
     let out = {};
@@ -684,7 +688,7 @@ async function talkLine(request, env) {
       out = await captions.ask(env, `For this short spoken quote:\n"${String(given).slice(0, 600)}"\n` +
         `Return JSON: {"keywords": ["3-6 single words from it to highlight"], "caption": "a one-line TikTok/Instagram caption, max 90 chars, no hashtags"}`, 200);
     } catch (e) { console.error("talk keywords", String(e).slice(0, 200)); }
-    return Response.json({ line: String(given).replace(/\s+/g, " ").trim(), keywords: (out.keywords || []).slice(0, 6).map(String),
+    return ({ line: String(given).replace(/\s+/g, " ").trim(), keywords: (out.keywords || []).slice(0, 6).map(String),
                            caption: String(out.caption || "").slice(0, 120) });
   }
   const p = await personas.get(env, persona || "lena");
@@ -711,18 +715,18 @@ async function talkLine(request, env) {
   for (let i = 0; i < 3; i++) {
     try {
       const out = await captions.ask(env, prompt, 300);
-      if (transcript && !any_topic && out.on_topic === false) return Response.json({ line: "", why: "off topic" });
+      if (transcript && !any_topic && out.on_topic === false) return ({ line: "", why: "off topic" });
       const line = String(out.line || "").replace(/\s+/g, " ").trim();
       const n = line.split(" ").length;
       if (n >= 15 && n <= 50 && !/#|https?:/.test(line)) {
-        return Response.json({ line, keywords: (out.keywords || []).slice(0, 6).map(String),
+        return ({ line, keywords: (out.keywords || []).slice(0, 6).map(String),
                                caption: String(out.caption || "").slice(0, 120) });
       }
     } catch (e) {
       console.error("talk line", String(e).slice(0, 200));
     }
   }
-  return Response.json({ line: "" });
+  return ({ line: "" });
 }
 
 const PUBLISH_WORDS = /^\s*(👍|post|publish|post it)\s*[.!]*\s*$/iu;
@@ -1511,6 +1515,7 @@ async function postResult(env, state, b, r, item, file) {
   recordResult(state, r, item, sent);
   if (replaced) swapAlbumPhoto(state, r, sent);
   await carouselProgress(env, state, r);
+  return sent;
 }
 
 async function postResults(env, p, state, b, kernel) {
@@ -1525,7 +1530,10 @@ async function postResults(env, p, state, b, kernel) {
       // A redo of an MPT album photo: swapped into the album like the laptop's
       // (2026-10-23: Kaggle's came back as a photo of its own, the album unchanged).
       if (r.shoot && r.replaces) await albumRedoDone(env, p, state, r, item, null, file);
-      else await postResult(env, state, r.character ? (await st.bible(env, r.character)) || b : b, r, item, file);
+      else {
+        const sent = await postResult(env, state, r.character ? (await st.bible(env, r.character)) || b : b, r, item, file);
+        if (r.talk && r.ok) await talkDone(env, p, state, r, item, sent);
+      }
     } catch (e) {
       console.error("job result post failed", r.request, String(e));
       continue;
@@ -1681,6 +1689,7 @@ async function jobPayload(env, origin, state, batch) {
     } else if (q.kind === "talk") {
       jobs.push({ id: q.id, kind: "talk", topic: q.topic, sources: q.sources, chat: q.chat, bw: !!q.bw,
                   given_line: q.given_line || "", given_url: q.given_url || "", message_id: q.message_id || null,
+                  ...(q.given_keywords ? { given_keywords: q.given_keywords, given_caption: q.given_caption || "" } : {}),
                   used: (state.talk_used || []).slice(-300) });
     } else if (q.kind === "recreate") {
       jobs.push({ id: q.id, kind: "recreate", url: q.url, seconds: q.seconds, chat: q.chat, message_id: q.message_id,
@@ -2263,6 +2272,22 @@ async function advanceJobs(env, p, origin) {
     notes.push("render: laptop quiet, pushed to Kaggle");
   }
 
+  // 🎙 The laptop off for a whole day: one talk a day goes to Kaggle (2026-10-27),
+  // its line written here (Kaggle gets no secret to ask for one).
+  const day = st.today();
+  if (!laptopUp && Date.now() - (await laptopSeen(env)) > 24 * 3600 * 1000 && state.kaggle_talk_day !== day) {
+    const q = state.queue.find((x) => x.kind === "talk" && x.local_only);
+    if (q) {
+      const r = await writeTalkLine(env, { persona: p.slug, character: q.character, topic: q.topic,
+                                           ...(q.given_line ? { given: q.given_line } : { transcript: "" }) });
+      if (r.line) {
+        Object.assign(q, { given_line: r.line, given_keywords: r.keywords || [], given_caption: r.caption || "", local_only: false });
+        state.kaggle_talk_day = day;
+        changed = true;
+        notes.push(`talk ${q.id}: laptop off a day, to Kaggle`);
+      }
+    }
+  }
   for (const [name, lane] of Object.entries(LANES)) {
     const kernel = lane.kernel(env, p);
     const running = state.lanes[name] || [];
