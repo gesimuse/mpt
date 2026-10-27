@@ -612,16 +612,21 @@ async function talkLine(request, env) {
   const prompt =
     `You write one short spoken line for ${b.name}, ${b.age || 24}, ${b.personality || "warm and confident"}, ` +
     `talking softly on a podcast about: ${topic}.\n` +
-    (transcript ? `A popular short on this topic says:\n"""${String(transcript).slice(0, 2500)}"""\n` +
-                  `Take its strongest single idea and say it in her own words -- do NOT copy its sentences.\n`
+    (transcript ? `A popular short says:\n"""${String(transcript).slice(0, 2500)}"""\n` +
+                  `If it has no clear idea about ${topic}, return {"on_topic": false}. Otherwise take its strongest ` +
+                  `single idea and say it in her own words -- do NOT copy its sentences.\n`
                 : `Pick one idea on this topic that many people relate to and argue about.\n`) +
+    `The line must be a clear, relatable truth or piece of advice that makes sense on its own to a stranger ` +
+    `scrolling TikTok -- like "A man who really wants you never makes you guess. He texts back. He shows up. ` +
+    `So if you're confused, that's your answer." No inside jokes, no slang puzzles, no rambling. ` +
     `Rules: 22-38 words, 2-4 short sentences, plain spoken English, a hook in the first 5 words, ` +
     `a punchline at the end. Never explicit, no hashtags, no emojis, no names, no "subscribe"/"follow". ` +
-    `Return JSON: {"line": "...", "keywords": ["3-6 single words from the line to highlight"], ` +
+    `Return JSON: {"on_topic": true, "line": "...", "keywords": ["3-6 single words from the line to highlight"], ` +
     `"caption": "a one-line TikTok/Instagram caption, max 90 chars, no hashtags"}`;
   for (let i = 0; i < 3; i++) {
     try {
       const out = await captions.ask(env, prompt, 300);
+      if (transcript && out.on_topic === false) return Response.json({ line: "", why: "off topic" });
       const line = String(out.line || "").replace(/\s+/g, " ").trim();
       const n = line.split(" ").length;
       if (n >= 15 && n <= 50 && !/#|https?:/.test(line)) {

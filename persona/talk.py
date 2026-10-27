@@ -101,10 +101,12 @@ def find_line(job, work):
     her own line by the Worker. Returns {line, keywords, source, source_title}."""
     used = set(job.get("used") or [])
     cands = []
+    # Sources in their order (the account made for her topic first), most-viewed
+    # first within each: mixed together, an off-topic 6.8M-view short won (2026-10-27).
     for src in job.get("sources") or []:
-        cands += [c for c in _search(src) if c["id"] not in used and 8 <= (c["seconds"] or 30) <= 90]
-    cands.sort(key=lambda c: -c["views"])
-    for c in cands[:6]:
+        found = [c for c in _search(src) if c["id"] not in used and 8 <= (c["seconds"] or 30) <= 90]
+        cands += sorted(found, key=lambda c: -c["views"])[:4]
+    for c in cands[:8]:
         audio = work / f"src-{c['id']}.wav"
         try:
             raw = work / f"src-{c['id']}"
@@ -124,6 +126,7 @@ def find_line(job, work):
                                                         "title": c["title"]})
         if r.get("line"):
             return {**r, "source": c["id"], "source_title": c["title"], "source_views": c["views"]}
+        log(f"source {c['id']} skipped: {r.get('why', 'off topic')}")
     # Nothing usable found: the Worker writes one on the topic by itself.
     r = _worker("/persona/admin/laptop/talkline", {"persona": job.get("persona"), "character": job.get("character"),
                                                     "topic": job.get("topic"), "transcript": "", "title": ""})
