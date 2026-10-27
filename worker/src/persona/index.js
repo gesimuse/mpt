@@ -357,16 +357,20 @@ async function learnFromPosts(env, p, state) {
     for (const [key, platform] of [["ig", "instagram"], ["tt", "tiktok"]]) {
       const rec = job[key];
       if (!rec?.post || rec.status !== "done" || rec.learned || now - (rec.sent_at || now) < 48 * 3600 * 1000) continue;
+      // Asked at 2 days and once more at 7 (was hourly while the numbers were 0: most of
+      // Buffer's 1000 calls a month, 2026-10-27).
+      if ((rec.metric_asks || 0) >= 1 && now - (rec.sent_at || now) < 7 * 86400 * 1000) continue;
       // A Story's views aren't comparable with feed posts: not scored.
       if (key === "ig" && job.story) { rec.learned = "story"; changed = true; continue; }
       try {
+        rec.metric_asks = (rec.metric_asks || 0) + 1;
         const post = await social.metrics(env, p, rec.post);
         const value = captions.postValue(post?.metrics);
         if (value > 0) {
           const hour = Number(new Date(rec.sent_at).toLocaleString("en-GB", { timeZone: "Europe/Prague", hour: "2-digit", hour12: false }));
           captions.learn(state, platform, job.posts?.[platform]?.tags || [], value, { kind: job.kind, hour });
           rec.learned = true;
-        } else if (now - rec.sent_at > 7 * 86400 * 1000) rec.learned = "no numbers";
+        } else if (now - rec.sent_at > 7 * 86400 * 1000 || rec.metric_asks >= 2) rec.learned = "no numbers";
         changed = true;
       } catch (e) {
         console.error("metrics failed", rec.post, String(e).slice(0, 200));

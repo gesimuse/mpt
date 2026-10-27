@@ -24,13 +24,25 @@ async function token(env, slug) {
   return (await env.PERSONA.get(`buffertoken:${slug}`)) || env.BUFFER_ACCESS_TOKEN;
 }
 
+/**
+ * One Buffer API call. Buffer's free API allows 1000 calls per 30 days per token
+ * (also 600 a day, 150 per 15 min); Lena's ran out on 2026-10-27 with 17 days to the
+ * reset, from status polling. Once Buffer says a window is used up, no call is made
+ * until its retry-after (KV bufferblock:<slug>): each refused call counts too.
+ */
 async function gql(env, slug, query, variables) {
+  const blocked = Number((await env.PERSONA.get(`bufferblock:${slug}`)) || 0);
+  if (blocked > Date.now()) throw new Error(`Buffer rate limit: no calls until ${new Date(blocked).toISOString().slice(0, 16)}`);
   const r = await fetch(API, {
     method: "POST",
     headers: { Authorization: `Bearer ${await token(env, slug)}`, "content-type": "application/json" },
     body: JSON.stringify({ query, variables }),
   });
   const d = await r.json();
+  if (d.errors?.some((e) => e.extensions?.code === "RATE_LIMIT_EXCEEDED")) {
+    const wait = Number(r.headers.get("retry-after") || 3600) * 1000;
+    await env.PERSONA.put(`bufferblock:${slug}`, String(Date.now() + wait), { expirationTtl: Math.max(60, Math.ceil(wait / 1000) + 60) });
+  }
   if (d.errors?.length) throw new Error(`Buffer: ${d.errors.map((e) => e.message).join("; ")}`.slice(0, 300));
   return d.data;
 }
@@ -111,6 +123,8 @@ async function poll(env, p, rec) {
  * Move one publish job along: start each platform once, then poll until both are
  * done or failed. Failures are recorded on the job, not thrown.
  */
+const POLL_AT = [10, 30, 120, 360].map((m) => m * 60 * 1000);
+
 export async function advance(env, p, job, mediaUrl) {
   const now = Date.now();
   // Buffer rate-limits: polling every scheduled post on every 30s laptop check-in
@@ -119,7 +133,7 @@ export async function advance(env, p, job, mediaUrl) {
   if (job.retry_at && now < job.retry_at) return job;
   for (const [key, platform] of [["ig", "instagram"], ["tt", "tiktok"]]) {
     try {
-      if (job[key]?.mode === "queued" && needsRecheck({ [key]: job[key] })) await recheck(env, p, job, key, mediaUrl);
+      if (job[key]?.mode === "queued" && needsRecheck({ due: job.due, [key]: job[key] })) await recheck(env, p, job, key, mediaUrl);
     } catch (e) {
       if (/too many requests|rate limit|429/i.test(String(e))) { job.retry_at = now + 60 * 60 * 1000; continue; }
       if (job[key]) job[key] = { ...job[key], recheck_error: String(e.message || e).slice(0, 200), checked_at: now };
@@ -128,8 +142,14 @@ export async function advance(env, p, job, mediaUrl) {
     try {
       if (!cur) job[key] = await start(env, p, job, platform, mediaUrl);
       else if (cur.status === "processing") {
-        if ((job.due || 0) > now || now - (cur.polled_at || 0) < 5 * 60 * 1000) continue;
-        job[key] = { ...(await poll(env, p, cur)), polled_at: now };
+        // Asked 10 min, 30 min, 2h and 6h after it was due (was every 5 min for 6h).
+        const n = cur.polls || 0;
+        if (n >= POLL_AT.length) {
+          job[key] = { ...cur, status: "failed", note: "Buffer didn't confirm it within 6h -- check the app" };
+          continue;
+        }
+        if (now < (job.due || cur.sent_at || 0) + POLL_AT[n]) continue;
+        job[key] = { ...(await poll(env, p, cur)), polled_at: now, polls: n + 1 };
       }
     } catch (e) {
       const msg = String(e.message || e);
@@ -167,12 +187,15 @@ export async function raw(env, p, query, variables) {
   try { return await gql(env, p.slug, query, variables); } catch (e) { return { error: String(e) }; }
 }
 
+/** A post handed to Buffer's queue is looked at twice: an hour after it was due, and a
+ * day after (was every 6h for 14 days -- most of the 1000 calls a month). */
 export function needsRecheck(job) {
   const now = Date.now();
   return ["ig", "tt"].some((k) => {
     const r = job[k];
-    return r?.mode === "queued" && !r.final && r.post && now - (r.sent_at || 0) < 14 * 86400 * 1000
-      && now - (r.checked_at || r.sent_at || 0) > 6 * 3600 * 1000;
+    if (r?.mode !== "queued" || r.final || !r.post) return false;
+    const base = job.due || r.sent_at || 0, c = r.checked_at || 0;
+    return (!c && now > base + 3600 * 1000) || (c && c < base + 24 * 3600 * 1000 && now > base + 24 * 3600 * 1000);
   });
 }
 
