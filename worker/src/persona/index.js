@@ -582,11 +582,11 @@ function talkTopic(p, who) {
 }
 
 /** One 🎙 talk queued for the laptop: the next talker in rotation (MPT) or her (Lena). */
-function queueTalk(p, state) {
-  // The laptop was off: don't pile up a day's worth.
-  if (state.queue.filter((q) => q.kind === "talk").length >= 3) return `${p.slug}: talks already waiting`;
-  let who = p.slug;
-  if (isRoster(p)) {
+function queueTalk(p, state, extra = null) {
+  // The laptop was off: don't pile up a day's worth (one asked for in the channel always goes).
+  if (!extra && state.queue.filter((q) => q.kind === "talk").length >= 3) return `${p.slug}: talks already waiting`;
+  let who = extra?.who || p.slug;
+  if (isRoster(p) && !extra?.who) {
     const pool = (p.talkers?.length ? p.talkers : p.characters);
     who = pool[(state.talk_rotation || 0) % pool.length];
     state.talk_rotation = (state.talk_rotation || 0) + 1;
@@ -596,8 +596,44 @@ function queueTalk(p, state) {
   const bw = !!((state.talk_n || 0) % 2);
   state.talk_n = (state.talk_n || 0) + 1;
   state.queue.push({ id: `talk-${who}-${Date.now()}`, kind: "talk", character: who, topic: t.topic, sources: t.sources,
-                     chat: p.chat_id, local_only: true, bw });
+                     chat: p.chat_id, local_only: true, bw,
+                     ...(extra ? { given_line: extra.line || "", given_url: extra.url || "", message_id: extra.message_id } : {}) });
   return `${p.slug}: 🎙 talk queued for ${who} (${t.topic})`;
+}
+
+/**
+ * A talk asked for in the channel: "🎙 <quote>", "talk <quote>", "talk Gia: <quote>",
+ * "talk <tiktok/youtube link>" (its words, rewritten). In MPT a girl's name picks her,
+ * else one at random; in Lena's channel it is Lena. The talk comes as a reply.
+ */
+async function onTalkRequest(env, p, post, state) {
+  const text = String(post.text || "").trim();
+  const m = /^(?:🎙️?|talk\b)\s*(.*)$/isu.exec(text);
+  if (!m || post.reply_to_message) return false;
+  let rest = m[1].trim();
+  let who = null;
+  if (isRoster(p)) {
+    const pool = p.talkers?.length ? p.talkers : p.characters;
+    for (const slug of pool) {
+      const name = ((await st.bible(env, slug))?.name || slug.replace(/^mpt-/, "")).toLowerCase();
+      const n = new RegExp(`^${name}\\b[\\s:,-]*`, "i");
+      if (n.test(rest)) { who = slug; rest = rest.replace(n, "").trim(); break; }
+    }
+    if (!who) who = pool[Math.floor(Math.random() * pool.length)];
+  }
+  const url = (/https?:\/\/\S+/.exec(rest) || [])[0] || "";
+  const line = url ? "" : rest.replace(/^["“”']+|["“”']+$/g, "").trim();
+  if (!url && line.split(/\s+/).length < 4) {
+    await tg(env, "sendMessage", { chat_id: post.chat.id, reply_to_message_id: post.message_id,
+      text: "🎙 Send the quote after it: 🎙 <quote>, talk Gia: <quote>, or talk <TikTok link>." });
+    return true;
+  }
+  const msg = queueTalk(p, state, { who: who || p.slug, line, url, message_id: post.message_id });
+  const b = (await st.bible(env, who || p.slug)) || { name: who || p.slug };
+  await tg(env, "sendMessage", { chat_id: post.chat.id, reply_to_message_id: post.message_id,
+    text: `🎙 Queued: ${b.name} ${url ? "says this video's idea in her words" : "says your quote"}. It comes as a reply here in ~25-40 min.` });
+  console.log(msg);
+  return true;
 }
 
 /**
@@ -629,7 +665,17 @@ async function talkDone(env, p, state, r, item, sent) {
 
 /** The line of a talk, rewritten from a popular short's transcript into her words. */
 async function talkLine(request, env) {
-  const { persona, character, topic, transcript, title } = await request.json();
+  const { persona, character, topic, transcript, title, given, any_topic } = await request.json();
+  if (given) {
+    // The user's own quote: said as written; only its keywords and a caption are made.
+    let out = {};
+    try {
+      out = await captions.ask(env, `For this short spoken quote:\n"${String(given).slice(0, 600)}"\n` +
+        `Return JSON: {"keywords": ["3-6 single words from it to highlight"], "caption": "a one-line TikTok/Instagram caption, max 90 chars, no hashtags"}`, 200);
+    } catch (e) { console.error("talk keywords", String(e).slice(0, 200)); }
+    return Response.json({ line: String(given).replace(/\s+/g, " ").trim(), keywords: (out.keywords || []).slice(0, 6).map(String),
+                           caption: String(out.caption || "").slice(0, 120) });
+  }
   const p = await personas.get(env, persona || "lena");
   const b = (await st.bible(env, character || persona)) || { name: character };
   // Never the same idea twice: her persona's last lines (every girl of the roster),
@@ -639,8 +685,9 @@ async function talkLine(request, env) {
     `You write one short spoken line for ${b.name}, ${b.age || 24}, ${b.personality || "warm and confident"}, ` +
     `talking softly on a podcast about: ${topic}.\n` +
     (transcript ? `A popular short says:\n"""${String(transcript).slice(0, 2500)}"""\n` +
-                  `If it has no clear idea about ${topic}, return {"on_topic": false}. Otherwise take its strongest ` +
-                  `single idea and say it in her own words -- do NOT copy its sentences.\n`
+                  (any_topic ? `Take its strongest single idea (whatever it is about) and say it in her own words -- do NOT copy its sentences.\n`
+                             : `If it has no clear idea about ${topic}, return {"on_topic": false}. Otherwise take its strongest ` +
+                               `single idea and say it in her own words -- do NOT copy its sentences.\n`)
                 : `Pick one idea on this topic that many people relate to and argue about.\n`) +
     (said.length ? `Already said (pick a DIFFERENT idea, not a rewording of any of these):\n- ${said.join("\n- ")}\n` : "") +
     `The line must be a clear, relatable truth or piece of advice that makes sense on its own to a stranger ` +
@@ -653,7 +700,7 @@ async function talkLine(request, env) {
   for (let i = 0; i < 3; i++) {
     try {
       const out = await captions.ask(env, prompt, 300);
-      if (transcript && out.on_topic === false) return Response.json({ line: "", why: "off topic" });
+      if (transcript && !any_topic && out.on_topic === false) return Response.json({ line: "", why: "off topic" });
       const line = String(out.line || "").replace(/\s+/g, " ").trim();
       const n = line.split(" ").length;
       if (n >= 15 && n <= 50 && !/#|https?:/.test(line)) {
@@ -824,6 +871,8 @@ async function handleUpdates(env, updates, origin) {
         if (update.message_reaction_count) { if (await onReaction(env, p, update.message_reaction_count, state, origin)) changed = true; }
         else if (cq?.data?.startsWith("pv:")) { await onTap(env, p, cq, state, origin); changed = true; }
         // A TikTok/Facebook link or video counts as 🎭 even when it is sent as a reply.
+        // "🎙 <quote>" / "talk Gia: <quote>" / "talk <tiktok link>": a talk on request.
+        else if (post && (await onTalkRequest(env, p, post, state))) changed = true;
         else if (post && (await onRecreateRequest(env, post, state))) changed = true;
         // A photo uploaded into her channel (not by the bot): 🖼 a carousel of it.
         // (Bot posts, aibeauty's included, carry buttons; a hand upload has none.)
@@ -1604,6 +1653,7 @@ async function jobPayload(env, origin, state, batch) {
                   ...(q.shoot ? { shoot: q.shoot, replaces: q.replaces } : {}) });
     } else if (q.kind === "talk") {
       jobs.push({ id: q.id, kind: "talk", topic: q.topic, sources: q.sources, chat: q.chat, bw: !!q.bw,
+                  given_line: q.given_line || "", given_url: q.given_url || "", message_id: q.message_id || null,
                   used: (state.talk_used || []).slice(-300) });
     } else if (q.kind === "recreate") {
       jobs.push({ id: q.id, kind: "recreate", url: q.url, seconds: q.seconds, chat: q.chat, message_id: q.message_id,

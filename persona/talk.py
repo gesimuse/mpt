@@ -130,6 +130,23 @@ def _transcribe(wav, words=False):
 def find_line(job, work):
     """A popular short on her topic, not used before, transcribed and rewritten into
     her own line by the Worker. Returns {line, keywords, source, source_title}."""
+    ask = {"persona": job.get("persona"), "character": job.get("character"), "topic": job.get("topic")}
+    # Asked for in the channel: the user's own quote, said as written ...
+    if job.get("given_line"):
+        r = _worker("/persona/admin/laptop/talkline", {**ask, "given": job["given_line"]})
+        return {**r, "source": "", "source_title": "quote sent in Telegram"}
+    # ... or the video they sent: its idea, in her words.
+    if job.get("given_url"):
+        audio = work / "given.wav"
+        subprocess.run([sys.executable, "-m", "yt_dlp", "-q", "--no-warnings", "-f", "bestaudio/best",
+                        "-o", str(work / "given.%(ext)s"), job["given_url"]], check=True, timeout=300)
+        got = next(p for p in work.glob("given.*") if p.suffix != ".wav")
+        _ff("-i", got, "-t", "90", "-ac", "1", "-ar", "16000", audio)
+        text = _transcribe(audio)
+        r = _worker("/persona/admin/laptop/talkline", {**ask, "transcript": text[:3000], "title": "", "any_topic": True})
+        if not r.get("line"):
+            raise RuntimeError("couldn't make a line from that video")
+        return {**r, "source": "", "source_title": job["given_url"]}
     used = set(job.get("used") or [])
     cands = []
     # Sources in their order (the account made for her topic first), most-viewed
