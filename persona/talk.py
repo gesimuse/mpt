@@ -66,8 +66,14 @@ def _search(source, limit=40):
         url = f"https://www.tiktok.com/{source.split(':', 1)[1]}"
     else:
         url = f"ytsearch{limit}:{source} #shorts"
-    out = subprocess.run([sys.executable, "-m", "yt_dlp", "-q", "--no-warnings", "--flat-playlist",
-                          "--playlist-end", str(limit), "-J", url], capture_output=True, text=True, timeout=180)
+    cmd = [sys.executable, "-m", "yt_dlp", "-q", "--no-warnings", "--flat-playlist", "--playlist-end", str(limit), "-J", url]
+    out = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
+    if out.returncode != 0:
+        # Right after the laptop wakes the network isn't back yet (2026-10-28: TikTok's
+        # listing failed, then worked a minute later): once more after a pause.
+        import time
+        time.sleep(30)
+        out = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
     if out.returncode != 0:
         log(f"search {source!r} failed: {out.stderr.strip()[-200:]}")
         return []
