@@ -268,12 +268,30 @@ async function queuePublish(env, p, state, cq, itemId) {
   state.publish.push({
     id: `pub-${itemId}-${Date.now()}`, item: itemId, kind: isPhoto ? "photo" : "video",
     created: Date.now(), due: nextSlot(env, state), recreate: !!known.recreate, story: isPhoto && feedFull(env, state),
-    ...(known.talk ? { talk: true, bw: !!known.bw } : {}),
-    file_id: fileId, audio: !!known.audio || !!known.recreate,
+    ...(known.talk ? { talk: true, bw: !!known.bw, tt_due: nextTalkSlot(env, state) } : {}),
+    file_id: fileId, audio: !!known.audio || !!known.recreate || !!known.talk,
     posts, caption: posts.instagram.text,
     chat, message_id: msg.message_id, base: (msg.caption ?? fwdCaption ?? "").split("\n\n━━")[0],
   });
   return true;
+}
+
+/**
+ * A 👍'd talk's TikTok time: now, or PERSONA_TT_GAP_H (default 2) hours after the
+ * last one. Buffer's own queue had one TikTok slot a day, so talks voted on
+ * 2026-10-28 were due on the 29th and 30th.
+ */
+function nextTalkSlot(env, state) {
+  const gap = Number(env.PERSONA_TT_GAP_H || 2) * 3600 * 1000;
+  const last = Math.max(0, ...state.publish.map((j) => j.tt_due || 0));
+  let t = Math.max(Date.now() + 2 * 60 * 1000, last + gap);
+  // Not at night (23:00-07:00 Bucharest, UTC+2): the next 07:00.
+  const h = (new Date(t).getUTCHours() + 2) % 24;
+  if (h >= 23 || h < 7) {
+    const d = new Date(t + 2 * 3600 * 1000 + (h >= 23 ? 86400 * 1000 : 0));
+    t = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 5);
+  }
+  return t;
 }
 
 /**
@@ -666,7 +684,7 @@ async function talkDone(env, p, state, r, item, sent) {
     const other = await st.load(env, to.slug);
     if (r.line) other.talk_lines = [...(other.talk_lines || []), r.line].slice(-80);
     other.items[r.id] = { kind: "video", tags: [r.topic || ""], scene: {}, caption: item?.caption || "", file_id: fileId,
-                          message_id: x.message_id, talk: true, line: r.line || "", topic: r.topic || "", bw: !!r.bw, ...src,
+                          message_id: x.message_id, talk: true, audio: true, line: r.line || "", topic: r.topic || "", bw: !!r.bw, ...src,
                           character: r.character || p.slug };
     await st.save(env, to.slug, other);
   } catch (e) {
@@ -2272,19 +2290,24 @@ async function advanceJobs(env, p, origin) {
     notes.push("render: laptop quiet, pushed to Kaggle");
   }
 
-  // 🎙 The laptop off for a whole day: one talk a day goes to Kaggle (2026-10-27),
-  // its line written here (Kaggle gets no secret to ask for one).
+  // 🎙 A talk waiting an hour with the laptop off goes to Kaggle, up to the day's
+  // talk_hours count (was only after a whole day off, one a day -- 2026-10-28: the
+  // laptop asleep overnight held the morning's talks until noon). Its line is
+  // written here (Kaggle gets no secret to ask for one).
   const day = st.today();
-  if (!laptopUp && Date.now() - (await laptopSeen(env)) > 24 * 3600 * 1000 && state.kaggle_talk_day !== day) {
-    const q = state.queue.find((x) => x.kind === "talk" && x.local_only);
+  const kt = state.kaggle_talks?.day === day ? state.kaggle_talks.n : 0;
+  const ktCap = Number(env.PERSONA_KAGGLE_TALKS_PER_DAY || (p.talk_hours || []).length || 1);
+  if (!laptopUp && Date.now() - (await laptopSeen(env)) > 3600 * 1000 && kt < ktCap &&
+      !state.queue.some((x) => x.kind === "talk" && !x.local_only)) {
+    const q = state.queue.find((x) => x.kind === "talk" && x.local_only && Date.now() - (x.created || 0) > 3600 * 1000);
     if (q) {
       const r = await writeTalkLine(env, { persona: p.slug, character: q.character, topic: q.topic,
                                            ...(q.given_line ? { given: q.given_line } : { transcript: "" }) });
       if (r.line) {
         Object.assign(q, { given_line: r.line, given_keywords: r.keywords || [], given_caption: r.caption || "", local_only: false });
-        state.kaggle_talk_day = day;
+        state.kaggle_talks = { day, n: kt + 1 };
         changed = true;
-        notes.push(`talk ${q.id}: laptop off a day, to Kaggle`);
+        notes.push(`talk ${q.id}: laptop off, to Kaggle`);
       }
     }
   }

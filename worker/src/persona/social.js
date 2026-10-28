@@ -93,8 +93,12 @@ async function start(env, p, job, platform, mediaUrl) {
   // Into Buffer's own queue: it posts at the times in her Buffer posting schedule,
   // and nothing here polls it (polling scheduled posts got "Too many requests",
   // 2026-10-17). PERSONA_BUFFER_QUEUE=0 goes back to our own slots.
-  const queue = env.PERSONA_BUFFER_QUEUE !== "0" && mode === "automatic";
-  const when = queue ? { mode: "addToQueue" }
+  // A talk on TikTok goes out at its own spaced time (index.js nextTalkSlot), not at
+  // Buffer's slots; looked at like a queued post (twice), not polled.
+  const talkAt = platform === "tiktok" && job.talk && job.tt_due;
+  const queue = env.PERSONA_BUFFER_QUEUE !== "0" && mode === "automatic" && !talkAt;
+  const when = talkAt ? (talkAt > Date.now() + 60 * 1000 ? { mode: "customScheduled", dueAt: new Date(talkAt).toISOString() } : { mode: "shareNow" })
+    : queue ? { mode: "addToQueue" }
     : job.due && job.due > Date.now() + 60 * 1000 ? { mode: "customScheduled", dueAt: new Date(job.due).toISOString() }
     : { mode: "shareNow" };
   const d = await gql(env, p.slug, CREATE, { input: {
@@ -102,7 +106,8 @@ async function start(env, p, job, platform, mediaUrl) {
   } });
   const res = d.createPost;
   if (res.__typename !== "PostActionSuccess") throw new Error(`${res.__typename}: ${res.message || ""}`);
-  if (queue) return { mode: "queued", post: res.post.id, status: "done", sent_at: Date.now(), links: 2 };
+  if (queue || (talkAt && res.post.status !== "sent" && res.post.status !== "error"))
+    return { mode: "queued", post: res.post.id, status: "done", sent_at: Date.now(), links: 2, ...(talkAt ? { at: talkAt } : {}) };
   return settle({ mode, post: res.post.id }, res.post);
 }
 
@@ -133,7 +138,7 @@ export async function advance(env, p, job, mediaUrl) {
   if (job.retry_at && now < job.retry_at) return job;
   for (const [key, platform] of [["ig", "instagram"], ["tt", "tiktok"]]) {
     try {
-      if (job[key]?.mode === "queued" && needsRecheck({ due: job.due, [key]: job[key] })) await recheck(env, p, job, key, mediaUrl);
+      if (job[key]?.mode === "queued" && needsRecheck({ due: (key === "tt" && job.tt_due) || job.due, [key]: job[key] })) await recheck(env, p, job, key, mediaUrl);
     } catch (e) {
       if (/too many requests|rate limit|429/i.test(String(e))) { job.retry_at = now + 60 * 60 * 1000; continue; }
       if (job[key]) job[key] = { ...job[key], recheck_error: String(e.message || e).slice(0, 200), checked_at: now };
@@ -285,6 +290,8 @@ export function statusLine(job) {
       : "✅ Instagram: posted"),
     line("TikTok", job.tt, (r) => r.mode === "notification"
       ? "📲 TikTok: Buffer sent it to your phone -- add a song and post"
+      : r.mode === "queued" && r.at && !r.final ? `🗓 TikTok: posts ${new Date(r.at).toLocaleString("en-GB", { timeZone: "Europe/Bucharest", weekday: "short", hour: "2-digit", minute: "2-digit" })}`
+      : r.mode === "queued" && !r.final ? "🗓 TikTok: in Buffer's queue"
       : "✅ TikTok: posted with its sound"),
   ].join("\n");
 }
