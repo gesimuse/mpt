@@ -60,18 +60,44 @@ def _multipart(fields, files):
     return b"".join(parts), f"multipart/form-data; boundary={boundary}"
 
 
+GPU_IDLE_KILL_S = 20 * 60
+
+
+def _gpu_busy():
+    """GPU utilisation > 0 (True if it can't be read: then never killed for it)."""
+    try:
+        out = subprocess.check_output(["nvidia-smi", "--query-gpu=utilization.gpu", "--format=csv,noheader,nounits"],
+                                      timeout=20).decode()
+        return int(out.split()[0]) > 0
+    except Exception:
+        return True
+
+
 def heartbeat_while(proc, job_id):
     """Keep checking in while a job runs (no new job is taken): the Worker hands a
-    job back to Kaggle only when the laptop goes quiet."""
+    job back to Kaggle only when the laptop goes quiet. A job whose GPU sits idle
+    for 20 minutes is hung -- a lid closed mid-render left one at 100% CPU and 0% GPU
+    for 5 hours (2026-10-29) -- and is killed; returns True then."""
+    idle_since = None
     while proc.poll() is None:
         try:
             _call("/persona/admin/laptop/claim", {"busy": job_id})
         except Exception as e:
             log(f"check-in failed: {e}")
+        if _gpu_busy():
+            idle_since = None
+        elif idle_since is None:
+            idle_since = time.monotonic()
+        elif time.monotonic() - idle_since > GPU_IDLE_KILL_S:
+            log(f"job {job_id}: GPU idle {GPU_IDLE_KILL_S // 60} min, hung -- killed")
+            proc.kill()
+            proc.wait()
+            return True
         for _ in range(POLL_S):
             if proc.poll() is not None:
-                return
+                return False
             time.sleep(1)
+    return False
 
 
 UNSENT = Path.home() / ".cache" / "mpt-persona" / "unsent"
@@ -184,10 +210,10 @@ def run_job(job):
         for attempt in range(3):
             proc = subprocess.Popen([sys.executable, "-m", "persona.jobs", str(work / "job.json"), str(work)],
                                     cwd=str(config.REPO))
-            heartbeat_while(proc, job["id"])
-            if results_file.exists() or proc.returncode != -9 or attempt == 2:
+            hung = heartbeat_while(proc, job["id"])
+            if results_file.exists() or (proc.returncode != -9 and not hung) or attempt == 2:
                 break
-            log(f"job {job['id']} killed (out of memory?); again in 60s")
+            log(f"job {job['id']} killed ({'hung' if hung else 'out of memory?'}); again in 60s")
             time.sleep(60)
         if not results_file.exists():
             fail = {"request": job["id"], "ok": False, "kind": "image" if job.get("kind") == "redo" else "video",
