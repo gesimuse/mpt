@@ -36,6 +36,38 @@ ACCENT = {"Prague": "Czech", "Tokyo": "Japanese", "Moscow": "Russian", "London":
           "Madrid": "Spanish", "Bali": "Indian", "Rome": "Italian"}
 
 
+# A new first frame for every talk (2026-10-29: one portrait per girl made every talk
+# the same shot, and it read as fake). Each: where she sits, its light, the mic.
+SCENES = [
+    ("podcast", "seated at a podcast desk, a black broadcast microphone on a boom arm at the lower left of the frame",
+     "a dim podcast studio behind her: dark acoustic panels, a warm lamp and soft bokeh lights", "warm moody side light"),
+    ("couch", "sitting sideways on a beige couch at home, a small lavalier microphone clipped to her top",
+     "a lived-in living room behind her: a window with sheer curtains, a plant, a shelf of books", "soft daylight from the window"),
+    ("car", "in the driver's seat of a parked car, seatbelt on, filmed from the phone on the dashboard",
+     "the car interior and a street through the side window behind her", "flat overcast daylight through the windshield"),
+    ("kitchen", "leaning on a kitchen counter holding a mug, a lavalier microphone clipped to her top",
+     "a home kitchen behind her: cabinets, a kettle, warm pendant lights", "warm evening pendant light"),
+    ("bedroom", "sitting cross-legged on her bed, filmed from a phone on a tripod",
+     "a cosy bedroom behind her: a headboard, fairy lights, a nightstand lamp", "a ring light from the front and warm lamps"),
+    ("cafe", "sitting at a small café table by the window, a lavalier microphone clipped to her top",
+     "a busy café behind her, people and the counter out of focus", "bright natural window light"),
+    ("street", "standing on a city street at golden hour, holding a handheld interview microphone",
+     "a city sidewalk, shop fronts and passers-by out of focus behind her", "low warm golden-hour sun"),
+    ("balcony", "sitting on a balcony chair at sunset, a lavalier microphone clipped to her top",
+     "a balcony railing and rooftops behind her", "soft pink sunset light"),
+]
+# Low necklines, all safe for Lena's Instagram (no lingerie, nothing see-through).
+OUTFITS = ["a fitted black ribbed top with a low scoop neckline", "a fitted white tank top with a low neckline",
+           "a beige knit sweater with a deep V-neck", "an open denim shirt over a low-cut white tank top",
+           "a sage-green wrap top with a deep V-neck", "an oversized black blazer over a low-cut fitted top",
+           "a fitted grey cropped hoodie, unzipped low over a tank top", "a red fitted top with a sweetheart neckline"]
+HAIR = ["loose soft waves", "a sleek high ponytail", "a messy low bun with loose strands", "sleek straight hair",
+        "half-up hair with a claw clip", "a loose braid over one shoulder"]
+# Phone footage, not a photo shoot.
+REAL = ("Candid vertical phone video frame, shot on an iPhone, natural colours, real skin texture with pores, "
+        "no retouching, slight sensor noise, a little imperfect and lived-in.")
+
+
 def log(m):
     print(f"[persona.talk] {m}", flush=True)
 
@@ -238,6 +270,49 @@ def portrait(char, studio):
     return dest
 
 
+def pick_scene(char):
+    """A scene, outfit and hair she hasn't had in her last few talks (talk/recent.json)."""
+    import random
+    rec_file = char.dir / "talk" / "recent.json"
+    try:
+        recent = json.loads(rec_file.read_text())
+    except (OSError, ValueError):
+        recent = {}
+    def fresh(pool, key, keep):
+        used = recent.get(key, [])[-keep:]
+        return random.choice([x for x in pool if (x[0] if isinstance(x, tuple) else x) not in used] or pool)
+    scene, outfit, hair = fresh(SCENES, "scene", 4), fresh(OUTFITS, "outfit", 4), fresh(HAIR, "hair", 3)
+    for key, v in (("scene", scene[0]), ("outfit", outfit), ("hair", hair)):
+        recent[key] = (recent.get(key, []) + [v])[-10:]
+    rec_file.parent.mkdir(parents=True, exist_ok=True)
+    rec_file.write_text(json.dumps(recent))
+    return {"scene": scene, "outfit": outfit, "hair": hair}
+
+
+def frame(char, studio, look, work):
+    """This talk's first frame: her face from her refs, the rest from `look`."""
+    b = char.bible
+    heads = char.dir / "refs-heads"
+    ref = next((p for p in [heads / "three-quarter-right.jpg", heads / "01-front.jpg", char.dir / "refs" / "01-front.jpg"]
+                if p.exists()), None)
+    _, where, behind, light = look["scene"]
+    prompt = (f"Photo of the woman from the reference image, a {b.get('age', 24)}-year-old woman ({_identity(b)}), "
+              f"her hair in {look['hair']}, {where}, medium shot from the waist up, seen at three-quarters, her head "
+              "turned a little to the right of the frame, her eyes on someone just off-camera to the right, mid-sentence, "
+              f"relaxed. She wears {look['outfit']} showing cleavage. {BODY} Her face fully visible. Behind her {behind}. "
+              f"{light}. {REAL}")
+    model = studio.model("edit")
+    for attempt in range(3):
+        p = Path(studio.engine.image(model, prompt, work, f"frame-{attempt}", refs=[ref] if ref else [],
+                                     resolution="720x1280"))
+        good, why, _ = qa.check(p)
+        if good:
+            break
+        log(f"{char.slug}: frame {attempt + 1} failed its check ({why})")
+    log(f"{char.slug}: frame {look['scene'][0]}, {look['outfit']}, {look['hair']}")
+    return p
+
+
 def _voice_words(b):
     accent = ACCENT.get(b.get("home_city", ""), "")
     return (f"She has a soft, warm, gentle voice, slightly low and breathy{f', with a light {accent} accent' if accent else ''}, "
@@ -245,8 +320,8 @@ def _voice_words(b):
 
 
 def _speech_prompt(b, line):
-    return ("A calm, quiet late-night podcast moment, filmed on a locked-off static camera. A young woman in a black top "
-            "sits still and relaxed at a podcast desk in a dim warm studio, turned toward the host off-camera to the right. "
+    return ("A calm, quiet, intimate moment, filmed on a locked-off static camera. A young woman "
+            "sits still and relaxed, turned toward someone off-camera to the right. "
             f"{_voice_words(b)} She says softly: \"{line}\" Understated, low-energy delivery, her lips move gently and "
             "naturally with every word, slow natural blinks. Background Sound: quiet room tone.")
 
@@ -288,13 +363,13 @@ def speak(char, studio, face, ref, line, work):
     return voice
 
 
-def animate(studio, face, voice, work):
+def animate(studio, face, voice, work, where="sitting relaxed at a podcast desk in a dim warm studio"):
     """InfiniteTalk, the test-11 recipe."""
     frames = int(_duration(voice) * FPS_TALK) // 4 * 4 + 1
     s = studio.engine.build_settings(INFINITETALK,
-        prompt=("A young woman on a podcast sits relaxed at a desk in a dim warm studio and talks softly to the host "
-                "off-camera to her right. Calm and natural, accurate lip sync, her head stays steady, slow natural "
-                "blinks, a faint smile, her hands rest on the desk. Static camera, cinematic, realistic."),
+        prompt=(f"A young woman {where} talks softly to someone off-camera to her right. Calm and natural, accurate "
+                "lip sync, her head stays steady, slow natural blinks, a faint smile, her hands stay still. "
+                "Static phone camera, realistic."),
         image_start=str(face), image_prompt_type="S", video_prompt_type="",
         audio_guide=str(voice), audio_prompt_type="A",
         video_length=frames, resolution="480x832", sliding_window_size=81, seed=-1)
@@ -339,7 +414,16 @@ def captions(video, keywords, work, dest, bw=False):
                    "[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
                    + "\n".join(lines) + "\n")
     grade = "hue=s=0,eq=contrast=1.12:brightness=-0.02," if bw else ""
-    _ff("-i", video, "-vf", f"{grade}scale=1080:-2:flags=lanczos,crop=1080:1920,ass={ass}", "-c:v", "libx264", "-crf", "18",
+    # Edited like a real clip: every other sentence punched in to 113% (a cut, not a
+    # zoom), then sharpened, with a little grain over the upscale's smoothness.
+    cuts = [0.0] + [w["timestamp"][1] for w in words[:-1]
+                    if re.search(r"[.!?]$", w["text"].strip()) and w["timestamp"][1]]
+    spans = [(cuts[i], cuts[i + 1] if i + 1 < len(cuts) else 9999) for i in range(1, len(cuts), 2)]
+    z = "+".join(f"between(t,{a:.2f},{b:.2f})" for a, b in spans) or "0"
+    zoom = (f"scale=w='trunc(max(1080,1920*iw/ih)*(1+0.13*({z}))/2)*2':h='trunc(max(1920,1080*ih/iw)*(1+0.13*({z}))/2)*2'"
+            ":flags=lanczos:eval=frame,crop=1080:1920:(iw-1080)/2:(ih-1920)*0.3,")  # her face sits high
+
+    _ff("-i", video, "-vf", f"{grade}{zoom}unsharp=5:5:0.7,noise=alls=5:allf=t,ass={ass}", "-c:v", "libx264", "-crf", "18",
         "-preset", "medium", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", dest)
     return dest
 
@@ -350,13 +434,16 @@ def make(job, char, studio, work):
     info = find_line(job, work)
     log(f"{char.slug}: line {info['line']!r}")
     # One model in RAM at a time (Engine.release).
-    face = portrait(char, studio)
-    studio.engine.release()
-    ref = voice_ref(char, studio, face)
+    if not (char.dir / "talk" / "voice_ref.wav").exists():
+        ref = voice_ref(char, studio, portrait(char, studio))
+        studio.engine.release()
+    ref = char.dir / "talk" / "voice_ref.wav"
+    look = pick_scene(char)
+    face = frame(char, studio, look, work)
     studio.engine.release()
     voice = speak(char, studio, face, ref, info["line"], work)
     studio.engine.release()
-    video = animate(studio, face, voice, work)
+    video = animate(studio, face, voice, work, where=look["scene"][1])
     studio.engine.release()
     final = captions(video, info.get("keywords"), work, work / "final.mp4", bw=bool(job.get("bw")))
     return final, info
