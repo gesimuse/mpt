@@ -423,8 +423,12 @@ def captions(video, keywords, work, dest, bw=False):
     zoom = (f"scale=w='trunc(max(1080,1920*iw/ih)*(1+0.13*({z}))/2)*2':h='trunc(max(1920,1080*ih/iw)*(1+0.13*({z}))/2)*2'"
             ":flags=lanczos:eval=frame,crop=1080:1920:(iw-1080)/2:(ih-1920)*0.3,")  # her face sits high
 
-    _ff("-i", video, "-vf", f"{grade}{zoom}unsharp=5:5:0.7,noise=alls=5:allf=t,ass={ass}", "-c:v", "libx264", "-crf", "18",
-        "-preset", "medium", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", dest)
+    # Under Telegram's 20MB bot download limit, or Buffer can't fetch it from the
+    # channel copy ("Video could not be read from its URL", 2026-10-29: grain at
+    # crf 18 made a 20s talk too big): capped at 5 Mbit/s, ~13MB for 20s.
+    _ff("-i", video, "-vf", f"{grade}{zoom}unsharp=5:5:0.7,noise=alls=3:allf=t,ass={ass}", "-c:v", "libx264", "-crf", "20",
+        "-maxrate", "5M", "-bufsize", "10M", "-preset", "medium", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "160k",
+        "-movflags", "+faststart", dest)
     return dest
 
 
