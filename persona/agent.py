@@ -116,6 +116,19 @@ def _telegram(method, fields, files=None):
     return body["result"]
 
 
+def _fit(path, limit=19_000_000):
+    """A video over 19MB re-encoded at 5 Mbit/s: Telegram refuses a bot's upload past
+    50MB (413) and its download past 20MB, which Buffer needs (2026-10-29: a 74MB talk)."""
+    if path.suffix != ".mp4" or not path.exists() or path.stat().st_size <= limit:
+        return
+    tmp = path.with_name(path.stem + "-fit.mp4")
+    subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", str(path), "-c:v", "libx264", "-crf", "21",
+                    "-maxrate", "5M", "-bufsize", "10M", "-preset", "medium", "-pix_fmt", "yuv420p",
+                    "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", str(tmp)], check=True)
+    tmp.replace(path)
+    log(f"{path.name}: re-encoded to {path.stat().st_size // 1_000_000}MB")
+
+
 def deliver(work, r):
     """Post one result. Photos/videos go to Telegram from here (caption and buttons
     from the Worker), then the Worker is told what was sent; large videos pushed
@@ -125,6 +138,7 @@ def deliver(work, r):
     item = None
     if r.get("ok"):
         item = json.loads((work / "items" / f"{r['id']}.json").read_text())
+        _fit(work / "items" / item["path"])
     if r.get("render"):
         # A daily-render photo/Reel, kept by the Worker for the day's post slots as a
         # Telegram file reference: uploaded silently to her channel and deleted at
