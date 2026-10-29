@@ -123,12 +123,16 @@ def _transcribe(wav, words=False):
     import torch
     from transformers import AutoTokenizer, pipeline
     tok = AutoTokenizer.from_pretrained("openai/whisper-large-v3")
-    p = pipeline("automatic-speech-recognition", model=str(Path.home() / "apps/Wan2GP/ckpts/whisper-large-v3"),
+    # Wan2GP's copy where it is (WAN2GP_DIR: not under ~ on Kaggle), else the Hub's.
+    local = Path(config.env("WAN2GP_DIR") or Path.home() / "apps/Wan2GP").expanduser() / "ckpts/whisper-large-v3"
+    p = pipeline("automatic-speech-recognition", model=str(local) if local.exists() else "openai/whisper-large-v3",
                  tokenizer=tok, torch_dtype=torch.float16, device="cuda")
     try:
         r = p(str(wav), return_timestamps="word" if words else True, generate_kwargs={"language": "en"})
     finally:
         del p
+        import gc
+        gc.collect()
         torch.cuda.empty_cache()
     return r["chunks"] if words else r["text"].strip()
 
@@ -345,9 +349,14 @@ def make(job, char, studio, work):
     work.mkdir(parents=True, exist_ok=True)
     info = find_line(job, work)
     log(f"{char.slug}: line {info['line']!r}")
+    # One model in RAM at a time (Engine.release).
     face = portrait(char, studio)
+    studio.engine.release()
     ref = voice_ref(char, studio, face)
+    studio.engine.release()
     voice = speak(char, studio, face, ref, info["line"], work)
+    studio.engine.release()
     video = animate(studio, face, voice, work)
+    studio.engine.release()
     final = captions(video, info.get("keywords"), work, work / "final.mp4", bw=bool(job.get("bw")))
     return final, info

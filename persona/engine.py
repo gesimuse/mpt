@@ -73,6 +73,14 @@ class Engine:
                 log(f"runtime ready in {int(time.time() - started)}s")
         return self._session
 
+    def release(self):
+        """Drops the loaded model from RAM and VRAM (Wan2GP's release_model). A talk
+        loads an image model, two LTX models, InfiniteTalk and Whisper in one process:
+        kept loaded side by side they hit 25GB+ and the job was oom-killed (2026-10-29)."""
+        wgp = sys.modules.get("wgp")
+        if self._session is not None and wgp is not None:
+            wgp.release_model()
+
     # ----------------------------------------------------------------- settings
     def _profile(self, model):
         rel = model.get("profile")
