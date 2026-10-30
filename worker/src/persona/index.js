@@ -2349,7 +2349,11 @@ async function postShootAlbum(env, p, state, shootId) {
     const ph = (msg.photo || []).slice(-1)[0];
     if (state.items[m.id]) Object.assign(state.items[m.id], { file_id: ph?.file_id || it.file_id, message_id: msg.message_id });
     sh.album = msg.message_id;
-    queueVideo(state, m.id, msg, ph?.file_id || it.file_id, sh.brief || "");
+    // Its scene's motion (the prompt made safe, scenes.readBrief), never the raw prompt.
+    queueVideo(state, m.id, msg, ph?.file_id || it.file_id, it.scene?.motion || "");
+    // Her video, not the persona's ("no character 'mpt'", 2026-10-30).
+    const vq = state.queue.find((q) => q.kind !== "redo" && q.item === m.id);
+    if (vq) vq.character = sh.character;
     await crossPost(env, p, state, { ok: true, id: m.id, kind: "image", character: sh.character }, it, msg);
     return;
   }

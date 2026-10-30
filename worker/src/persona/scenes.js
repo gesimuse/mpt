@@ -288,9 +288,36 @@ function poseNotes(state) {
   return `${good.length ? `Poses that worked well before (use similar ones): ${good.join("; ")}.\n` : ""}${bad.length ? `Poses that did NOT work (avoid): ${bad.join("; ")}.\n` : ""}\n`;
 }
 
+/**
+ * A prompt from the channel split into what the shoot needs, Instagram/TikTok-safe:
+ * {place, outfit, action, motion}, each "" when the prompt doesn't say (2026-10-30:
+ * "baggy clothes" came back as a tight dress -- the seeded outfit won).
+ */
+async function readBrief(env, brief) {
+  try {
+    const r = await env.AI.run(MODEL, { messages: [{ role: "user", content:
+      `A user asked for a photo/video of a fictional adult model: "${String(brief).slice(0, 400)}"\n` +
+      `Pull out what they asked for, keeping their words where possible, made safe for Instagram and TikTok ` +
+      `(no nudity, no touching breasts or genitals -- keep the clothing and the vibe, drop anything explicit).\n` +
+      `Return ONLY JSON: {"place": "where, or empty", "outfit": "what she wears, with colours and fit, or empty", ` +
+      `"action": "her pose, or empty", "motion": "one sentence of how she moves in a 5-second video, safe, or empty"}` }],
+      max_tokens: 300, temperature: 0.2 });
+    const m = /\{[\s\S]*\}/.exec(text(r));
+    const o = m ? JSON.parse(m[0]) : {};
+    return { place: String(o.place || "").trim(), outfit: noGloves(String(o.outfit || "").trim()),
+             action: String(o.action || "").trim(), motion: String(o.motion || "").trim() };
+  } catch (e) {
+    console.log("brief reading failed", String(e).slice(0, 150));
+    return { place: "", outfit: "", action: "", motion: "" };
+  }
+}
+
 export async function writeShoot(env, b, state, n, { sexy = false, brief = "" } = {}) {
-  const { places, outfits } = seeds(state, 1, [], sexy);
-  const place = places[0], outfit = outfits[0];
+  const seeded = seeds(state, 1, [], sexy);
+  // The user's own place and outfit replace the seeds.
+  const asks = brief ? await readBrief(env, brief) : null;
+  const place = asks?.place || seeded.places[0], outfit = asks?.outfit || seeded.outfits[0];
+  const places = [place], outfits = [outfit];
   // Asked for in the channel ("carousel <prompt>" / "video <prompt>"): the user's
   // words decide the place, outfit and mood; the seeds only fill what they leave open.
   const asked = brief ? `\nTHE USER ASKED FOR THIS SHOOT -- follow it first, it overrides the place and outfit ` +
@@ -318,7 +345,10 @@ ${n} objects with the keys above.`;
   // Lena's Instagram: underwear or lingerie the model slipped in is replaced by the
   // outfit it was given (a shirt over black briefs, 2026-10-30).
   const UNSAFE = /\b(underwear|panties|briefs|knickers|lingerie|bra|thong|g-string|bodysuit only)\b/i;
-  const outfitText = sexy === "flirty" && UNSAFE.test(list[0].outfit || "") ? outfit : (list[0].outfit || outfit);
+  const outfitText = asks?.outfit ? asks.outfit
+    : sexy === "flirty" && UNSAFE.test(list[0].outfit || "") ? outfit : (list[0].outfit || outfit);
+  if (asks?.action) list[0].action = asks.action;
+  if (asks?.motion) list.forEach((sc) => { sc.motion = asks.motion; });
   const makeup = makeupFor([place, ...list.map((sc) => `${sc.setting} ${sc.light}`)].join(" "), outfitText);
   list.forEach((sc) => { sc.outfit = outfitText; sc.makeup = makeup; sc.shoot_place = place; });
   list = assignGazes(list.slice(0, n), state);
