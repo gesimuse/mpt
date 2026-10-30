@@ -58,6 +58,33 @@ const CREATE = `mutation($input: CreatePostInput!) { createPost(input: $input) {
 
 const STATUS = `query($input: PostInput!) { post(input: $input) { id status dueAt externalLink error { message } } }`;
 
+/**
+ * Her Instagram or Facebook Page post through her own Buffer, published now (it is
+ * only called at the job's time): one call, never checked again. Instagram goes this
+ * way while she has no Instagram API token (igtoken:<slug>); 2026-10-30 Buffer raised
+ * her limit to 2000 calls a month, and with no polling a post is one call.
+ */
+async function startBuffer(env, p, job, mediaUrl, platform) {
+  const channelId = p.buffer?.[platform];
+  if (platform === "facebook" && job.story) return { status: "skipped", note: "a Story stays on Instagram" };
+  const text = job.posts?.[platform]?.text || job.posts?.instagram?.text || job.caption || "";
+  const alt = (job.posts?.alt || text.split("\n")[0]).slice(0, 200);
+  const urls = Array.isArray(mediaUrl) ? mediaUrl : [mediaUrl];
+  const video = job.kind === "video";
+  const metadata = platform === "instagram"
+    ? { instagram: job.story ? { type: "story", shouldShareToFeed: false, isAiGenerated: true }
+                             : { type: video ? "reel" : "post", shouldShareToFeed: true, isAiGenerated: true } }
+    : { facebook: { type: video ? "reel" : "post" } };
+  const assets = job.story ? assetsFor(job, urls.slice(0, 1), alt) : assetsFor(job, urls, alt);
+  const d = await gql(env, p.slug, CREATE, { input: {
+    channelId, text: job.story ? "" : text, assets, metadata, aiAssisted: true, schedulingType: "automatic", mode: "shareNow",
+  } });
+  const res = d.createPost;
+  if (res.__typename !== "PostActionSuccess") throw new Error(`${res.__typename}: ${res.message || ""}`);
+  if (res.post.status === "error") return { status: "failed", post: res.post.id, note: res.post.error?.message || "Buffer error" };
+  return { mode: "buffer", post: res.post.id, status: "done", link: res.post.externalLink || "", sent_at: Date.now() };
+}
+
 export function accounts(p) {
   return { instagram: !!p.buffer?.instagram, tiktok: !!p.buffer?.tiktok || !!(p.tiktok_via || p.talk_cross) };
 }
@@ -106,9 +133,20 @@ export async function advance(env, p, job, mediaUrl) {
   if (!p.buffer?.instagram) job.ig = job.ig || { status: "skipped", note: "not linked" };
   else if ((!job.ig || job.ig.status === "processing") && now >= (job.due || 0) && now - (job.ig?.checked_at || 0) >= 60 * 1000) {
     try {
-      job.ig = await instagram.publishStep(env, p.slug, job, mediaUrl, job.ig);
+      // Straight through Instagram's API with her token; through her Buffer without one.
+      job.ig = job.ig?.container || (await env.PERSONA.get(`igtoken:${p.slug}`))
+        ? await instagram.publishStep(env, p.slug, job, mediaUrl, job.ig)
+        : await startBuffer(env, p, job, mediaUrl, "instagram");
     } catch (e) {
       job.ig = { ...(job.ig || {}), status: "failed", note: String(e.message || e).slice(0, 200) };
+    }
+  }
+  // Her Facebook Page (2026-10-30), at the same time as Instagram.
+  if (!job.fb && p.buffer?.facebook && now >= (job.due || 0)) {
+    try {
+      job.fb = await startBuffer(env, p, job, mediaUrl, "facebook");
+    } catch (e) {
+      job.fb = { status: "failed", note: String(e.message || e).slice(0, 200) };
     }
   }
   if (!job.tt && now >= ((job.talk && job.tt_due) || job.due || 0) && !(job.retry_at && now < job.retry_at)) {
@@ -176,7 +214,8 @@ export async function sendNow(env, p, job, key, mediaUrl) {
   await refresh(env, p, job, key, mediaUrl, post, true);
 }
 
-export const finished = (job) => ["ig", "tt"].every((k) => job[k] && job[k].status !== "processing");
+// A Facebook-only job (the Page's backfill) waits for its fb; others post it in the same pass as ig.
+export const finished = (job) => ["ig", "tt"].every((k) => job[k] && job[k].status !== "processing") && !(job.fb_only && !job.fb);
 
 /** The status lines added to the post's caption in the channel. */
 export function statusLine(job) {
@@ -193,6 +232,7 @@ export function statusLine(job) {
       ? "📲 Instagram: tap «Post on Instagram» below on your phone, add a trending song, share"
       : r.mode === "queued" ? "🗓 Instagram: in Buffer's queue"
       : job.story ? "✅ Instagram Story: posted" : "✅ Instagram: posted"),
+    ...(job.fb ? [line("Facebook", job.fb, job.due, () => "✅ Facebook: posted")] : []),
     line("TikTok", job.tt, (job.talk && job.tt_due) || job.due, (r) => r.mode === "draft"
       ? `📝 TikTok: a draft in ${r.via ? `${r.via}'s ` : ""}Buffer -- post it from the app`
       : r.mode === "notification" ? "📲 TikTok: Buffer sent it to your phone -- add a song and post"

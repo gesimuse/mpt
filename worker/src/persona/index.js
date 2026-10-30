@@ -369,7 +369,7 @@ async function advancePublish(env, p, state, origin) {
     if (job.quiet || !job.chat) continue;  // a daily Story: no post of its own to mark
     // Mark the post in the channel: what happened on each platform.
     const cap = `${job.base}\n\n━━ published ━━\n${social.statusLine(job)}`.slice(0, 1024);
-    const failed = ["ig", "tt"].some((k) => job[k]?.status === "failed");
+    const failed = ["ig", "tt", "fb"].some((k) => job[k]?.status === "failed");
     // Nothing posted yet (only a platform it doesn't go to was settled): 👎 still cancels.
     const waiting = !["ig", "tt"].some((k) => job[k] && job[k].status !== "skipped");
     const markup = job.ig?.mode === "phone"
@@ -402,7 +402,7 @@ async function onTap(env, p, cq, state, origin) {
     // 🔁 Retry posting: the failed platform(s) start again.
     const job = state.publish.find((j) => j.id === itemId);
     if (!job) return answer(env, cq.id, "That post isn't known any more.");
-    for (const k of ["ig", "tt"]) if (job[k]?.status === "failed") delete job[k];
+    for (const k of ["ig", "tt", "fb"]) if (job[k]?.status === "failed") delete job[k];
     job.tries = 0;
     job.retry_at = 0;
     await advancePublish(env, p, state, origin);
@@ -1121,6 +1121,31 @@ async function onAdmin(request, env) {
       else await social.sendNow(env, p, job, "ig", url);
       await st.save(env, p.slug, state);
       return new Response("sent now");
+    }
+    if (what === "fbbackfill") {
+      // Her Facebook Page filled with her 👍'd photos and videos (2026-10-30, a new
+      // Page): &n= posts, &per_day= a day at 09/14/19 Prague time, Facebook only.
+      const state = await st.load(env, p.slug);
+      if (!p.buffer?.facebook) return new Response("no facebook channel", { status: 400 });
+      const n = Number(u.searchParams.get("n") || 12), perDay = Number(u.searchParams.get("per_day") || 3);
+      const hours = [7, 12, 17].slice(0, perDay);  // UTC = 09/14/19 Prague (UTC+2)
+      const done = new Set(state.publish.filter((j) => j.fb || j.fb_only).map((j) => j.item));
+      const picks = [...state.voted].reverse().map((id) => [id, state.items[id]])
+        .filter(([id, it]) => it?.file_id && ["photo", "video"].includes(it.kind || "photo") && !it.talk && !done.has(id)).slice(0, n);
+      const b = (await st.bible(env, p.slug)) || { name: p.slug };
+      let t = Date.now(), made = [];
+      for (const [id, it] of picks) {
+        // The next free hour of the slots.
+        do { t += 3600 * 1000; } while (!hours.includes(new Date(t).getUTCHours()));
+        const due = Date.UTC(new Date(t).getUTCFullYear(), new Date(t).getUTCMonth(), new Date(t).getUTCDate(), new Date(t).getUTCHours());
+        const posts = await captions.forPost(env, p, b, state, it);
+        state.publish.push({ id: `pub-fb-${id}-${Date.now()}`, item: id, kind: it.kind || "photo", created: Date.now(), due,
+          file_id: it.file_id, audio: !!it.audio, posts, caption: posts.instagram.text, fb_only: true, quiet: true,
+          ig: { status: "skipped", note: "Facebook backfill" }, tt: { status: "skipped", note: "Facebook backfill" } });
+        made.push([id, new Date(due).toISOString().slice(0, 16)]);
+      }
+      await st.save(env, p.slug, state);
+      return Response.json(made);
     }
     if (what === "postitem") {
       // One posted item (&item=) through Buffer now, as its 👍 would (a vote made before
