@@ -85,6 +85,7 @@ function remember(state, item, sent) {
   state.items[item.id] = { kind: item.kind || "image", tags: item.tags || [], beat: item.scene?.beat || "",
                            scene: item.scene || {}, caption: item.caption || "",
                            audio: !!item.audio, recreate: !!item.recreate,
+                           ...(item.parent ? { parent: item.parent } : {}), ...(item.source ? { source: item.source } : {}),
                            file_id: media?.file_id || state.items[item.id]?.file_id || "",
                            ...(sent?.message_id ? { message_id: sent.message_id } : state.items[item.id]?.message_id ? { message_id: state.items[item.id].message_id } : {}),
                            character: item.character || state.items[item.id]?.character || undefined };
@@ -480,17 +481,9 @@ async function onTap(env, p, cq, state, origin) {
     return answer(env, cq.id, "✅ Picked");
   }
   if (act === "vredo") {
-    // 🔁 on a talk, face swap or video: made again the same way (a talk says the same
-    // line in a new scene), as a reply to this one.
-    const job = state.items[itemId]?.redo_job;
-    if (!job) return answer(env, cq.id, "Can't redo this one: how it was made isn't known (older post).");
-    if (state.queue.some((q) => q.redo_of === itemId)) return answer(env, cq.id, "Already queued.");
-    const it = state.items[itemId];
-    const again = { ...job, id: `${job.kind}-${it.character || p.slug}-${Date.now()}`, redo_of: itemId, chat, message_id: msg.message_id };
-    if (job.kind === "talk") Object.assign(again, { given_line: it.line || job.given_line || "", given_url: "", given_keywords: undefined });
-    state.queue.push(again);
-    await noteOnPost(env, msg, "🔁 making it again -- the new one comes as a reply");
-    return answer(env, cq.id, "🔁 Queued");
+    const res = redoVideo(p, state, itemId, msg);
+    if (res === true) await noteOnPost(env, msg, "🔁 making it again -- the new one comes as a reply");
+    return answer(env, cq.id, res === true ? "🔁 Queued" : res);
   }
   if (act === "vid") {
     const photo = (msg.photo || []).slice(-1)[0];
@@ -975,6 +968,11 @@ async function onReply(env, p, post, state, origin) {
     return tidy(env, post);
   }
   const redo = /^\s*(?:redo|🔁)\b\s*(.*)$/isu.exec(text);
+  if (redo && parent.video) {
+    const res = redoVideo(p, state, itemId, parent);
+    await noteOnPost(env, parent, res === true ? "🔁 making it again -- the new one comes as a reply" : `⚠️ ${res}`);
+    return tidy(env, post);
+  }
   if (redo && photo) {
     const note = redo[1].trim().slice(0, 300);
     const scene = state.items[itemId]?.scene;
@@ -1705,6 +1703,39 @@ async function publishCarousel(env, p, state, cq, itemId) {
 const resultKey = (r) => (r.carousel ? `${r.request}/${r.id}` : r.request);
 
 /** Remember a posted result (`sent`: the Telegram message it went out as). */
+/**
+ * 🔁 on a talk, face swap or video (button or a "redo" reply): made again the same way
+ * -- a talk says the same line in a new scene -- as a reply to it. Posts from before
+ * redo_job was kept are rebuilt from the item (2026-10-30: a redo did nothing).
+ * True, or why it can't.
+ */
+function redoVideo(p, state, itemId, msg) {
+  const it = state.items[itemId];
+  if (!it) return "Can't redo this one: it isn't known any more.";
+  if (state.queue.some((q) => q.redo_of === itemId)) return "Already queued.";
+  const who = it.character || p.slug;
+  let job = it.redo_job;
+  if (!job && it.talk) {
+    const t = talkTopic(p, who);
+    job = { kind: "talk", character: who, topic: it.topic || t.topic, sources: t.sources, local_only: true, bw: !!it.bw };
+  } else if (!job && it.recreate && /^https?:/.test(it.source || "")) {
+    job = { kind: "recreate", url: it.source, seconds: 10, character: who };
+  } else if (!job) {
+    // A 🎬 video: its photo, by the item or the photo it was posted in reply to.
+    const ph = (msg.reply_to_message?.photo || []).slice(-1)[0];
+    const parent = it.parent || (msg.reply_to_message ? itemIdFrom(msg.reply_to_message) : "");
+    const fileId = state.items[parent]?.file_id || ph?.file_id;
+    if (fileId && !it.talk && !it.recreate) job = { kind: "video", item: parent || itemId, file_id: fileId, motion: state.items[parent]?.scene?.motion || "" };
+  }
+  if (!job) return "Can't redo this one: how it was made isn't known.";
+  const again = { ...job, id: `${job.kind}-${who}-${Date.now()}`, redo_of: itemId, character: who,
+                  chat: msg.chat.id, message_id: msg.message_id };
+  if (job.kind === "talk") Object.assign(again, { given_line: it.line || job.given_line || "", given_url: "" });
+  delete again.given_keywords;
+  state.queue.push(again);
+  return true;
+}
+
 /**
  * How a video/talk/face swap was asked for, kept on its item so 🔁 Redo can ask again
  * (2026-10-30: redo for everything). `q` is its queue entry, found before it is dropped.
