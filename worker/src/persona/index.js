@@ -230,6 +230,7 @@ async function queuePublish(env, p, state, cq, itemId) {
   const acc = social.accounts(p);
   if (!acc.instagram && !acc.tiktok) return false;
   if (state.publish.some((j) => j.item === itemId)) return "already published";
+  if ((state.blocked || []).includes(itemId)) return "it was deleted (reply \"delete\") -- never posted";
   // 🎭 recreates are built on other creators' footage and audio, which Instagram
   // treats as unoriginal: rationed to RECREATE_PER_WEEK so the feed stays mostly
   // original (chosen 2026-10-16).
@@ -898,6 +899,36 @@ async function writeTalkLine(env, body) {
 }
 
 const PUBLISH_WORDS = /^\s*(👍|post|publish|post it)\s*[.!]*\s*$/iu;
+const BLOCK_WORDS = /^\s*(🗑️?|❌|delete|remove|skip|block|bad|don'?t post|do not post|never post)\s*[.!]*\s*$/iu;
+
+/**
+ * "delete" in reply to a post (2026-10-30: a bad video was in the Facebook backfill):
+ * it is never posted -- every publish job of it that has not gone out yet is dropped,
+ * here and in the channel it was copied to or from, and it is blocked from backfills
+ * and Stories. Returns how many jobs were dropped.
+ */
+async function blockItem(env, p, state, itemId) {
+  const drop = (st_) => {
+    st_.blocked = [...new Set([...(st_.blocked || []), itemId])].slice(-500);
+    const before = st_.publish.length;
+    st_.publish = st_.publish.filter((j) => !(j.item === itemId && !["ig", "tt", "fb"].some((k) => j[k]?.status === "done" && j[k]?.mode !== "phone")));
+    return before - st_.publish.length;
+  };
+  let n = drop(state);
+  for (const slug of [p.talk_cross, state.items[itemId]?.from].filter(Boolean)) {
+    const other = await st.load(env, slug);
+    n += drop(other);
+    await st.save(env, slug, other);
+  }
+  for (const other of await personas.list(env)) {
+    if (other.talk_cross !== p.slug) continue;
+    const o = await st.load(env, other.slug);
+    if (!o.items[itemId]) continue;
+    n += drop(o);
+    await st.save(env, other.slug, o);
+  }
+  return n;
+}
 // Any short reply mentioning a carousel ("carousel please", "make carousel 🖼", ...).
 const CAROUSEL_WORDS = /^(?=.{0,60}$).*(🖼|car+ou?s+el+|carusel)/isu;
 
@@ -958,6 +989,11 @@ async function onReply(env, p, post, state, origin) {
                          file_id: photo.file_id, count: 3, chat: post.chat.id, message_id: parent.message_id });
     }
     await noteOnPost(env, parent, busy ? "🖼 already making this carousel" : "🖼 making 3 more angles for a carousel (~10-20 min)");
+    return tidy(env, post);
+  }
+  if (BLOCK_WORDS.test(text) && (parent.photo || parent.video)) {
+    const n = await blockItem(env, p, state, itemId);
+    await noteOnPost(env, parent, `🗑 won't be posted anywhere${n ? ` (${n} pending post${n > 1 ? "s" : ""} cancelled)` : ""}`);
     return tidy(env, post);
   }
   if (PUBLISH_WORDS.test(text) && (parent.photo || parent.video)) {
@@ -1284,7 +1320,7 @@ async function onAdmin(request, env) {
       if (!p.buffer?.facebook) return new Response("no facebook channel", { status: 400 });
       const n = Number(u.searchParams.get("n") || 12), perDay = Number(u.searchParams.get("per_day") || 3);
       const hours = [7, 12, 17].slice(0, perDay);  // UTC = 09/14/19 Prague (UTC+2)
-      const done = new Set(state.publish.filter((j) => j.fb || j.fb_only).map((j) => j.item));
+      const done = new Set([...state.publish.filter((j) => j.fb || j.fb_only).map((j) => j.item), ...(state.blocked || [])]);
       const picks = [...state.voted].reverse().map((id) => [id, state.items[id]])
         // Photos and 🎭 face swaps (they keep the original's sound); never a silent video.
         .filter(([id, it]) => it?.file_id && !it.talk && !done.has(id) &&
@@ -2612,7 +2648,8 @@ async function dailyStory(env, p, origin) {
   const state = await st.load(env, p.slug);
   const day = st.today();
   const n = state.story_day?.day === day ? state.story_day.n : 0;
-  const used = new Set(state.publish.flatMap((j) => [j.file_id, ...(j.file_ids || [])]).filter(Boolean));
+  const used = new Set([...state.publish.flatMap((j) => [j.file_id, ...(j.file_ids || [])]),
+                        ...(state.blocked || []).map((id) => state.items[id]?.file_id)].filter(Boolean));
   const storied = new Set(state.publish.filter((j) => j.story).map((j) => j.file_id));
   const fresh = Object.values(state.shoots || {}).filter((sh) => Date.now() - (sh.started || 0) < 3 * 86400 * 1000)
     .sort((a, b) => (b.started || 0) - (a.started || 0))
