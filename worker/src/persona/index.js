@@ -289,7 +289,9 @@ const AUTO_WAIT_MS = 30 * 60 * 1000;
 const autoOn = (env) => env.PERSONA_AUTO !== "0";
 
 async function autoPublish(env, p, state, r, sent) {
-  if (!autoOn(env) || !r?.ok || r.carousel || !sent?.message_id || !state.items[r.id]) return;
+  // Only 🎙 talks and 🎭 face swaps go out by themselves (2026-10-30); photos, videos
+  // and carousels wait for a 👍 or "post".
+  if (!autoOn(env) || !r?.ok || r.carousel || !(r.talk || r.recreate) || !sent?.message_id || !state.items[r.id]) return;
   const res = await queuePublish(env, p, state, { message: sent }, r.id);
   if (res !== true) return;
   const job = state.publish.at(-1);
@@ -419,11 +421,6 @@ async function onTap(env, p, cq, state, origin) {
   }
   if (act === "up" || act === "dn") {
     if (state.voted.includes(itemId)) {
-      // A talk voted before its buttons showed it (2026-10-27): show it now.
-      if (isRoster(p) && state.items[itemId]?.talk && (state.tt_videos || []).some((v) => v.item === itemId)) {
-        await tg(env, "editMessageReplyMarkup", { chat_id: chat, message_id: msg.message_id,
-          reply_markup: kb([[["✓ 👍 · TikTok", `pv:noop:${itemId}`]]]) }).catch(() => {});
-      }
       return answer(env, cq.id, "Already voted.");
     }
     const item = state.items[itemId] || { tags: [] };
@@ -432,20 +429,6 @@ async function onTap(env, p, cq, state, origin) {
     learnFrom(state, item, d, { taste: d > 0 });
     if (act === "up" && item.beat) state.story.push({ t: Date.now(), beat: item.beat, item: itemId });
     state.voted.push(itemId);
-    if (act === "up" && isRoster(p) && item.talk && !p.buffer?.tiktok) {
-      // 🎙 An MPT talk without a Buffer TikTok channel: to the aiqube TikTok inbox as a
-      // video draft (onDraftSchedule) -- no caption possible there. With one (entry
-      // buffer.tiktok, 2026-10-27) it is posted through Buffer like Lena's Reels.
-      const fileId = msg.video?.file_id || item.file_id;
-      // The vote shows on the message at once (the buttons became "✓ 👍").
-      const markup = kb([[["✓ 👍 · TikTok", `pv:noop:${itemId}`]]]);
-      state.tt_videos = [...(state.tt_videos || []), { item: itemId, file_id: fileId, line: item.line || "", bw: !!item.bw,
-        character: item.character, chat, message_id: msg.message_id, created: Date.now(),
-        caption: (msg.caption || "").replace(/\n(?:📤|📥|⏳|❌)[^\n]*$/u, ""), markup }];
-      await answer(env, cq.id, "👍 Going to the aiqube TikTok inbox (~15-45 min)");
-      await noteOnPost(env, { ...msg, reply_markup: markup }, "📤 TikTok: sending to the aiqube inbox (~15-45 min)");
-      return;
-    }
     const res = act === "up" ? await queuePublish(env, p, state, cq, itemId) : false;
     const publishing = res === true;
     await answer(env, cq.id, act === "dn" ? "Noted 👎" : publishing ? `👍 Added to Buffer's queue for ${social.accounts(p).instagram ? "Instagram" : "TikTok"}`
@@ -480,6 +463,34 @@ async function onTap(env, p, cq, state, origin) {
                        ...(shootId ? { shoot: shootId, replaces: itemId } : {}),
                        ...(it.character ? { character: it.character } : {}) });
     return answer(env, cq.id, "🔁 Queued. The new photo replaces it in the album in ~15-30 min.");
+  }
+  if (act === "pick" || act === "recast") {
+    const slug = state.cast_of?.[itemId];
+    const build = slug && state.builds?.[slug];
+    if (!build) return answer(env, cq.id, "This casting isn't known any more.");
+    if (state.queue.some((q) => (q.kind === "lock" || q.kind === "cast") && q.new_slug === slug)) return answer(env, cq.id, "Already working on her.");
+    if (act === "recast") {
+      state.queue.push({ id: `cast-${slug}-${Date.now()}`, kind: "cast", new_slug: slug, bible: build.bible, n: 4, character: p.characters[0],
+                         chat, message_id: msg.message_id, local_only: true });
+      return answer(env, cq.id, "🔁 Casting 4 more faces (~5-10 min)");
+    }
+    state.queue.push({ id: `lock-${slug}-${Date.now()}`, kind: "lock", new_slug: slug, pick: itemId, character: p.characters[0],
+                       chat, message_id: msg.message_id, local_only: true });
+    await noteOnPost(env, msg, "✅ picked -- making her refs and face sheet (~20-30 min)");
+    return answer(env, cq.id, "✅ Picked");
+  }
+  if (act === "vredo") {
+    // 🔁 on a talk, face swap or video: made again the same way (a talk says the same
+    // line in a new scene), as a reply to this one.
+    const job = state.items[itemId]?.redo_job;
+    if (!job) return answer(env, cq.id, "Can't redo this one: how it was made isn't known (older post).");
+    if (state.queue.some((q) => q.redo_of === itemId)) return answer(env, cq.id, "Already queued.");
+    const it = state.items[itemId];
+    const again = { ...job, id: `${job.kind}-${it.character || p.slug}-${Date.now()}`, redo_of: itemId, chat, message_id: msg.message_id };
+    if (job.kind === "talk") Object.assign(again, { given_line: it.line || job.given_line || "", given_url: "", given_keywords: undefined });
+    state.queue.push(again);
+    await noteOnPost(env, msg, "🔁 making it again -- the new one comes as a reply");
+    return answer(env, cq.id, "🔁 Queued");
   }
   if (act === "vid") {
     const photo = (msg.photo || []).slice(-1)[0];
@@ -546,16 +557,20 @@ const CLIP_LINK = /https?:\/\/(?:(?:www\.|vm\.|vt\.|m\.)?tiktok\.com|(?:www\.|m\
  * 🎭 A TikTok or Facebook reel link, or a video uploaded into the channel: recreate that clip with
  * her (persona/recreate.py). "8s" or "first 8" in the text sets the length.
  */
-async function onRecreateRequest(env, post, state) {
+async function onRecreateRequest(env, post, state, p) {
   const text = post.text || post.caption || "";
   const link = (CLIP_LINK.exec(text) || [])[0];
   const video = post.video || (post.document?.mime_type?.startsWith("video/") ? post.document : null);
   if (!link && !video) return false;
+  // MPT: a girl's name before the link picks her; otherwise the laptop picks the girl
+  // whose hair and skin fit the clip's person best (persona/fit.py).
+  const [named] = isRoster(p) ? await namedGirl(env, p, text.replace(CLIP_LINK, "").trim()) : [null];
   const secs = /(?:first\s*)?(\d{1,2})\s*(?:s|sec|seconds?)\b/i.exec(text) || /first\s+(\d{1,2})/i.exec(text);
   const seconds = Math.min(Number(secs?.[1] || env.PERSONA_RECREATE_MAX || 10), Number(env.PERSONA_RECREATE_MAX || 10));
   state.queue.push({ id: `rec-${post.message_id}-${Date.now()}`, kind: "recreate", item: `rec-${post.message_id}`,
                      url: link || "", file_id: video?.file_id || "", seconds,
-                     chat: post.chat.id, message_id: post.message_id });
+                     chat: post.chat.id, message_id: post.message_id,
+                     ...(named ? { character: named } : isRoster(p) ? { fit: p.characters } : {}) });
   await tg(env, "sendMessage", { chat_id: post.chat.id, reply_to_message_id: post.message_id,
     text: `🎭 Queued: her version of this clip (first ${seconds}s). It comes as a reply here in ~40-70 min.` });
   return true;
@@ -629,6 +644,109 @@ function queueTalk(p, state, extra = null) {
   return `${p.slug}: 🎙 talk queued for ${who} (${t.topic})`;
 }
 
+// ------------------------------------------------------------- 👤 builder
+/**
+ * "new persona <description>" in MPT's channel (2026-10-30): her bible is written
+ * here, the laptop casts 4 faces (jobs.py cast) that come in with ✅ Pick / 🔁 More
+ * faces, and the pick makes her refs and face sheet (jobs.py lock); then she joins
+ * the roster with a talk topic of her own. Laptop only.
+ */
+const TALK_SOURCES = ["mindfuel_028", "riseshine.7", "shetalks.truth", "therealtruth93", "hardtruthtalks", "voicebloom1", "jayshetty"];
+
+async function onBuildRequest(env, p, post, state) {
+  const m = /^(?:👤\s*)?(?:new\s+(?:persona|girl|model)|persona\s+builder|build\s+(?:a\s+)?persona)\b[\s:,-]*(.*)$/isu.exec(String(post.text || "").trim());
+  if (!m || post.reply_to_message) return false;
+  const brief = m[1].trim();
+  if (brief.split(/\s+/).length < 2) {
+    await tg(env, "sendMessage", { chat_id: post.chat.id, reply_to_message_id: post.message_id,
+      text: "👤 Describe her after it, e.g. \"new persona Brazilian fitness girl from Rio, long dark curls, talks about gym motivation\"." });
+    return true;
+  }
+  const taken = [];
+  for (const slug of p.characters) taken.push(((await st.bible(env, slug))?.name) || slug);
+  const used = Object.values(p.talk_topics || {}).map((t) => t.topic).concat(p.characters.map((c) => TALK_TOPICS[c]?.topic).filter(Boolean));
+  const out = await captions.ask(env,
+    `Design a NEW fictional AI influencer for an Instagram/TikTok roster from this brief: "${brief.slice(0, 500)}".\n` +
+    `Rules: fictional and original (never a real person or celebrity), clearly an adult aged 21-28, glamorous and ` +
+    `sexy but Instagram-safe. Her body is ALWAYS "slim toned figure, narrow waist, full bust" (never curvy hips). ` +
+    `Her name must not be one of: ${taken.join(", ")}. Her talk topic must be a relationship/self-worth theme that ` +
+    `is different from: ${used.join("; ")}.\n` +
+    `Return JSON: {"name": "...", "age": 23, "identity": "ethnicity, hair (colour, length, style), eye colour, skin, ` +
+    `face details, makeup, slim toned figure, narrow waist, full bust", "tagline": "...", "personality": "...", ` +
+    `"backstory": "...", "home_city": "...", "recurring_places": ["5 places"], "style": ["5 outfit styles"], ` +
+    `"content_pillars": ["3"], "casting": {"ethnicity": ["one"], "hair": ["one"], "eyes": ["one"], "face": ["one"], ` +
+    `"build": ["slim toned figure, narrow waist, full bust"]}, "talk_topic": "..."}`, 1200);
+  const name = String(out.name || "").trim().split(/\s+/)[0];
+  if (!name || !out.identity || taken.map((t) => t.toLowerCase()).includes(name.toLowerCase())) {
+    await tg(env, "sendMessage", { chat_id: post.chat.id, reply_to_message_id: post.message_id, text: "⚠️ Couldn't write her profile -- send it again." });
+    return true;
+  }
+  const slug = `mpt-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+  const bible = { ...out, name, age: Math.min(28, Math.max(21, Number(out.age) || 23)),
+    lanes: { social: { cue: "sexy, alluring Instagram model look, glamorous styled hair, a figure-flattering, a little revealing outfit, flirty model pose, no nudity",
+                       negative: "nudity, nipples, genitals, see-through clothing, explicit pose" } } };
+  state.builds = { ...(state.builds || {}), [slug]: { bible, topic: String(out.talk_topic || "relationships and self-worth").slice(0, 80), chat: post.chat.id } };
+  state.queue.push({ id: `cast-${slug}-${Date.now()}`, kind: "cast", new_slug: slug, bible, n: 4, character: p.characters[0],
+                     chat: post.chat.id, message_id: post.message_id, local_only: true });
+  await tg(env, "sendMessage", { chat_id: post.chat.id, reply_to_message_id: post.message_id,
+    text: `👤 ${name}, ${bible.age} · ${bible.home_city || ""}\n${bible.identity}\n🎙 talks about: ${state.builds[slug].topic}\n\n` +
+          `Casting 4 faces on the laptop (~5-10 min). Tap ✅ on the one you want.` });
+  return true;
+}
+
+/** A cast face remembered for ✅ Pick; a finished girl joins the roster. */
+async function builderDone(env, p, state, r) {
+  if (r.ok && r.cast) state.cast_of = { ...(state.cast_of || {}), [r.id]: r.cast };
+  if (!r.ok || !r.persona_ready) return;
+  const slug = r.persona_ready, build = state.builds?.[slug] || {};
+  if (r.bible) await env.PERSONA.put(`bible:${slug}`, JSON.stringify(r.bible));
+  const entry = await personas.get(env, p.slug);
+  if (!entry.characters.includes(slug)) entry.characters.push(slug);
+  const topic = build.topic || "relationships and self-worth";
+  entry.talk_topics = { ...(entry.talk_topics || {}),
+    [slug]: { topic, sources: [...TALK_SOURCES.map((h) => `tiktok:@${h}`), `${topic} podcast clip`] } };
+  await personas.save(env, entry);
+  Object.assign(p, { characters: entry.characters, talk_topics: entry.talk_topics });
+  if (state.builds) delete state.builds[slug];
+}
+
+/** A roster girl named at the start of `rest` ("Gia: ...", "gia ..."): [slug, rest]. */
+async function namedGirl(env, p, rest, pool = null) {
+  for (const slug of pool || p.characters || []) {
+    const name = ((await st.bible(env, slug))?.name || slug.replace(/^mpt-/, "")).toLowerCase();
+    const n = new RegExp(`^${name}\\b[\\s:,-]*`, "i");
+    if (n.test(rest)) return [slug, rest.replace(n, "").trim()];
+  }
+  return [null, rest];
+}
+
+/**
+ * "video <prompt>" / "carousel <prompt>" in a channel (2026-10-30): a photoshoot of
+ * the prompt (a carousel), or one photo of it animated (a video). In MPT a girl's
+ * name first picks her ("video Gia: ..."), else one at random. Both wait for a 👍.
+ */
+async function onMakeRequest(env, p, post, state) {
+  const text = String(post.text || "").trim();
+  const m = /^(🎬|video|🖼|carousel|carusel|shoot)\b[\s:,-]*(.*)$/isu.exec(text);
+  if (!m || post.reply_to_message || CLIP_LINK.test(text)) return false;
+  const video = /^(🎬|video)$/iu.test(m[1]);
+  let [who, brief] = isRoster(p) ? await namedGirl(env, p, m[2].trim()) : [p.slug, m[2].trim()];
+  if (!who) who = p.characters[Math.floor(Math.random() * p.characters.length)];
+  if (brief.split(/\s+/).length < 2) {
+    await tg(env, "sendMessage", { chat_id: post.chat.id, reply_to_message_id: post.message_id,
+      text: `${video ? "🎬" : "🖼"} Say what you want after it, e.g. "${video ? "video" : "carousel"} ${isRoster(p) ? "Gia: " : ""}rooftop bar at sunset in a red dress".` });
+    return true;
+  }
+  await st.save(env, p.slug, state);  // shoot() loads and saves on its own
+  await shoot(env, p, who, { brief: brief.slice(0, 400), video, message_id: post.message_id });
+  Object.assign(state, await st.load(env, p.slug));
+  const b = (await st.bible(env, who)) || { name: who };
+  await tg(env, "sendMessage", { chat_id: post.chat.id, reply_to_message_id: post.message_id,
+    text: video ? `🎬 Queued: ${b.name}, one photo of this, then its video (~30-60 min). Both wait for your 👍.`
+                : `🖼 Queued: a ${p.photos || 6}-photo carousel of ${b.name} (~30-60 min). It waits for your 👍 / "post".` });
+  return true;
+}
+
 /**
  * A talk asked for in the channel: "🎙 <quote>", "talk <quote>", "talk Gia: <quote>",
  * "talk <tiktok/youtube link>" (its words, rewritten). In MPT a girl's name picks her,
@@ -676,22 +794,48 @@ async function talkDone(env, p, state, r, item, sent) {
   const src = { source_desc: String(r.source_title || "").slice(0, 600),
                 source_account: (/tiktok\.com\/@([\w.]+)/.exec(r.source_url || "") || [])[1] || "" };
   if (it) Object.assign(it, { talk: true, line: r.line || "", topic: r.topic || "", character: r.character || p.slug, bw: !!r.bw, ...src });
+}
+
+/**
+ * Everything of a persona with talk_cross (Lena) is copied into that channel (MPT's),
+ * 2026-10-30. A 🎙 talk or 🎭 face swap there publishes to its TikTok by itself;
+ * anything else is approved in her own channel (its TikTok draft goes through MPT's
+ * Buffer from there), so the copy has no buttons.
+ */
+async function crossPost(env, p, state, r, item, sent) {
   const to = p.talk_cross && (await personas.get(env, p.talk_cross));
-  const fileId = sent?.video?.file_id;
-  if (!to || !fileId) return;
+  const media = sent?.video || (sent?.photo || []).slice(-1)[0];
+  if (!to || !r?.ok || !media?.file_id || r.carousel) return;
   const b = (await st.bible(env, r.character || p.slug)) || { name: p.slug };
-  const m = resultMessage(b, { ...r, chat: to.chat_id, message_id: null }, item);
+  const auto = !!(r.talk || r.recreate);
+  const m = resultMessage(b, { ...r, chat: to.chat_id, message_id: null, redo: false, replace: null }, item);
+  const cap = `${m.caption || ""}${auto ? "" : `\n↪️ from ${b.name}'s channel -- approve it there`}`.slice(0, 1024);
   try {
-    const x = await tg(env, "sendVideo", { chat_id: to.chat_id, video: fileId, caption: m.caption, reply_markup: m.buttons });
+    const x = await tg(env, sent.video ? "sendVideo" : "sendPhoto", { chat_id: to.chat_id, [sent.video ? "video" : "photo"]: media.file_id,
+      caption: cap, ...(auto ? { reply_markup: m.buttons } : {}) });
     const other = await st.load(env, to.slug);
+    const src = state.items[r.id] || {};
     if (r.line) other.talk_lines = [...(other.talk_lines || []), r.line].slice(-80);
-    other.items[r.id] = { kind: "video", tags: [r.topic || ""], scene: {}, caption: item?.caption || "", file_id: fileId,
-                          message_id: x.message_id, talk: true, audio: true, line: r.line || "", topic: r.topic || "", bw: !!r.bw, ...src,
-                          character: r.character || p.slug };
-    await autoPublish(env, to, other, { ...r, ok: true }, x);
+    other.items[r.id] = { ...src, kind: sent.video ? "video" : "photo", file_id: media.file_id, message_id: x.message_id,
+                          character: r.character || p.slug, from: p.slug, ...(r.talk || r.recreate ? { audio: true } : {}) };
+    if (auto) await autoPublish(env, to, other, { ...r, ok: true }, x);
     await st.save(env, to.slug, other);
+    state.items[r.id] && (state.items[r.id].crossed = true);
   } catch (e) {
-    console.error("talk cross-post failed", String(e).slice(0, 200));
+    console.error("cross-post failed", String(e).slice(0, 200));
+  }
+}
+
+/** Her album, copied into her talk_cross channel (no buttons: approved in hers). */
+async function crossPostAlbum(env, p, sh, b) {
+  const to = p.talk_cross && (await personas.get(env, p.talk_cross));
+  if (!to || sh.crossed) return;
+  try {
+    await tg(env, "sendMediaGroup", { chat_id: to.chat_id, media: sh.media.slice(0, 10).map((m, i) => ({
+      type: "photo", media: m.fileId || m.url, ...(i === 0 ? { caption: `👤 ${b.name} · ${sh.media.length} photos\n↪️ from ${b.name}'s channel -- approve it there` } : {}) })) });
+    sh.crossed = true;
+  } catch (e) {
+    console.error("album cross-post failed", String(e).slice(0, 200));
   }
 }
 
@@ -728,20 +872,30 @@ async function writeTalkLine(env, body) {
     (said.length ? `Already said (pick a DIFFERENT idea, not a rewording of any of these):\n- ${said.join("\n- ")}\n` : "") +
     `The line must be a clear, relatable truth or piece of advice that makes sense on its own to a stranger ` +
     `scrolling TikTok -- like "A man who really wants you never makes you guess. He texts back. He shows up. ` +
-    `So if you're confused, that's your answer." No inside jokes, no slang puzzles, no rambling. ` +
-    `Rules: 22-38 words, 2-4 short sentences, plain spoken English, a hook in the first 5 words, ` +
-    `a punchline at the end. Never explicit, no hashtags, no emojis, no names, no "subscribe"/"follow". ` +
-    `Return JSON: {"on_topic": true, "line": "...", "keywords": ["3-6 single words from the line to highlight"], ` +
-    `"caption": "a one-line TikTok/Instagram caption, max 90 chars, no hashtags"}`;
+    `So if you're confused, that's your answer." It is SHAREABLE: a woman sends it to her best friend, saves it, ` +
+    `or comments "so true" -- it names a concrete situation she has lived (he texts late, she over-explains, he ` +
+    `only calls when bored), not a vague feeling. No poetic metaphors ("silence is a song", "smoke and mirrors"), ` +
+    `no inside jokes, no slang puzzles, no rambling, no contradictions. Talk to "you". ` +
+    `Rules: 22-38 words, 2-4 short sentences, plain spoken English, a hook in the first 5 words (a bold claim, ` +
+    `"If he...", "Stop...", "A woman who..."), a punchline at the end that lands. Never explicit, no hashtags, ` +
+    `no emojis, no names, no "subscribe"/"follow".\n` +
+    `Write 3 different candidates, then score each 1-10 for how likely people are to share or save it (be strict: ` +
+    `vague or confusing = 4 or less). ` +
+    `Return JSON: {"on_topic": true, "candidates": [{"line": "...", "score": 8, "keywords": ["3-6 single words ` +
+    `from the line to highlight"], "caption": "a one-line TikTok/Instagram caption, max 90 chars, no hashtags"}]}`;
   for (let i = 0; i < 3; i++) {
     try {
-      const out = await captions.ask(env, prompt, 300);
+      const out = await captions.ask(env, prompt, 900);
       if (transcript && !any_topic && out.on_topic === false) return ({ line: "", why: "off topic" });
-      const line = String(out.line || "").replace(/\s+/g, " ").trim();
-      const n = line.split(" ").length;
-      if (n >= 15 && n <= 50 && !/#|https?:/.test(line)) {
-        return ({ line, keywords: (out.keywords || []).slice(0, 6).map(String),
-                               caption: String(out.caption || "").slice(0, 120) });
+      // The best-scored candidate that keeps the rules (one plain answer from older replies).
+      const cands = (Array.isArray(out.candidates) ? out.candidates : [out])
+        .map((c) => ({ ...c, line: String(c.line || "").replace(/\s+/g, " ").trim() }))
+        .filter((c) => { const n = c.line.split(" ").length; return n >= 15 && n <= 50 && !/#|https?:/.test(c.line); })
+        .sort((a, b) => (Number(b.score) || 0) - (Number(a.score) || 0));
+      const best = cands[0];
+      if (best && (Number(best.score) || 7) >= 6) {
+        return ({ line: best.line, keywords: (best.keywords || []).slice(0, 6).map(String),
+                  caption: String(best.caption || "").slice(0, 120) });
       }
     } catch (e) {
       console.error("talk line", String(e).slice(0, 200));
@@ -763,6 +917,7 @@ function tagCharacters(p, state, added, post) {
   for (const q of added) {
     if (q.character) continue;
     const parentId = post?.reply_to_message ? itemIdFrom(post.reply_to_message) : "";
+    // (A 🎭 with `fit` gets its girl on the laptop; this one is Kaggle's fallback.)
     q.character = state.items[q.item]?.character || state.items[parentId]?.character || nextCharacter(p, state);
     if (q.kind === "recreate" && q.file_id) q.local_only = true;
   }
@@ -908,8 +1063,10 @@ async function handleUpdates(env, updates, origin) {
         else if (cq?.data?.startsWith("pv:")) { await onTap(env, p, cq, state, origin); changed = true; }
         // A TikTok/Facebook link or video counts as 🎭 even when it is sent as a reply.
         // "🎙 <quote>" / "talk Gia: <quote>" / "talk <tiktok link>": a talk on request.
+        else if (post && isRoster(p) && (await onBuildRequest(env, p, post, state))) changed = true;
+        else if (post && (await onMakeRequest(env, p, post, state))) changed = true;
         else if (post && (await onTalkRequest(env, p, post, state))) changed = true;
-        else if (post && (await onRecreateRequest(env, post, state))) changed = true;
+        else if (post && (await onRecreateRequest(env, post, state, p))) changed = true;
         // A photo uploaded into her channel (not by the bot): 🖼 a carousel of it.
         // (Bot posts, aibeauty's included, carry buttons; a hand upload has none.)
         else if (post?.photo && !post.reply_to_message && !post.via_bot && !post.reply_markup) {
@@ -1202,7 +1359,7 @@ async function onAdmin(request, env) {
         rows.push({ bw: j.bw, created: new Date(j.created).toISOString().slice(0, 10),
                     metrics: Object.fromEntries((post?.metrics || []).map((m) => [m.type, m.value])) });
       }
-      return Response.json({ instagram: rows, tiktok_drafts: (state.tt_videos || []).map((v) => ({ bw: v.bw, draft: !!v.draft })) });
+      return Response.json({ instagram: rows });
     }
     if (what === "talk") {
       // A 🎙 talk now (&who= a roster girl, else the next in rotation).
@@ -1424,6 +1581,18 @@ function faceLine(face) {
  */
 /** How a finished job is posted: {kind: "photo"|"video"|"text", caption|text, buttons, chat, replyTo}. */
 function resultMessage(b, r, item) {
+  if (r.ok && r.cast) {
+    return { kind: "photo", chat: r.chat, replyTo: r.message_id,
+             caption: `👤 face for ${r.cast.replace(/^mpt-/, "")}\n${String(r.look || "").slice(0, 300)}\n#${r.id}`,
+             buttons: kb([[["✅ Pick", `pv:pick:${r.id}`], ["🔁 More faces", `pv:recast:${r.id}`]]]) };
+  }
+  if (!r.ok && r.cast) return { kind: "text", chat: r.chat, replyTo: r.message_id, text: `❌ 👤 Casting failed: ${String(r.reason).slice(0, 300)}` };
+  if (r.ok && r.persona_ready) {
+    b = r.bible || b;
+    return { kind: "photo", chat: r.chat, replyTo: r.message_id,
+             caption: `✅ ${b.name || r.persona_ready} joined the roster: refs and face sheet done. She talks from the next rotation; ` +
+                      `"talk ${b.name || ""}: <quote>", "video ${b.name || ""}: <prompt>" and "carousel ${b.name || ""}: <prompt>" work now.` };
+  }
   if (r.ok && r.kind === "image" && r.carousel) {
     // A 🔁 of one shot replaces it in its own message.
     return { kind: "photo", chat: r.chat, replyTo: r.message_id, edit: r.replace ? r.message_id : null,
@@ -1437,7 +1606,7 @@ function resultMessage(b, r, item) {
   if (r.ok && r.talk) {
     return { kind: "video", chat: r.chat, replyTo: r.message_id,
              caption: `🎙 ${b.name} · ${r.topic || "talk"} · ${r.bw ? "⚫ B&W" : "🎨 colour"}\n“${String(r.line || "").slice(0, 600)}”\n#${r.id}`,
-             buttons: kb([[["👍", `pv:up:${r.id}`], ["👎", `pv:dn:${r.id}`]]]) };
+             buttons: kb([[["👍", `pv:up:${r.id}`], ["👎", `pv:dn:${r.id}`], ["🔁 Redo", `pv:vredo:${r.id}`]]]) };
   }
   if (!r.ok && r.talk) {
     return { kind: "text", chat: r.chat, replyTo: r.message_id, text: `❌ 🎙 Talk failed: ${String(r.reason).slice(0, 300)}` };
@@ -1445,7 +1614,7 @@ function resultMessage(b, r, item) {
   if (r.ok) {
     const cap = r.recreate ? `🎭 ${b.name} · recreated${faceLine(item?.face)}` : `🎬 ${b.name}\n${(r.motion || "").slice(0, 300)}`;
     return { kind: "video", chat: r.chat, replyTo: r.message_id, caption: `${cap}\n#${r.id}`,
-             buttons: kb([[["👍", `pv:up:${r.id}`], ["👎", `pv:dn:${r.id}`]]]) };
+             buttons: kb([[["👍", `pv:up:${r.id}`], ["👎", `pv:dn:${r.id}`], ["🔁 Redo", `pv:vredo:${r.id}`]]]) };
   }
   if (r.carousel) {
     return { kind: "text", chat: r.chat, replyTo: r.message_id,
@@ -1536,6 +1705,18 @@ async function publishCarousel(env, p, state, cq, itemId) {
 const resultKey = (r) => (r.carousel ? `${r.request}/${r.id}` : r.request);
 
 /** Remember a posted result (`sent`: the Telegram message it went out as). */
+/**
+ * How a video/talk/face swap was asked for, kept on its item so 🔁 Redo can ask again
+ * (2026-10-30: redo for everything). `q` is its queue entry, found before it is dropped.
+ */
+function keepRedo(state, r, q) {
+  if (!r?.ok || !q || !state.items[r.id] || !["talk", "recreate", "video"].includes(q.kind || "video")) return;
+  const { id, ...rest } = q;
+  state.items[r.id].redo_job = { ...rest, kind: q.kind || "video", character: r.character || q.character };
+}
+
+const queuedFor = (state, r) => [...Object.values(state.lanes || {}).flat(), ...state.queue].find((q) => q?.id === r.request);
+
 function recordResult(state, r, item, sent) {
   if (!r.ok || !item) return;
   if (r.kind === "image") remember(state, item, sent);
@@ -1582,8 +1763,10 @@ async function postResults(env, p, state, b, kernel) {
       if (r.shoot && r.replaces) await albumRedoDone(env, p, state, r, item, null, file);
       else {
         const sent = await postResult(env, state, r.character ? (await st.bible(env, r.character)) || b : b, r, item, file);
+        keepRedo(state, r, queuedFor(state, r));
         if (r.talk && r.ok) await talkDone(env, p, state, r, item, sent);
         await autoPublish(env, p, state, r, sent);
+        await crossPost(env, p, state, r, item, sent);
       }
     } catch (e) {
       console.error("job result post failed", r.request, String(e));
@@ -1704,13 +1887,22 @@ async function laptopResult(request, env) {
     }
   }
   else if (sent) {
+    await builderDone(env, p, state, r);
     recordResult(state, r, item, sent);
+    keepRedo(state, r, queuedFor(state, r));
     swapAlbumPhoto(state, r, sent);
     await carouselProgress(env, state, r);
     if (r.talk && r.ok) await talkDone(env, p, state, r, item, sent);
     await autoPublish(env, p, state, r, sent);
+    await crossPost(env, p, state, r, item, sent);
   }
-  else await autoPublish(env, p, state, r, await postResult(env, state, b, r, item, file));
+  else {
+    await builderDone(env, p, state, r);
+    const posted = await postResult(env, state, b, r, item, file);
+    keepRedo(state, r, queuedFor(state, r));
+    await autoPublish(env, p, state, r, posted);
+    await crossPost(env, p, state, r, item, posted);
+  }
   state.done.push(resultKey(r));
   // Taken back from Kaggle's queue too, if it was handed over while the laptop
   // was quiet; a Kaggle result for it is skipped as already done.
@@ -1743,9 +1935,13 @@ async function jobPayload(env, origin, state, batch) {
                   given_line: q.given_line || "", given_url: q.given_url || "", message_id: q.message_id || null,
                   ...(q.given_keywords ? { given_keywords: q.given_keywords, given_caption: q.given_caption || "" } : {}),
                   used: (state.talk_used || []).slice(-300) });
+    } else if (q.kind === "cast" || q.kind === "lock") {
+      jobs.push({ id: q.id, kind: q.kind, new_slug: q.new_slug, bible: q.bible, n: q.n, pick: q.pick,
+                  character: q.character, chat: q.chat, message_id: q.message_id });
     } else if (q.kind === "recreate") {
       jobs.push({ id: q.id, kind: "recreate", url: q.url, seconds: q.seconds, chat: q.chat, message_id: q.message_id,
-                  video_url: q.file_id ? await fileLink(env, origin, q.file_id) : "" });
+                  video_url: q.file_id ? await fileLink(env, origin, q.file_id) : "",
+                  ...(q.character ? { character: q.character } : {}), ...(q.fit ? { fit: q.fit } : {}) });
     } else {
       jobs.push({ id: q.id, image_url: await fileLink(env, origin, q.file_id), motion: q.motion || "",
                   caption: state.items[q.item]?.caption || "", tags: state.items[q.item]?.tags || [],
@@ -1772,11 +1968,12 @@ async function jobPayload(env, origin, state, batch) {
  * draft cron (onDraftSchedule, its own invocation every 15 min) writes them --
  * writeRequestedShoot -- and queues the render.
  */
-async function shoot(env, p, who = null) {
+async function shoot(env, p, who = null, ask = null) {
   const state = await st.load(env, p.slug);
   const character = who || (isRoster(p) ? nextCharacter(p, state) : p.slug);
   if (!(await st.bible(env, character))) { await st.save(env, p.slug, state); return `${p.slug}: no bible for ${character} (persona.cli sync)`; }
-  state.shoot_requests = [...(state.shoot_requests || []), { character, at: Date.now() }];
+  // `ask`: from the channel -- {brief, video, message_id} (a carousel or a video of a prompt).
+  state.shoot_requests = [...(state.shoot_requests || []), { character, at: Date.now(), ...(ask || {}) }];
   await st.save(env, p.slug, state);
   return `${p.slug}: shoot of ${character} requested (scenes written within 15 min)`;
 }
@@ -1788,8 +1985,8 @@ async function writeRequestedShoot(env, p) {
   const b = await st.bible(env, req.character);
   const recentState = await st.load(env, p.slug);
   // One photoshoot: one place, one outfit, one day -- a carousel.
-  const list = b ? await scenes.writeShoot(env, b, recentState, Number(p.photos || 6),
-    { sexy: p.style === "recommendable" ? false : p.style || (isRoster(p) ? true : "flirty") }) : null;
+  const list = b ? await scenes.writeShoot(env, b, recentState, req.video ? 1 : Number(p.photos || 6),
+    { sexy: p.style === "recommendable" ? false : p.style || (isRoster(p) ? true : "flirty"), brief: req.brief || "" }) : null;
   // Applied onto the state as it is now: other writers moved while the AI wrote.
   const state = await st.load(env, p.slug);
   state.shoot_requests = (state.shoot_requests || []).filter((r) => !(r.character === req.character && r.at === req.at));
@@ -1797,7 +1994,8 @@ async function writeRequestedShoot(env, p) {
     state.recent.push(`${list[0].shoot_place} / ${list[0].outfit}`, ...list.map((x) => `${x.setting} / ${x.action}`));
     const id = `shoot-${req.character}-${Date.now()}`;
     state.shoots = state.shoots || {};
-    state.shoots[id] = { character: req.character, ids: [], started: Date.now() };
+    state.shoots[id] = { character: req.character, ids: [], started: Date.now(),
+                         ...(req.brief ? { brief: req.brief, video: !!req.video, asked: req.message_id || null } : {}) };
     state.queue.push({ id, kind: "render", scenes: list, date: st.today(), chat: p.chat_id, videos: 0, character: req.character, shoot: id });
     console.log(`${p.slug}: shoot of ${req.character} queued (${list.length} scenes)`);
   }
@@ -2075,8 +2273,21 @@ async function postShootAlbum(env, p, state, shootId) {
   if (!sh || sh.album || !sh.media?.length) return;
   const b = (await st.bible(env, sh.character)) || { name: sh.character };
   const first = state.items[sh.media[0].id] || {};
+  if (sh.video) {
+    // "video <prompt>": its one photo as a post of its own (🔁 redraws it), animated
+    // as a reply; both wait for a 👍.
+    const m = sh.media[0], it = state.items[m.id] || {};
+    const msg = await tg(env, "sendPhoto", { chat_id: p.chat_id, photo: m.fileId || m.url, caption: caption(b.name, it).slice(0, 1024),
+      reply_markup: buttons(it), ...(sh.asked ? { reply_parameters: { message_id: sh.asked, allow_sending_without_reply: true } } : {}) });
+    const ph = (msg.photo || []).slice(-1)[0];
+    if (state.items[m.id]) Object.assign(state.items[m.id], { file_id: ph?.file_id || it.file_id, message_id: msg.message_id });
+    sh.album = msg.message_id;
+    queueVideo(state, m.id, msg, ph?.file_id || it.file_id, sh.brief || "");
+    await crossPost(env, p, state, { ok: true, id: m.id, kind: "image", character: sh.character }, it, msg);
+    return;
+  }
   sh.caption_text = `👤 ${b.name} · ${sh.media.length} photos${first.caption ? `\n${first.caption}` : ""}\n#${shootId}`;
-  if (!sh.status && !(p.tiktok_auto || (isRoster(p) && autoOn(env)))) sh.status = albumHint(p);
+  if (!sh.status && !p.tiktok_auto) sh.status = albumHint(p);
   const text = sh.status ? `${sh.caption_text}\n${sh.status}` : sh.caption_text;
   const msgs = await tg(env, "sendMediaGroup", { chat_id: p.chat_id, media: sh.media.slice(0, 10).map((m, i) => ({
     type: "photo", media: m.fileId || m.url, ...(i === 0 ? { caption: text.slice(0, 1024) } : {}) })) });
@@ -2098,17 +2309,8 @@ async function postShootAlbum(env, p, state, shootId) {
       if (it?.file_id) queueVideo(state, m.id, { chat: { id: p.chat_id }, message_id: it.message_id || sh.album }, it.file_id, "");
     }
   }
-  // A single persona's album is a TikTok draft by itself (her Instagram carousel still
-  // waits for "post" or a 👍): a job with Instagram left out.
-  if (!isRoster(p) && autoOn(env) && social.accounts(p).tiktok) {
-    const fileIds = sh.media.map((m) => state.items[m.id]?.file_id).filter(Boolean).slice(0, 10);
-    if (fileIds.length >= 2) {
-      const posts = await captions.forPost(env, p, b, state, { ...first, kind: "photo" });
-      state.publish.push({ id: `pub-ttcar-${shootId}-${Date.now()}`, item: `ttcar-${shootId}`, kind: "carousel", file_ids: fileIds,
-        created: Date.now(), due: Date.now() + AUTO_WAIT_MS, audio: false, posts, caption: posts.instagram.text, quiet: true,
-        ig: { status: "skipped", note: "a carousel waits for post or 👍" } });
-    }
-  }
+  // Lena's albums are copied into MPT's channel (2026-10-30: everything of hers there too).
+  await crossPostAlbum(env, p, sh, b);
   // Old album records go after 5 days.
   const keep = Object.entries(state.album_msgs);
   if (keep.length > 300) state.album_msgs = Object.fromEntries(keep.slice(-300));
@@ -2168,51 +2370,6 @@ async function shootDone(env, p, state, shootId) {
   return true;
 }
 
-/**
- * A 👍'd 🎙 talk to the TikTok inbox, one step per call like shootDone: the video goes
- * to gh-pages (TikTok pulls only from the verified domain), then, once Pages serves
- * it, the draft is made. TikTok's 5 pending drafts a day: retried hourly. Saved onto
- * the current state. Returns true when it did something.
- */
-async function talkDraftStep(env, p, state) {
-  const i = (state.tt_videos || []).findIndex((v) => !v.draft && !v.error && !(v.retry_at && Date.now() < v.retry_at));
-  if (i < 0) return false;
-  const v = state.tt_videos[i];
-  let note = null;
-  try {
-    if (!v.url) {
-      const f = await telegramFile(env, v.file_id);
-      if (!f.ok) throw new Error(`telegram file ${f.status}`);
-      [v.url] = await tiktok.hostAll(env, [{ name: `${Date.now()}-${v.item}.mp4`, bytes: await f.arrayBuffer() }]);
-    } else if (!(await tiktok.live([v.url]))) {
-      if (Date.now() - v.created > 24 * 3600 * 1000) throw new Error("gh-pages never served the video");
-      return false;
-    } else {
-      v.draft = await tiktok.videoDraft(env, p.slug, v.url);
-      note = "📥 TikTok: in the aiqube inbox -- add a sound/caption and post";
-    }
-  } catch (e) {
-    const msg = String(e.message || e).slice(0, 200);
-    if (/too_many_pending|rate_limit|spam_risk/i.test(msg)) {
-      if (!v.retry_at) note = "⏳ TikTok: waiting for a free draft slot (5 a day), retried hourly";
-      v.retry_at = Date.now() + 3600 * 1000;
-    } else {
-      v.error = msg;
-      note = `❌ TikTok draft failed: ${msg.slice(0, 120)}`;
-    }
-  }
-  const now = await st.load(env, p.slug);
-  const j = (now.tt_videos || []).findIndex((x) => x.item === v.item && x.created === v.created);
-  if (j >= 0) now.tt_videos[j] = v;
-  now.tt_videos = (now.tt_videos || []).filter((x) => Date.now() - x.created < 14 * 86400 * 1000);
-  await st.save(env, p.slug, now);
-  if (note && v.message_id) {
-    await noteOnPost(env, { chat: { id: v.chat }, message_id: v.message_id, caption: v.caption || "",
-                            ...(v.markup ? { reply_markup: v.markup } : {}) }, note);
-  }
-  return true;
-}
-
 /** The draft cron: one step of one finished shoot's TikTok draft per run. */
 export async function onDraftSchedule(event, env) {
   // A requested shoot's scenes first, for every persona (one AI call each): a
@@ -2233,12 +2390,9 @@ export async function onDraftSchedule(event, env) {
     // A finished shoot with no photos (a failed Kaggle run) never gets a draft; it
     // used to be picked every run and stall every shoot behind it (2026-10-19).
     const pending = Object.entries(state.shoots || {})
-      .find(([, sh]) => sh.finished && sh.ids?.length && (sh.send_tiktok || p.tiktok_auto || (isRoster(p) && autoOn(env))) && !sh.draft && !sh.draft_error
+      .find(([, sh]) => sh.finished && sh.ids?.length && (sh.send_tiktok || p.tiktok_auto) && !sh.draft && !sh.draft_error
                         && !(sh.retry_at && Date.now() < sh.retry_at));
-    if (!pending) {
-      if (await talkDraftStep(env, p, state)) return;
-      continue;
-    }
+    if (!pending) continue;
     if (await shootDone(env, p, state, pending[0])) {
       // Saved onto the current state: other writers may have moved meanwhile.
       const now = await st.load(env, p.slug);
@@ -2415,20 +2569,35 @@ async function advanceJobs(env, p, origin) {
  * that went to Instagram neither as a post nor a Story, through Buffer. Daily
  * Stories keep a new account looking active between feed posts.
  */
+/**
+ * Her Instagram Stories, PERSONA story_hours (default 3 a day, 2026-10-30: "improve
+ * the stories as much as possible"): Stories keep followers seeing her between posts.
+ * The middle one shares her newest Reel or talk (a Story of a fresh video sends
+ * viewers to it); the others are photos from her recent shoots that never went to
+ * the feed -- behind-the-scenes of the day. Nothing is used twice.
+ */
 async function dailyStory(env, p, origin) {
   if (isRoster(p) || !p.buffer?.instagram || p.daily_story === false) return `${p.slug}: no daily story`;
   const state = await st.load(env, p.slug);
   const day = st.today();
-  if (state.story_date === day) return `${p.slug}: story already today`;
+  const n = state.story_day?.day === day ? state.story_day.n : 0;
   const used = new Set(state.publish.flatMap((j) => [j.file_id, ...(j.file_ids || [])]).filter(Boolean));
+  const storied = new Set(state.publish.filter((j) => j.story).map((j) => j.file_id));
   const fresh = Object.values(state.shoots || {}).filter((sh) => Date.now() - (sh.started || 0) < 3 * 86400 * 1000)
-    .flatMap((sh) => (sh.media || []).map((m) => ({ id: m.id, fileId: state.items[m.id]?.file_id })))
+    .sort((a, b) => (b.started || 0) - (a.started || 0))
+    .flatMap((sh) => (sh.media || []).map((m) => ({ id: m.id, fileId: state.items[m.id]?.file_id, kind: "photo" })))
     .filter((x) => x.fileId && !used.has(x.fileId));
-  state.story_date = day;
-  if (!fresh.length) { await st.save(env, p.slug, state); return `${p.slug}: no unused photo for a story`; }
-  const x = fresh[Math.floor(Math.random() * fresh.length)];
-  state.publish.push({ id: `pub-story-${x.id}-${Date.now()}`, item: x.id, kind: "photo", story: true, quiet: true,
-                       created: Date.now(), file_id: x.fileId, audio: false, caption: "", posts: {} });
+  // Her newest video that went out in the last 2 days, not yet in a Story.
+  const video = state.publish.filter((j) => j.kind === "video" && !j.story && j.ig?.status === "done" && j.file_id &&
+                                            !storied.has(j.file_id) && Date.now() - (j.ig.sent_at || 0) < 2 * 86400 * 1000)
+    .sort((a, b) => (b.ig.sent_at || 0) - (a.ig.sent_at || 0))[0];
+  state.story_day = { day, n: n + 1 };
+  const x = n === 1 && video ? { id: video.item, fileId: video.file_id, kind: "video" }
+    : fresh.length ? fresh[Math.floor(Math.random() * Math.min(3, fresh.length))]
+    : video ? { id: video.item, fileId: video.file_id, kind: "video" } : null;
+  if (!x) { await st.save(env, p.slug, state); return `${p.slug}: nothing new for a story`; }
+  state.publish.push({ id: `pub-story-${x.id}-${Date.now()}`, item: x.id, kind: x.kind, story: true, quiet: true,
+                       created: Date.now(), file_id: x.fileId, audio: x.kind === "video", caption: "", posts: {} });
   await advancePublish(env, p, state, origin);
   await st.save(env, p.slug, state);
   return `${p.slug}: story ${x.id} queued`;
@@ -2450,7 +2619,7 @@ export async function onPersonaSchedule(event, env) {
     try {
       if (byShoots(p)) {
         if ((p.shoot_hours || [5, 7, 9, 11, 13]).includes(h) && m < 15) console.log(await shoot(env, p));
-        if (h === Number(p.story_hour ?? 16) && m < 15) console.log(await dailyStory(env, p, origin));
+        if ((p.story_hours || [7, 12, 17]).includes(h) && m < 15) console.log(await dailyStory(env, p, origin));
         if ((p.talk_hours || []).includes(h) && m < 15) {
           const state = await st.load(env, p.slug);
           console.log(queueTalk(p, state));

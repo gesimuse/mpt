@@ -39,22 +39,21 @@ ACCENT = {"Prague": "Czech", "Tokyo": "Japanese", "Moscow": "Russian", "London":
 # A new first frame for every talk (2026-10-29: one portrait per girl made every talk
 # the same shot, and it read as fake). Each: where she sits, its light, the mic.
 SCENES = [
+    # Always indoors and clean (2026-10-30): tidy, calm rooms, nothing messy or busy.
     ("podcast", "seated at a podcast desk, a black broadcast microphone on a boom arm at the lower left of the frame",
-     "a dim podcast studio behind her: dark acoustic panels, a warm lamp and soft bokeh lights", "warm moody side light"),
-    ("couch", "sitting sideways on a beige couch at home, a small lavalier microphone clipped to her top",
-     "a lived-in living room behind her: a window with sheer curtains, a plant, a shelf of books", "soft daylight from the window"),
-    ("car", "in the driver's seat of a parked car, seatbelt on, filmed from the phone on the dashboard",
-     "the car interior and a street through the side window behind her", "flat overcast daylight through the windshield"),
-    ("kitchen", "leaning on a kitchen counter holding a mug, a lavalier microphone clipped to her top",
-     "a home kitchen behind her: cabinets, a kettle, warm pendant lights", "warm evening pendant light"),
-    ("bedroom", "sitting cross-legged on her bed, filmed from a phone on a tripod",
-     "a cosy bedroom behind her: a headboard, fairy lights, a nightstand lamp", "a ring light from the front and warm lamps"),
-    ("cafe", "sitting at a small café table by the window, a lavalier microphone clipped to her top",
-     "a busy café behind her, people and the counter out of focus", "bright natural window light"),
-    ("street", "standing on a city street at golden hour, holding a handheld interview microphone",
-     "a city sidewalk, shop fronts and passers-by out of focus behind her", "low warm golden-hour sun"),
-    ("balcony", "sitting on a balcony chair at sunset, a lavalier microphone clipped to her top",
-     "a balcony railing and rooftops behind her", "soft pink sunset light"),
+     "a clean, calm podcast studio behind her: dark acoustic panels, a warm lamp, soft bokeh lights", "warm soft side light"),
+    ("couch", "sitting on a cream couch in a bright minimal living room, a small lavalier microphone clipped to her top",
+     "a tidy, uncluttered living room behind her: white walls, a plant, a neat shelf", "soft daylight from a window"),
+    ("kitchen", "leaning on a clean marble kitchen counter holding a mug, a lavalier microphone clipped to her top",
+     "a spotless modern kitchen behind her: light cabinets, a vase of flowers", "bright soft morning light"),
+    ("bedroom", "sitting on a neatly made bed with white linen, filmed from a phone on a tripod",
+     "a calm, tidy bedroom behind her: a clean headboard, a bedside lamp, soft neutral colours", "warm lamp light and a soft ring light"),
+    ("office", "sitting at a clean desk in a home office, a laptop closed beside her, a lavalier microphone clipped to her top",
+     "a neat home office behind her: a bookshelf with few books, a plant, a framed print", "soft window light"),
+    ("suite", "sitting in a velvet armchair in an elegant hotel suite, a lavalier microphone clipped to her top",
+     "a clean, elegant hotel room behind her: tall curtains, a neat bed, warm lamps", "warm evening lamp light"),
+    ("nook", "curled up in a big armchair in a cosy reading corner by a window, a lavalier microphone clipped to her top",
+     "a tidy reading corner behind her: a floor lamp, a knitted throw, a neat bookshelf", "soft overcast window light"),
 ]
 # Low necklines, all safe for Lena's Instagram (no lingerie, nothing see-through).
 OUTFITS = ["a fitted black ribbed top with a low scoop neckline", "a fitted white tank top with a low neckline",
@@ -65,7 +64,7 @@ HAIR = ["loose soft waves", "a sleek high ponytail", "a messy low bun with loose
         "half-up hair with a claw clip", "a loose braid over one shoulder"]
 # Phone footage, not a photo shoot.
 REAL = ("Candid vertical phone video frame, shot on an iPhone, natural colours, real skin texture with pores, "
-        "no retouching, slight sensor noise, a little imperfect and lived-in.")
+        "no retouching, slight sensor noise. The room is clean and tidy, nothing messy, indoors.")
 
 
 def log(m):

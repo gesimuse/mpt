@@ -91,6 +91,14 @@ def recreate(job, char, out, inp, work_root, code_dir):
         src = inp / f"{job['id']}.mp4"
         download_clip(job, src)
         work = work_root / job["id"]
+        work.mkdir(parents=True, exist_ok=True)
+        # MPT: the roster girl who fits the clip's person best (persona/fit.py).
+        if job.get("fit"):
+            from . import character, fit
+            slug = fit.pick(src, job["fit"], work)
+            if slug and slug != char.slug:
+                char = character.Character(slug)
+                job["character"] = slug
         # Her, not whichever persona is active on this machine: the recreate's stages
         # run as child processes and read the slug from the environment.
         import os
@@ -470,6 +478,55 @@ def carousel(job, char, studio, out, inp):
     return results or failed[:1]
 
 
+def cast(job, studio, out):
+    """👤 Persona builder, step 1 (2026-10-30): a new MPT girl from the bible the Worker
+    wrote ("new persona <description>"), and `n` faces cast for her. Each face is a
+    result; the channel picks one (✅ Pick), which runs `lock`."""
+    from . import character
+    slug = job["new_slug"]
+    if slug not in character.list_characters():
+        prev = config.load_settings().get("active")
+        character.import_bible(job["bible"], slug=slug)
+        if prev:
+            character.set_active(prev)  # importing makes her active; the agent's default stays
+    char = character.Character(slug)
+    results = []
+    for c in studio.cast(char, n=int(job.get("n", 4)), hint=job.get("hint", "")):
+        if c.get("error") or c.get("rejected"):
+            log(f"cast {slug}: {c.get('error') or c.get('rejected')}")
+            continue
+        dest = out / f"{c['id']}.jpg"
+        shutil.copyfile(c["path"], dest)
+        (out / f"{c['id']}.json").write_text(json.dumps({"id": c["id"], "kind": "image", "path": dest.name, "caption": ""}))
+        results.append({"request": job["id"], "id": c["id"], "ok": True, "kind": "image", "cast": slug,
+                        "look": " · ".join((c.get("look") or {}).values()), **_reply(job)})
+    return results or [{"request": job["id"], "ok": False, "kind": "image", "cast": slug,
+                        "reason": "no face passed the checks -- tap 🔁 More faces", **_reply(job)}]
+
+
+def lock(job, studio, out):
+    """👤 Persona builder, step 2: the picked face made hers -- four master refs, her
+    face sheet (12 angles), then her refs to Kaggle and her bible to the Worker."""
+    from . import character, kaggle
+    char = character.Character(job["new_slug"])
+    studio.pick(char, job["pick"])
+    for r in studio.make_refs(char, job["pick"]):
+        log(f"ref {r.get('stem')}: {'ok' if r.get('ok') else r.get('error') or r.get('check')}")
+    studio.lock_refs(char)
+    for r in studio.make_sheet(char):
+        log(f"sheet {r.get('stem')}: {'ok' if r.get('ok') else r.get('error') or r.get('check')}")
+    try:
+        log(kaggle.sync(char))
+    except Exception as e:
+        log(f"sync of {char.slug} failed ({e}); her Kaggle jobs wait for persona.cli sync")
+    front = char.refs_dir / "01-front.jpg"
+    item = {"id": f"ready-{char.slug}", "kind": "image", "path": front.name, "caption": ""}
+    shutil.copyfile(front, out / front.name)
+    (out / f"{item['id']}.json").write_text(json.dumps(item))
+    return [{"request": job["id"], "id": item["id"], "ok": True, "kind": "image", "persona_ready": char.slug,
+             "bible": char.bible, **_reply(job)}]
+
+
 def run(jobs, char, studio_factory, out, inp, work_root, code_dir):
     """All jobs, 🎭 first: they run in child processes, and this process has not
     loaded a model yet, so its RAM is still free for them."""
@@ -485,6 +542,10 @@ def run(jobs, char, studio_factory, out, inp, work_root, code_dir):
             results.extend(carousel(job, char, studio, out, inp))
         elif job.get("kind") == "talk":
             results.append(talk(job, char, studio, out))
+        elif job.get("kind") == "cast":
+            results.extend(cast(job, studio, out))
+        elif job.get("kind") == "lock":
+            results.extend(lock(job, studio, out))
         elif job.get("kind") == "redo":
             # You asked for this one: more tries before it gives up (a back shot failed
             # its twist check twice and the redraw came back with nothing, 2026-10-20).

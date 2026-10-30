@@ -33,8 +33,12 @@ function outfitFor(place, used, sexy = false, state = null) {
     const excluded = new Set([...IDEAS.outfit_kinds.swim, ...IDEAS.outfit_kinds.sport, ...(IDEAS.outfit_kinds.snow || [])]);
     pool = IDEAS.outfits.filter((o) => !excluded.has(o));
   }
-  const free = pool.filter((o) => !used.has(o));
-  return state ? pickPref(state, free.length ? free : pool, (o) => `outfit:${o}`) : pick(free.length ? free : pool);
+  // Not one she wore in her last shoots either (Lena's black satin dress in two
+  // albums running, 2026-10-30).
+  const worn = (state?.recent || []).slice(-40).join(" ").toLowerCase();
+  const free = pool.filter((o) => !used.has(o) && !worn.includes(o.toLowerCase()));
+  const fresh = free.length ? free : pool.filter((o) => !used.has(o));
+  return state ? pickPref(state, fresh.length ? fresh : pool, (o) => `outfit:${o}`) : pick(fresh.length ? fresh : pool);
 }
 
 /**
@@ -128,7 +132,10 @@ travel photo: she is the subject, filling most of the frame. Outfits are figure-
 little revealing -- bodycon and mini dresses, crop tops, low-cut and backless tops, bikinis at the
 beach or pool -- but never lingerie, underwear or see-through. Poses are alluring, flirty and
 model-like -- hip popped, back slightly arched, a hand in her hair, a sultry gaze or a teasing smile --
-never explicit (Instagram must still recommend her to people who don't follow her).` : sexy ? `She is a glamorous, sexy social-media model and every photo is a flattering shoot of HER, not a
+never explicit (Instagram must still recommend her to people who don't follow her).
+Every outfit is COMPLETE: a dress, or a top together with a skirt, shorts or jeans -- she never wears only
+a shirt over her underwear. The shoot is bright and colourful like a top Instagram feed: daylight, golden
+hour or a well-lit interior, with at most ONE moody or dark photo.` : sexy ? `She is a glamorous, sexy social-media model and every photo is a flattering shoot of HER, not a
 travel photo: she is the subject, filling most of the frame. Outfits are figure-flattering and
 revealing and show off her body (micro bikinis, tiny crop tops, micro mini dresses, plunging necklines,
 cut-outs, backless), but there is NO nudity. Poses are seductive and model-like: hip popped, back
@@ -281,11 +288,15 @@ function poseNotes(state) {
   return `${good.length ? `Poses that worked well before (use similar ones): ${good.join("; ")}.\n` : ""}${bad.length ? `Poses that did NOT work (avoid): ${bad.join("; ")}.\n` : ""}\n`;
 }
 
-export async function writeShoot(env, b, state, n, { sexy = false } = {}) {
+export async function writeShoot(env, b, state, n, { sexy = false, brief = "" } = {}) {
   const { places, outfits } = seeds(state, 1, [], sexy);
   const place = places[0], outfit = outfits[0];
+  // Asked for in the channel ("carousel <prompt>" / "video <prompt>"): the user's
+  // words decide the place, outfit and mood; the seeds only fill what they leave open.
+  const asked = brief ? `\nTHE USER ASKED FOR THIS SHOOT -- follow it first, it overrides the place and outfit ` +
+    `suggested above wherever it says something different: "${String(brief).slice(0, 400)}"\n` : "";
   const p = `${prompt(b, state, [place], [outfit], sexy)}
-
+${asked}
 ${poseNotes(state)}IMPORTANT, this replaces the count above: write ${n} photos of ONE photoshoot on ONE day at ${place}, all
 in the SAME outfit (${outfit}, the same colours in every photo). Each photo is a different spot of that
 same place or right next to it (e.g. the entrance, a table, a window, the terrace, the street outside),
@@ -304,10 +315,18 @@ ${n} objects with the keys above.`;
   list = list || fallback(Array(n).fill(place), Array(n).fill(outfit));
   while (list.length < n) list.push({ ...list[list.length % Math.max(1, list.length)] });
   // The outfit word for word on every photo: the model drifted colours otherwise.
-  const outfitText = list[0].outfit || outfit;
+  // Lena's Instagram: underwear or lingerie the model slipped in is replaced by the
+  // outfit it was given (a shirt over black briefs, 2026-10-30).
+  const UNSAFE = /\b(underwear|panties|briefs|knickers|lingerie|bra|thong|g-string|bodysuit only)\b/i;
+  const outfitText = sexy === "flirty" && UNSAFE.test(list[0].outfit || "") ? outfit : (list[0].outfit || outfit);
   const makeup = makeupFor([place, ...list.map((sc) => `${sc.setting} ${sc.light}`)].join(" "), outfitText);
   list.forEach((sc) => { sc.outfit = outfitText; sc.makeup = makeup; sc.shoot_place = place; });
   list = assignGazes(list.slice(0, n), state);
+  // Lena: photos 1 and 4 look into the lens with a smile -- eye contact is what gets
+  // a stranger to stop (most of her shots looked away, 2026-10-30).
+  if (sexy === "flirty") for (const i of [0, 3]) if (list[i]) Object.assign(list[i], {
+    angle: "facing the camera, looking straight into the lens", expression: "a warm, open smile",
+    gaze: "facing the camera, looking straight into the lens; a warm, open smile", angle_sheet: "01-front", sheet: "01-front" });
   if (sexy) list.forEach((sc, i) => { if (i % 5 !== 4) sc.shot = pickPref(state, FULL_SHOTS, (x) => `shot:${x.toLowerCase().split(/\s+/).slice(0, 3).join(" ")}`); });
   // Body views (2026-10-19, asked for): one photo from behind and one side-on,
   // the rest facing the camera. From behind her face is not seen (nothing to check

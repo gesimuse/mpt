@@ -103,13 +103,14 @@ async function tiktokTarget(env, p) {
 /** Her TikTok post in Buffer: published at its time if it is a talk, else a draft. */
 async function startTiktok(env, p, job, mediaUrl) {
   if (job.story) return { status: "skipped", note: "a Story is Instagram only" };
-  if (job.talk && !p.buffer?.tiktok && p.talk_cross) return { status: "skipped", note: `from ${p.talk_cross}'s channel` };
+  // Her talks and face swaps reach TikTok from her copy in that channel (index.js crossPost).
+  if ((job.talk || job.recreate) && !p.buffer?.tiktok && p.talk_cross) return { status: "skipped", note: `from ${p.talk_cross}'s channel` };
   const to = await tiktokTarget(env, p);
   if (!to) return { status: "skipped", note: "not linked" };
   const text = job.posts?.tiktok?.text || job.caption;
   const alt = (job.posts?.alt || text.split("\n")[0]).slice(0, 200);
   const urls = Array.isArray(mediaUrl) ? mediaUrl : [mediaUrl];
-  const live = !!(job.talk && job.audio && job.kind === "video");
+  const live = !!((job.talk || job.recreate) && job.audio && job.kind === "video");
   // TikTok photo posts refuse the AI flag ("do not support AI content disclosure");
   // the caption's #aigenerated stays.
   const metadata = { tiktok: { title: text.split("\n")[0].slice(0, 90), ...(job.kind === "video" ? { isAiGenerated: true } : {}) } };
