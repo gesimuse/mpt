@@ -1131,7 +1131,9 @@ async function onAdmin(request, env) {
       const hours = [7, 12, 17].slice(0, perDay);  // UTC = 09/14/19 Prague (UTC+2)
       const done = new Set(state.publish.filter((j) => j.fb || j.fb_only).map((j) => j.item));
       const picks = [...state.voted].reverse().map((id) => [id, state.items[id]])
-        .filter(([id, it]) => it?.file_id && ["photo", "video"].includes(it.kind || "photo") && !it.talk && !done.has(id)).slice(0, n);
+        // Photos and 🎭 face swaps (they keep the original's sound); never a silent video.
+        .filter(([id, it]) => it?.file_id && !it.talk && !done.has(id) &&
+                ((it.kind || "photo") === "photo" || (it.kind === "video" && (it.audio || it.recreate)))).slice(0, n);
       const b = (await st.bible(env, p.slug)) || { name: p.slug };
       let t = Date.now(), made = [];
       for (const [id, it] of picks) {
@@ -1140,7 +1142,7 @@ async function onAdmin(request, env) {
         const due = Date.UTC(new Date(t).getUTCFullYear(), new Date(t).getUTCMonth(), new Date(t).getUTCDate(), new Date(t).getUTCHours());
         const posts = await captions.forPost(env, p, b, state, it);
         state.publish.push({ id: `pub-fb-${id}-${Date.now()}`, item: id, kind: it.kind || "photo", created: Date.now(), due,
-          file_id: it.file_id, audio: !!it.audio, posts, caption: posts.instagram.text, fb_only: true, quiet: true,
+          file_id: it.file_id, audio: !!it.audio || !!it.recreate, posts, caption: posts.instagram.text, fb_only: true, quiet: true,
           ig: { status: "skipped", note: "Facebook backfill" }, tt: { status: "skipped", note: "Facebook backfill" } });
         made.push([id, new Date(due).toISOString().slice(0, 16)]);
       }

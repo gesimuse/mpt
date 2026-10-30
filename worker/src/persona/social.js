@@ -67,6 +67,10 @@ const STATUS = `query($input: PostInput!) { post(input: $input) { id status dueA
 async function startBuffer(env, p, job, mediaUrl, platform) {
   const channelId = p.buffer?.[platform];
   if (platform === "facebook" && job.story) return { status: "skipped", note: "a Story stays on Instagram" };
+  if (platform === "facebook" && job.talk) return { status: "skipped", note: "talks stay on Instagram and TikTok" };
+  // A silent video gets its song in the Instagram app; Facebook gets that version
+  // later (fbreel), never the silent file (2026-10-30).
+  if (platform === "facebook" && job.kind === "video" && !job.audio) return { status: "skipped", note: "silent -- its Instagram version with the song goes up instead" };
   const text = job.posts?.[platform]?.text || job.posts?.instagram?.text || job.caption || "";
   const alt = (job.posts?.alt || text.split("\n")[0]).slice(0, 200);
   const urls = Array.isArray(mediaUrl) ? mediaUrl : [mediaUrl];
