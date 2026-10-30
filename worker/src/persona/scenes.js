@@ -298,14 +298,19 @@ async function readBrief(env, brief) {
     const r = await env.AI.run(MODEL, { messages: [{ role: "user", content:
       `A user asked for a photo/video of a fictional adult model: "${String(brief).slice(0, 400)}"\n` +
       `Pull out what they asked for, keeping their words where possible, made safe for Instagram and TikTok ` +
-      `(no nudity, no touching breasts or genitals -- keep the clothing and the vibe, drop anything explicit).\n` +
+      `(no nudity, no undressing, no underwear or bra showing, no touching breasts or genitals -- keep the clothing ` +
+      `and the vibe, drop anything explicit). Make a vague outfit concrete with colours and pieces ` +
+      `("baggy clothes" -> "an oversized cream knit sweater slipping off one shoulder and loose light-wash baggy jeans").\n` +
       `Return ONLY JSON: {"place": "where, or empty", "outfit": "what she wears, with colours and fit, or empty", ` +
       `"action": "her pose, or empty", "motion": "one sentence of how she moves in a 5-second video, safe, or empty"}` }],
       max_tokens: 300, temperature: 0.2 });
     const m = /\{[\s\S]*\}/.exec(text(r));
     const o = m ? JSON.parse(m[0]) : {};
+    // Undressing slips through the model now and then: such a motion is dropped.
+    const motion = /take[sn]? off|undress|strip|remov\w* (her|the) (top|shirt|dress)|bra\b|underwear|lingerie|topless|naked|nude/i
+      .test(String(o.motion || "")) ? "" : String(o.motion || "").trim();
     return { place: String(o.place || "").trim(), outfit: noGloves(String(o.outfit || "").trim()),
-             action: String(o.action || "").trim(), motion: String(o.motion || "").trim() };
+             action: String(o.action || "").trim(), motion };
   } catch (e) {
     console.log("brief reading failed", String(e).slice(0, 150));
     return { place: "", outfit: "", action: "", motion: "" };
