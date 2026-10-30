@@ -252,8 +252,20 @@ def video(job, char, studio, out, inp):
         src.write_bytes(base64.b64decode(job["image_b64"]))
     photo = char.new_item(kind="image", lane="social", path=str(src), model="telegram",
                           scene={"motion": job.get("motion") or "", "hook": job.get("hook") or ""}, tags=job.get("tags", []))
+    # The movement written from the photo itself (qa.motion_for: Wan2.2's own rewriter,
+    # made safe), the asked-for motion only as the wish (2026-10-30).
+    motion = job.get("motion") or ""
+    if config.flag("PERSONA_AUTO_MOTION", "1"):
+        from . import qa
+        seen = qa.motion_for(src, job.get("wish") or motion)
+        qa.unload()
+        if seen:
+            log(f"video {job['id']} motion from the photo: {seen}")
+            motion = seen
+        elif qa.UNDRESS.search(motion):
+            motion = ""
     try:
-        vid = studio.animate(char, photo, job.get("motion") or None)
+        vid = studio.animate(char, photo, motion or None)
     except Exception as e:
         log(f"video {job['id']} failed: {e}")
         return {"request": job["id"], "ok": False, "reason": f"{type(e).__name__}: {e}"[:300], **_reply(job)}

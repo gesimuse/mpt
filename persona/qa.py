@@ -191,6 +191,42 @@ def _check(path):
         return True, "qa unavailable", {}
 
 
+# Wan2.2's own image-to-video prompt rewriter (Wan-Video/Wan2.2, wan/utils/system_prompt.py,
+# I2V_A14B_EN_SYS_PROMPT), shortened, with the channels' rules added: the movement is
+# written from the photo itself, never blind (2026-10-30: a motion written before
+# the photo existed undressed her).
+MOTION_PROMPT = (
+    "You are an expert in rewriting video description prompts. Rewrite the user's wish into a prompt that brings "
+    "THIS image to life, emphasizing its potential dynamic content. Keep the dynamic parts of the wish and focus on "
+    "the main subject's actions; if the wish is short or empty, add reasonable motion that fits what is in the "
+    "image. Describe only movement (her body, hands, hair, expression, and any camera movement such as a slow "
+    "push-in), not the static scene already visible. 5 seconds of calm, natural, realistic movement, one or two "
+    "actions only. Her clothes stay exactly as they are in the image: she never takes anything off, opens or lifts "
+    "her clothes, and nothing becomes more revealing; her hands never touch her chest or between her legs. "
+    "Under 60 words, English.\nThe user's wish: \"{wish}\"\n"
+    'Answer ONLY JSON: {{"motion": "..."}}')
+
+UNDRESS = re.compile(r"take[sn]? off|undress|strip|unbutton|lift\w* (her|the) (top|shirt|dress|skirt)|pull\w* down|"
+                     r"remov\w* (her|the)|bra\b|underwear|lingerie|topless|naked|nude|breast|boob|chest", re.I)
+
+
+def motion_for(path, wish=""):
+    """The video's movement, written by looking at the photo (Wan2.2's rewriter, safe).
+    "" when the model can't run or answers with something unsafe: the caller keeps
+    its default calm motion."""
+    if not enabled():
+        return ""
+    try:
+        m = str(_ask(path, MOTION_PROMPT.format(wish=str(wish or "")[:300].replace('"', "'")), 1024).get("motion", "")).strip()
+    except Exception as e:
+        log(f"motion could not be written ({type(e).__name__}: {str(e)[:200]})")
+        return ""
+    if UNDRESS.search(m):
+        log(f"motion dropped (unsafe): {m[:120]}")
+        return ""
+    return m
+
+
 RATE_PROMPT = ('Rate this photo as a professional Instagram model photo, from 1 to 10: how attractive and sexy '
                'she looks, how flattering the pose and framing are, how natural her body and hands look, and how '
                'sharp and well lit it is. Answer ONLY JSON: {"score": <1-10>}')

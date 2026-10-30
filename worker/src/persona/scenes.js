@@ -289,40 +289,77 @@ function poseNotes(state) {
 }
 
 /**
- * A prompt from the channel split into what the shoot needs, Instagram/TikTok-safe:
- * {place, outfit, action, motion}, each "" when the prompt doesn't say (2026-10-30:
- * "baggy clothes" came back as a tight dress -- the seeded outfit won).
+ * The prompt enhancer (2026-10-30, "take my prompt and build a good prompt, only keep
+ * the persona details"): a prompt from the channel ("video/carousel <prompt>")
+ * rewritten into full photo scenes, after Qwen-Image's own prompt optimizer
+ * (QwenLM/Qwen-Image src/examples/tools/prompt_utils.py, polish_prompt_en) -- keep the
+ * user's meaning, infer what a short request leaves out, refine subject, pose, space,
+ * composition and light, realistic photography -- with the channels' rules added.
+ * Only her identity comes from the persona (her face/hair/body are fixed by her refs);
+ * no seeded place, outfit or style. Returns n scenes, or null.
  */
-async function readBrief(env, brief) {
-  try {
-    const r = await env.AI.run(MODEL, { messages: [{ role: "user", content:
-      `A user asked for a photo/video of a fictional adult model: "${String(brief).slice(0, 400)}"\n` +
-      `Pull out what they asked for, keeping their words where possible, made safe for Instagram and TikTok ` +
-      `(no nudity, no undressing, no underwear or bra showing, no touching breasts or genitals -- keep the clothing ` +
-      `and the vibe, drop anything explicit). Make a vague outfit concrete with colours and pieces ` +
-      `("baggy clothes" -> "an oversized cream knit sweater slipping off one shoulder and loose light-wash baggy jeans").\n` +
-      `Return ONLY JSON: {"place": "where, or empty", "outfit": "what she wears, with colours and fit, or empty", ` +
-      `"action": "her pose, or empty", "motion": "one sentence of how she moves in a 5-second video, safe, or empty"}` }],
-      max_tokens: 300, temperature: 0.2 });
-    const m = /\{[\s\S]*\}/.exec(text(r));
-    const o = m ? JSON.parse(m[0]) : {};
-    // Undressing slips through the model now and then: such a motion is dropped.
-    const motion = /take[sn]? off|undress|strip|remov\w* (her|the) (top|shirt|dress)|bra\b|underwear|lingerie|topless|naked|nude/i
-      .test(String(o.motion || "")) ? "" : String(o.motion || "").trim();
-    return { place: String(o.place || "").trim(), outfit: noGloves(String(o.outfit || "").trim()),
-             action: String(o.action || "").trim(), motion };
-  } catch (e) {
-    console.log("brief reading failed", String(e).slice(0, 150));
-    return { place: "", outfit: "", action: "", motion: "" };
+async function enhanceShoot(env, b, brief, n) {
+  const ask = `You are a Prompt optimizer that rewrites a user's request into high-quality photo prompts that are more
+complete and expressive while preserving the original meaning.
+The photos are of ${b.name}, a fictional ${b.age}-year-old woman (her face, hair and body are fixed by reference
+photos -- never describe them). The user asked for: "${String(brief).slice(0, 500)}"
+Rules:
+1. Keep everything the user asked for -- place, clothes, pose, mood -- in their words where possible; for a short or
+   vague request infer concrete, visual details (name each piece of clothing with its colour, fabric and fit;
+   props; time of day) that fit THIS request and place, without changing it. Invent fresh details every time.
+2. Realistic photography, like a top Instagram creator's photo: say where the light comes from, the framing and the
+   composition.
+3. Instagram/TikTok-safe: she is always fully dressed in what the user asked (or the safe version of it) -- no
+   nudity, no undressing, no underwear or lingerie showing, no hands on her chest or between her legs. Drop any
+   explicit part of the request and keep the rest.
+4. ${n > 1 ? `${n} photos of ONE shoot: the same place and the same outfit in every photo, each with a different pose,
+   spot and framing, in time order.` : "One photo."}
+Return ONLY a JSON array of ${n} objects with the keys:
+"setting" (the place, specific), "outfit" (exactly what she wears, the same in every photo), "action" (her pose,
+saying where both hands are; at most one object), "gaze" (where she looks and her expression), "shot" (framing),
+"light" (where the light comes from and what it does), "mood", "details" (under 50 words: composition, colours,
+background, atmosphere, camera), "caption" (first-person social caption, max 20 words, 1-2 emojis, no hashtags),
+"hook" (2-6 words of on-screen text, no emojis), "beat" (one past-tense sentence), "tags" (3-5 lowercase tags).`;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const r = await env.AI.run(MODEL, { messages: [{ role: "user", content: ask }], max_tokens: 3000, temperature: 0.6 });
+      const m = /\[[\s\S]*\]/.exec(text(r));
+      const arr = m ? JSON.parse(m[0].replace(/,\s*([\]}])/g, "$1")) : [];
+      const good = arr.filter((x) => x && x.setting && x.outfit && x.action).slice(0, n);
+      if (good.length) return good;
+    } catch (e) {
+      console.log("prompt enhancer failed", String(e).slice(0, 150));
+    }
   }
+  return null;
 }
 
+const UNSAFE_WORDS = /\b(nude|naked|topless|undress\w*|strip\w*|underwear|panties|lingerie|bra|thong|nipples?|breasts?|boobs?)\b/i;
+
 export async function writeShoot(env, b, state, n, { sexy = false, brief = "" } = {}) {
-  const seeded = seeds(state, 1, [], sexy);
-  // The user's own place and outfit replace the seeds.
-  const asks = brief ? await readBrief(env, brief) : null;
-  const place = asks?.place || seeded.places[0], outfit = asks?.outfit || seeded.outfits[0];
-  const places = [place], outfits = [outfit];
+  if (brief) {
+    const list = await enhanceShoot(env, b, brief, n);
+    if (list) {
+      const outfit = noGloves(String(list[0].outfit));
+      list.forEach((sc, i) => {
+        if (UNSAFE_WORDS.test(sc.outfit)) sc.outfit = "a fitted top and high-waisted jeans";
+        sc.outfit = UNSAFE_WORDS.test(outfit) ? sc.outfit : outfit;  // the same outfit on every photo
+        if (UNSAFE_WORDS.test(sc.action)) sc.action = "standing relaxed, one hand on her hip, the other at her side";
+        sc.makeup = makeupFor(`${sc.setting} ${sc.light}`, sc.outfit);
+        sc.shoot_place = list[0].setting;
+        // Laptop: the persona's style cue is left out, her look follows this prompt
+        // (persona/scenes.py scene_prompt), and the "details" lead the photo.
+        sc.asked = true;
+        sc.note = String(sc.details || "").slice(0, 300);
+        sc.motion = "";  // written from the finished photo (persona/qa.py motion_for)
+        sc.tags = (Array.isArray(sc.tags) ? sc.tags : []).map((t) => String(t).toLowerCase()).slice(0, 6);
+        if (!sc.gaze) sc.gaze = i === 0 ? "looking into the camera with a warm smile" : "a natural, relaxed expression";
+      });
+      return list;
+    }
+  }
+  const { places, outfits } = seeds(state, 1, [], sexy);
+  const place = places[0], outfit = outfits[0];
   // Asked for in the channel ("carousel <prompt>" / "video <prompt>"): the user's
   // words decide the place, outfit and mood; the seeds only fill what they leave open.
   const asked = brief ? `\nTHE USER ASKED FOR THIS SHOOT -- follow it first, it overrides the place and outfit ` +
@@ -350,10 +387,7 @@ ${n} objects with the keys above.`;
   // Lena's Instagram: underwear or lingerie the model slipped in is replaced by the
   // outfit it was given (a shirt over black briefs, 2026-10-30).
   const UNSAFE = /\b(underwear|panties|briefs|knickers|lingerie|bra|thong|g-string|bodysuit only)\b/i;
-  const outfitText = asks?.outfit ? asks.outfit
-    : sexy === "flirty" && UNSAFE.test(list[0].outfit || "") ? outfit : (list[0].outfit || outfit);
-  if (asks?.action) list[0].action = asks.action;
-  if (asks?.motion) list.forEach((sc) => { sc.motion = asks.motion; });
+  const outfitText = sexy === "flirty" && UNSAFE.test(list[0].outfit || "") ? outfit : (list[0].outfit || outfit);
   const makeup = makeupFor([place, ...list.map((sc) => `${sc.setting} ${sc.light}`)].join(" "), outfitText);
   list.forEach((sc) => { sc.outfit = outfitText; sc.makeup = makeup; sc.shoot_place = place; });
   list = assignGazes(list.slice(0, n), state);

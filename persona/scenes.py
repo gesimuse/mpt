@@ -495,7 +495,10 @@ def scene_prompt(char, scene, lane, n_refs, style="qwen"):
         f"Lighting: {scene['light']}.",
         # A note from a "redo 3 <note>" reply: what to change this time.
         f"Most important for this photo: {scene['note']}." if scene.get("note") else "",
-        _without_makeup(lane_cfg.get("cue", "")) + ".",
+        # A photo from a prompt (the Worker's enhancer, scenes.js enhanceShoot) follows
+        # that prompt: the persona's style cue ("revealing outfit") is left out --
+        # "baggy clothes" came back as a tight latex dress (2026-10-30).
+        "" if scene.get("asked") else _without_makeup(lane_cfg.get("cue", "")) + ".",
         REALISM + ".",
     ]
     return " ".join(p for p in parts if p and p != ".")

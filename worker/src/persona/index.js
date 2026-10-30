@@ -1313,6 +1313,13 @@ async function onAdmin(request, env) {
       await st.save(env, p.slug, state);
       return new Response("sent now");
     }
+    if (what === "enhance") {
+      // The prompt enhancer's scenes for &brief= and &who= (no render), to check it.
+      const who = u.searchParams.get("who") || p.slug, n = Number(u.searchParams.get("n") || 1);
+      const b = (await st.bible(env, who)) || { name: who };
+      return Response.json(await scenes.writeShoot(env, b, await st.load(env, p.slug), n,
+        { sexy: isRoster(p) ? true : p.style || "flirty", brief: u.searchParams.get("brief") || "" }));
+    }
     if (what === "fbbackfill") {
       // Her Facebook Page filled with her 👍'd photos and videos (2026-10-30, a new
       // Page): &n= posts, &per_day= a day at 09/14/19 Prague time, Facebook only.
@@ -2010,7 +2017,7 @@ async function jobPayload(env, origin, state, batch) {
                   video_url: q.file_id ? await fileLink(env, origin, q.file_id) : "",
                   ...(q.character ? { character: q.character } : {}), ...(q.fit ? { fit: q.fit } : {}) });
     } else {
-      jobs.push({ id: q.id, image_url: await fileLink(env, origin, q.file_id), motion: q.motion || "",
+      jobs.push({ id: q.id, image_url: await fileLink(env, origin, q.file_id), motion: q.motion || "", wish: q.wish || "",
                   caption: state.items[q.item]?.caption || "", tags: state.items[q.item]?.tags || [],
                   hook: state.items[q.item]?.scene?.hook || "",
                   chat: q.chat, message_id: q.message_id });
@@ -2353,7 +2360,8 @@ async function postShootAlbum(env, p, state, shootId) {
     queueVideo(state, m.id, msg, ph?.file_id || it.file_id, it.scene?.motion || "");
     // Her video, not the persona's ("no character 'mpt'", 2026-10-30).
     const vq = state.queue.find((q) => q.kind !== "redo" && q.item === m.id);
-    if (vq) vq.character = sh.character;
+    // The laptop writes its movement from the photo, with the prompt as the wish (qa.motion_for).
+    if (vq) Object.assign(vq, { character: sh.character, wish: sh.brief || "" });
     await crossPost(env, p, state, { ok: true, id: m.id, kind: "image", character: sh.character }, it, msg);
     return;
   }
