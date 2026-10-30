@@ -577,6 +577,11 @@ def main():
     inp = out_dir / "in"
     for d in (out, inp):
         d.mkdir(parents=True, exist_ok=True)
+    # A talk loads five models in turn: Wan2GP's profile 4 keeps ~19GB of them pinned in
+    # RAM (shmem) and the job was oom-killed again and again on 30GB (2026-10-30);
+    # profile 5 pins nothing.
+    if job.get("kind") == "talk":
+        os.environ["WAN2GP_PROFILE"] = config.env("PERSONA_TALK_PROFILE", "5")
     try:
         char = character.Character(job["slug"]) if job.get("slug") else character.active()
         results = run([job], char, lambda: Studio(Engine()), out, inp, out_dir / "recreate", config.REPO)

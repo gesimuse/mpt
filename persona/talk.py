@@ -203,12 +203,14 @@ def find_line(job, work):
                 scored.append((s, c))
         cands += [c for _, c in sorted(scored, key=lambda x: -x[0])[:4]]
     for c in cands[:8]:
-        audio = work / f"src-{c['id']}.wav"
+        # Its own name: a retried job found the last try's .wav as "the download" and
+        # ffmpeg refused to write a file over itself (2026-10-30).
+        audio = work / f"src-{c['id']}-16k.wav"
         try:
             raw = work / f"src-{c['id']}"
             subprocess.run([sys.executable, "-m", "yt_dlp", "-q", "--no-warnings", "-f", "bestaudio/best",
                             "-o", f"{raw}.%(ext)s", c["url"] or c["id"]], check=True, timeout=300)
-            got = next(work.glob(f"src-{c['id']}.*"))
+            got = next(p for p in work.glob(f"src-{c['id']}.*") if not p.name.endswith("-16k.wav"))
             _ff("-i", got, "-t", "75", "-ac", "1", "-ar", "16000", audio)
             text = _transcribe(audio)
         except Exception as e:
