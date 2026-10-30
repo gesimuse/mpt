@@ -230,7 +230,7 @@ async function queuePublish(env, p, state, cq, itemId) {
   const acc = social.accounts(p);
   if (!acc.instagram && !acc.tiktok) return false;
   if (state.publish.some((j) => j.item === itemId)) return "already published";
-  if ((state.blocked || []).includes(itemId)) return "it was deleted (reply \"delete\") -- never posted";
+  if ((state.blocked || []).includes(itemId) || known.private) return "it is private or deleted -- never posted";
   // 🎭 recreates are built on other creators' footage and audio, which Instagram
   // treats as unoriginal: rationed to RECREATE_PER_WEEK so the feed stays mostly
   // original (chosen 2026-10-16).
@@ -293,7 +293,7 @@ const autoOn = (env) => env.PERSONA_AUTO !== "0";
 async function autoPublish(env, p, state, r, sent) {
   // Only 🎙 talks and 🎭 face swaps go out by themselves (2026-10-30); photos, videos
   // and carousels wait for a 👍 or "post".
-  if (!autoOn(env) || !r?.ok || r.carousel || !(r.talk || r.recreate) || !sent?.message_id || !state.items[r.id]) return;
+  if (!autoOn(env) || !r?.ok || r.private || r.carousel || !(r.talk || r.recreate) || !sent?.message_id || !state.items[r.id]) return;
   const res = await queuePublish(env, p, state, { message: sent }, r.id);
   if (res !== true) return;
   const job = state.publish.at(-1);
@@ -638,6 +638,44 @@ function queueTalk(p, state, extra = null) {
   return `${p.slug}: 🎙 talk queued for ${who} (${t.topic})`;
 }
 
+// ------------------------------------------------------------- 🔒 private
+/**
+ * "private [video] [Name:] <prompt>" in MPT's channel (2026-10-30): her on the laptop's
+ * uncensored Fanvue model, the prompt as written plus only her identity. The result
+ * comes back to the channel with no buttons and is blocked from every way out --
+ * 👍, "post", auto-publish, cross-posts, backfills and Stories (blockItem's list).
+ * Laptop only, never Kaggle.
+ */
+async function onPrivateRequest(env, p, post, state) {
+  const m = /^(?:🔒|private|fanvue)\s+(video\b[\s:,-]*)?(.*)$/isu.exec(String(post.text || "").trim());
+  if (!m || post.reply_to_message) return false;
+  let [who, prompt] = await namedGirl(env, p, m[2].trim());
+  if (!who) who = p.characters[Math.floor(Math.random() * p.characters.length)];
+  if (prompt.split(/\s+/).length < 2) {
+    await tg(env, "sendMessage", { chat_id: post.chat.id, reply_to_message_id: post.message_id,
+      text: "🔒 Say what you want after it: private Gia: <prompt> · private video Gia: <prompt>" });
+    return true;
+  }
+  state.queue.push({ id: `private-${who}-${Date.now()}`, kind: "private", character: who, prompt: prompt.slice(0, 1200),
+                     video: !!m[1], chat: post.chat.id, message_id: post.message_id, local_only: true });
+  const b = (await st.bible(env, who)) || { name: who };
+  await tg(env, "sendMessage", { chat_id: post.chat.id, reply_to_message_id: post.message_id,
+    text: `🔒 Queued (private, never posted): ${b.name}${m[1] ? ", a photo then its video" : ""}. Comes as a reply here.` });
+  return true;
+}
+
+/** A private result: kept out of every way to publish, and its video queued. */
+function privateDone(state, r, sent) {
+  if (!r?.ok || !r.private) return;
+  state.blocked = [...new Set([...(state.blocked || []), r.id])].slice(-500);
+  if (state.items[r.id]) state.items[r.id].private = true;
+  const ph = (sent?.photo || []).slice(-1)[0];
+  if (r.video && r.kind === "image" && ph) {
+    state.queue.push({ id: `${r.id}-pv${Date.now()}`, kind: "video", item: r.id, file_id: ph.file_id, motion: r.prompt || "",
+                       private: true, character: r.character, chat: r.chat, message_id: sent.message_id, local_only: true });
+  }
+}
+
 // ------------------------------------------------------------- 👤 builder
 /**
  * "new persona <description>" in MPT's channel (2026-10-30): her bible is written
@@ -799,7 +837,7 @@ async function talkDone(env, p, state, r, item, sent) {
 async function crossPost(env, p, state, r, item, sent) {
   const to = p.talk_cross && (await personas.get(env, p.talk_cross));
   const media = sent?.video || (sent?.photo || []).slice(-1)[0];
-  if (!to || !r?.ok || !media?.file_id || r.carousel) return;
+  if (!to || !r?.ok || r.private || !media?.file_id || r.carousel) return;
   const b = (await st.bible(env, r.character || p.slug)) || { name: p.slug };
   const auto = !!(r.talk || r.recreate);
   const m = resultMessage(b, { ...r, chat: to.chat_id, message_id: null, redo: false, replace: null }, item);
@@ -1097,6 +1135,7 @@ async function handleUpdates(env, updates, origin) {
         else if (cq?.data?.startsWith("pv:")) { await onTap(env, p, cq, state, origin); changed = true; }
         // A TikTok/Facebook link or video counts as 🎭 even when it is sent as a reply.
         // "🎙 <quote>" / "talk Gia: <quote>" / "talk <tiktok link>": a talk on request.
+        else if (post && isRoster(p) && (await onPrivateRequest(env, p, post, state))) changed = true;
         else if (post && isRoster(p) && (await onBuildRequest(env, p, post, state))) changed = true;
         else if (post && (await onMakeRequest(env, p, post, state))) changed = true;
         else if (post && (await onTalkRequest(env, p, post, state))) changed = true;
@@ -1622,6 +1661,11 @@ function faceLine(face) {
  */
 /** How a finished job is posted: {kind: "photo"|"video"|"text", caption|text, buttons, chat, replyTo}. */
 function resultMessage(b, r, item) {
+  if (r.private) {
+    return r.ok ? { kind: r.kind === "image" ? "photo" : "video", chat: r.chat, replyTo: r.message_id,
+                    caption: `🔒 ${b.name} · private, never posted${r.video && r.kind === "image" ? " · video coming" : ""}\n#${r.id}` }
+                : { kind: "text", chat: r.chat, replyTo: r.message_id, text: `❌ 🔒 Private one failed: ${String(r.reason).slice(0, 200)}` };
+  }
   if (r.ok && r.cast) {
     return { kind: "photo", chat: r.chat, replyTo: r.message_id,
              caption: `👤 face for ${r.cast.replace(/^mpt-/, "")}\n${String(r.look || "").slice(0, 300)}\n#${r.id}`,
@@ -1963,6 +2007,7 @@ async function laptopResult(request, env) {
   else if (sent) {
     await builderDone(env, p, state, r);
     recordResult(state, r, item, sent);
+    privateDone(state, r, sent);
     keepRedo(state, r, queuedFor(state, r));
     swapAlbumPhoto(state, r, sent);
     await carouselProgress(env, state, r);
@@ -1973,6 +2018,7 @@ async function laptopResult(request, env) {
   else {
     await builderDone(env, p, state, r);
     const posted = await postResult(env, state, b, r, item, file);
+    privateDone(state, r, posted);
     keepRedo(state, r, queuedFor(state, r));
     await autoPublish(env, p, state, r, posted);
     await crossPost(env, p, state, r, item, posted);
@@ -2009,6 +2055,9 @@ async function jobPayload(env, origin, state, batch) {
                   given_line: q.given_line || "", given_url: q.given_url || "", message_id: q.message_id || null,
                   ...(q.given_keywords ? { given_keywords: q.given_keywords, given_caption: q.given_caption || "" } : {}),
                   used: (state.talk_used || []).slice(-300) });
+    } else if (q.kind === "private") {
+      jobs.push({ id: q.id, kind: "private", prompt: q.prompt, video: q.video, character: q.character,
+                  chat: q.chat, message_id: q.message_id });
     } else if (q.kind === "cast" || q.kind === "lock") {
       jobs.push({ id: q.id, kind: q.kind, new_slug: q.new_slug, bible: q.bible, n: q.n, pick: q.pick,
                   character: q.character, chat: q.chat, message_id: q.message_id });
@@ -2018,6 +2067,7 @@ async function jobPayload(env, origin, state, batch) {
                   ...(q.character ? { character: q.character } : {}), ...(q.fit ? { fit: q.fit } : {}) });
     } else {
       jobs.push({ id: q.id, image_url: await fileLink(env, origin, q.file_id), motion: q.motion || "", wish: q.wish || "",
+                  ...(q.private ? { private: true, character: q.character } : {}),
                   caption: state.items[q.item]?.caption || "", tags: state.items[q.item]?.tags || [],
                   hook: state.items[q.item]?.scene?.hook || "",
                   chat: q.chat, message_id: q.message_id });

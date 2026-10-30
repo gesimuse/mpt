@@ -440,6 +440,21 @@ def scene_prompt(char, scene, lane, n_refs, style="qwen"):
         who = f"The woman from {refs}, alone in the photo, with her exact face, facial features, hair and skin tone"
     else:
         who = "A single woman"
+    if scene.get("raw"):
+        # 🔒 A private prompt from MPT's channel (2026-10-30): the prompt as written,
+        # only her identity added from the persona -- never posted anywhere.
+        return " ".join(p for p in [
+            f"Photo of {b['safety']['adult_anchor']}. {who}.",
+            f"{_without_makeup(b['identity'])}." if b.get("identity") else "",
+            ("Her body is a flawless, toned model physique in perfect proportion: a full, round, perky bust, a slim "
+             "narrow waist, a flat toned stomach, slim arms and long slim toned legs."),
+            _skin(b),
+            f"{scene['raw']}.",
+            "She is the only person in the photo, nobody else in the frame.",
+            ANATOMY,
+            _without_makeup(lane_cfg.get("cue", "")) + ".",
+            REALISM + ".",
+        ] if p and p != ".")
     if scene.get("view") == "back-away":
         face = ("Seen completely from behind: the camera sees her back, the back of her head and her hair, NOT her "
                 "face. Her head faces the same way as her body, away from the camera, toward the view.")

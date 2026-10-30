@@ -255,7 +255,9 @@ def video(job, char, studio, out, inp):
     # The movement written from the photo itself (qa.motion_for: Wan2.2's own rewriter,
     # made safe), the asked-for motion only as the wish (2026-10-30).
     motion = job.get("motion") or ""
-    if config.flag("PERSONA_AUTO_MOTION", "1"):
+    if job.get("private"):
+        pass  # 🔒 the private prompt's own motion, as written
+    elif config.flag("PERSONA_AUTO_MOTION", "1"):
         from . import qa
         seen = qa.motion_for(src, job.get("wish") or motion)
         qa.unload()
@@ -278,6 +280,7 @@ def video(job, char, studio, out, inp):
     (out / f"{vid['id']}.json").write_text(json.dumps(vid, ensure_ascii=False))
     log(f"video {vid['id']} for request {job['id']}")
     return {"request": job["id"], "id": vid["id"], "ok": True, "kind": "video", "motion": job.get("motion", ""),
+            **({"private": True} if job.get("private") else {}),
             **_reply(job)}
 
 
@@ -493,6 +496,25 @@ def carousel(job, char, studio, out, inp):
     return results or failed[:1]
 
 
+def private(job, char, studio, out):
+    """🔒 A private prompt from MPT's channel (2026-10-30): her, on the Fanvue lane's
+    uncensored model, the prompt as written. It only comes back to the channel; the
+    Worker never publishes it."""
+    scene = {"raw": str(job.get("prompt", ""))[:1200], "shot": "", "setting": "", "outfit": "", "action": "",
+             "mood": "", "light": "", "tags": ["private"], "caption": ""}
+    results = []
+    for item in studio.render(char, lane="fanvue", scene_list=[scene]):
+        if item.get("ok"):
+            dest = out / Path(item["path"]).name
+            shutil.copyfile(item["path"], dest)
+            item["path"] = dest.name
+            (out / f"{item['id']}.json").write_text(json.dumps(item, ensure_ascii=False))
+        results.append({"request": job["id"], "id": item["id"], "ok": bool(item.get("ok")), "kind": "image", "private": True,
+                        "video": bool(job.get("video")), "prompt": scene["raw"][:300],
+                        "reason": item.get("reason"), **_reply(job)})
+    return results
+
+
 def cast(job, studio, out):
     """👤 Persona builder, step 1 (2026-10-30): a new MPT girl from the bible the Worker
     wrote ("new persona <description>"), and `n` faces cast for her. Each face is a
@@ -557,6 +579,8 @@ def run(jobs, char, studio_factory, out, inp, work_root, code_dir):
             results.extend(carousel(job, char, studio, out, inp))
         elif job.get("kind") == "talk":
             results.append(talk(job, char, studio, out))
+        elif job.get("kind") == "private":
+            results.extend(private(job, char, studio, out))
         elif job.get("kind") == "cast":
             results.extend(cast(job, studio, out))
         elif job.get("kind") == "lock":
