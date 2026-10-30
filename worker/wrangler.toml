@@ -1,5 +1,8 @@
 name = "mpt-telegram"
 main = "src/index.js"
+# gesimuse01's Cloudflare account, which holds the PERSONA KV: a deploy from a wrangler
+# logged into another account fails instead of creating a second, empty Worker there.
+account_id = "32e8d6c22cd5430084da16cc6922a8ce"
 compatibility_date = "2026-01-01"
 
 [vars]

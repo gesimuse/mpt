@@ -3,6 +3,7 @@
  * answer in her voice (mostly emojis), through Instagram's own API ("Instagram API
  * with Instagram Login": instagram_business_manage_comments / _manage_messages).
  * Asked for 2026-10-23: "auto reply ... no confirmation needed, reply with emojis".
+ * Also her posts themselves (publishStep, 2026-10-30), with _content_publish.
  *
  *   GET/POST /persona/ig/webhook   Meta's webhook: the verify handshake, then
  *                                  comments and messages events
@@ -36,6 +37,44 @@ export async function setToken(env, slug, token) {
   const rec = { token, user_id: String(me.user_id), username: me.username, refreshed: Date.now() };
   await env.PERSONA.put(`igtoken:${slug}`, JSON.stringify(rec));
   return { user_id: rec.user_id, username: rec.username };
+}
+
+/**
+ * One step of posting a publish job straight to her Instagram (2026-10-30: no Buffer,
+ * whose free API ran out from status checks). The token needs
+ * instagram_business_content_publish. First call: the media container (a photo, a
+ * Reel, a Story, or a carousel's children and the carousel); next calls, at most once
+ * a minute: publish it once Instagram has processed it. `rec` is the job's ig record;
+ * returns the new one. Instagram's API has no AI-label field: the caption's
+ * #aigenerated is the disclosure (a Story has no caption).
+ */
+export async function publishStep(env, slug, job, media, rec) {
+  const tok = JSON.parse((await env.PERSONA.get(`igtoken:${slug}`)) || "null");
+  if (!tok) return { status: "failed", note: "no Instagram token -- POST /persona/admin/igtoken" };
+  const urls = Array.isArray(media) ? media : [media];
+  const caption = job.posts?.instagram?.text || job.caption || "";
+  const create = async (params) => (await graph(`/${tok.user_id}/media`, tok.token, { method: "POST", params })).id;
+  if (!rec?.container) {
+    const video = job.kind === "video";
+    let container;
+    if (job.story) container = await create({ media_type: "STORIES", [video ? "video_url" : "image_url"]: urls[0] });
+    else if (job.kind === "carousel") {
+      const kids = [];
+      for (const url of urls.slice(0, 10)) kids.push(await create({ image_url: url, is_carousel_item: "true" }));
+      container = await create({ media_type: "CAROUSEL", children: kids.join(","), caption });
+    } else if (video) container = await create({ media_type: "REELS", video_url: urls[0], caption, share_to_feed: "true" });
+    else container = await create({ image_url: urls[0], caption });
+    rec = { mode: "direct", status: "processing", container, started: Date.now() };
+  }
+  const s = await graph(`/${rec.container}`, tok.token, { params: { fields: "status_code" } });
+  if (s.status_code === "ERROR" || s.status_code === "EXPIRED") return { ...rec, status: "failed", note: `Instagram: media ${s.status_code}` };
+  if (s.status_code !== "FINISHED") {
+    if (Date.now() - rec.started > 2 * 3600 * 1000) return { ...rec, status: "failed", note: "Instagram didn't process it within 2h" };
+    return { ...rec, checked_at: Date.now() };
+  }
+  const pub = await graph(`/${tok.user_id}/media_publish`, tok.token, { method: "POST", params: { creation_id: rec.container } });
+  const link = (await graph(`/${pub.id}`, tok.token, { params: { fields: "permalink" } }).catch(() => ({}))).permalink || "";
+  return { mode: "direct", status: "done", media: pub.id, link, sent_at: Date.now() };
 }
 
 /** Weekly: a long-lived token refreshed before its 60 days run out. */

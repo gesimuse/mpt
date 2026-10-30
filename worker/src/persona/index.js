@@ -4,8 +4,9 @@
  * (persona/agent.py), on Kaggle otherwise. GitHub only holds the code.
  *
  * Each persona has her own Telegram channel (personas.js); the one bot serves them
- * all. 👍 on a photo or video there publishes it to her Instagram and TikTok
- * through Buffer (social.js) and marks the post in the channel.
+ * all. A finished photo or video there publishes to her Instagram and TikTok on its
+ * own at the next slot (👎 before then cancels it; carousels and albums wait for a 👍
+ * or "post"), through social.js, and the post in the channel is marked.
  *
  *   POST /persona               the persona bot's webhook: 👍 👎 🎬 🔁, replies, and 🎭
  *                               (a TikTok link or a video posted in the channel)
@@ -267,13 +268,36 @@ async function queuePublish(env, p, state, cq, itemId) {
   const posts = await captions.forPost(env, p, b, state, { ...known, kind: isPhoto ? "photo" : "video" });
   state.publish.push({
     id: `pub-${itemId}-${Date.now()}`, item: itemId, kind: isPhoto ? "photo" : "video",
-    created: Date.now(), due: nextSlot(env, state), recreate: !!known.recreate, story: isPhoto && feedFull(env, state),
+    created: Date.now(), due: social.accounts(p).instagram ? nextSlot(env, state) : Date.now() + AUTO_WAIT_MS,
+    recreate: !!known.recreate, story: isPhoto && feedFull(env, state),
     ...(known.talk ? { talk: true, bw: !!known.bw, tt_due: nextTalkSlot(env, state) } : {}),
     file_id: fileId, audio: !!known.audio || !!known.recreate || !!known.talk,
     posts, caption: posts.instagram.text,
     chat, message_id: msg.message_id, base: (msg.caption ?? fwdCaption ?? "").split("\n\n━━")[0],
   });
   return true;
+}
+
+/**
+ * Straight in (2026-10-30, "no more waiting for me"): a finished photo or video
+ * publishes on its own, like a 👍, at the next slot -- never sooner than AUTO_WAIT_MS,
+ * so a 👎 in the channel can still cancel it. Carousel angles and album photos are left
+ * to a 👍 or "post" (an album's TikTok draft is made by itself, postShootAlbum).
+ * PERSONA_AUTO=0 turns it off. `sent` is the channel message it went out as.
+ */
+const AUTO_WAIT_MS = 30 * 60 * 1000;
+const autoOn = (env) => env.PERSONA_AUTO !== "0";
+
+async function autoPublish(env, p, state, r, sent) {
+  if (!autoOn(env) || !r?.ok || r.carousel || !sent?.message_id || !state.items[r.id]) return;
+  const res = await queuePublish(env, p, state, { message: sent }, r.id);
+  if (res !== true) return;
+  const job = state.publish.at(-1);
+  job.auto = true;
+  if (job.tt_due) job.tt_due = Math.max(job.tt_due, Date.now() + AUTO_WAIT_MS);
+  const when = new Date(Math.max(job.due || 0, Date.now() + AUTO_WAIT_MS))
+    .toLocaleString("en-GB", { timeZone: "Europe/Prague", weekday: "short", hour: "2-digit", minute: "2-digit" });
+  await noteOnPost(env, sent, `🗓 posts by itself ${when} (Prague time) · 👎 cancels`);
 }
 
 /**
@@ -330,9 +354,7 @@ function nextSlot(env, state) {
 
 async function advancePublish(env, p, state, origin) {
   let changed = false;
-  for (const job of state.publish.filter((j) => !social.finished(j) || social.needsRecheck(j))) {
-    // Buffer said "too many requests": no more calls this round, for any post.
-    if (state.publish.some((j) => j.retry_at && Date.now() < j.retry_at)) break;
+  for (const job of state.publish.filter((j) => !social.finished(j))) {
     const url = job.file_ids
       ? await Promise.all(job.file_ids.map((f) => mediaLink(env, origin, f, "jpg")))
       : await mediaLink(env, origin, job.file_id, job.kind === "video" ? "mp4" : "jpg");
@@ -348,9 +370,12 @@ async function advancePublish(env, p, state, origin) {
     // Mark the post in the channel: what happened on each platform.
     const cap = `${job.base}\n\n━━ published ━━\n${social.statusLine(job)}`.slice(0, 1024);
     const failed = ["ig", "tt"].some((k) => job[k]?.status === "failed");
+    // Nothing posted yet (only a platform it doesn't go to was settled): 👎 still cancels.
+    const waiting = !["ig", "tt"].some((k) => job[k] && job[k].status !== "skipped");
     const markup = job.ig?.mode === "phone"
       ? { inline_keyboard: [[{ text: "📲 Post on Instagram", url: await shareLink(env, origin, p, job) }]] }
       : failed ? kb([[["🔁 Retry posting", `pv:repub:${job.id}`]]])
+      : waiting ? kb([[["🗓 queued", `pv:noop:${job.item}`], ["👎 Cancel", `pv:dn:${job.item}`]]])
       : kb([[["✓ 👍 published", `pv:noop:${job.item}`]]]);
     try {
       await tg(env, job.text ? "editMessageText" : "editMessageCaption", { chat_id: job.chat, message_id: job.message_id,
@@ -364,47 +389,15 @@ async function advancePublish(env, p, state, origin) {
   return changed;
 }
 
-/**
- * 48h after a post went out, its Buffer numbers score its hashtags (captions.learn),
- * so the next posts lean on the tags that worked for her. Given up after 7 days
- * (a TikTok notification post that was never posted from the phone has none).
- */
-async function learnFromPosts(env, p, state) {
-  let changed = false;
-  const now = Date.now();
-  for (const job of state.publish) {
-    for (const [key, platform] of [["ig", "instagram"], ["tt", "tiktok"]]) {
-      const rec = job[key];
-      if (!rec?.post || rec.status !== "done" || rec.learned || now - (rec.sent_at || now) < 48 * 3600 * 1000) continue;
-      // Asked at 2 days and once more at 7 (was hourly while the numbers were 0: most of
-      // Buffer's 1000 calls a month, 2026-10-27).
-      if ((rec.metric_asks || 0) >= 1 && now - (rec.sent_at || now) < 7 * 86400 * 1000) continue;
-      // A Story's views aren't comparable with feed posts: not scored.
-      if (key === "ig" && job.story) { rec.learned = "story"; changed = true; continue; }
-      try {
-        rec.metric_asks = (rec.metric_asks || 0) + 1;
-        const post = await social.metrics(env, p, rec.post);
-        const value = captions.postValue(post?.metrics);
-        if (value > 0) {
-          const hour = Number(new Date(rec.sent_at).toLocaleString("en-GB", { timeZone: "Europe/Prague", hour: "2-digit", hour12: false }));
-          captions.learn(state, platform, job.posts?.[platform]?.tags || [], value, { kind: job.kind, hour });
-          rec.learned = true;
-        } else if (now - rec.sent_at > 7 * 86400 * 1000 || rec.metric_asks >= 2) rec.learned = "no numbers";
-        changed = true;
-      } catch (e) {
-        console.error("metrics failed", rec.post, String(e).slice(0, 200));
-      }
-    }
-  }
-  return changed;
-}
-
 // ------------------------------------------------------------------- taps
 async function onTap(env, p, cq, state, origin) {
   const [, act, itemId] = cq.data.split(":");
   const msg = cq.message || {};
   const chat = msg.chat?.id;
-  if (act === "noop") return answer(env, cq.id, "Already published.");
+  if (act === "noop") {
+    const waiting = state.publish.some((j) => j.item === itemId && !social.finished(j));
+    return answer(env, cq.id, waiting ? "Queued: it posts by itself at its time (👎 cancels)." : "Already published.");
+  }
   if (act === "repub") {
     // 🔁 Retry posting: the failed platform(s) start again.
     const job = state.publish.find((j) => j.id === itemId);
@@ -414,6 +407,15 @@ async function onTap(env, p, cq, state, origin) {
     job.retry_at = 0;
     await advancePublish(env, p, state, origin);
     return answer(env, cq.id, "🔁 Posting again…");
+  }
+  if (act === "dn") {
+    // 👎 on a post waiting for its slot: it won't be published.
+    const waiting = state.publish.filter((j) => j.item === itemId && !["ig", "tt"].some((k) => j[k] && j[k].status !== "skipped"));
+    if (waiting.length) {
+      state.publish = state.publish.filter((j) => !waiting.includes(j));
+      await noteOnPost(env, msg, "🚫 cancelled -- won't be posted");
+      if (state.voted.includes(itemId)) return answer(env, cq.id, "👎 Cancelled: it won't be posted.");
+    }
   }
   if (act === "up" || act === "dn") {
     if (state.voted.includes(itemId)) {
@@ -686,6 +688,7 @@ async function talkDone(env, p, state, r, item, sent) {
     other.items[r.id] = { kind: "video", tags: [r.topic || ""], scene: {}, caption: item?.caption || "", file_id: fileId,
                           message_id: x.message_id, talk: true, audio: true, line: r.line || "", topic: r.topic || "", bw: !!r.bw, ...src,
                           character: r.character || p.slug };
+    await autoPublish(env, to, other, { ...r, ok: true }, x);
     await st.save(env, to.slug, other);
   } catch (e) {
     console.error("talk cross-post failed", String(e).slice(0, 200));
@@ -1476,8 +1479,10 @@ async function publishAlbum(env, p, state, shootId) {
   const first = state.items[sh.media[0].id] || {};
   const posts = await captions.forPost(env, p, b, state, { ...first, kind: "photo" });
   if (!sh.learned) { for (const id of sh.ids) learnFrom(state, state.items[id], 0.5, { taste: true }); sh.learned = true; }
+  const drafted = state.publish.some((j) => j.item === `ttcar-${shootId}`);
   state.publish.push({ id: `pub-car-${shootId}-${Date.now()}`, item: `car-${shootId}`, kind: "carousel", file_ids: fileIds,
     created: Date.now(), due: nextSlot(env, state), audio: false, posts, caption: posts.instagram.text, story: feedFull(env, state),
+    ...(drafted ? { tt: { status: "skipped", note: "its draft went with the album" } } : {}),
     chat: p.chat_id, message_id: sh.album, album: true, base: sh.caption_text || `👤 ${b.name}` });
   await advancePublish(env, p, state, env.WORKER_ORIGIN);
 }
@@ -1551,6 +1556,7 @@ async function postResults(env, p, state, b, kernel) {
       else {
         const sent = await postResult(env, state, r.character ? (await st.bible(env, r.character)) || b : b, r, item, file);
         if (r.talk && r.ok) await talkDone(env, p, state, r, item, sent);
+        await autoPublish(env, p, state, r, sent);
       }
     } catch (e) {
       console.error("job result post failed", r.request, String(e));
@@ -1591,7 +1597,7 @@ async function laptopClaim(request, env, origin) {
   // channel shows "posted" a minute after 👍 rather than at the next 15-min cron.
   for (const p of all) {
     const state = await st.load(env, p.slug);
-    if (state.publish.some((j) => !social.finished(j) || social.needsRecheck(j)) && (await advancePublish(env, p, state, origin))) {
+    if (state.publish.some((j) => !social.finished(j)) && (await advancePublish(env, p, state, origin))) {
       await st.save(env, p.slug, state);
     }
   }
@@ -1675,8 +1681,9 @@ async function laptopResult(request, env) {
     swapAlbumPhoto(state, r, sent);
     await carouselProgress(env, state, r);
     if (r.talk && r.ok) await talkDone(env, p, state, r, item, sent);
+    await autoPublish(env, p, state, r, sent);
   }
-  else await postResult(env, state, b, r, item, file);
+  else await autoPublish(env, p, state, r, await postResult(env, state, b, r, item, file));
   state.done.push(resultKey(r));
   // Taken back from Kaggle's queue too, if it was handed over while the laptop
   // was quiet; a Kaggle result for it is skipped as already done.
@@ -2042,7 +2049,7 @@ async function postShootAlbum(env, p, state, shootId) {
   const b = (await st.bible(env, sh.character)) || { name: sh.character };
   const first = state.items[sh.media[0].id] || {};
   sh.caption_text = `👤 ${b.name} · ${sh.media.length} photos${first.caption ? `\n${first.caption}` : ""}\n#${shootId}`;
-  if (!sh.status && !p.tiktok_auto) sh.status = albumHint(p);
+  if (!sh.status && !(p.tiktok_auto || (isRoster(p) && autoOn(env)))) sh.status = albumHint(p);
   const text = sh.status ? `${sh.caption_text}\n${sh.status}` : sh.caption_text;
   const msgs = await tg(env, "sendMediaGroup", { chat_id: p.chat_id, media: sh.media.slice(0, 10).map((m, i) => ({
     type: "photo", media: m.fileId || m.url, ...(i === 0 ? { caption: text.slice(0, 1024) } : {}) })) });
@@ -2062,6 +2069,17 @@ async function postShootAlbum(env, p, state, shootId) {
     for (const m of sh.media.slice(0, dailyReels(env))) {
       const it = state.items[m.id];
       if (it?.file_id) queueVideo(state, m.id, { chat: { id: p.chat_id }, message_id: it.message_id || sh.album }, it.file_id, "");
+    }
+  }
+  // A single persona's album is a TikTok draft by itself (her Instagram carousel still
+  // waits for "post" or a 👍): a job with Instagram left out.
+  if (!isRoster(p) && autoOn(env) && social.accounts(p).tiktok) {
+    const fileIds = sh.media.map((m) => state.items[m.id]?.file_id).filter(Boolean).slice(0, 10);
+    if (fileIds.length >= 2) {
+      const posts = await captions.forPost(env, p, b, state, { ...first, kind: "photo" });
+      state.publish.push({ id: `pub-ttcar-${shootId}-${Date.now()}`, item: `ttcar-${shootId}`, kind: "carousel", file_ids: fileIds,
+        created: Date.now(), due: Date.now() + AUTO_WAIT_MS, audio: false, posts, caption: posts.instagram.text, quiet: true,
+        ig: { status: "skipped", note: "a carousel waits for post or 👍" } });
     }
   }
   // Old album records go after 5 days.
@@ -2188,7 +2206,7 @@ export async function onDraftSchedule(event, env) {
     // A finished shoot with no photos (a failed Kaggle run) never gets a draft; it
     // used to be picked every run and stall every shoot behind it (2026-10-19).
     const pending = Object.entries(state.shoots || {})
-      .find(([, sh]) => sh.finished && sh.ids?.length && (sh.send_tiktok || p.tiktok_auto) && !sh.draft && !sh.draft_error
+      .find(([, sh]) => sh.finished && sh.ids?.length && (sh.send_tiktok || p.tiktok_auto || (isRoster(p) && autoOn(env))) && !sh.draft && !sh.draft_error
                         && !(sh.retry_at && Date.now() < sh.retry_at));
     if (!pending) {
       if (await talkDraftStep(env, p, state)) return;
@@ -2415,9 +2433,7 @@ export async function onPersonaSchedule(event, env) {
       else if (POST_HOURS.includes(h) && m < 15) console.log(await post(env, p, POST_HOURS.indexOf(h)));
       console.log(await advanceJobs(env, p, origin));
       const state = await st.load(env, p.slug);
-      let dirty = state.publish.some((j) => !social.finished(j) || social.needsRecheck(j)) && (await advancePublish(env, p, state, origin));
-      // Numbers settle slowly: scoring once an hour is plenty.
-      if (m < 15) dirty = (await learnFromPosts(env, p, state)) || dirty;
+      const dirty = state.publish.some((j) => !social.finished(j)) && (await advancePublish(env, p, state, origin));
       if (dirty) await st.save(env, p.slug, state);
     } catch (err) {
       console.error(`persona ${p.slug} schedule failed`, String(err));
