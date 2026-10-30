@@ -203,7 +203,7 @@ MOTION_PROMPT = (
     "push-in), not the static scene already visible. 5 seconds of calm, natural, realistic movement, one or two "
     "actions only. Her clothes stay exactly as they are in the image: she never takes anything off, opens or lifts "
     "her clothes, and nothing becomes more revealing; her hands never touch her chest or between her legs. "
-    "Under 60 words, English.\nThe user's wish: \"{wish}\"\n"
+    "Under 60 words, English, ONE plain paragraph (not a list, no frame numbers).\nThe user's wish: \"{wish}\"\n"
     'Answer ONLY JSON: {{"motion": "..."}}')
 
 UNDRESS = re.compile(r"take[sn]? off|undress|strip|unbutton|lift\w* (her|the) (top|shirt|dress|skirt)|pull\w* down|"
@@ -217,7 +217,14 @@ def motion_for(path, wish=""):
     if not enabled():
         return ""
     try:
-        m = str(_ask(path, MOTION_PROMPT.format(wish=str(wish or "")[:300].replace('"', "'")), 1024).get("motion", "")).strip()
+        got = _ask(path, MOTION_PROMPT.format(wish=str(wish or "")[:300].replace('"', "'")), 1024).get("motion", "")
+        # Sometimes a list of timed steps: their descriptions, in order (2026-10-30: the
+        # list went in as text and Wan2GP's prompt template choked on its braces).
+        if isinstance(got, list):
+            got = " ".join(str(x.get("description", "") if isinstance(x, dict) else x) for x in got)
+        elif isinstance(got, dict):
+            got = got.get("description", "")
+        m = re.sub(r"[{}\[\]]", "", str(got)).strip()
     except Exception as e:
         log(f"motion could not be written ({type(e).__name__}: {str(e)[:200]})")
         return ""
