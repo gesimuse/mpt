@@ -68,6 +68,9 @@ async function startBuffer(env, p, job, mediaUrl, platform) {
   const channelId = p.buffer?.[platform];
   if (platform === "facebook" && job.story) return { status: "skipped", note: "a Story stays on Instagram" };
   if (platform === "facebook" && job.talk) return { status: "skipped", note: "talks stay on Instagram and TikTok" };
+  // A silent Reel is shared from the phone, to add a song from Instagram's library
+  // (the channel post's «Post on Instagram» button, index.js sharePage).
+  if (platform === "instagram" && job.kind === "video" && !job.audio && !job.story) return { status: "done", mode: "phone" };
   // A silent video gets its song in the Instagram app; Facebook gets that version
   // later (fbreel), never the silent file (2026-10-30).
   if (platform === "facebook" && job.kind === "video" && !job.audio) return { status: "skipped", note: "silent -- its Instagram version with the song goes up instead" };

@@ -258,7 +258,9 @@ def video(job, char, studio, out, inp):
         log(f"video {job['id']} failed: {e}")
         return {"request": job["id"], "ok": False, "reason": f"{type(e).__name__}: {e}"[:300], **_reply(job)}
     dest = out / Path(vid["path"]).name
-    shutil.copyfile(vid["path"], dest)
+    # Wan's 16 fps raised to 30 (frames repeated): Instagram refuses a Reel under 23 fps.
+    subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", str(vid["path"]), "-vf", "fps=30", "-c:v", "libx264",
+                    "-crf", "20", "-pix_fmt", "yuv420p", "-c:a", "copy", "-movflags", "+faststart", str(dest)], check=True)
     vid.update({"path": dest.name, "request": job["id"], "audio": has_audio(dest),
                 "caption": vid.get("caption") or job.get("caption", "")})
     (out / f"{vid['id']}.json").write_text(json.dumps(vid, ensure_ascii=False))
@@ -322,7 +324,8 @@ def render(job, char, studio, out):
             log(f"reel of {r['id']} failed: {e}")
             continue
         dest = out / Path(vid["path"]).name
-        shutil.copyfile(vid["path"], dest)
+        subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", str(vid["path"]), "-vf", "fps=30", "-c:v", "libx264",
+                        "-crf", "20", "-pix_fmt", "yuv420p", "-c:a", "copy", "-movflags", "+faststart", str(dest)], check=True)
         vid.update({"path": dest.name, "audio": has_audio(dest), "caption": char.item(r["id"]).get("caption", "")})
         (out / f"{vid['id']}.json").write_text(json.dumps(vid, ensure_ascii=False))
         results.append({"request": job["id"], "id": vid["id"], "ok": True, "kind": "video", "parent": r["id"],

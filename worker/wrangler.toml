@@ -45,6 +45,8 @@ PERSONA_SLUG = "lena"
 KAGGLE_USERNAME = "antonzaharia"
 PERSONA_CLOUD_IMAGES = "10"
 PERSONA_RECREATE_MAX = "10"
+# Lena's Instagram slots, UTC hours (09/12/16/20 Prague time; 2026-10-30: talks + approvals outgrew 2 a day).
+PERSONA_IG_SLOTS = "7,10,14,18"
 # 0: the bot's webhook points at /persona (set 2026-10-15). With polling, something
 # else holding this bot's token read the taps first and they vanished; a webhook
 # delivers every tap here and refuses other readers. 1 = poll every 15 min instead.
