@@ -93,6 +93,7 @@ def _load():
 
 def unload():
     global _MODEL
+    _stop_worker()
     with _LOCK:
         if _MODEL is not None:
             import gc
@@ -122,9 +123,9 @@ def _ask(path, prompt, tiles):
 _WORKER = None
 
 
-def _worker_check(path):
-    """Ask the checker running in its own process (PERSONA_QA_SUBPROCESS=1). On the
-    Kaggle T4 the model failed inside the Wan2GP process with a CUDA JIT error
+def _worker_request(req):
+    """One request to the checker running in its own process (PERSONA_QA_SUBPROCESS=1).
+    On the Kaggle T4 the model failed inside the Wan2GP process with a CUDA JIT error
     (ERROR_UNSUPPORTED_CAST) yet ran fine in a clean process, so there it lives in
     a separate interpreter, PERSONA_QA_PYTHON (default: this one)."""
     import subprocess
@@ -135,16 +136,32 @@ def _worker_check(path):
         _WORKER = subprocess.Popen([config.env("PERSONA_QA_PYTHON") or sys.executable, "-m", "persona.qa", "--worker"],
                                    stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, env=env,
                                    cwd=str(config.REPO))
-    _WORKER.stdin.write(json.dumps({"path": str(path)}) + "\n")
+    _WORKER.stdin.write(json.dumps(req) + "\n")
     _WORKER.stdin.flush()
     while True:
         line = _WORKER.stdout.readline()
         if not line:
             raise RuntimeError("QA worker exited")
         if line.startswith("QA_RESULT "):
-            r = json.loads(line[len("QA_RESULT "):])
-            return r["ok"], r["reason"], r["counts"]
+            return json.loads(line[len("QA_RESULT "):])
         print(f"[qa-worker] {line.rstrip()}", flush=True)
+
+
+def _worker_check(path):
+    r = _worker_request({"path": str(path)})
+    return r["ok"], r["reason"], r["counts"]
+
+
+def _stop_worker():
+    """Ends the checker process, so its VRAM is free for the video model."""
+    global _WORKER
+    if _WORKER is not None:
+        try:
+            _WORKER.stdin.close()
+            _WORKER.wait(timeout=30)
+        except Exception:
+            _WORKER.kill()
+        _WORKER = None
 
 
 def check(path):
@@ -217,7 +234,14 @@ def motion_for(path, wish=""):
     if not enabled():
         return ""
     try:
-        got = _ask(path, MOTION_PROMPT.format(wish=str(wish or "")[:300].replace('"', "'")), 1024).get("motion", "")
+        prompt = MOTION_PROMPT.format(wish=str(wish or "")[:300].replace('"', "'"))
+        # On Kaggle the vision model runs only in its own process (_worker_request):
+        # loaded inside the Wan2GP process it left the T4 without room for Wan 2.2,
+        # and both videos of a run failed with CUDA out of memory (2026-11-02).
+        if config.flag("PERSONA_QA_SUBPROCESS", "0"):
+            got = _worker_request({"path": str(path), "prompt": prompt, "tiles": 1024})["answer"].get("motion", "")
+        else:
+            got = _ask(path, prompt, 1024).get("motion", "")
         # Sometimes a list of timed steps: their descriptions, in order (2026-10-30: the
         # list went in as text and Wan2GP's prompt template choked on its braces).
         if isinstance(got, list):
@@ -292,7 +316,16 @@ def _worker_main():
     for line in sys.stdin:
         if not line.strip():
             continue
-        ok, reason, counts = check(json.loads(line)["path"])
+        req = json.loads(line)
+        if req.get("prompt"):
+            try:
+                answer = _ask(req["path"], req["prompt"], int(req.get("tiles", 1024)))
+            except Exception as e:
+                log(f"ask failed ({type(e).__name__}: {str(e)[:200]})")
+                answer = {}
+            print("QA_RESULT " + json.dumps({"answer": answer}), flush=True)
+            continue
+        ok, reason, counts = check(req["path"])
         print("QA_RESULT " + json.dumps({"ok": ok, "reason": reason, "counts": counts}), flush=True)
 
 

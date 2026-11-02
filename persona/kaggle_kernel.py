@@ -113,7 +113,7 @@ def main():
 
         stage = "render"
         os.environ.update({"PERSONA_HOME": str(HOME), "WAN2GP_DIR": str(WAN2GP_DIR), "WAN2GP_PROFILE": "5",
-                           "WAN2GP_ATTENTION": "sdpa", "PERSONA_BEST_OF": "1", "PERSONA_FACE_MIN": str(payload["face_min"]),
+                           "WAN2GP_ATTENTION": "sdpa", "PERSONA_BEST_OF": "1", "PERSONA_PRUNE_CKPTS": "1", "PERSONA_FACE_MIN": str(payload["face_min"]),
                            "PERSONA_MIN_AGE": str(payload["min_age"])})
         from persona import character
         from persona.engine import Engine
@@ -148,6 +148,9 @@ def main():
             for f in list((WAN2GP_DIR / "ckpts").glob("qwen_image_21*")) + \
                      list((WAN2GP_DIR / "ckpts").glob("Qwen3-VL*")):
                 shutil.rmtree(f, ignore_errors=True) if f.is_dir() else f.unlink(missing_ok=True)
+            # The vision checker's process holds T4 VRAM the video model needs.
+            from persona import qa
+            qa.unload()
             write_status("video", False, {"items": results})
             for r in [r for r in results if r["ok"]][:n_videos]:
                 try:

@@ -433,22 +433,44 @@ def captions(video, keywords, work, dest, bw=False):
     return dest
 
 
+def _ckpts(studio):
+    root = studio.engine.wan_dir / "ckpts"
+    return {f for f in root.rglob("*") if f.is_file()} if root.is_dir() else set()
+
+
+def _done_with(studio, before):
+    """Release the stage's model; on Kaggle (PERSONA_PRUNE_CKPTS=1) also delete the
+    big weights that stage downloaded. Qwen image + two LTX 22B + InfiniteTalk 14B
+    do not fit Kaggle's disk together: once the talk made its own frame, every
+    Kaggle talk died on its last download with "Read-only file system" or
+    "Background writer channel closed" (2026-11-02)."""
+    studio.engine.release()
+    if not config.flag("PERSONA_PRUNE_CKPTS", "0"):
+        return before
+    for f in _ckpts(studio) - before:
+        if f.stat().st_size > 500_000_000:
+            log(f"disk: dropping {f.name} ({f.stat().st_size >> 30} GB)")
+            f.unlink(missing_ok=True)
+    return _ckpts(studio)
+
+
 def make(job, char, studio, work):
     """The whole talk. Returns (final mp4 path, line info)."""
     work.mkdir(parents=True, exist_ok=True)
     info = find_line(job, work)
     log(f"{char.slug}: line {info['line']!r}")
-    # One model in RAM at a time (Engine.release).
+    # One model in RAM at a time (Engine.release), and on Kaggle on disk too.
+    have = _ckpts(studio)
     if not (char.dir / "talk" / "voice_ref.wav").exists():
         ref = voice_ref(char, studio, portrait(char, studio))
-        studio.engine.release()
+        have = _done_with(studio, have)
     ref = char.dir / "talk" / "voice_ref.wav"
     look = pick_scene(char)
     face = frame(char, studio, look, work)
-    studio.engine.release()
+    have = _done_with(studio, have)
     voice = speak(char, studio, face, ref, info["line"], work)
-    studio.engine.release()
+    have = _done_with(studio, have)
     video = animate(studio, face, voice, work, where=look["scene"][1])
-    studio.engine.release()
+    _done_with(studio, have)
     final = captions(video, info.get("keywords"), work, work / "final.mp4", bw=bool(job.get("bw")))
     return final, info
