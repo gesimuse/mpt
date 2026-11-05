@@ -346,12 +346,15 @@ def voice_ref(char, studio, face):
 # ------------------------------------------------------------------ making it
 def _trim_silence(src, dest):
     _ff("-i", src, "-af", "silenceremove=start_periods=1:start_threshold=-45dB,areverse,"
-        "silenceremove=start_periods=1:start_threshold=-45dB,areverse,apad=pad_dur=0.5", "-ac", "1", "-ar", "44100", dest)
+        "silenceremove=start_periods=1:start_threshold=-50dB:start_silence=0.3,areverse,apad=pad_dur=0.6",
+        "-ac", "1", "-ar", "44100", dest)
 
 
-def speak(char, studio, face, ref, line, work):
-    """Her voice saying the line: LTX-2.3 with her reference voice; only its audio is kept."""
-    seconds = min(20.0, len(line.split()) / 2.3 + 1.5)
+def speak(char, studio, face, ref, line, work, slack=1.0):
+    """Her voice saying the line: LTX-2.3 with her reference voice; only its audio is kept.
+    Her soft voice says ~2 words a second; the clip gets room for that plus a margin
+    (`slack` > 1 on a retry), so the last word is never past its end (2026-11-05)."""
+    seconds = min(26.0, (len(line.split()) / 2.0 + 2.5) * slack)
     frames = int(seconds * 24) // 8 * 8 + 9
     s = studio.engine.build_settings(LTX_VOICE_MODEL, prompt=_speech_prompt(char.bible, line),
                                      image_start=str(face), image_prompt_type="S", audio_guide=str(ref),
@@ -366,7 +369,7 @@ def speak(char, studio, face, ref, line, work):
 
 def animate(studio, face, voice, work, where="sitting relaxed at a podcast desk in a dim warm studio"):
     """InfiniteTalk, the test-11 recipe."""
-    frames = int(_duration(voice) * FPS_TALK) // 4 * 4 + 1
+    frames = -(-int(_duration(voice) * FPS_TALK + 1) // 4) * 4 + 1  # rounded up: never shorter than her voice
     s = studio.engine.build_settings(INFINITETALK,
         prompt=(f"A young woman {where} talks softly to someone off-camera to her right. Calm and natural, accurate "
                 "lip sync, her head stays steady, slow natural blinks, a faint smile, her hands stay still. "
@@ -454,6 +457,17 @@ def _done_with(studio, before):
     return _ckpts(studio)
 
 
+def _ends_whole(voice, line):
+    """True when Whisper hears the line's last word near the end of `voice`."""
+    want = [re.sub(r"[^a-z0-9']", "", w.lower()) for w in line.split()][-2:]
+    try:
+        heard = [re.sub(r"[^a-z0-9']", "", w.lower()) for w in _transcribe(voice).split()][-4:]
+    except Exception as e:
+        log(f"last-word check skipped: {e}")
+        return True
+    return bool(want) and want[-1] in heard
+
+
 def make(job, char, studio, work):
     """The whole talk. Returns (final mp4 path, line info)."""
     work.mkdir(parents=True, exist_ok=True)
@@ -470,6 +484,12 @@ def make(job, char, studio, work):
     have = _done_with(studio, have)
     voice = speak(char, studio, face, ref, info["line"], work)
     have = _done_with(studio, have)
+    # Her last word must be in the voice (2026-11-05: it was sometimes cut): heard by
+    # Whisper, and made again with more room once if it is missing.
+    if not _ends_whole(voice, info["line"]):
+        log(f"{char.slug}: last word cut, speaking it again with more room")
+        voice = speak(char, studio, face, ref, info["line"], work, slack=1.35)
+        have = _done_with(studio, have)
     video = animate(studio, face, voice, work, where=look["scene"][1])
     _done_with(studio, have)
     final = captions(video, info.get("keywords"), work, work / "final.mp4", bw=bool(job.get("bw")))
