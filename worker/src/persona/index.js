@@ -268,10 +268,11 @@ async function queuePublish(env, p, state, cq, itemId) {
   const b = (await st.bible(env, known.character || p.slug)) || (await st.bible(env, p.slug)) || { name: p.slug };
   // A caption and hashtags for each platform, never empty (captions.js).
   const posts = await captions.forPost(env, p, b, state, { ...known, kind: isPhoto ? "photo" : "video" });
+  const story = isPhoto && feedFull(env, state);
   state.publish.push({
     id: `pub-${itemId}-${Date.now()}`, item: itemId, kind: isPhoto ? "photo" : "video",
-    created: Date.now(), due: social.accounts(p).instagram ? nextSlot(env, state) : Date.now() + AUTO_WAIT_MS,
-    recreate: !!known.recreate, story: isPhoto && feedFull(env, state),
+    created: Date.now(), due: social.accounts(p).instagram && !story ? nextSlot(env, state) : Date.now() + AUTO_WAIT_MS,
+    recreate: !!known.recreate, story,
     ...(known.talk ? { talk: true, bw: !!known.bw, tt_due: nextTalkSlot(env, state) } : {}),
     file_id: fileId, audio: !!known.audio || !!known.recreate || !!known.talk,
     posts, caption: posts.instagram.text,
@@ -342,7 +343,9 @@ function feedFull(env, state) {
  */
 function nextSlot(env, state) {
   const hours = String(env.PERSONA_IG_SLOTS || "10,18").split(",").map(Number).sort((a, b) => a - b);
-  const taken = new Set(state.publish.filter((j) => j.due).map((j) => j.due));
+  // A Story is not a feed post: it never holds a slot (2026-11-05: album Stories
+  // held 3 of Lena's slots and pushed her Reels and talks 3-4 days out).
+  const taken = new Set(state.publish.filter((j) => j.due && !j.story).map((j) => j.due));
   const now = Date.now();
   for (let day = 0; day < 30; day++) {
     for (const h of hours) {
@@ -354,6 +357,12 @@ function nextSlot(env, state) {
     }
   }
   return now;
+}
+
+/** created/due/story of a new photo post: a Story (the week's feed is full) goes out after the 👎 window, else the next slot. */
+function storyOrSlot(env, state) {
+  const story = feedFull(env, state);
+  return { created: Date.now(), due: story ? Date.now() + AUTO_WAIT_MS : nextSlot(env, state), story };
 }
 
 async function advancePublish(env, p, state, origin) {
@@ -1135,6 +1144,7 @@ async function handleUpdates(env, updates, origin) {
         else if (cq?.data?.startsWith("pv:")) { await onTap(env, p, cq, state, origin); changed = true; }
         // A TikTok/Facebook link or video counts as 🎭 even when it is sent as a reply.
         // "🎙 <quote>" / "talk Gia: <quote>" / "talk <tiktok link>": a talk on request.
+        else if (post && (await onStatusRequest(env, p, post))) continue;
         else if (post && isRoster(p) && (await onPrivateRequest(env, p, post, state))) changed = true;
         else if (post && isRoster(p) && (await onBuildRequest(env, p, post, state))) changed = true;
         else if (post && (await onMakeRequest(env, p, post, state))) changed = true;
@@ -1248,6 +1258,7 @@ async function onAdmin(request, env) {
                            trend: JSON.parse((await env.PERSONA.get(`trend_tags:${slug}`)) || "[]"),
                            scores: state.hashtags || {} });
   }
+  if (u.pathname === "/persona/admin/status") return new Response(await dayStatus(env));
   if (u.pathname === "/persona/admin/run" && request.method === "POST") {
     const what = u.searchParams.get("what");
     if (what === "render") return new Response(await render(env, p, u.searchParams.get("force") === "1"));
@@ -1440,6 +1451,21 @@ async function onAdmin(request, env) {
                     metrics: Object.fromEntries((post?.metrics || []).map((m) => [m.type, m.value])) });
       }
       return Response.json({ instagram: rows });
+    }
+    if (what === "reslot") {
+      // Waiting posts packed into the earliest free slots again, oldest first; a waiting
+      // Story goes now (2026-11-05: Stories had held feed slots, a 4-day backlog).
+      const state = await st.load(env, p.slug);
+      const moved = [];
+      const wait = state.publish.filter((j) => !j.ig && j.due > Date.now()).sort((a, b) => a.created - b.created);
+      for (const j of wait) delete j.due;
+      for (const j of wait) {
+        j.due = j.story ? Date.now() : nextSlot(env, state);
+        moved.push(`${j.id} ${j.story ? "story" : j.kind} -> ${new Date(j.due).toISOString().slice(5, 16)}`);
+      }
+      await advancePublish(env, p, state, u.origin);
+      await st.save(env, p.slug, state);
+      return Response.json(moved);
     }
     if (what === "talk") {
       // A 🎙 talk now (&who= a roster girl, else the next in rotation).
@@ -1762,7 +1788,7 @@ async function publishAlbum(env, p, state, shootId) {
   if (!sh.learned) { for (const id of sh.ids) learnFrom(state, state.items[id], 0.5, { taste: true }); sh.learned = true; }
   const drafted = state.publish.some((j) => j.item === `ttcar-${shootId}`);
   state.publish.push({ id: `pub-car-${shootId}-${Date.now()}`, item: `car-${shootId}`, kind: "carousel", file_ids: fileIds,
-    created: Date.now(), due: nextSlot(env, state), audio: false, posts, caption: posts.instagram.text, story: feedFull(env, state),
+    ...storyOrSlot(env, state), audio: false, posts, caption: posts.instagram.text,
     ...(drafted ? { tt: { status: "skipped", note: "its draft went with the album" } } : {}),
     chat: p.chat_id, message_id: sh.album, album: true, base: sh.caption_text || `👤 ${b.name}` });
   await advancePublish(env, p, state, env.WORKER_ORIGIN);
@@ -1778,8 +1804,8 @@ async function publishCarousel(env, p, state, cq, itemId) {
   const known = state.items[itemId] || {};
   const posts = await captions.forPost(env, p, b, state, { ...known, kind: "photo" });
   state.publish.push({ id: `pub-car-${itemId}-${Date.now()}`, item: `car-${itemId}`, kind: "carousel", file_ids: fileIds,
-    created: Date.now(), due: nextSlot(env, state), audio: false, posts, caption: posts.instagram.text,
-    story: feedFull(env, state), chat: cq.message.chat.id, message_id: cq.message.message_id, base: cq.message.text || "🖼 Carousel", text: true });
+    ...storyOrSlot(env, state), audio: false, posts, caption: posts.instagram.text,
+    chat: cq.message.chat.id, message_id: cq.message.message_id, base: cq.message.text || "🖼 Carousel", text: true });
   await advancePublish(env, p, state, env.WORKER_ORIGIN);
   return answer(env, cq.id, state.publish.at(-1).story
     ? "🖼 This week's feed is full (kept for Reels): its first photo goes to her Story."
@@ -1938,6 +1964,7 @@ async function laptopClaim(request, env, origin) {
       let q = (state.lanes.laptop || [])[0];
       if (!q && pass === "queued" && state.queue.length) {
         q = state.queue.shift();
+        q.claimed_at = Date.now();
         state.lanes.laptop = [q];
         await st.save(env, p.slug, state);
       }
@@ -2566,8 +2593,13 @@ async function advanceShoots(env, p, state, laptopUp) {
   const day = st.today();
   if (state.kaggle_shoots?.date !== day) state.kaggle_shoots = { date: day, n: 0 };
   const job = state.queue.find((q) => q.kind === "render" && q.shoot);
-  if (job && state.kaggle_shoots.n < Number(p.kaggle_shoots ?? 2)) {
-    await pushRender(env, p, job.scenes, job.character, 0);
+  if (job && state.kaggle_shoots.n < Number(p.kaggle_shoots ?? 2) && !kaggleFull(state)) {
+    try {
+      await pushRender(env, p, job.scenes, job.character, 0);
+    } catch (e) {
+      notes.push(await kaggleRefused(env, p, state, e));
+      return notes;
+    }
     state.kaggle_shoot = { id: job.shoot, character: job.character, started: Date.now() };
     state.kaggle_shoots.n += 1;
     state.queue = state.queue.filter((q) => q !== job);
@@ -2576,6 +2608,23 @@ async function advanceShoots(env, p, state, laptopUp) {
   // A shoot nobody could render today is dropped rather than piling up.
   state.queue = state.queue.filter((q) => !(q.shoot && q.date !== day && Date.now() - (state.shoots?.[q.shoot]?.started || 0) > 20 * 3600 * 1000));
   return notes;
+}
+
+/**
+ * Kaggle refused a run (its weekly GPU quota, 30h): no push is tried for 6 hours, the
+ * jobs stay queued for the laptop, and her channel is told once a day.
+ */
+const kaggleFull = (state) => (state.kaggle_full?.until || 0) > Date.now();
+async function kaggleRefused(env, p, state, err) {
+  const msg = String(err.message || err).replace(/^kaggle: /, "").slice(0, 200);
+  const day = st.today();
+  const told = state.kaggle_full?.told === day;
+  state.kaggle_full = { until: Date.now() + 6 * 3600 * 1000, note: msg, told: day };
+  if (!told && p.chat_id) {
+    await tg(env, "sendMessage", { chat_id: p.chat_id, disable_notification: true,
+      text: `⚠️ Kaggle refused a run: ${msg}\nJobs wait for the laptop (persona agent) until it frees up.` }).catch(() => {});
+  }
+  return `kaggle refused: ${msg}`;
 }
 
 async function advanceJobs(env, p, origin) {
@@ -2610,12 +2659,16 @@ async function advanceJobs(env, p, origin) {
   }
   // The day's render waiting for a laptop that went quiet: Kaggle renders it.
   const renderJob = !isRoster(p) && state.queue.find((q) => q.kind === "render" && !q.shoot);
-  if (renderJob && !laptopUp) {
-    await pushRender(env, p, renderJob.scenes);
-    state.queue = state.queue.filter((q) => q !== renderJob);
-    state.render_via = "kaggle";
+  if (renderJob && !laptopUp && !kaggleFull(state)) {
+    try {
+      await pushRender(env, p, renderJob.scenes);
+      state.queue = state.queue.filter((q) => q !== renderJob);
+      state.render_via = "kaggle";
+      notes.push("render: laptop quiet, pushed to Kaggle");
+    } catch (e) {
+      notes.push(await kaggleRefused(env, p, state, e));
+    }
     changed = true;
-    notes.push("render: laptop quiet, pushed to Kaggle");
   }
 
   // 🎙 A talk waiting an hour with the laptop off goes to Kaggle, up to the day's
@@ -2625,7 +2678,7 @@ async function advanceJobs(env, p, origin) {
   const day = st.today();
   const kt = state.kaggle_talks?.day === day ? state.kaggle_talks.n : 0;
   const ktCap = Number(env.PERSONA_KAGGLE_TALKS_PER_DAY || (p.talk_hours || []).length || 1);
-  if (!laptopUp && Date.now() - (await laptopSeen(env)) > 3600 * 1000 && kt < ktCap &&
+  if (!laptopUp && !kaggleFull(state) && Date.now() - (await laptopSeen(env)) > 3600 * 1000 && kt < ktCap &&
       !state.queue.some((x) => x.kind === "talk" && !x.local_only)) {
     const q = state.queue.find((x) => x.kind === "talk" && x.local_only && Date.now() - (x.created || 0) > 3600 * 1000);
     if (q) {
@@ -2664,6 +2717,14 @@ async function advanceJobs(env, p, origin) {
       if (s === "RUNNING" || s === "QUEUED") { notes.push(`${name} ${s}`); continue; }
       if (s === "COMPLETE" || s === "ERROR") {
         changed = (await postResults(env, p, state, b, kernel)) || changed;
+        // Jobs the finished run never had (its push was refused, or a newer push
+        // replaced it) go back in the queue, at most twice, instead of vanishing.
+        const back = running.filter((q) => !state.done.some((d) => d === q.id || d.startsWith(`${q.id}/`)) &&
+                                           (q.requeued || 0) < 2);
+        if (back.length) {
+          state.queue = [...back.map((q) => ({ ...q, requeued: (q.requeued || 0) + 1 })), ...state.queue];
+          notes.push(`${name}: ${back.length} not in the run, queued again`);
+        }
         state.lanes[name] = [];
         changed = true;
       } else if (s.includes("No runs found")) {
@@ -2676,12 +2737,18 @@ async function advanceJobs(env, p, origin) {
     }
     // One character per Kaggle run (her dataset is the one mounted); jobs on media
     // someone sent by hand in a roster channel never leave the laptop.
-    const ready = laptopUp ? [] : state.queue.filter(lane.takes).filter((q) => !q.local_only);
+    const ready = laptopUp || kaggleFull(state) ? [] : state.queue.filter(lane.takes).filter((q) => !q.local_only);
     const who = ready.length ? charOf(p, ready[0]) : null;
     const batch = ready.filter((q) => charOf(p, q) === who).slice(0, lane.max);
     if (!batch.length) continue;
     const jobs = await jobPayload(env, origin, state, batch);
-    await kaggle.push(env, kernel, kaggle.bootstrap({ ...basePayload(env, p, who), mode: "video", jobs }), [dataset(env, who)]);
+    try {
+      await kaggle.push(env, kernel, kaggle.bootstrap({ ...basePayload(env, p, who), mode: "video", jobs }), [dataset(env, who)]);
+    } catch (e) {
+      notes.push(await kaggleRefused(env, p, state, e));
+      changed = true;
+      continue;
+    }
     state.lanes[name] = batch;
     state.lane_started = { ...(state.lane_started || {}), [name]: Date.now() };
     const taken = new Set(batch.map((q) => q.id));
@@ -2731,6 +2798,101 @@ async function dailyStory(env, p, origin) {
   await advancePublish(env, p, state, origin);
   await st.save(env, p.slug, state);
   return `${p.slug}: story ${x.id} queued`;
+}
+
+// ------------------------------------------------------------------ status
+/**
+ * "status" / "laptop" / "I opened the laptop" in either channel (2026-11-05): is the
+ * laptop agent up, can Kaggle run, what is running and queued, what today's schedule
+ * still has, and roughly when all of it is done. Times are rough averages from the
+ * agent's logs (laptop) and Kaggle runs (setup included).
+ */
+const MIN = 60 * 1000;
+const JOB_MIN = { laptop: { talk: 27, shoot: 17, render: 46, recreate: 23, video: 5, redo: 5, cast: 10, lock: 10, other: 5 },
+                  kaggle: { talk: 85, shoot: 45, render: 60, recreate: 40, video: 20, redo: 20, cast: 30, lock: 30, other: 20 } };
+const jobKind = (q) => (q.shoot ? "shoot" : q.kind in JOB_MIN.laptop ? q.kind : "other");
+const STATUS_RE = /^(?:⏱️?|status|left|how long|laptop(?:\s+(?:on|open|opened|up))?|i\s+opened\s+(?:the\s+)?laptop)\b/iu;
+
+async function onStatusRequest(env, p, post) {
+  if (post.reply_to_message || !STATUS_RE.test(String(post.text || "").trim())) return false;
+  await tg(env, "sendMessage", { chat_id: post.chat.id, reply_to_message_id: post.message_id, text: await dayStatus(env) });
+  return true;
+}
+
+async function dayStatus(env) {
+  const now = Date.now();
+  const clock = (t) => new Date(t).toLocaleTimeString("en-GB", { timeZone: "Europe/Bucharest", hour: "2-digit", minute: "2-digit" });
+  const span = (ms) => { const m = Math.max(0, Math.round(ms / MIN)); return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`; };
+  const seen = await laptopSeen(env);
+  const up = now - seen < LAPTOP_STALE_MS;
+  const todayEnd = new Date(); todayEnd.setUTCHours(23, 59, 59, 999);
+  const h = new Date(now).getUTCHours(), m = new Date(now).getUTCMinutes();
+  const ahead = (hours) => (hours || []).filter((x) => x > h || (x === h && m < 15));
+  const at = (x) => { const d = new Date(now); d.setUTCHours(x, 0, 0, 0); return d.getTime(); };
+  // Gather every persona's work first: the laptop takes all queued jobs (any persona)
+  // before a scheduled one exists, so the timeline is: running, queued, then by hour.
+  const sections = [], work = [];
+  let last = now;
+  for (const p of await personas.list(env)) {
+    const state = await st.load(env, p.slug);
+    const sec = { p, head: [], rows: [], tail: [] };
+    sections.push(sec);
+    const lane = up ? "laptop" : kaggleFull(state) ? null : "kaggle";
+    if (kaggleFull(state)) sec.head.push(`⛔ Kaggle: ${state.kaggle_full.note} (retry ${clock(state.kaggle_full.until)})`);
+    for (const q of state.lanes?.laptop || []) {
+      const left = Math.max(2 * MIN, JOB_MIN.laptop[jobKind(q)] * MIN - (now - (q.claimed_at || now)));
+      work.push({ sec, order: 0, at: now, lane: "laptop", fixed: left, label: `▶️ ${jobKind(q)} ${(q.character || p.slug).replace(/^mpt-/, "")} on the laptop` });
+    }
+    for (const [name, run] of Object.entries(state.lanes || {})) {
+      if (name === "laptop" || !run.length) continue;
+      const left = Math.max(5 * MIN, Math.max(...run.map((q) => JOB_MIN.kaggle[jobKind(q)])) * MIN - (now - (state.lane_started?.[name] || now)));
+      work.push({ sec, order: 0, at: now, lane: "kaggle", fixed: left, label: `▶️ Kaggle: ${run.map(jobKind).join(", ")}` });
+    }
+    if (state.kaggle_shoot) {
+      const left = Math.max(5 * MIN, JOB_MIN.kaggle.shoot * MIN - (now - state.kaggle_shoot.started));
+      work.push({ sec, order: 0, at: now, lane: "kaggle", fixed: left, label: "▶️ Kaggle: shoot" });
+    }
+    for (const q of state.queue) {
+      work.push({ sec, order: 1, at: now, lane, kind: jobKind(q), label: `⏳ ${jobKind(q)} ${(q.character || p.slug).replace(/^mpt-/, "")}` });
+    }
+    if (byShoots(p)) {
+      for (const x of ahead(p.shoot_hours ?? [5, 7, 9, 11, 13])) work.push({ sec, order: 2, at: at(x), lane, kind: "shoot", label: `🗓 shoot at ${clock(at(x))}` });
+      for (const x of ahead(p.talk_hours)) work.push({ sec, order: 2, at: at(x), lane, kind: "talk", label: `🗓 talk at ${clock(at(x))}` });
+      if (!isRoster(p) && p.buffer?.instagram) {
+        const n = ahead(p.story_hours || [7, 12, 17]).length;
+        if (n) sec.tail.push(`🗓 ${n} Instagram Stor${n > 1 ? "ies" : "y"} still today`);
+      }
+    }
+    const due = state.publish.filter((j) => !social.finished(j))
+      .map((j) => Math.min(...[!j.ig && j.due, !j.tt && ((j.talk && j.tt_due) || j.due)].filter(Boolean)))
+      .filter((t) => Number.isFinite(t) && t <= todayEnd.getTime());
+    if (due.length) {
+      last = Math.max(last, ...due);
+      sec.tail.push(`📤 ${due.length} post(s) still going out today, last ~${clock(Math.max(...due))}`);
+    }
+  }
+  // The laptop does one job at a time; Kaggle runs each lane on its own.
+  let cursor = now, waiting = 0;
+  for (const w of work.sort((x, y) => x.order - y.order || x.at - y.at)) {
+    let end;
+    if (w.fixed) end = now + w.fixed;
+    else if (!w.lane) { waiting++; w.sec.rows.push(`${w.label}: waits for the laptop`); continue; }
+    else if (w.lane === "laptop") end = cursor = Math.max(cursor, w.at) + JOB_MIN.laptop[w.kind] * MIN;
+    else end = Math.max(now, w.at) + JOB_MIN.kaggle[w.kind] * MIN;
+    if (w.lane === "laptop" && w.fixed) cursor = Math.max(cursor, end);
+    last = Math.max(last, end);
+    w.sec.rows.push(w.fixed ? `${w.label}, ~${span(end - now)} left` : `${w.label}: done ~${clock(end)}`);
+  }
+  const lines = [up ? "💻 Laptop agent: up ✅ — jobs run on the laptop"
+                    : `💻 Laptop agent: off${seen ? ` (last seen ${clock(seen)})` : ""} — on the laptop run: mpt-on`];
+  for (const { p, head, rows, tail } of sections) {
+    const out = [...head, ...rows, ...tail];
+    lines.push("", `👤 ${p.slug.toUpperCase()}`, ...(out.length ? out : ["✅ nothing running or left today"]));
+  }
+  lines.push("", last > now + MIN ? `⏱ All of today done ~${clock(last)} (in ${span(last - now)})` : "⏱ All of today is done",
+             ...(waiting ? [`⚠️ ${waiting} job(s) can't start until the laptop agent runs (Kaggle is out)`] : []),
+             "Times: Bucharest, rough averages.");
+  return lines.join("\n").slice(0, 4000);
 }
 
 // ---------------------------------------------------------------- schedule

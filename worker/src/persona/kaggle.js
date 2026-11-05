@@ -43,9 +43,14 @@ export async function fetchJson(url) {
   return r.json();
 }
 
-/** Save and run a private T4 script kernel. */
+/**
+ * Save and run a private T4 script kernel. Kaggle refuses a run with HTTP 200 and an
+ * `error` in the body ("Maximum weekly GPU quota of 30.00 hours reached."): that is
+ * thrown, so the caller keeps its jobs. Taken as success, the jobs were dropped at
+ * the next check, which saw the previous run COMPLETE (2026-11-05: a day's talks lost).
+ */
 export async function push(env, slug, text, datasets) {
-  return call(env, "SaveKernel", {
+  const r = await call(env, "SaveKernel", {
     slug,
     newTitle: slug.split("/")[1],
     text,
@@ -57,6 +62,8 @@ export async function push(env, slug, text, datasets) {
     datasetDataSources: datasets || [],
     machineShape: env.KAGGLE_ACCELERATOR || "NvidiaTeslaT4",
   });
+  if (r.error) throw new Error(`kaggle: ${r.error}`);
+  return r;
 }
 
 /**

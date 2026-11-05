@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# "I opened the laptop": starts the persona laptop agent (it then checks in with the
+# Worker every 30s and takes MPT's and Lena's jobs on this GPU), waits for its first
+# check-in, and prints what is left today and when it should all be done.
+#   mpt-on          start + status
+#   mpt-on status   status only
+#   mpt-on off      stop the agent (jobs go back to Kaggle when it has quota)
+set -uo pipefail
+cd "$(dirname "$(readlink -f "$0")")/.."
+get() { grep -E "^$1=" .env | head -1 | cut -d= -f2- | tr -d "\"' "; }
+URL=$(get PERSONA_WORKER_URL); SECRET=$(get PERSONA_ADMIN_SECRET)
+status() { curl -s -m 30 -H "Authorization: Bearer $SECRET" "$URL/persona/admin/status"; echo; }
+notify() { command -v notify-send >/dev/null && notify-send -i computer "MPT laptop" "$1" || true; }
+
+case "${1:-on}" in
+  status) status; exit ;;
+  off)
+    systemctl --user stop mpt-persona-agent && echo "agent stopped" && notify "agent stopped"; exit ;;
+esac
+
+if systemctl --user is-active -q mpt-persona-agent; then
+  echo "agent already running"
+else
+  since=$(date '+%Y-%m-%d %H:%M:%S')
+  systemctl --user start mpt-persona-agent || { echo "could not start mpt-persona-agent"; notify "could not start the agent"; exit 1; }
+  echo -n "agent started, waiting for its check-in"
+  for _ in $(seq 1 30); do
+    journalctl --user -u mpt-persona-agent --since "$since" -q --no-pager | grep -q "checking in" && break
+    echo -n "."; sleep 2
+  done
+  echo
+  sleep 5   # its first claim marks the laptop up in the Worker
+fi
+out=$(status)
+echo "$out"
+notify "$(echo "$out" | grep -E '^⏱' | head -1)"
