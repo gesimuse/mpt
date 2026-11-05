@@ -371,12 +371,12 @@ async function advancePublish(env, p, state, origin) {
     const url = job.file_ids
       ? await Promise.all(job.file_ids.map((f) => mediaLink(env, origin, f, "jpg")))
       : await mediaLink(env, origin, job.file_id, job.kind === "video" ? "mp4" : "jpg");
-    const before = JSON.stringify([job.ig, job.tt, job.retry_at]);
+    const before = JSON.stringify([job.ig, job.fb, job.tt, job.retry_at]);
     await social.advance(env, p, job, url);
     // Saved only when something moved: this runs on every 30s laptop check-in, and an
     // unconditional save there overwrote taps and 🖼 requests that the webhook had
     // saved a moment before (2026-10-16, two carousel requests lost).
-    if (JSON.stringify([job.ig, job.tt, job.retry_at]) === before) continue;
+    if (JSON.stringify([job.ig, job.fb, job.tt, job.retry_at]) === before) continue;
     changed = true;
     if (job.retry_at && Date.now() < job.retry_at) continue;  // rate-limited: nothing to show yet
     if (job.quiet || !job.chat) continue;  // a daily Story: no post of its own to mark
@@ -1331,8 +1331,10 @@ async function onAdmin(request, env) {
     if (what === "bufferposts") {
       // Every post in her Buffer channel (any status), to find what fills the queue.
       const org = (await social.raw(env, p, `{ account { organizations { id } } }`, {}))?.account?.organizations?.[0]?.id;
-      return Response.json(await social.raw(env, p, `query($i: PostsInput!) { posts(input: $i, first: 50) { edges { node { id status dueAt text error { message } } } } }`,
-        { i: { organizationId: org, filter: { channelIds: [p.buffer?.instagram].filter(Boolean) } } }));
+      // &channel=facebook|tiktok (default instagram), &after=<cursor> for the next 100.
+      const ch = p.buffer?.[u.searchParams.get("channel") || "instagram"];
+      return Response.json(await social.raw(env, p, `query($i: PostsInput!, $a: String) { posts(input: $i, first: 100, after: $a) { pageInfo { hasNextPage endCursor } edges { node { id status dueAt createdAt text assets { source } } } } }`,
+        { i: { organizationId: org, filter: { channelIds: [ch].filter(Boolean) } }, a: u.searchParams.get("after") || null }));
     }
     if (what === "attach") {
       // A publish job whose Buffer post exists but the job lost it: linked again (its
@@ -1346,7 +1348,11 @@ async function onAdmin(request, env) {
       return new Response("attached");
     }
     if (what === "bufferdelete") {
-      return Response.json(await social.raw(env, p, `mutation($i: DeletePostInput!) { deletePost(input: $i) { __typename } }`, { i: { id: u.searchParams.get("id") } }));
+      // ?id= one post, or ?ids=a,b,c (at most 40: the Worker's subrequest limit).
+      const ids = (u.searchParams.get("ids") || u.searchParams.get("id") || "").split(",").filter(Boolean).slice(0, 40);
+      const out = {};
+      for (const id of ids) out[id] = await social.raw(env, p, `mutation($i: DeletePostInput!) { deletePost(input: $i) { __typename } }`, { i: { id } });
+      return Response.json(ids.length === 1 ? out[ids[0]] : out);
     }
     if (what === "bufferpost") {
       return Response.json(await social.raw(env, p, `query($input: PostInput!) { post(input: $input) { id status dueAt sentAt error { message } } }`,
