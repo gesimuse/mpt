@@ -614,15 +614,15 @@ function queueVideo(state, itemId, msg, fileId, motion) {
 const T = (handles, yt) => [...handles.map((h) => `tiktok:@${h}`), yt];
 const TALK_TOPICS = {
   lena: { topic: "dating truths for women", sources: T(["shetalks.truth", "mindfuel_028", "riseshine.7", "voicebloom1", "therealtruth93", "hardtruthtalks", "jayshetty"], "relationship advice for women podcast clip") },
-  "mpt-gia": { topic: "confidence and self-love", sources: T(["mindfuel_028", "riseshine.7", "melrobbins", "kindpush343", "jayshetty"], "self love women motivation podcast clip") },
-  "mpt-freya": { topic: "healing after a breakup", sources: T(["riseshine.7", "mindfuel_028", "hardtruthtalks", "jayshetty", "melrobbins"], "healing after breakup advice podcast clip") },
+  "mpt-gia": { topic: "confidence, glow-ups and never chasing anyone", sources: T(["mindfuel_028", "riseshine.7", "melrobbins", "kindpush343", "jayshetty"], "self love women motivation podcast clip") },
+  "mpt-freya": { topic: "breakups, getting over him and never going back", sources: T(["riseshine.7", "mindfuel_028", "hardtruthtalks", "jayshetty", "melrobbins"], "healing after breakup advice podcast clip") },
   "mpt-aiko": { topic: "female psychology men don't understand", sources: T(["therealtruth93", "voicebloom1", "shetalks.truth", "hardtruthtalks"], "female psychology facts about women podcast") },
   "mpt-leila": { topic: "high-value woman standards", sources: T(["mindfuel_028", "riseshine.7", "thelasthopeofficial06", "shetalks.truth", "kindpush343", "drewafualo"], "high value woman standards podcast clip") },
   "mpt-skye": { topic: "red flags and situationships", sources: T(["drewafualo", "therealtruth93", "hardtruthtalks", "shetalks.truth"], "dating red flags situationship advice podcast") },
-  "mpt-chloe": { topic: "love and romance truths", sources: T(["riseshine.7", "mindfuel_028", "jayshetty", "voicebloom1", "hardtruthtalks", "shetalks.truth"], "deep love quotes relationship truth podcast") },
-  "mpt-priya": { topic: "marriage and husbands", sources: T(["voicebloom1", "jayshetty", "2bebetterpodcast", "hardtruthtalks"], "marriage advice husband wife podcast clip") },
-  "mpt-harper": { topic: "motivation and discipline", sources: T(["thelasthopeofficial06", "mindfuel_028", "melrobbins", "jayshetty", "kindpush343"], "motivational speech discipline women podcast") },
-  "mpt-alina": { topic: "money and ambition for women", sources: T(["mindfuel_028", "yourrichbff", "thelasthopeofficial06", "melrobbins"], "women money mindset ambition podcast clip") },
+  "mpt-chloe": { topic: "what real love looks like vs what women settle for", sources: T(["riseshine.7", "mindfuel_028", "jayshetty", "voicebloom1", "hardtruthtalks", "shetalks.truth"], "deep love quotes relationship truth podcast") },
+  "mpt-priya": { topic: "marriage truths wives never say out loud", sources: T(["voicebloom1", "jayshetty", "2bebetterpodcast", "hardtruthtalks"], "marriage advice husband wife podcast clip") },
+  "mpt-harper": { topic: "discipline, glow-ups and the excuses women make", sources: T(["thelasthopeofficial06", "mindfuel_028", "melrobbins", "jayshetty", "kindpush343"], "motivational speech discipline women podcast") },
+  "mpt-alina": { topic: "money, who pays and women who level up", sources: T(["mindfuel_028", "yourrichbff", "thelasthopeofficial06", "melrobbins"], "women money mindset ambition podcast clip") },
   "mpt-sofia": { topic: "what a real man does for his woman", sources: T(["mindfuel_028", "therealtruth93", "riseshine.7", "thelasthopeofficial06", "voicebloom1", "shetalks.truth", "hardtruthtalks"], "how a man should treat a woman podcast clip") },
   "mpt-lola": { topic: "toxic exes and moving on", sources: T(["riseshine.7", "thelasthopeofficial06", "hardtruthtalks", "drewafualo", "melrobbins"], "moving on from toxic ex advice podcast clip") },
 };
@@ -889,6 +889,22 @@ async function talkLine(request, env) {
   return Response.json(await writeTalkLine(env, await request.json()));
 }
 
+const TALK_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
+
+/** Viral talking-clip formats (what the top "hard truth" accounts post); one per talk, at random. */
+const TALK_FORMATS = [
+  `UNPOPULAR OPINION -- open with "Unpopular opinion:" and a take half the comments will fight about.`,
+  `THE SECRET -- open with "Men hate when women know this" / "Nobody tells women this" and reveal one thing he does and what it really means.`,
+  `THE CALLOUT -- "If he [exact thing he does], he's not [what she hopes]. He's [the blunt truth]."`,
+  `THE TEST -- "Want to know if he's serious? [one simple test she can do tonight]. [what each result means]."`,
+  `THE SCRIPT -- the exact words to say back when he does something ("Next time he says '...', you say '...'"), ending with why it works.`,
+  `STOP DOING THIS -- "Ladies, stop [a common thing women do]." Then the blunt reason and what to do instead.`,
+  `THE CONTRAST -- "A man who [wants you] does X. A man who [is bored] does Y." Ending with "Know the difference."`,
+  `THE MINI STORY -- "My ex used to [specific thing]. Then I realized [twist]." First person, a twist at the end.`,
+  `THREE SIGNS -- "Three signs he's [...]:" three very short concrete signs, then a one-line verdict.`,
+  `THE HARD TRUTH -- open with "Hard truth:" and say the thing women know but don't want to hear, about one concrete situation.`,
+];
+
 async function writeTalkLine(env, body) {
   const { persona, character, topic, transcript, title, given, any_topic } = body;
   if (given) {
@@ -906,39 +922,54 @@ async function writeTalkLine(env, body) {
   // Never the same idea twice: her persona's last lines (every girl of the roster),
   // and the lines Lena's talks posted into it.
   const said = [...((await st.load(env, p?.slug || persona || "lena")).talk_lines || []).slice(-40)];
+  // A viral format, rotated so no two talks sound alike (2026-11-05: "boring, it must be viral").
+  const format = TALK_FORMATS[Math.floor(Math.random() * TALK_FORMATS.length)];
   const prompt =
-    `You write one short spoken line for ${b.name}, ${b.age || 24}, ${b.personality || "warm and confident"}, ` +
-    `talking softly on a podcast about: ${topic}.\n` +
+    `You write the spoken line for a VIRAL TikTok/Reels talking clip. ${b.name}, ${b.age || 24}, ` +
+    `${b.personality || "confident, a little sassy"}, says it straight to a friend on a podcast. Her topic: ${topic}.\n` +
     (transcript ? `A popular short says:\n"""${String(transcript).slice(0, 2500)}"""\n` +
-                  (any_topic ? `Take its strongest single idea (whatever it is about) and say it in her own words -- do NOT copy its sentences.\n`
-                             : `If it has no clear idea about ${topic}, return {"on_topic": false}. Otherwise take its strongest ` +
-                               `single idea and say it in her own words -- do NOT copy its sentences.\n`)
-                : `Pick one idea on this topic that many people relate to and argue about.\n`) +
-    (said.length ? `Already said (pick a DIFFERENT idea, not a rewording of any of these):\n- ${said.join("\n- ")}\n` : "") +
-    `The line must be a clear, relatable truth or piece of advice that makes sense on its own to a stranger ` +
-    `scrolling TikTok -- like "A man who really wants you never makes you guess. He texts back. He shows up. ` +
-    `So if you're confused, that's your answer." It is SHAREABLE: a woman sends it to her best friend, saves it, ` +
-    `or comments "so true" -- it names a concrete situation she has lived (he texts late, she over-explains, he ` +
-    `only calls when bored), not a vague feeling. No poetic metaphors ("silence is a song", "smoke and mirrors"), ` +
-    `no inside jokes, no slang puzzles, no rambling, no contradictions. Talk to "you". ` +
-    `Rules: 22-38 words, 2-4 short sentences, plain spoken English, a hook in the first 5 words (a bold claim, ` +
-    `"If he...", "Stop...", "A woman who..."), a punchline at the end that lands. Never explicit, no hashtags, ` +
-    `no emojis, no names, no "subscribe"/"follow".\n` +
-    `Write 3 different candidates, then score each 1-10 for how likely people are to share or save it (be strict: ` +
-    `vague or confusing = 4 or less). ` +
-    `Return JSON: {"on_topic": true, "candidates": [{"line": "...", "score": 8, "keywords": ["3-6 single words ` +
-    `from the line to highlight"], "caption": "a one-line TikTok/Instagram caption, max 90 chars, no hashtags"}]}`;
+                  (any_topic ? `Take its most provocative single idea (whatever it is about), push it further, in her own words -- do NOT copy its sentences.\n`
+                             : `If it has no clear idea about ${topic}, return {"on_topic": false}. Otherwise take its most provocative ` +
+                               `single idea, push it further, in her own words -- do NOT copy its sentences.\n`)
+                : `Pick the idea on this topic that women argue about most in the comments.\n`) +
+    (said.length ? `Already said (a DIFFERENT idea, not a rewording of any of these):\n- ${said.join("\n- ")}\n` : "") +
+    `Use this format, adapted to her topic (it need not be about a man): ${format} ` +
+    `(the words in capitals are only the format's name -- never say them).\n` +
+    `She talks TO WOMEN watching, about the men or the situations in their lives (or about her topic).\n\n` +
+    `What makes it go viral -- all of these:\n` +
+    `1. HOOK: the first 3-6 words stop the scroll on their own. A bold claim, a secret, a callout or a test -- never ` +
+    `a soft opener ("I think", "Sometimes", "It's important", "Remember").\n` +
+    `2. DEBATE: it takes a side. Many women shout "FACTS" and tag a friend, some men or women push back in the ` +
+    `comments. A line nobody could disagree with is a FAIL ("respect yourself", "actions speak louder than words").\n` +
+    `3. CONCRETE: one exact situation she has lived -- he leaves her on read for 6 hours but posts a story, he says ` +
+    `"I'm not ready", he splits the bill on date one, his ex still likes his photos. Details, numbers, his words in quotes.\n` +
+    `4. PUNCHLINE: the last sentence is short, sharp, a screenshot-worthy twist or verdict.\n` +
+    `5. No greeting-card wisdom, no therapy words ("healing journey", "self-worth", "boundaries matter"), no poetic ` +
+    `metaphors, no "girl/queen/bestie" filler, no rambling.\n` +
+    `Rules: 18-36 words, 2-4 short sentences, plain spoken English, talks to "you". Spicy but safe for TikTok and ` +
+    `Instagram: never explicit, no slurs, no hate, no hashtags, no emojis, no names, no "subscribe"/"follow".\n` +
+    `Write 5 different candidates, then score each 1-10, strictly, as a TikTok editor would: hook (does it stop the ` +
+    `scroll), debate (will people argue or tag a friend), share (will women send it or save it). Anything safe, ` +
+    `vague or obvious gets 4 or less.\n` +
+    `Return JSON: {"on_topic": true, "candidates": [{"line": "...", "hook": 8, "debate": 7, "share": 8, ` +
+    `"keywords": ["3-6 single words from the line to highlight"], "caption": "a one-line TikTok/Instagram caption ` +
+    `that baits comments (a question or a hot take), max 90 chars, no hashtags"}]}`;
   for (let i = 0; i < 3; i++) {
     try {
-      const out = await captions.ask(env, prompt, 900);
+      // A bigger model for the line people hear (2026-11-05: the small one's were bland or
+      // garbled); the small one if it fails.
+      const out = await captions.ask(env, prompt, 1400, i < 2 ? TALK_MODEL : undefined);
       if (transcript && !any_topic && out.on_topic === false) return ({ line: "", why: "off topic" });
       // The best-scored candidate that keeps the rules (one plain answer from older replies).
       const cands = (Array.isArray(out.candidates) ? out.candidates : [out])
         .map((c) => ({ ...c, line: String(c.line || "").replace(/\s+/g, " ").trim() }))
-        .filter((c) => { const n = c.line.split(" ").length; return n >= 15 && n <= 50 && !/#|https?:/.test(c.line); })
-        .sort((a, b) => (Number(b.score) || 0) - (Number(a.score) || 0));
+        .filter((c) => { const n = c.line.split(" ").length; return n >= 12 && n <= 45 && !/#|https?:/.test(c.line); })
+        .map((c) => ({ ...c, score: Number(c.score) || ((Number(c.hook) || 0) + (Number(c.debate) || 0) + (Number(c.share) || 0)) / 3 }))
+        // The hook decides whether anyone hears the rest: it counts double.
+        .map((c) => ({ ...c, rank: (Number(c.hook) || c.score) * 2 + (Number(c.debate) || c.score) + (Number(c.share) || c.score) }))
+        .sort((a, b) => b.rank - a.rank);
       const best = cands[0];
-      if (best && (Number(best.score) || 7) >= 6) {
+      if (best && best.score >= 6) {
         return ({ line: best.line, keywords: (best.keywords || []).slice(0, 6).map(String),
                   caption: String(best.caption || "").slice(0, 120) });
       }

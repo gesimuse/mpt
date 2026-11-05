@@ -26,8 +26,8 @@ const ALWAYS = "aigenerated";
 const clean = (t) => String(t).toLowerCase().replace(/^#/, "").replace(/[^a-z0-9_]/g, "");
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 
-export async function ask(env, prompt, maxTokens = 400) {
-  const r = await env.AI.run(MODEL, { messages: [{ role: "user", content: prompt }], max_tokens: maxTokens, temperature: 0.8 });
+export async function ask(env, prompt, maxTokens = 400, model = MODEL) {
+  const r = await env.AI.run(model, { messages: [{ role: "user", content: prompt }], max_tokens: maxTokens, temperature: 0.8 });
   const m = /\{[\s\S]*\}/.exec(text(r));
   if (!m) throw new Error("no JSON");
   return JSON.parse(m[0].replace(/,\s*([\]}])/g, "$1"));
