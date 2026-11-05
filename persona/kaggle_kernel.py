@@ -130,6 +130,8 @@ def main():
             inp = WORK / "in"
             inp.mkdir(exist_ok=True)
             results = ondemand.run(payload["jobs"], char, lambda: studio, out, inp, WORK / "recreate", CODE)
+            from persona import vfit
+            vfit.fit_dir(out, log)
             write_status("done", True, {"items": results, "mode": "video",
                                         "requests": [j["id"] for j in payload["jobs"]]})
             return
@@ -164,6 +166,8 @@ def main():
                 (out / f"{vid['id']}.json").write_text(json.dumps(vid, ensure_ascii=False))
                 results.append({"id": vid["id"], "ok": True, "reason": None, "kind": "video", "parent": r["id"]})
                 log(f"video {vid['id']} of {r['id']}")
+        from persona import vfit
+        vfit.fit_dir(out, log)
         write_status("done", True, {"items": results, "date": payload.get("date", "")})
     except Exception as e:
         write_status(stage, False, {"error": f"{type(e).__name__}: {e}", "traceback": traceback.format_exc()[-4000:]})

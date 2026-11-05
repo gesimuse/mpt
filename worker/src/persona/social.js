@@ -67,7 +67,6 @@ const STATUS = `query($input: PostInput!) { post(input: $input) { id status dueA
 async function startBuffer(env, p, job, mediaUrl, platform) {
   const channelId = p.buffer?.[platform];
   if (platform === "facebook" && job.story) return { status: "skipped", note: "a Story stays on Instagram" };
-  if (platform === "facebook" && job.talk) return { status: "skipped", note: "talks stay on Instagram and TikTok" };
   // A silent Reel is shared from the phone, to add a song from Instagram's library
   // (the channel post's «Post on Instagram» button, index.js sharePage).
   if (platform === "instagram" && job.kind === "video" && !job.audio && !job.story) return { status: "done", mode: "phone" };
@@ -87,6 +86,11 @@ async function startBuffer(env, p, job, mediaUrl, platform) {
     channelId, text: job.story ? "" : text, assets, metadata, aiAssisted: true, schedulingType: "automatic", mode: "shareNow",
   } });
   const res = d.createPost;
+  // A video made before every video was 1080x1920 (persona/vfit.py, 2026-11-05):
+  // Facebook refuses it as a Reel, so it stays an Instagram one.
+  if (platform === "facebook" && /height must be at least|aspect ratio is too/i.test(res.message || "")) {
+    return { status: "skipped", note: "made before 1080p videos -- Instagram only" };
+  }
   if (res.__typename !== "PostActionSuccess") throw new Error(`${res.__typename}: ${res.message || ""}`);
   if (res.post.status === "error") return { status: "failed", post: res.post.id, note: res.post.error?.message || "Buffer error" };
   return { mode: "buffer", post: res.post.id, status: "done", link: res.post.externalLink || "", sent_at: Date.now() };

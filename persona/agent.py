@@ -126,23 +126,11 @@ def _fps(path):
         return 30.0
 
 
-def _fit(path, limit=19_000_000):
-    """A video over 19MB re-encoded at 5 Mbit/s: Telegram refuses a bot's upload past
-    50MB (413) and its download past 20MB, which Buffer needs (2026-10-29: a 74MB talk).
-    One under 23 fps goes to 30 (frames repeated): Instagram refuses a Reel slower than
-    that, and the 🎬 videos are 16 fps (2026-10-30)."""
-    if path.suffix != ".mp4" or not path.exists():
-        return
-    slow = _fps(path) < 23
-    if path.stat().st_size <= limit and not slow:
-        return
-    tmp = path.with_name(path.stem + "-fit.mp4")
-    subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", str(path), *(["-vf", "fps=30"] if slow else []),
-                    "-c:v", "libx264", "-crf", "21",
-                    "-maxrate", "5M", "-bufsize", "10M", "-preset", "medium", "-pix_fmt", "yuv420p",
-                    "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", str(tmp)], check=True)
-    tmp.replace(path)
-    log(f"{path.name}: re-encoded ({'30 fps, ' if slow else ''}{path.stat().st_size // 1_000_000}MB)")
+def _fit(path):
+    """Every video made fit for Reels, TikTok and Facebook before it is sent:
+    1080x1920, >= 30 fps, under 19MB (persona/vfit.py)."""
+    from persona import vfit
+    vfit.social(path, log)
 
 
 def deliver(work, r):
