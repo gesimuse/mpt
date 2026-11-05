@@ -143,6 +143,10 @@ export async function advance(env, p, job, mediaUrl) {
     if (job[k]?.status === "processing" && !job[k].container) job[k] = { ...job[k], status: "failed", note: "left in Buffer -- check the app" };
   }
   if (!p.buffer?.instagram) job.ig = job.ig || { status: "skipped", note: "not linked" };
+  // A silent Reel never goes up by itself, by any route (Buffer or her own token): it is
+  // shared by hand from the channel post's «Post on Instagram» button, to add a song
+  // from Instagram's library (2026-11-05).
+  else if (!job.ig && job.kind === "video" && !job.audio && !job.story) job.ig = { status: "done", mode: "phone" };
   else if ((!job.ig || job.ig.status === "processing") && now >= (job.due || 0) && now - (job.ig?.checked_at || 0) >= 60 * 1000) {
     try {
       // Straight through Instagram's API with her token; through her Buffer without one.

@@ -269,9 +269,10 @@ async function queuePublish(env, p, state, cq, itemId) {
   // A caption and hashtags for each platform, never empty (captions.js).
   const posts = await captions.forPost(env, p, b, state, { ...known, kind: isPhoto ? "photo" : "video" });
   const story = isPhoto && feedFull(env, state);
+  const silent = !isPhoto && !known.audio && !known.recreate && !known.talk;
   state.publish.push({
     id: `pub-${itemId}-${Date.now()}`, item: itemId, kind: isPhoto ? "photo" : "video",
-    created: Date.now(), due: social.accounts(p).instagram && !story ? nextSlot(env, state) : Date.now() + AUTO_WAIT_MS,
+    created: Date.now(), due: social.accounts(p).instagram && !story && !silent ? nextSlot(env, state) : Date.now() + AUTO_WAIT_MS,
     recreate: !!known.recreate, story,
     ...(known.talk ? { talk: true, bw: !!known.bw, tt_due: nextTalkSlot(env, state) } : {}),
     file_id: fileId, audio: !!known.audio || !!known.recreate || !!known.talk,
@@ -341,11 +342,14 @@ function feedFull(env, state) {
  * a post into the next free slot instead of posting at once. PERSONA_IG_SLOTS: UTC
  * hours, default "10,18" (12:00 and 20:00 in Prague).
  */
+const silentReel = (j) => j.kind === "video" && !j.audio && !j.story;
+
 function nextSlot(env, state) {
   const hours = String(env.PERSONA_IG_SLOTS || "10,18").split(",").map(Number).sort((a, b) => a - b);
   // A Story is not a feed post: it never holds a slot (2026-11-05: album Stories
   // held 3 of Lena's slots and pushed her Reels and talks 3-4 days out).
-  const taken = new Set(state.publish.filter((j) => j.due && !j.story).map((j) => j.due));
+  // Nor a silent Reel: it is shared by hand from Telegram, never at a slot.
+  const taken = new Set(state.publish.filter((j) => j.due && !j.story && !silentReel(j)).map((j) => j.due));
   const now = Date.now();
   for (let day = 0; day < 30; day++) {
     for (const h of hours) {
@@ -1466,8 +1470,8 @@ async function onAdmin(request, env) {
       const wait = state.publish.filter((j) => !j.ig && j.due > Date.now()).sort((a, b) => a.created - b.created);
       for (const j of wait) delete j.due;
       for (const j of wait) {
-        j.due = j.story ? Date.now() : nextSlot(env, state);
-        moved.push(`${j.id} ${j.story ? "story" : j.kind} -> ${new Date(j.due).toISOString().slice(5, 16)}`);
+        j.due = j.story || silentReel(j) ? Date.now() : nextSlot(env, state);
+        moved.push(`${j.id} ${j.story ? "story" : silentReel(j) ? "silent reel (phone)" : j.kind} -> ${new Date(j.due).toISOString().slice(5, 16)}`);
       }
       await advancePublish(env, p, state, u.origin);
       await st.save(env, p.slug, state);
