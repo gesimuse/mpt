@@ -319,14 +319,18 @@ def frame(char, studio, look, work):
 def _voice_words(b):
     accent = ACCENT.get(b.get("home_city", ""), "")
     return (f"She has a soft, warm, gentle voice, slightly low and breathy{f', with a light {accent} accent' if accent else ''}, "
-            "calm and natural like talking to a close friend.")
+            "natural like talking to a close friend.")
 
 
 def _speech_prompt(b, line):
-    return ("A calm, quiet, intimate moment, filmed on a locked-off static camera. A young woman "
-            "sits still and relaxed, turned toward someone off-camera to the right. "
-            f"{_voice_words(b)} She says softly: \"{line}\" Understated, low-energy delivery, her lips move gently and "
-            "naturally with every word, slow natural blinks. Background Sound: quiet room tone.")
+    # Real talk, not a reading (2026-11-06: "the long pauses are awkward... make it more real"):
+    # a normal conversational pace with feeling, sentences flowing into each other.
+    return ("An honest, intimate moment, filmed on a locked-off static camera. A young woman "
+            "sits relaxed, turned toward someone off-camera to the right, telling her something real. "
+            f"{_voice_words(b)} She says: \"{line}\" She talks at a normal conversational pace, with real feeling in her "
+            "voice, the sentences flowing one into the next with only short natural breaths between them, like a "
+            "real woman telling a friend, not reading. Her lips move naturally with every word, natural blinks. "
+            "Background Sound: quiet room tone.")
 
 
 def voice_ref(char, studio, face):
@@ -347,7 +351,10 @@ def voice_ref(char, studio, face):
 
 # ------------------------------------------------------------------ making it
 def _trim_silence(src, dest):
-    _ff("-i", src, "-af", "silenceremove=start_periods=1:start_threshold=-45dB,areverse,"
+    # Inside the line too: any pause over 0.3s cut down to 0.2s (the long gaps sounded like
+    # AI reading, 2026-11-06). InfiniteTalk lip-syncs to this audio, so the mouth follows.
+    _ff("-i", src, "-af", "silenceremove=start_periods=1:start_threshold=-45dB,"
+        "silenceremove=stop_periods=-1:stop_duration=0.3:stop_threshold=-42dB:stop_silence=0.2,areverse,"
         "silenceremove=start_periods=1:start_threshold=-50dB:start_silence=0.3,areverse,apad=pad_dur=0.6",
         "-ac", "1", "-ar", "44100", dest)
 
@@ -358,7 +365,9 @@ def speak(char, studio, face, ref, line, work, slack=1.0):
     (`slack` > 1 on a retry), so the last word is never past its end (2026-11-05)."""
     seconds = min(26.0, (len(line.split()) / 2.0 + 2.5) * slack)
     frames = int(seconds * 24) // 8 * 8 + 9
-    s = studio.engine.build_settings(LTX_VOICE_MODEL, prompt=_speech_prompt(char.bible, line),
+    # Said, not read: "..." and dashes made the model stop dead mid-line.
+    said = re.sub(r"\s*(\.\.\.|…|--|—|–)\s*", ", ", line).replace(", ,", ",")
+    s = studio.engine.build_settings(LTX_VOICE_MODEL, prompt=_speech_prompt(char.bible, said),
                                      image_start=str(face), image_prompt_type="S", audio_guide=str(ref),
                                      audio_prompt_type="A1OF", video_length=frames, resolution="448x768", seed=-1)
     clip = studio.engine.run(s, work, "speech")[-1]

@@ -891,25 +891,27 @@ async function talkLine(request, env) {
 
 const TALK_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 
-/** Viral talking-clip formats (what the top "hard truth" accounts post); one per talk, at random. */
+/** Talking-clip formats, one per talk at random. 2026-11-06 ("boring... we need more emotional
+ * stuff, stuff that touches the heart... make it sound like real talk"): mostly heart-first
+ * formats -- a moment she lived, said to one woman -- with a few of the sharp ones kept. */
 const TALK_FORMATS = [
-  `UNPOPULAR OPINION -- open with "Unpopular opinion:" and a take half the comments will fight about.`,
-  `THE SECRET -- open with "Men hate when women know this" / "Nobody tells women this" and reveal one thing he does and what it really means.`,
-  `THE CALLOUT -- "If he [exact thing he does], he's not [what she hopes]. He's [the blunt truth]."`,
-  `THE TEST -- "Want to know if he's serious? [one simple test she can do tonight]. [what each result means]."`,
-  `THE SCRIPT -- the exact words to say back when he does something ("Next time he says '...', you say '...'"), ending with why it works.`,
-  `STOP DOING THIS -- "Ladies, stop [a common thing women do]." Then the blunt reason and what to do instead.`,
-  `THE CONTRAST -- "A man who [wants you] does X. A man who [is bored] does Y." Ending with "Know the difference."`,
-  `THE MINI STORY -- "My ex used to [specific thing]. Then I realized [twist]." First person, a twist at the end.`,
-  `THREE SIGNS -- "Three signs he's [...]:" three very short concrete signs, then a one-line verdict.`,
-  `THE HARD TRUTH -- open with "Hard truth:" and say the thing women know but don't want to hear, about one concrete situation.`,
+  `THE MOMENT -- one small, exact moment she lived that broke or changed her (where she was, what he said or didn't say, what she did after), then what she knows now.`,
+  `TO THE WOMAN WHO -- "If you're the one who [a quiet thing many women do, like always texting first, or crying in the car before work]..." said gently to her, then the one thing she needs to hear.`,
+  `WHAT I WISH SOMEONE TOLD ME -- the thing she wishes someone had said to her at 19 or after her worst breakup, through one real memory.`,
+  `THE NIGHT I KNEW -- the exact night she knew it was over (or that he was the one), the small detail that told her, and the feeling.`,
+  `MY MOM SAID -- something her mom or grandma told her that she didn't get until a man taught it to her the hard way.`,
+  `THE LETTER -- talks straight to her younger self, who is still waiting by the phone for him, about one specific night.`,
+  `THE SOFT TRUTH -- "Nobody talks about this, but..." one painful, true feeling women have and hide (missing someone who hurt you, being lonely in a relationship), and a kind way out.`,
+  `THE MINI STORY -- "My ex used to [specific thing]. And I thought that was love." Then the twist of what love turned out to be.`,
+  `THE CALLOUT -- "If he [exact thing he does], he's not [what she hopes]. He's [the blunt truth]." Said like a friend who's been there, not a lecture.`,
+  `HARD TRUTH -- "Hard truth, and I say this with love:" the thing women know but don't want to hear, about one concrete situation.`,
 ];
 
 // The on-screen hook (2026-11-06, from the koubo packaging playbook: 0-2s is the claim
 // slammed on screen, no hello): big text over the first seconds of a talk, and over a
 // whole Reel. Short, so it reads in one glance with the sound off.
-const HOOK_SPEC = "the on-screen title for the first 2 seconds: 3-7 words, a bold claim, a callout or a question " +
-  "that makes a woman stop scrolling (like \"Men who do this aren't serious\" or \"Ladies, stop texting first\"); " +
+const HOOK_SPEC = "the on-screen title for the first 2 seconds: 3-7 words, a confession, a bold claim, a callout or a question " +
+  "that makes a woman stop scrolling (like \"The night I stopped waiting\" or \"Men who do this aren't serious\"); " +
   "not the line's first words, no emojis, no hashtags";
 function cleanHook(h) {
   const t = String(h || "").replace(/[#*"“”]|\p{Extended_Pictographic}/gu, "").replace(/\s+/g, " ").trim();
@@ -936,33 +938,41 @@ async function writeTalkLine(env, body) {
   // A viral format, rotated so no two talks sound alike (2026-11-05: "boring, it must be viral").
   const format = TALK_FORMATS[Math.floor(Math.random() * TALK_FORMATS.length)];
   const prompt =
-    `You write the spoken line for a VIRAL TikTok/Reels talking clip. ${b.name}, ${b.age || 24}, ` +
-    `${b.personality || "confident, a little sassy"}, says it straight to a friend on a podcast. Her topic: ${topic}.\n` +
+    `You write what a real woman says in a TikTok/Reels talking clip that makes women stop, feel it in their chest, ` +
+    `and send it to a friend. ${b.name}, ${b.age || 24}, ${b.personality || "warm, honest, a little sassy"}, says it ` +
+    `to a close friend on a podcast. Her topic: ${topic}.\n` +
     (transcript ? `A popular short says:\n"""${String(transcript).slice(0, 2500)}"""\n` +
-                  (any_topic ? `Take its most provocative single idea (whatever it is about), push it further, in her own words -- do NOT copy its sentences.\n`
-                             : `If it has no clear idea about ${topic}, return {"on_topic": false}. Otherwise take its most provocative ` +
-                               `single idea, push it further, in her own words -- do NOT copy its sentences.\n`)
-                : `Pick the idea on this topic that women argue about most in the comments.\n`) +
+                  (any_topic ? `Take its most moving or most provocative single idea (whatever it is about), in her own words -- do NOT copy its sentences.\n`
+                             : `If it has no clear idea about ${topic}, return {"on_topic": false}. Otherwise take its most moving or ` +
+                               `provocative single idea, in her own words -- do NOT copy its sentences.\n`)
+                : `Pick the feeling on this topic that women carry quietly and rarely say out loud.\n`) +
     (said.length ? `Already said (a DIFFERENT idea, not a rewording of any of these):\n- ${said.join("\n- ")}\n` : "") +
     `Use this format, adapted to her topic (it need not be about a man): ${format} ` +
     `(the words in capitals are only the format's name -- never say them).\n` +
     `She talks TO WOMEN watching, about the men or the situations in their lives (or about her topic).\n\n` +
-    `What makes it go viral -- all of these:\n` +
-    `1. HOOK: the first 3-6 words stop the scroll on their own. A bold claim, a secret, a callout or a test -- never ` +
-    `a soft opener ("I think", "Sometimes", "It's important", "Remember").\n` +
-    `2. DEBATE: it takes a side. Many women shout "FACTS" and tag a friend, some men or women push back in the ` +
-    `comments. A line nobody could disagree with is a FAIL ("respect yourself", "actions speak louder than words").\n` +
-    `3. CONCRETE: one exact situation she has lived -- he leaves her on read for 6 hours but posts a story, he says ` +
-    `"I'm not ready", he splits the bill on date one, his ex still likes his photos. Details, numbers, his words in quotes.\n` +
-    `4. PUNCHLINE: the last sentence is short, sharp, a screenshot-worthy twist or verdict.\n` +
-    `5. No greeting-card wisdom, no therapy words ("healing journey", "self-worth", "boundaries matter"), no poetic ` +
-    `metaphors, no "girl/queen/bestie" filler, no rambling.\n` +
-    `Rules: 18-36 words, 2-4 short sentences, plain spoken English, talks to "you". Spicy but safe for TikTok and ` +
+    `What makes it land -- all of these:\n` +
+    `1. HOOK: the first 3-6 words pull you in on their own: a confession, a moment, a callout -- never a soft ` +
+    `opener ("I think", "Sometimes", "It's important", "Remember").\n` +
+    `2. FEELING: it touches the heart. Something real that hurts or heals, that women live and rarely say. ` +
+    `Vulnerable, warm, honest -- the viewer should think "this is me". Find HER own moment: not crying in the shower, ` +
+    `not rereading old texts, not "the backup plan" -- those are worn out.\n` +
+    `3. CONCRETE: one exact moment she lived -- a place, a time, his exact words in quotes, what she did after. ` +
+    `A small specific detail beats any general truth.\n` +
+    `4. ENDING: the last sentence is short and lands -- a soft twist, a truth to screenshot, or a line of comfort.\n` +
+    `5. REAL TALK, NOT AI: how a normal woman actually talks when it matters to her. Contractions always (I'm, ` +
+    `he'd, didn't). Plain everyday words. Short sentences, some starting with "And" or "But". Allowed, sparingly: ` +
+    `one "like", "honestly", "I mean", "you know what?", or a small self-correction ("he was -- no, he IS"). NEVER: ` +
+    `poetic metaphors, quotable-poster wisdom, therapy words ("healing journey", "self-worth", "boundaries", ` +
+    `"validate", "toxic", "seen and heard", "it's okay to not be okay", "deserve", "worth"), "girl/queen/bestie", "In a world", "Let that sink in", "Here's the thing", "Ladies,".\n` +
+    `6. FLOW: written to be said in one breath per sentence -- commas, not "..." or dashes for pauses; no lists, ` +
+    `no parentheses, no ALL CAPS.\n` +
+    `Rules: 22-40 words, 3-5 short sentences (never just one), talks to "you" or tells her own story. Safe for TikTok and ` +
     `Instagram: never explicit, no slurs, no hate, no hashtags, no emojis, no names, no "subscribe"/"follow".\n` +
     `Write 5 different candidates, then score each 1-10, strictly, as a TikTok editor would: hook (does it stop the ` +
-    `scroll), debate (will people argue or tag a friend), share (will women send it or save it). Anything safe, ` +
-    `vague or obvious gets 4 or less.\n` +
-    `Return JSON: {"on_topic": true, "candidates": [{"line": "...", "hook": 8, "debate": 7, "share": 8, ` +
+    `scroll), feel (does it hit the heart -- would she get chills or tear up), real (does it sound like a real woman ` +
+    `talking, not written; any AI-sounding phrase gets 3 or less), share (will women send it or save it). Anything ` +
+    `safe, vague, preachy or obvious gets 4 or less.\n` +
+    `Return JSON: {"on_topic": true, "candidates": [{"line": "...", "hook": 8, "feel": 9, "real": 8, "share": 8, ` +
     `"keywords": ["3-6 single words from the line to highlight"], "hook": "${HOOK_SPEC}", ` +
     `"caption": "a one-line TikTok/Instagram caption ` +
     `that baits comments (a question or a hot take), max 90 chars, no hashtags"}]}`;
@@ -975,10 +985,11 @@ async function writeTalkLine(env, body) {
       // The best-scored candidate that keeps the rules (one plain answer from older replies).
       const cands = (Array.isArray(out.candidates) ? out.candidates : [out])
         .map((c) => ({ ...c, line: String(c.line || "").replace(/\s+/g, " ").trim() }))
-        .filter((c) => { const n = c.line.split(" ").length; return n >= 12 && n <= 45 && !/#|https?:/.test(c.line); })
-        .map((c) => ({ ...c, score: Number(c.score) || ((Number(c.hook) || 0) + (Number(c.debate) || 0) + (Number(c.share) || 0)) / 3 }))
-        // The hook decides whether anyone hears the rest: it counts double.
-        .map((c) => ({ ...c, rank: (Number(c.hook) || c.score) * 2 + (Number(c.debate) || c.score) + (Number(c.share) || c.score) }))
+        .filter((c) => { const n = c.line.split(" ").length; return n >= 14 && n <= 48 && !/#|https?:/.test(c.line); })
+        .map((c) => ({ ...c, score: Number(c.score) || ["hook", "feel", "real", "share"].reduce((t, k) => t + (Number(c[k]) || 0), 0) / 4 }))
+        // Hook (does anyone hear the rest) and feel (the ask of 2026-11-06) count double.
+        .map((c) => ({ ...c, rank: ["hook", "feel"].reduce((t, k) => t + (Number(c[k]) || c.score) * 2, 0) +
+                                   (Number(c.real) || c.score) + (Number(c.share) || c.score) }))
         .sort((a, b) => b.rank - a.rank);
       const best = cands[0];
       if (best && best.score >= 6) {
