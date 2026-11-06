@@ -341,7 +341,9 @@ REALISM = ("a real photograph from a professional Instagram photoshoot, shot on 
 # hands, arms and legs).
 ANATOMY = ("She has a completely natural human body: exactly two arms and two legs, each correctly attached and "
            "bending only at the elbows and knees, and exactly two hands, each with five slender, separate fingers "
-           "and a natural grip. Her whole body is one person, every limb clearly hers.")
+           "and a natural grip. Her whole body is one person, every limb clearly hers. Her body is perfectly "
+           "symmetrical left to right: both breasts the same size, shape and height, both shoulders level, both arms "
+           "and both legs the same length and thickness, both hands the same size.")
 
 
 # Makeup that fits the scene (2026-10-18): glam for a night out or a fancy dress,

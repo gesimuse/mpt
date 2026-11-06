@@ -30,7 +30,8 @@ INFINITETALK = {"id": "infinitetalk", "wan2gp_model_type": "infinitetalk",
 
 # Lena/MPT body wording (memory mpt-body-shape: slim and toned, full bust only).
 BODY = ("Her body is a flawless toned model physique: a full, round, perky, large bust, a slim narrow waist "
-        "and slim arms -- an hourglass figure.")
+        "and slim arms -- an hourglass figure, perfectly symmetrical left to right: both breasts the same size, shape "
+        "and height, both shoulders level, both arms the same.")
 ACCENT = {"Prague": "Czech", "Tokyo": "Japanese", "Moscow": "Russian", "London": "British", "Paris": "French",
           "Oslo": "Norwegian", "Los Angeles": "American", "San Diego": "American", "Dubai": "Middle Eastern",
           "Madrid": "Spanish", "Bali": "Indian", "Rome": "Italian"}
