@@ -202,8 +202,13 @@ def find_line(job, work):
         for c in sorted(found, key=lambda c: -c["views"])[:15]:
             s = _engagement(c)
             if s:
+                c["_score"] = s
                 scored.append((s, c))
         cands += [c for _, c in sorted(scored, key=lambda x: -x[0])[:4]]
+    # Lena (job "viral"): every account's shorts ranked together, the most shared first,
+    # whatever its topic -- the line keeps the short's own topic (any_topic).
+    if job.get("viral"):
+        cands = sorted(cands, key=lambda c: -c.get("_score", 0))
     for c in cands[:8]:
         # Its own name: a retried job found the last try's .wav as "the download" and
         # ffmpeg refused to write a file over itself (2026-10-30).
@@ -223,7 +228,7 @@ def find_line(job, work):
         log(f"source {c['id']} ({c['views']} views, {c.get('shares', 0)} shares, {c.get('saves', 0)} saves, {c.get('likes', 0)} likes): {c['title'][:60]!r}")
         r = _worker("/persona/admin/laptop/talkline", {"persona": job.get("persona"), "character": job.get("character"),
                                                         "topic": job.get("topic"), "transcript": text[:3000],
-                                                        "title": c["title"]})
+                                                        "title": c["title"], "any_topic": bool(job.get("viral"))})
         if r.get("line"):
             return {**r, "source": c["id"], "source_title": c["title"], "source_views": c["views"], "source_url": c["url"]}
         log(f"source {c['id']} skipped: {r.get('why', 'off topic')}")

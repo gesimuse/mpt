@@ -627,6 +627,13 @@ const TALK_TOPICS = {
   "mpt-lola": { topic: "toxic exes and moving on", sources: T(["riseshine.7", "thelasthopeofficial06", "hardtruthtalks", "drewafualo", "melrobbins"], "moving on from toxic ex advice podcast clip") },
 };
 
+function anyTopic() {
+  const all = Object.values(TALK_TOPICS);
+  const handles = [...new Set(all.flatMap((t) => t.sources.filter((x) => x.startsWith("tiktok:"))))];
+  const pick = all[Math.floor(Math.random() * all.length)];
+  return { topic: pick.topic, sources: [...handles, pick.sources.at(-1)], viral: true };
+}
+
 function talkTopic(p, who) {
   return p.talk_topics?.[who] || TALK_TOPICS[who] || { topic: "relationships and self-worth", sources: ["relationship advice podcast clip"] };
 }
@@ -641,12 +648,14 @@ function queueTalk(p, state, extra = null) {
     who = pool[(state.talk_rotation || 0) % pool.length];
     state.talk_rotation = (state.talk_rotation || 0) + 1;
   }
-  const t = talkTopic(p, who);
+  // Lena (2026-11-06: "lena to get all, with always what is most viral"): every girl's topic
+  // and every source account, the most-shared short among all of them, whatever its topic.
+  const t = !isRoster(p) && p.talk_any !== false ? anyTopic() : talkTopic(p, who);
   // A/B (2026-10-27): every other talk in black and white, like the advice accounts.
   const bw = !!((state.talk_n || 0) % 2);
   state.talk_n = (state.talk_n || 0) + 1;
   state.queue.push({ id: `talk-${who}-${Date.now()}`, kind: "talk", character: who, topic: t.topic, sources: t.sources,
-                     chat: p.chat_id, local_only: true, bw,
+                     chat: p.chat_id, local_only: true, bw, ...(t.viral ? { viral: true } : {}),
                      ...(extra ? { given_line: extra.line || "", given_url: extra.url || "", message_id: extra.message_id } : {}) });
   return `${p.slug}: 🎙 talk queued for ${who} (${t.topic})`;
 }
@@ -895,16 +904,16 @@ const TALK_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
  * stuff, stuff that touches the heart... make it sound like real talk"): mostly heart-first
  * formats -- a moment she lived, said to one woman -- with a few of the sharp ones kept. */
 const TALK_FORMATS = [
-  `THE MOMENT -- one small, exact moment she lived that broke or changed her (where she was, what he said or didn't say, what she did after), then what she knows now.`,
-  `TO THE WOMAN WHO -- "If you're the one who [a quiet thing many women do, like always texting first, or crying in the car before work]..." said gently to her, then the one thing she needs to hear.`,
-  `WHAT I WISH SOMEONE TOLD ME -- the thing she wishes someone had said to her at 19 or after her worst breakup, through one real memory.`,
-  `THE NIGHT I KNEW -- the exact night she knew it was over (or that he was the one), the small detail that told her, and the feeling.`,
-  `MY MOM SAID -- something her mom or grandma told her that she didn't get until a man taught it to her the hard way.`,
-  `THE LETTER -- talks straight to her younger self, who is still waiting by the phone for him, about one specific night.`,
-  `THE SOFT TRUTH -- "Nobody talks about this, but..." one painful, true feeling women have and hide (missing someone who hurt you, being lonely in a relationship), and a kind way out.`,
-  `THE MINI STORY -- "My ex used to [specific thing]. And I thought that was love." Then the twist of what love turned out to be.`,
-  `THE CALLOUT -- "If he [exact thing he does], he's not [what she hopes]. He's [the blunt truth]." Said like a friend who's been there, not a lecture.`,
-  `HARD TRUTH -- "Hard truth, and I say this with love:" the thing women know but don't want to hear, about one concrete situation.`,
+  `THE MOMENT -- one small, exact moment she lived about her topic that changed her (where she was, what was said, what she did after), then what she knows now.`,
+  `TO THE WOMAN WHO -- "If you're the one who [a quiet thing many women do, about her topic]..." said gently to her, then the one thing she needs to hear.`,
+  `WHAT I WISH SOMEONE TOLD ME -- the thing about her topic she wishes someone had told her at 19, through one real memory.`,
+  `THE DAY I KNEW -- the exact day it clicked for her (about her topic), the small detail that did it, and the feeling.`,
+  `MY MOM SAID -- something her mom or grandma told her about her topic that she only understood years later.`,
+  `THE LETTER -- talks straight to her younger self about one specific day, about her topic.`,
+  `THE SOFT TRUTH -- "Nobody talks about this, but..." one true feeling women hide about her topic, and a kind way out.`,
+  `THE MINI STORY -- "I used to [a specific thing, about her topic]. And I thought that was normal." Then the twist.`,
+  `THE CALLOUT -- "If [an exact situation of her topic], that's not [what women tell themselves]. It's [the blunt truth]." Like a friend who's been there.`,
+  `HARD TRUTH -- "Hard truth, and I say this with love:" the thing about her topic women know but don't want to hear, in one concrete situation.`,
 ];
 
 // The on-screen hook (2026-11-06, from the koubo packaging playbook: 0-2s is the claim
@@ -949,7 +958,9 @@ async function writeTalkLine(env, body) {
     (said.length ? `Already said (a DIFFERENT idea, not a rewording of any of these):\n- ${said.join("\n- ")}\n` : "") +
     `Use this format, adapted to her topic (it need not be about a man): ${format} ` +
     `(the words in capitals are only the format's name -- never say them).\n` +
-    `She talks TO WOMEN watching, about the men or the situations in their lives (or about her topic).\n\n` +
+    `She talks TO WOMEN watching. STAY ON HER TOPIC: it decides what the line is about. Bring a man or an ex in only ` +
+    `if her topic is about men or relationships -- money is about money, discipline about discipline, friendship about ` +
+    `friends, family about family. Never another "if he ..." dating line when the topic is something else.\n\n` +
     `What makes it land -- all of these:\n` +
     `1. HOOK: the first 3-6 words pull you in on their own: a confession, a moment, a callout -- never a soft ` +
     `opener ("I think", "Sometimes", "It's important", "Remember").\n` +
@@ -2142,7 +2153,7 @@ async function jobPayload(env, origin, state, batch) {
                   ...(fid ? { image_url: await fileLink(env, origin, fid) } : {}),
                   ...(q.shoot ? { shoot: q.shoot, replaces: q.replaces } : {}) });
     } else if (q.kind === "talk") {
-      jobs.push({ id: q.id, kind: "talk", topic: q.topic, sources: q.sources, chat: q.chat, bw: !!q.bw,
+      jobs.push({ id: q.id, kind: "talk", topic: q.topic, sources: q.sources, chat: q.chat, bw: !!q.bw, viral: !!q.viral,
                   given_line: q.given_line || "", given_url: q.given_url || "", message_id: q.message_id || null,
                   ...(q.given_keywords ? { given_keywords: q.given_keywords, given_caption: q.given_caption || "", given_hook: q.given_hook || "" } : {}),
                   used: (state.talk_used || []).slice(-300) });
