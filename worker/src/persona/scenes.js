@@ -163,8 +163,9 @@ long shadow behind her"),
 social caption, max 20 words, 1-2 emojis, no hashtags; never starting with "Sun's out", "Summer vibes",
 "Who's ready" or "Who's joining"), "hook" (2-6 words of on-screen text for the first second of her Reel,
 in her voice, that makes a stranger stop scrolling: a tease, a confession or a POV, e.g. "POV: our first
-date", "he said I wouldn't wear it", "guess where I woke up"; no emojis, no hashtags, never asking people
-to like, comment or follow), "beat" (one past-tense sentence for her storyline), "tags" (3-5 short
+date", "he said I wouldn't wear it", "guess where I woke up"; never a plain description of the place or
+the mood (NOT "Escape to the countryside", "Hideaway moments", "Golden hour vibes"); never about being undressed
+or anything sexual; no emojis, no hashtags, never asking people to like, comment or follow), "beat" (one past-tense sentence for her storyline), "tags" (3-5 short
 lowercase tags).`;
 }
 
@@ -319,7 +320,9 @@ Return ONLY a JSON array of ${n} objects with the keys:
 saying where both hands are; at most one object), "gaze" (where she looks and her expression), "shot" (framing),
 "light" (where the light comes from and what it does), "mood", "details" (under 50 words: composition, colours,
 background, atmosphere, camera), "caption" (first-person social caption, max 20 words, 1-2 emojis, no hashtags),
-"hook" (2-6 words of on-screen text, no emojis), "beat" (one past-tense sentence), "tags" (3-5 lowercase tags).`;
+"hook" (2-6 words of on-screen text for the first seconds of her Reel, in her voice, that makes a stranger
+stop scrolling: a tease, a confession, a POV or a question, e.g. "POV: our first date", "he said I wouldn't wear it";
+never a plain description of the place or mood; never about being undressed or anything sexual; no emojis), "beat" (one past-tense sentence), "tags" (3-5 lowercase tags).`;
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const r = await env.AI.run(MODEL, { messages: [{ role: "user", content: ask }], max_tokens: 3000, temperature: 0.6 });

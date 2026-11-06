@@ -424,25 +424,10 @@ def head_in_proportion(char, path):
     return path
 
 
-REEL_FONTS = ["/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-              "/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf"]
-
-
-def _hook_lines(hook, width=16):
-    """The hook in at most two lines of about `width` characters."""
-    words, lines = hook.split(), [""]
-    for w in words:
-        if lines[-1] and len(lines[-1]) + 1 + len(w) > width and len(lines) < 2:
-            lines.append(w)
-        else:
-            lines[-1] = f"{lines[-1]} {w}".strip()
-    return lines
-
-
 def to_reel(path, hook=""):
     """The clip as a full-size Reel: 1080x1920 (9:16, cropped from Wan's 480x832),
     Lanczos-upscaled and lightly sharpened, and its hook (the scene writer's 2-6 words)
-    written over the first 2.5s. Instagram and TikTok show a 480p upload soft and
+    slammed over the first 3s (persona/hooktext.py). Instagram and TikTok show a 480p upload soft and
     rank Reels on whether people stop in the first second (Lena's Reels, 2026-10-23).
     PERSONA_REEL=0 turns it off, PERSONA_REEL_HOOK=0 keeps the size but drops the text.
     Falls back to the clip as it was."""
@@ -453,20 +438,16 @@ def to_reel(path, hook=""):
     path = Path(path)
     vf = ["scale=1080:1920:force_original_aspect_ratio=increase:flags=lanczos", "crop=1080:1920",
           "unsharp=5:5:0.6:5:5:0.0"]
-    font = next((f for f in REEL_FONTS if Path(f).exists()), None)
     tmp = []
-    if hook and font and config.flag("PERSONA_REEL_HOOK", "1"):
-        lines = _hook_lines(hook)
-        for i, line in enumerate(lines):
-            t = tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False)
-            t.write(line)
-            t.close()
-            tmp.append(t.name)
-            # Below her face (top third) and above Instagram's caption and buttons;
-            # fades out from 2.0s to 2.5s.
-            vf.append(f"drawtext=fontfile={font}:textfile={t.name}:fontsize=74:fontcolor=white:"
-                      f"box=1:boxcolor=black@0.55:boxborderw=22:x=(w-text_w)/2:y=h*0.6+{i}*112:"
-                      "alpha='if(lt(t,2),1,max(0,(2.5-t)/0.5))':enable='lt(t,2.5)'")
+    if hook and config.flag("PERSONA_REEL_HOOK", "1"):
+        # The talks' slam look (persona/hooktext.py, 2026-11-06), 3s: the old
+        # small grey box low on the frame was easy to miss.
+        from . import hooktext
+        t = tempfile.NamedTemporaryFile("w", suffix=".ass", delete=False)
+        t.close()
+        tmp.append(t.name)
+        hooktext.ass(hook, 3.0, Path(t.name), y=1150)  # below her face, above the app buttons
+        vf.append(f"ass={t.name}")
     out = path.with_name(path.stem + "-reel.mp4")
 
     def run(filters):

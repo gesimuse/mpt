@@ -20,7 +20,7 @@ import sys
 import urllib.request
 from pathlib import Path
 
-from . import config, qa
+from . import config, hooktext, qa
 
 FPS_TALK = 25
 LTX_VOICE_MODEL = {"id": "ltx-voice", "wan2gp_model_type": "ltx2_22B_distilled_1_1"}
@@ -176,7 +176,8 @@ def find_line(job, work):
     # Asked for in the channel: the user's own quote, said as written ...
     if job.get("given_line"):
         # On Kaggle the Worker wrote it all already (no call back: no secret there).
-        r = ({"line": job["given_line"], "keywords": job.get("given_keywords") or [], "caption": job.get("given_caption", "")}
+        r = ({"line": job["given_line"], "keywords": job.get("given_keywords") or [], "caption": job.get("given_caption", ""),
+              "hook": job.get("given_hook", "")}
              if "given_keywords" in job else _worker("/persona/admin/laptop/talkline", {**ask, "given": job["given_line"]}))
         return {**r, "source": "", "source_title": job.get("given_desc") or "quote sent in Telegram"}
     # ... or the video they sent: its idea, in her words.
@@ -387,9 +388,13 @@ def _ass_time(s):
     return f"{int(h)}:{int(m):02d}:{s:05.2f}"
 
 
-def captions(video, keywords, work, dest, bw=False):
+HOOK_S = 2.6
+
+
+def captions(video, keywords, work, dest, bw=False, hook=""):
     """Three words at a time, centre of the frame, keywords in yellow; 1080x1920.
-    `bw`: graded black and white (the A/B test of 2026-10-27), captions still in colour."""
+    `bw`: graded black and white (the A/B test of 2026-10-27), captions still in colour.
+    `hook`: slammed on screen over the first ~2.5s, with a punch-in on the first frame."""
     wav = work / "final.wav"
     _ff("-i", video, "-vn", "-ac", "1", "-ar", "16000", wav)
     words = _transcribe(wav, words=True)
@@ -409,13 +414,20 @@ def captions(video, keywords, work, dest, bw=False):
         end = groups[i + 1][0]["timestamp"][0] if i + 1 < len(groups) else (g[-1]["timestamp"][1] or start + 1) + 0.4
         text = " ".join("{\\c&H00E5FF&}" + w["text"].strip() + "{\\c&HFFFFFF&}"
                         if re.sub(r"\W", "", w["text"]).lower() in keys else w["text"].strip() for w in g)
+        # The hook holds the caption's place for its first 2.6s: one text on screen at a time.
+        if hook and end <= HOOK_S:
+            continue
+        start = max(start, HOOK_S) if hook else start
         lines.append(f"Dialogue: 0,{_ass_time(start)},{_ass_time(end)},Cap,,0,0,0,,{{\\pos(540,1000)\\fad(60,0)}}{text}")
+    if hook:
+        lines.append(hooktext.event(hook, HOOK_S, y=1000))
     ass = work / "caps.ass"
     ass.write_text("[Script Info]\nPlayResX: 1080\nPlayResY: 1920\n[V4+ Styles]\n"
                    "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, "
                    "Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, "
                    "MarginR, MarginV, Encoding\n"
                    "Style: Cap,Lato Black,88,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,1,1,0,0,100,100,0,0,1,4,3,5,60,60,0,1\n"
+                   + hooktext.STYLE +
                    "[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
                    + "\n".join(lines) + "\n")
     grade = "hue=s=0,eq=contrast=1.12:brightness=-0.02," if bw else ""
@@ -424,6 +436,9 @@ def captions(video, keywords, work, dest, bw=False):
     cuts = [0.0] + [w["timestamp"][1] for w in words[:-1]
                     if re.search(r"[.!?]$", w["text"].strip()) and w["timestamp"][1]]
     spans = [(cuts[i], cuts[i + 1] if i + 1 < len(cuts) else 9999) for i in range(1, len(cuts), 2)]
+    # With a hook the clip opens punched in, cut back as the hook settles: motion on frame 0.
+    if hook and len(cuts) > 1 and cuts[1] > 1.0:
+        spans.insert(0, (0.0, 0.8))
     z = "+".join(f"between(t,{a:.2f},{b:.2f})" for a, b in spans) or "0"
     zoom = (f"scale=w='trunc(max(1080,1920*iw/ih)*(1+0.13*({z}))/2)*2':h='trunc(max(1920,1080*ih/iw)*(1+0.13*({z}))/2)*2'"
             ":flags=lanczos:eval=frame,crop=1080:1920:(iw-1080)/2:(ih-1920)*0.3,")  # her face sits high
@@ -493,5 +508,5 @@ def make(job, char, studio, work):
         have = _done_with(studio, have)
     video = animate(studio, face, voice, work, where=look["scene"][1])
     _done_with(studio, have)
-    final = captions(video, info.get("keywords"), work, work / "final.mp4", bw=bool(job.get("bw")))
+    final = captions(video, info.get("keywords"), work, work / "final.mp4", bw=bool(job.get("bw")), hook=info.get("hook") or "")
     return final, info

@@ -905,6 +905,17 @@ const TALK_FORMATS = [
   `THE HARD TRUTH -- open with "Hard truth:" and say the thing women know but don't want to hear, about one concrete situation.`,
 ];
 
+// The on-screen hook (2026-11-06, from the koubo packaging playbook: 0-2s is the claim
+// slammed on screen, no hello): big text over the first seconds of a talk, and over a
+// whole Reel. Short, so it reads in one glance with the sound off.
+const HOOK_SPEC = "the on-screen title for the first 2 seconds: 3-7 words, a bold claim, a callout or a question " +
+  "that makes a woman stop scrolling (like \"Men who do this aren't serious\" or \"Ladies, stop texting first\"); " +
+  "not the line's first words, no emojis, no hashtags";
+function cleanHook(h) {
+  const t = String(h || "").replace(/[#*"“”]|\p{Extended_Pictographic}/gu, "").replace(/\s+/g, " ").trim();
+  return t.split(" ").length <= 9 ? t.slice(0, 60) : "";
+}
+
 async function writeTalkLine(env, body) {
   const { persona, character, topic, transcript, title, given, any_topic } = body;
   if (given) {
@@ -912,10 +923,10 @@ async function writeTalkLine(env, body) {
     let out = {};
     try {
       out = await captions.ask(env, `For this short spoken quote:\n"${String(given).slice(0, 600)}"\n` +
-        `Return JSON: {"keywords": ["3-6 single words from it to highlight"], "caption": "a one-line TikTok/Instagram caption, max 90 chars, no hashtags"}`, 200);
+        `Return JSON: {"keywords": ["3-6 single words from it to highlight"], "hook": "${HOOK_SPEC}", "caption": "a one-line TikTok/Instagram caption, max 90 chars, no hashtags"}`, 260);
     } catch (e) { console.error("talk keywords", String(e).slice(0, 200)); }
     return ({ line: String(given).replace(/\s+/g, " ").trim(), keywords: (out.keywords || []).slice(0, 6).map(String),
-                           caption: String(out.caption || "").slice(0, 120) });
+                           hook: cleanHook(out.hook), caption: String(out.caption || "").slice(0, 120) });
   }
   const p = await personas.get(env, persona || "lena");
   const b = (await st.bible(env, character || persona)) || { name: character };
@@ -952,7 +963,8 @@ async function writeTalkLine(env, body) {
     `scroll), debate (will people argue or tag a friend), share (will women send it or save it). Anything safe, ` +
     `vague or obvious gets 4 or less.\n` +
     `Return JSON: {"on_topic": true, "candidates": [{"line": "...", "hook": 8, "debate": 7, "share": 8, ` +
-    `"keywords": ["3-6 single words from the line to highlight"], "caption": "a one-line TikTok/Instagram caption ` +
+    `"keywords": ["3-6 single words from the line to highlight"], "hook": "${HOOK_SPEC}", ` +
+    `"caption": "a one-line TikTok/Instagram caption ` +
     `that baits comments (a question or a hot take), max 90 chars, no hashtags"}]}`;
   for (let i = 0; i < 3; i++) {
     try {
@@ -971,7 +983,7 @@ async function writeTalkLine(env, body) {
       const best = cands[0];
       if (best && best.score >= 6) {
         return ({ line: best.line, keywords: (best.keywords || []).slice(0, 6).map(String),
-                  caption: String(best.caption || "").slice(0, 120) });
+                  hook: cleanHook(best.hook), caption: String(best.caption || "").slice(0, 120) });
       }
     } catch (e) {
       console.error("talk line", String(e).slice(0, 200));
@@ -2121,7 +2133,7 @@ async function jobPayload(env, origin, state, batch) {
     } else if (q.kind === "talk") {
       jobs.push({ id: q.id, kind: "talk", topic: q.topic, sources: q.sources, chat: q.chat, bw: !!q.bw,
                   given_line: q.given_line || "", given_url: q.given_url || "", message_id: q.message_id || null,
-                  ...(q.given_keywords ? { given_keywords: q.given_keywords, given_caption: q.given_caption || "" } : {}),
+                  ...(q.given_keywords ? { given_keywords: q.given_keywords, given_caption: q.given_caption || "", given_hook: q.given_hook || "" } : {}),
                   used: (state.talk_used || []).slice(-300) });
     } else if (q.kind === "private") {
       jobs.push({ id: q.id, kind: "private", prompt: q.prompt, video: q.video, character: q.character,
@@ -2137,7 +2149,7 @@ async function jobPayload(env, origin, state, batch) {
       jobs.push({ id: q.id, image_url: await fileLink(env, origin, q.file_id), motion: q.motion || "", wish: q.wish || "",
                   ...(q.private ? { private: true, character: q.character } : {}),
                   caption: state.items[q.item]?.caption || "", tags: state.items[q.item]?.tags || [],
-                  hook: state.items[q.item]?.scene?.hook || "",
+                  hook: q.private ? "" : state.items[q.item]?.scene?.hook || "",
                   chat: q.chat, message_id: q.message_id });
     }
     if (jobs.length > before && q.character) jobs[jobs.length - 1].character = q.character;
@@ -2726,7 +2738,7 @@ async function advanceJobs(env, p, origin) {
       const r = await writeTalkLine(env, { persona: p.slug, character: q.character, topic: q.topic,
                                            ...(q.given_line ? { given: q.given_line } : { transcript: "" }) });
       if (r.line) {
-        Object.assign(q, { given_line: r.line, given_keywords: r.keywords || [], given_caption: r.caption || "", local_only: false });
+        Object.assign(q, { given_line: r.line, given_keywords: r.keywords || [], given_caption: r.caption || "", given_hook: r.hook || "", local_only: false });
         state.kaggle_talks = { day, n: kt + 1 };
         changed = true;
         notes.push(`talk ${q.id}: laptop off, to Kaggle`);
