@@ -157,15 +157,24 @@ def _transcribe(wav, words=False):
     tok = AutoTokenizer.from_pretrained("openai/whisper-large-v3")
     # Wan2GP's copy where it is (WAN2GP_DIR: not under ~ on Kaggle), else the Hub's.
     local = Path(config.env("WAN2GP_DIR") or Path.home() / "apps/Wan2GP").expanduser() / "ckpts/whisper-large-v3"
-    p = pipeline("automatic-speech-recognition", model=str(local) if local.exists() else "openai/whisper-large-v3",
-                 tokenizer=tok, torch_dtype=torch.float16, device="cuda")
-    try:
-        r = p(str(wav), return_timestamps="word" if words else True, generate_kwargs={"language": "en"})
-    finally:
-        del p
-        import gc
-        gc.collect()
-        torch.cuda.empty_cache()
+    import gc
+    model = str(local) if local.exists() else "openai/whisper-large-v3"
+    # The GPU first; on the CPU when the video model before it left the card full
+    # (2026-11-10: a finished InfiniteTalk talk died here with CUDA OOM, 37 min lost).
+    for device, dtype in (("cuda", torch.float16), ("cpu", torch.float32)):
+        p = None
+        try:
+            p = pipeline("automatic-speech-recognition", model=model, tokenizer=tok, torch_dtype=dtype, device=device)
+            r = p(str(wav), return_timestamps="word" if words else True, generate_kwargs={"language": "en"})
+            break
+        except torch.cuda.OutOfMemoryError:
+            if device == "cpu":
+                raise
+            log("whisper: GPU full, transcribing on the CPU")
+        finally:
+            del p
+            gc.collect()
+            torch.cuda.empty_cache()
     return r["chunks"] if words else r["text"].strip()
 
 

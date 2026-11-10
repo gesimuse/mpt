@@ -80,6 +80,14 @@ class Engine:
         wgp = sys.modules.get("wgp")
         if self._session is not None and wgp is not None:
             wgp.release_model()
+        import gc
+        gc.collect()
+        try:
+            import torch
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        except ImportError:
+            pass
 
     # ----------------------------------------------------------------- settings
     def _profile(self, model):
