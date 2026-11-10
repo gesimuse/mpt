@@ -197,7 +197,7 @@ def find_line(job, work):
         got = next(p for p in work.glob("given.*") if p.suffix != ".wav")
         _ff("-i", got, "-t", "90", "-ac", "1", "-ar", "16000", audio)
         text = _transcribe(audio)
-        r = _worker("/persona/admin/laptop/talkline", {**ask, "transcript": text[:3000], "title": "", "any_topic": True})
+        r = _worker("/persona/admin/laptop/talkline", {**ask, "transcript": text[:3000], "title": "", "any_topic": True, "keep": True})
         if not r.get("line"):
             raise RuntimeError("couldn't make a line from that video")
         return {**r, "source": "", "source_title": job["given_url"]}
@@ -232,12 +232,14 @@ def find_line(job, work):
         except Exception as e:
             log(f"source {c['id']} unusable: {type(e).__name__}: {str(e)[:150]}")
             continue
-        if len(text.split()) < 15:
+        # A talk says something: 30+ words (a song or a skit got through at 15, 2026-11-10).
+        if len(text.split()) < 30:
             continue
         log(f"source {c['id']} ({c['views']} views, {c.get('shares', 0)} shares, {c.get('saves', 0)} saves, {c.get('likes', 0)} likes): {c['title'][:60]!r}")
         r = _worker("/persona/admin/laptop/talkline", {"persona": job.get("persona"), "character": job.get("character"),
                                                         "topic": job.get("topic"), "transcript": text[:3000],
-                                                        "title": c["title"], "any_topic": bool(job.get("viral"))})
+                                                        "title": c["title"], "views": c["views"],
+                                                        "any_topic": bool(job.get("viral"))})
         if r.get("line"):
             return {**r, "source": c["id"], "source_title": c["title"], "source_views": c["views"], "source_url": c["url"]}
         log(f"source {c['id']} skipped: {r.get('why', 'off topic')}")

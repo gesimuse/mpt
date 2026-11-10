@@ -927,6 +927,52 @@ function cleanHook(h) {
   return t.split(" ").length <= 9 ? t.slice(0, 60) : "";
 }
 
+// What the model keeps writing however it is told not to; a candidate with any is dropped.
+const WORN = /\b(deserve|worth|healing|journey|boundar\w*|validat\w*|toxic|self-love|queen|bestie|let that sink|here's the thing|liberating|finding (me|myself)|cry for help|and it hurts|it's okay to)\b/i;
+
+/**
+ * Her version of a short that went viral: same opening, rhythm, length, points and kind
+ * of ending, in her words. null when the transcript is not one person talking to camera
+ * (song lyrics, a skit, a couple's vlog went through as "sources" -- 'GET EM BANNED',
+ * 'forever yours @Pili' -- and the line was made up); false when nothing usable came back.
+ */
+async function adaptTalk(env, b, topic, transcript, views, said, anyTopic) {
+  const prompt =
+    `This short went viral${views ? ` (${Number(views).toLocaleString("en-US")} views)` : ""}:\n"""${String(transcript).slice(0, 2500)}"""\n\n` +
+    `First: is it ONE person giving an opinion, advice or a hard truth to camera? If it is song lyrics, a skit, ` +
+    `a vlog, chatter or a couple's video, return {"usable": false}.` +
+    (anyTopic ? "" : ` Also return {"usable": false} if it has nothing to say about ${topic}.`) + `\n` +
+    `Otherwise write ${b.name}'s version for her own TikTok. ${b.name}, ${b.age || 24}, ${b.personality || "warm, honest"}` +
+    `${anyTopic ? "" : `; her topic: ${topic}`}.\n` +
+    `Keep exactly what made it work: the same kind of opening, the same rhythm (short punchy fragments stay short ` +
+    `punchy fragments), about the same length, the same points in the same order, the same kind of last line.\n` +
+    `Change the words so it is clearly hers and not a copy: at least half the words different, never the same sentences.\n` +
+    `It must sound spoken by a real woman, not written: contractions, plain words. No therapy words (deserve, worth, ` +
+    `healing, boundaries, toxic, validate), no hashtags, no emojis, nothing explicit, no names.\n` +
+    (said.length ? `She already said these -- a different idea:\n- ${said.slice(-25).join("\n- ")}\n` : "") +
+    `Write 4 versions, then pick the one a TikTok editor would post: the most natural, punchy and shareable.\n` +
+    `Return JSON only: {"usable": true, "best": <index>, "candidates": [{"line": "...", ` +
+    `"keywords": ["3-6 single words from the line to highlight"], "hook": "${HOOK_SPEC}", ` +
+    `"caption": "a one-line caption that baits comments (a question or a hot take), max 90 chars, no hashtags"}]}`;
+  for (let i = 0; i < 2; i++) {
+    try {
+      const out = await captions.ask(env, prompt, 1200, TALK_MODEL);
+      if (out.usable === false) return null;
+      const cands = (Array.isArray(out.candidates) ? out.candidates : [])
+        .map((c, k) => ({ ...c, k, line: String(c.line || "").replace(/\s+/g, " ").trim() }))
+        .filter((c) => { const n = c.line.split(" ").length; return n >= 10 && n <= 60 && !/#|https?:/.test(c.line) && !WORN.test(c.line); });
+      const best = cands.find((c) => c.k === Number(out.best)) || cands[0];
+      if (best) {
+        return ({ line: best.line, keywords: (best.keywords || []).slice(0, 6).map(String),
+                  hook: cleanHook(best.hook), caption: String(best.caption || "").slice(0, 120) });
+      }
+    } catch (e) {
+      console.error("talk adapt", String(e).slice(0, 200));
+    }
+  }
+  return false;
+}
+
 async function writeTalkLine(env, body) {
   const { persona, character, topic, transcript, title, given, any_topic } = body;
   if (given) {
@@ -944,6 +990,15 @@ async function writeTalkLine(env, body) {
   // Never the same idea twice: her persona's last lines (every girl of the roster),
   // and the lines Lena's talks posted into it.
   const said = [...((await st.load(env, p?.slug || persona || "lena")).talk_lines || []).slice(-40)];
+  // A short that went viral: its script adapted, not reinvented (2026-11-10, "I don't like
+  // most of them"). The rotated story formats below turned "Let him leave. Really. Stop
+  // convincing him..." into a rambling hiking story; kept close, it stays what worked.
+  if (transcript) {
+    const adapted = await adaptTalk(env, b, topic, transcript, body.views, said, any_topic);
+    if (adapted) return adapted;
+    // The video they sent is used whatever it is (the old way below).
+    if (adapted === null && !body.keep) return ({ line: "", why: "not a talk" });
+  }
   // A viral format, rotated so no two talks sound alike (2026-11-05: "boring, it must be viral").
   const format = TALK_FORMATS[Math.floor(Math.random() * TALK_FORMATS.length)];
   const prompt =
@@ -996,7 +1051,7 @@ async function writeTalkLine(env, body) {
       // The best-scored candidate that keeps the rules (one plain answer from older replies).
       const cands = (Array.isArray(out.candidates) ? out.candidates : [out])
         .map((c) => ({ ...c, line: String(c.line || "").replace(/\s+/g, " ").trim() }))
-        .filter((c) => { const n = c.line.split(" ").length; return n >= 14 && n <= 48 && !/#|https?:/.test(c.line); })
+        .filter((c) => { const n = c.line.split(" ").length; return n >= 14 && n <= 48 && !/#|https?:/.test(c.line) && !WORN.test(c.line); })
         .map((c) => ({ ...c, score: Number(c.score) || ["hook", "feel", "real", "share"].reduce((t, k) => t + (Number(c[k]) || 0), 0) / 4 }))
         // Hook (does anyone hear the rest) and feel (the ask of 2026-11-06) count double.
         .map((c) => ({ ...c, rank: ["hook", "feel"].reduce((t, k) => t + (Number(c[k]) || c.score) * 2, 0) +
