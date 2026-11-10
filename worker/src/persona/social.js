@@ -136,6 +136,22 @@ async function startTiktok(env, p, job, mediaUrl) {
  * `tt_due`): Instagram one step at a time (at most once a minute while Instagram
  * processes a video), TikTok one Buffer call. Failures are recorded on the job.
  */
+/**
+ * One Buffer post per job and platform, ever. A post's record lives in its own key
+ * (sent:<job>:<platform>), written the moment Buffer takes it: the job's state in KV
+ * can be read up to a minute stale, or saved over by another request that loaded it
+ * before, and the job then looked unposted and went out again -- the same video
+ * posted up to 4 times (2026-11-10).
+ */
+async function once(env, job, k, start) {
+  const key = `sent:${job.id}:${k}`;
+  const prev = await env.PERSONA.get(key, "json");
+  if (prev) return prev;
+  const rec = await start();
+  if (rec?.post && rec.status === "done") await env.PERSONA.put(key, JSON.stringify(rec), { expirationTtl: 60 * 86400 });
+  return rec;
+}
+
 export async function advance(env, p, job, mediaUrl) {
   const now = Date.now();
   // Left "processing" in Buffer before Instagram went direct: not posted again.
@@ -152,7 +168,7 @@ export async function advance(env, p, job, mediaUrl) {
       // Straight through Instagram's API with her token; through her Buffer without one.
       job.ig = job.ig?.container || (await env.PERSONA.get(`igtoken:${p.slug}`))
         ? await instagram.publishStep(env, p.slug, job, mediaUrl, job.ig)
-        : await startBuffer(env, p, job, mediaUrl, "instagram");
+        : await once(env, job, "ig", () => startBuffer(env, p, job, mediaUrl, "instagram"));
     } catch (e) {
       job.ig = { ...(job.ig || {}), status: "failed", note: String(e.message || e).slice(0, 200) };
     }
@@ -160,14 +176,14 @@ export async function advance(env, p, job, mediaUrl) {
   // Her Facebook Page (2026-10-30), at the same time as Instagram.
   if (!job.fb && p.buffer?.facebook && now >= (job.due || 0)) {
     try {
-      job.fb = await startBuffer(env, p, job, mediaUrl, "facebook");
+      job.fb = await once(env, job, "fb", () => startBuffer(env, p, job, mediaUrl, "facebook"));
     } catch (e) {
       job.fb = { status: "failed", note: String(e.message || e).slice(0, 200) };
     }
   }
   if (!job.tt && now >= ((job.talk && job.tt_due) || job.due || 0) && !(job.retry_at && now < job.retry_at)) {
     try {
-      job.tt = await startTiktok(env, p, job, mediaUrl);
+      job.tt = await once(env, job, "tt", () => startTiktok(env, p, job, mediaUrl));
     } catch (e) {
       const msg = String(e.message || e);
       // Buffer escalates to a 24h block when hammered: wait an hour.
