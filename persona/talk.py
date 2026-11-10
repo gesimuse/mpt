@@ -204,6 +204,14 @@ def find_line(job, work):
         if not r.get("line"):
             raise RuntimeError("couldn't make a line from that video")
         return {**r, "source": "", "source_title": job["given_url"]}
+    # Part 2 of a talk that did well, or her answer to a viewer's comment: no source to find.
+    if job.get("follow_line") or job.get("reply_comment"):
+        r = _worker("/persona/admin/laptop/talkline", {**ask, "follow_line": job.get("follow_line", ""),
+                                                        "reply_comment": job.get("reply_comment", ""),
+                                                        "reply_to_line": job.get("reply_to_line", "")})
+        if not r.get("line"):
+            raise RuntimeError("no line for the Part 2 / reply")
+        return {**r, "source": "", "source_title": ""}
     used = set(job.get("used") or [])
     cands = []
     # Sources in their order (the account made for her topic first), most-viewed
@@ -435,7 +443,7 @@ def _ass_time(s):
 HOOK_S = 2.6
 
 
-def captions(video, keywords, work, dest, bw=False, hook=""):
+def captions(video, keywords, work, dest, bw=False, hook="", label="", reply=""):
     """Three words at a time, centre of the frame, keywords in yellow; 1080x1920.
     `bw`: graded black and white (the A/B test of 2026-10-27), captions still in colour.
     `hook`: slammed on screen over the first ~2.5s, with a punch-in on the first frame."""
@@ -465,13 +473,17 @@ def captions(video, keywords, work, dest, bw=False, hook=""):
         lines.append(f"Dialogue: 0,{_ass_time(start)},{_ass_time(end)},Cap,,0,0,0,,{{\\pos(540,1000)\\fad(60,0)}}{text}")
     if hook:
         lines.append(hooktext.event(hook, HOOK_S, y=1000))
+    if label:
+        lines.append(hooktext.tag_event(label))
+    if reply:
+        lines.append(hooktext.reply_event(reply))
     ass = work / "caps.ass"
     ass.write_text("[Script Info]\nPlayResX: 1080\nPlayResY: 1920\n[V4+ Styles]\n"
                    "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, "
                    "Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, "
                    "MarginR, MarginV, Encoding\n"
                    "Style: Cap,Lato Black,88,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,1,1,0,0,100,100,0,0,1,4,3,5,60,60,0,1\n"
-                   + hooktext.STYLE +
+                   + hooktext.STYLE + hooktext.TAG_STYLE + hooktext.REPLY_STYLE +
                    "[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
                    + "\n".join(lines) + "\n")
     grade = "hue=s=0,eq=contrast=1.12:brightness=-0.02," if bw else ""
@@ -551,5 +563,10 @@ def make(job, char, studio, work):
         voice, clip = speak(char, studio, face, ref, info["line"], work, slack=1.35)
         have = _done_with(studio, have)
     video = _trim_ends(clip, work / "talk.mp4")
-    final = captions(video, info.get("keywords"), work, work / "final.mp4", bw=bool(job.get("bw")), hook=info.get("hook") or "")
+    # Her series label ("Getting over him #14", or "... Part 2"), and the comment she answers.
+    label = f"{job['series']} #{job['episode']}" if job.get("series") and job.get("episode") else ""
+    if job.get("follow_line") and job.get("series"):
+        label = f"{job['series']} · Part 2"
+    final = captions(video, info.get("keywords"), work, work / "final.mp4", bw=bool(job.get("bw")),
+                     hook=info.get("hook") or "", label=label, reply=job.get("reply_comment") or "")
     return final, info

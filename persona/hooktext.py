@@ -39,3 +39,22 @@ def ass(hook, end, dest, y=1000):
                     "[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
                     + event(hook, end, y) + "\n")
     return dest
+
+
+# Her series label at the top of every talk, "GETTING OVER HIM #14" (2026-11-10: a numbered
+# series gives a viewer a reason to follow for the next one), and a viewer's comment she
+# answers, in a white bubble like TikTok's own "reply to comment" videos.
+TAG_STYLE = "Style: Tag,Lato Black,50,&H00FFFFFF,&H00FFFFFF,&H00000000,&H99000000,1,0,0,0,100,100,2,0,3,14,0,8,60,60,0,1\n"
+REPLY_STYLE = "Style: Reply,Lato Black,52,&H00222222,&H00222222,&H00FFFFFF,&H00FFFFFF,1,0,0,0,100,100,0,0,3,22,0,8,40,40,0,1\n"
+
+
+def tag_event(label, y=120):
+    return f"Dialogue: 2,{ass_time(0)},9:59:59.00,Tag,,0,0,0,,{{\\pos(540,{y})}}{label.upper()}"
+
+
+def reply_event(comment, y=215, x=360):
+    text = comment.strip()
+    if len(text) > 140:
+        text = text[:137].rsplit(" ", 1)[0] + "..."
+    return (f"Dialogue: 2,{ass_time(0)},9:59:59.00,Reply,,0,0,0,,{{\\pos({x},{y})\\fad(200,0)}}"
+            f"{{\\fs40\\c&H777777&}}Reply to a comment{{\\fs52\\c&H222222&}}\\N{wrap(text, 26)}")

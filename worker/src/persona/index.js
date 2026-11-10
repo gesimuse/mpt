@@ -639,6 +639,15 @@ function talkTopic(p, who) {
 }
 
 /** One 🎙 talk queued for the laptop: the next talker in rotation (MPT) or her (Lena). */
+// A numbered series per girl (2026-11-10, "real fans"): the same label on every talk of hers,
+// "Getting over him #14", so a viewer knows there is a #15 and follows for it.
+const TALK_SERIES = {
+  lena: "Dating truths", "mpt-gia": "Glow-up rules", "mpt-freya": "Getting over him", "mpt-aiko": "What men don't get",
+  "mpt-leila": "High-value habits", "mpt-skye": "Red flag files", "mpt-chloe": "Real love vs settling",
+  "mpt-priya": "Wife truths", "mpt-harper": "No excuses", "mpt-alina": "Money talks", "mpt-sofia": "What a real man does",
+  "mpt-lola": "The ex files",
+};
+
 function queueTalk(p, state, extra = null) {
   // The laptop was off: don't pile up a day's worth (one asked for in the channel always goes).
   if (!extra && state.queue.filter((q) => q.kind === "talk").length >= 3) return `${p.slug}: talks already waiting`;
@@ -654,10 +663,16 @@ function queueTalk(p, state, extra = null) {
   // A/B (2026-10-27): every other talk in black and white, like the advice accounts.
   const bw = !!((state.talk_n || 0) % 2);
   state.talk_n = (state.talk_n || 0) + 1;
+  state.series_n = state.series_n || {};
+  state.series_n[who] = (state.series_n[who] || 0) + 1;
   state.queue.push({ id: `talk-${who}-${Date.now()}`, kind: "talk", character: who, topic: t.topic, sources: t.sources,
                      chat: p.chat_id, local_only: true, bw, ...(t.viral ? { viral: true } : {}),
-                     ...(extra ? { given_line: extra.line || "", given_url: extra.url || "", message_id: extra.message_id } : {}) });
-  return `${p.slug}: 🎙 talk queued for ${who} (${t.topic})`;
+                     series: TALK_SERIES[who] || "", episode: state.series_n[who],
+                     ...(extra?.follow ? { follow_line: extra.follow } : {}),
+                     ...(extra?.reply ? { reply_comment: extra.reply, reply_to_line: extra.reply_to || "" } : {}),
+                     ...(extra && (extra.line || extra.url) ? { given_line: extra.line || "", given_url: extra.url || "", message_id: extra.message_id } : {}) });
+  const what = extra?.follow ? "Part 2" : extra?.reply ? "comment reply" : t.topic;
+  return `${p.slug}: 🎙 talk queued for ${who} (${what})`;
 }
 
 // ------------------------------------------------------------- 🔒 private
@@ -893,6 +908,87 @@ async function crossPostAlbum(env, p, sh, b) {
   }
 }
 
+// The day the talks became LTX-2 clips adapted from viral shorts (commits 32812fe, c7a8e86):
+// the daily report compares what came before and after.
+const NEW_TALKS_AT = Date.UTC(2026, 10, 10, 21, 0);
+
+const okComment = (t) => t.length >= 12 && t.length <= 200 && /[a-z]{3}/i.test(t) && !/https?:|@|\b(sex|nude|onlyfans|dm me|follow me|link in)\b/i.test(t);
+
+/**
+ * Her TikTok account's numbers, read by the laptop every few hours (persona/ttstats.py:
+ * views, shares, saves, top comments of each video). Each video is matched to her talk by
+ * its caption. Once a day: the best talk of the last days (2x the median, 1000+ views)
+ * gets a Part 2, the best comment gets her answer as a talk, and the channel gets a report
+ * (2026-11-10, "do all 4": hook, volume, real fans, proof).
+ */
+async function laptopStats(request, env) {
+  const { videos = [], comments = [] } = await request.json();
+  const p = await personas.get(env, "mpt");
+  if (!p || !videos.length) return Response.json({ ok: false, why: "no videos" });
+  const state = await st.load(env, p.slug);
+  const now = Date.now(), day = st.today(), done = [];
+  const norm = (t) => String(t || "").toLowerCase().replace(/#\S+/g, "").replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim().slice(0, 40);
+  // Her posts' TikTok text -> the talk item (its line and who said it).
+  const byText = new Map();
+  for (const j of state.publish || []) {
+    const it = state.items?.[j.item];
+    const txt = j.posts?.tiktok?.text || j.caption;
+    if (it?.talk && txt) byText.set(norm(txt), { id: j.item, ...it });
+  }
+  for (const [id, it] of Object.entries(state.items || {})) if (it.talk && it.caption && !byText.has(norm(it.caption))) byText.set(norm(it.caption), { id, ...it });
+  const vids = videos.map((v) => ({ ...v, item: byText.get(norm(v.title)) || null }));
+  const sorted = vids.map((v) => v.views || 0).sort((a, b) => a - b);
+  const med = sorted[Math.floor(sorted.length / 2)] || 0;
+  const queueFor = async (who, extra) => {
+    // Lena's talks are on this account too (talk_cross): hers are queued in her own lane.
+    if (who === "lena") {
+      const lp = await personas.get(env, "lena");
+      const ls = await st.load(env, "lena");
+      done.push(queueTalk(lp, ls, { who, ...extra }));
+      await st.save(env, "lena", ls);
+    } else done.push(queueTalk(p, state, { who: who || p.characters[Math.floor(Math.random() * p.characters.length)], ...extra }));
+  };
+  // Part 2 of the best recent talk.
+  if (state.follow_day !== day) {
+    const age = (v) => now - (v.ts || 0) * 1000;
+    const win = vids.filter((v) => v.item?.line && age(v) > 12 * 3600e3 && age(v) < 5 * 86400e3 && (v.views || 0) >= Math.max(1000, 2 * med)
+                                   && !(state.followed || []).includes(v.id)).sort((a, b) => b.views - a.views)[0];
+    if (win) {
+      await queueFor(win.item.character, { follow: win.item.line });
+      state.followed = [...(state.followed || []), win.id].slice(-200);
+      state.follow_day = day;
+    }
+  }
+  // Her answer to the best comment.
+  if (state.reply_day !== day) {
+    const c = comments.map((x) => ({ ...x, text: String(x.text || "").trim(), v: {} }))
+      .filter((x) => x.cid && okComment(x.text) && !(state.replied || []).includes(x.cid))
+      .sort((a, b) => ((b.likes || 0) + (/\?/.test(b.text) ? 5 : 0)) - ((a.likes || 0) + (/\?/.test(a.text) ? 5 : 0)))[0];
+    if (c) {
+      await queueFor(c.v.item?.character, { reply: c.text, reply_to: c.v.item?.line || "" });
+      state.replied = [...(state.replied || []), c.cid].slice(-300);
+      state.reply_day = day;
+    }
+  }
+  // The day's report, once, in the afternoon.
+  if (state.report_day !== day && new Date().getUTCHours() >= 16) {
+    const week = vids.filter((v) => now - (v.ts || 0) * 1000 < 7 * 86400e3);
+    const median = (a) => { const s = a.map((v) => v.views || 0).sort((x, y) => x - y); return s.length ? s[Math.floor(s.length / 2)] : 0; };
+    const fresh = week.filter((v) => (v.ts || 0) * 1000 >= NEW_TALKS_AT), old = week.filter((v) => (v.ts || 0) * 1000 < NEW_TALKS_AT);
+    const k = (n) => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n || 0));
+    const top = [...week].sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 3)
+      .map((v, i) => `${i + 1}. ${k(v.views)} views · ${v.shares || 0} shares · ${v.saves || 0} saves\n   ${String(v.title || "").replace(/#\S+/g, "").trim().slice(0, 80)}`);
+    const text = `📊 TikTok, last 7 days: ${week.length} videos, median ${k(median(week))} views\n` +
+      `New talks (since 10 Nov): ${fresh.length}, median ${k(median(fresh))} · before: ${old.length}, median ${k(median(old))}\n\n` +
+      `Top 3:\n${top.join("\n")}${done.length ? `\n\nQueued from the numbers:\n${done.join("\n")}` : ""}`;
+    await tg(env, "sendMessage", { chat_id: p.chat_id, text: text.slice(0, 4000) }).catch((e) => console.error("report", String(e)));
+    state.report_day = day;
+  }
+  state.tt_stats = { at: now, n: vids.length, median: med, matched: vids.filter((v) => v.item).length };
+  await st.save(env, p.slug, state);
+  return Response.json({ ok: true, median: med, matched: state.tt_stats.matched, queued: done });
+}
+
 /** The line of a talk, rewritten from a popular short's transcript into her words. */
 async function talkLine(request, env) {
   return Response.json(await writeTalkLine(env, await request.json()));
@@ -927,6 +1023,72 @@ function cleanHook(h) {
   return t.split(" ").length <= 9 ? t.slice(0, 60) : "";
 }
 
+/**
+ * The on-screen hook, written on its own once the line is chosen (2026-11-10: hooks written
+ * with the line were summaries -- "Walking away is freedom"). Proven shapes of the top
+ * women's-advice shorts, filled from THIS line; the model picks the one that opens the
+ * biggest question. "" when nothing usable comes back (the line's own hook is kept).
+ */
+async function writeHook(env, line, prefix = "") {
+  const prompt =
+    `A woman says this to camera in a TikTok:\n"${line}"\n\n` +
+    `Write 8 on-screen hooks for its first 2 seconds. A hook is a COMPLETE short sentence (4-9 words) that makes a ` +
+    `woman stop scrolling because she needs the answer. Use these proven shapes, each one fully filled in from what she says:\n` +
+    `- callout, e.g. "If he makes you beg, he's not the one"\n- warning, e.g. "Stop explaining yourself to people who don't listen"\n` +
+    `- secret, e.g. "Nobody tells you why silence works on him"\n- confession, e.g. "The day I stopped begging him to stay"\n` +
+    `- POV, e.g. "POV: you finally stopped saying sorry first"\n- judgment, e.g. "Men who can't decide have already decided"\n` +
+    `- question, e.g. "Why does he come back when you go quiet?"\n` +
+    `Never a fragment, never a summary or a moral ("Walking away is freedom" is bad), never her first words, no emojis, no hashtags.\n` +
+    `Then pick the one that would stop the most women scrolling.\n` +
+    `Return JSON only: {"hooks": ["...", ...], "best": <index>}`;
+  try {
+    const out = await captions.ask(env, prompt, 500, TALK_MODEL);
+    const hooks = (out.hooks || []).map(cleanHook);
+    const h = hooks[Number(out.best)] || hooks.find(Boolean) || "";
+    return h ? `${prefix}${h}`.slice(0, 70) : "";
+  } catch (e) {
+    console.error("talk hook", String(e).slice(0, 200));
+    return "";
+  }
+}
+
+/**
+ * Part 2 of one of her talks that did well, or her answer to a viewer's comment (2026-11-10,
+ * "real fans"): the same voice, the next point / a straight answer, 20-45 words.
+ */
+async function followTalk(env, b, body) {
+  const reply = !!body.reply_comment;
+  const prompt = reply
+    ? `${b.name}, ${b.age || 24}, answers a viewer's comment in a TikTok, talking to camera.\n` +
+      (body.reply_to_line ? `Her clip said: "${body.reply_to_line}"\n` : "") +
+      `The comment: "${String(body.reply_comment).slice(0, 300)}"\n` +
+      `She answers it straight, like a real woman who has been there: takes a side, one concrete example, a last line ` +
+      `that sticks. She does not read the comment out or say "great question".\n`
+    : `${b.name}, ${b.age || 24}, made a TikTok that did very well:\n"${body.follow_line}"\n` +
+      `Write Part 2: the next point on the same idea, what people asked for after part 1 -- deeper, more specific, ` +
+      `same voice and rhythm. Do not repeat part 1's sentences.\n`;
+  const rules = `HARD LIMIT 20-45 words, 3-6 sentences, normal punctuation, spoken by a real woman (contractions, plain ` +
+    `words). No therapy words (deserve, worth, healing, boundaries, toxic, validate), no hashtags, no emojis, nothing explicit, no names.\n` +
+    `Write 4 versions and pick the most natural, punchy and shareable.\n` +
+    `Return JSON only: {"best": <index>, "candidates": [{"line": "...", "keywords": ["3-6 single words from the line"], ` +
+    `"caption": "a one-line caption that baits comments, max 90 chars, no hashtags"}]}`;
+  for (let i = 0; i < 2; i++) {
+    try {
+      const out = await captions.ask(env, prompt + rules, 1000, TALK_MODEL);
+      const cands = (out.candidates || []).map((c, k) => ({ ...c, k, line: String(c.line || "").replace(/\s+/g, " ").trim() }))
+        .filter((c) => { const n = c.line.split(" ").length; return n >= 10 && n <= 55 && !WORN.test(c.line) && !/#|https?:/.test(c.line); });
+      const best = cands.find((c) => c.k === Number(out.best)) || cands[0];
+      if (best) {
+        return { line: best.line, keywords: (best.keywords || []).slice(0, 6).map(String), caption: String(best.caption || "").slice(0, 120),
+                 hook: reply ? "" : await writeHook(env, best.line, "Part 2: ") };
+      }
+    } catch (e) {
+      console.error("talk follow", String(e).slice(0, 200));
+    }
+  }
+  return { line: "" };
+}
+
 // What the model keeps writing however it is told not to; a candidate with any is dropped.
 const WORN = /\b(deserve|worth|healing|journey|boundar\w*|validat\w*|toxic|self-love|queen|bestie|let that sink|here's the thing|liberating|finding (me|myself)|cry for help|and it hurts|it's okay to)\b/i;
 
@@ -941,11 +1103,15 @@ async function adaptTalk(env, b, topic, transcript, views, said, anyTopic) {
     `This short went viral${views ? ` (${Number(views).toLocaleString("en-US")} views)` : ""}:\n"""${String(transcript).slice(0, 2500)}"""\n\n` +
     `First: is it ONE person giving an opinion, advice or a hard truth to camera? If it is song lyrics, a skit, ` +
     `a vlog, chatter or a couple's video, return {"usable": false}.` +
-    (anyTopic ? "" : ` Also return {"usable": false} if it has nothing to say about ${topic}.`) + `\n` +
-    `Otherwise write ${b.name}'s version for her own TikTok. ${b.name}, ${b.age || 24}, ${b.personality || "warm, honest"}` +
-    `${anyTopic ? "" : `; her topic: ${topic}`}.\n` +
+    (anyTopic ? "" : ` Also return {"usable": false} if it has nothing to do with ${topic} or women's love lives and self-respect.`) + `\n` +
+    // Its OWN idea, not bent onto her topic or her hobbies (2026-11-10: "You think I'm rude?" bent to
+    // money became "You think I'm cheap? I stopped paying for guys who can't afford me").
+    `Otherwise write ${b.name}'s version for her own TikTok (a woman of ${b.age || 24} talking to women). Keep the ` +
+    `short's OWN idea and subject -- do not change what it is about.\n` +
     `Keep exactly what made it work: the same kind of opening, the same rhythm (short punchy fragments stay short ` +
-    `punchy fragments), about the same length, the same points in the same order, the same kind of last line.\n` +
+    `punchy fragments), the same points in the same order, the same kind of last line. HARD LIMIT 20-45 words, 3-6 ` +
+    `sentences: if the short says more, keep only its opening and its strongest point and cut the rest.\n` +
+    `Written with normal punctuation: full stops, commas, question marks (the transcript has none -- add them).\n` +
     `Change the words so it is clearly hers and not a copy: at least half the words different, never the same sentences.\n` +
     `It must sound spoken by a real woman, not written: contractions, plain words. No therapy words (deserve, worth, ` +
     `healing, boundaries, toxic, validate), no hashtags, no emojis, nothing explicit, no names.\n` +
@@ -960,11 +1126,11 @@ async function adaptTalk(env, b, topic, transcript, views, said, anyTopic) {
       if (out.usable === false) return null;
       const cands = (Array.isArray(out.candidates) ? out.candidates : [])
         .map((c, k) => ({ ...c, k, line: String(c.line || "").replace(/\s+/g, " ").trim() }))
-        .filter((c) => { const n = c.line.split(" ").length; return n >= 10 && n <= 60 && !/#|https?:/.test(c.line) && !WORN.test(c.line); });
+        .filter((c) => { const n = c.line.split(" ").length; return n >= 10 && n <= 55 && (c.line.match(/[.!?]/g) || []).length >= 1 && !/#|https?:/.test(c.line) && !WORN.test(c.line); });
       const best = cands.find((c) => c.k === Number(out.best)) || cands[0];
       if (best) {
         return ({ line: best.line, keywords: (best.keywords || []).slice(0, 6).map(String),
-                  hook: cleanHook(best.hook), caption: String(best.caption || "").slice(0, 120) });
+                  hook: (await writeHook(env, best.line)) || cleanHook(best.hook), caption: String(best.caption || "").slice(0, 120) });
       }
     } catch (e) {
       console.error("talk adapt", String(e).slice(0, 200));
@@ -989,6 +1155,7 @@ async function writeTalkLine(env, body) {
   const b = (await st.bible(env, character || persona)) || { name: character };
   // Never the same idea twice: her persona's last lines (every girl of the roster),
   // and the lines Lena's talks posted into it.
+  if (body.follow_line || body.reply_comment) return followTalk(env, b, body);
   const said = [...((await st.load(env, p?.slug || persona || "lena")).talk_lines || []).slice(-40)];
   // A short that went viral: its script adapted, not reinvented (2026-11-10, "I don't like
   // most of them"). The rotated story formats below turned "Let him leave. Really. Stop
@@ -998,6 +1165,9 @@ async function writeTalkLine(env, body) {
     if (adapted) return adapted;
     // The video they sent is used whatever it is (the old way below).
     if (adapted === null && !body.keep) return ({ line: "", why: "not a talk" });
+    // Not adapted (nothing kept the rules): the next source, not the old made-up line --
+    // that fallback wrote "And it feels amazing. But it's not always easy." (2026-11-10).
+    if (adapted === false && !body.keep) return ({ line: "", why: "no good version" });
   }
   // A viral format, rotated so no two talks sound alike (2026-11-05: "boring, it must be viral").
   const format = TALK_FORMATS[Math.floor(Math.random() * TALK_FORMATS.length)];
@@ -1060,7 +1230,7 @@ async function writeTalkLine(env, body) {
       const best = cands[0];
       if (best && best.score >= 6) {
         return ({ line: best.line, keywords: (best.keywords || []).slice(0, 6).map(String),
-                  hook: cleanHook(best.hook), caption: String(best.caption || "").slice(0, 120) });
+                  hook: (await writeHook(env, best.line)) || cleanHook(best.hook), caption: String(best.caption || "").slice(0, 120) });
       }
     } catch (e) {
       console.error("talk line", String(e).slice(0, 200));
@@ -1659,6 +1829,7 @@ async function onAdmin(request, env) {
   if (u.pathname === "/persona/admin/laptop/prepare" && request.method === "POST") return laptopPrepare(request, env);
   if (u.pathname === "/persona/admin/laptop/render-item" && request.method === "POST") return laptopRenderItem(request, env);
   if (u.pathname === "/persona/admin/laptop/talkline" && request.method === "POST") return talkLine(request, env);
+  if (u.pathname === "/persona/admin/laptop/stats" && request.method === "POST") return laptopStats(request, env);
   return new Response("not found", { status: 404 });
 }
 
@@ -2205,6 +2376,8 @@ async function jobPayload(env, origin, state, batch) {
     } else if (q.kind === "talk") {
       jobs.push({ id: q.id, kind: "talk", topic: q.topic, sources: q.sources, chat: q.chat, bw: !!q.bw, viral: !!q.viral,
                   given_line: q.given_line || "", given_url: q.given_url || "", message_id: q.message_id || null,
+                  series: q.series || "", episode: q.episode || 0, follow_line: q.follow_line || "",
+                  reply_comment: q.reply_comment || "", reply_to_line: q.reply_to_line || "",
                   ...(q.given_keywords ? { given_keywords: q.given_keywords, given_caption: q.given_caption || "", given_hook: q.given_hook || "" } : {}),
                   used: (state.talk_used || []).slice(-300) });
     } else if (q.kind === "private") {

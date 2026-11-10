@@ -266,6 +266,15 @@ def main():
             retry_unsent()
         except Exception as e:
             log(f"retrying unsent results failed: {e}")
+        # Her TikTok's numbers every 6h, between jobs (persona/ttstats.py).
+        try:
+            from persona import ttstats
+            stamp = config.home() / ".ttstats-at"
+            if ttstats.due(stamp):
+                stamp.write_text(str(time.time()))
+                ttstats.run(log)
+        except Exception as e:
+            log(f"stats failed: {e}")
         try:
             r = _call("/persona/admin/laptop/claim", {})
             job = r.get("job")
