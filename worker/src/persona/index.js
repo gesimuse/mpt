@@ -912,7 +912,8 @@ async function crossPostAlbum(env, p, sh, b) {
 // the daily report compares what came before and after.
 const NEW_TALKS_AT = Date.UTC(2026, 10, 10, 21, 0);
 
-const okComment = (t) => t.length >= 12 && t.length <= 200 && /[a-z]{3}/i.test(t) && !/https?:|@|\b(sex|nude|onlyfans|dm me|follow me|link in)\b/i.test(t);
+// A question only: answers to statements came out flat ("I think that's super brave...").
+const okComment = (t) => t.length >= 12 && t.length <= 200 && /\?/.test(t) && /[a-z]{3}/i.test(t) && !/https?:|@|\b(sex|nude|onlyfans|dm me|follow me|link in)\b/i.test(t);
 
 /**
  * Her TikTok account's numbers, read by the laptop every few hours (persona/ttstats.py:
@@ -1062,31 +1063,37 @@ async function followTalk(env, b, body) {
     ? `${b.name}, ${b.age || 24}, answers a viewer's comment in a TikTok, talking to camera.\n` +
       (body.reply_to_line ? `Her clip said: "${body.reply_to_line}"\n` : "") +
       `The comment: "${String(body.reply_comment).slice(0, 300)}"\n` +
-      `She answers it straight, like a real woman who has been there: takes a side, one concrete example, a last line ` +
-      `that sticks. She does not read the comment out or say "great question".\n`
+      `Each answer is a little spoken speech of 4-5 sentences (25-45 words), in this shape:\n` +
+      `1. her straight answer or opinion, taking a side;\n2-3. one real moment from her own life that proves it (what ` +
+      `happened, what she did);\n4. a short last line that sticks.\n` +
+      `She does not read the comment out or say "great question".\n`
     : `${b.name}, ${b.age || 24}, made a TikTok that did very well:\n"${body.follow_line}"\n` +
-      `Write Part 2: the next point on the same idea, what people asked for after part 1 -- deeper, more specific, ` +
-      `same voice and rhythm. Do not repeat part 1's sentences.\n`;
-  const rules = `HARD LIMIT 20-45 words, 3-6 sentences, normal punctuation, spoken by a real woman (contractions, plain ` +
+      `Write Part 2: a little spoken speech of 4-5 sentences (25-45 words) -- the next point on the same idea, what ` +
+      `people asked for after part 1, deeper and more specific, same voice and rhythm, ending on a short line that ` +
+      `sticks. Do not repeat part 1's sentences.\n`;
+  const rules = `Normal punctuation, spoken by a real woman (contractions, plain ` +
     `words). No therapy words (deserve, worth, healing, boundaries, toxic, validate), no hashtags, no emojis, nothing explicit, no names.\n` +
     `Write 4 versions and pick the most natural, punchy and shareable.\n` +
     `Return JSON only: {"best": <index>, "candidates": [{"line": "...", "keywords": ["3-6 single words from the line"], ` +
     `"caption": "a one-line caption that baits comments, max 90 chars, no hashtags"}]}`;
-  for (let i = 0; i < 2; i++) {
+  // Up to 3 tries; a full answer (2+ sentences, 16-55 words) wins, else the longest usable one.
+  let spare = null;
+  const done = async (c) => ({ line: c.line, keywords: (c.keywords || []).slice(0, 6).map(String), caption: String(c.caption || "").slice(0, 120),
+                               hook: reply ? "" : await writeHook(env, c.line, "Part 2: ") });
+  for (let i = 0; i < 3; i++) {
     try {
       const out = await captions.ask(env, prompt + rules, 1000, TALK_MODEL);
       const cands = (out.candidates || []).map((c, k) => ({ ...c, k, line: String(c.line || "").replace(/\s+/g, " ").trim() }))
-        .filter((c) => { const n = c.line.split(" ").length; return n >= 10 && n <= 55 && !WORN.test(c.line) && !/#|https?:/.test(c.line); });
-      const best = cands.find((c) => c.k === Number(out.best)) || cands[0];
-      if (best) {
-        return { line: best.line, keywords: (best.keywords || []).slice(0, 6).map(String), caption: String(best.caption || "").slice(0, 120),
-                 hook: reply ? "" : await writeHook(env, best.line, "Part 2: ") };
-      }
+        .filter((c) => { const n = c.line.split(" ").length; return n >= 8 && n <= 55 && !WORN.test(c.line) && !/#|https?:/.test(c.line); });
+      const full = cands.filter((c) => c.line.split(" ").length >= 16 && (c.line.match(/[.!?]/g) || []).length >= 2);
+      const best = full.find((c) => c.k === Number(out.best)) || full[0];
+      if (best) return done(best);
+      for (const c of cands) if (!spare || c.line.length > spare.line.length) spare = c;
     } catch (e) {
       console.error("talk follow", String(e).slice(0, 200));
     }
   }
-  return { line: "" };
+  return spare ? done(spare) : { line: "" };
 }
 
 // What the model keeps writing however it is told not to; a candidate with any is dropped.
