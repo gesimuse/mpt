@@ -25,6 +25,9 @@ from . import config, hooktext, qa
 FPS_TALK = 25
 LTX_VOICE_MODEL = {"id": "ltx-voice", "wan2gp_model_type": "ltx2_22B_distilled_1_1"}
 LTX_FIRST_VOICE = {"id": "ltx-first-voice", "wan2gp_model_type": "ltx2_25_22B_distilled"}
+# Talks are LTX-2 clips at this size since 2026-11-10 (576x1024 looked sharper than 448x768,
+# 7 min a talk). InfiniteTalk (animate) is kept for reference, unused.
+TALK_RES = "576x1024"
 INFINITETALK = {"id": "infinitetalk", "wan2gp_model_type": "infinitetalk",
                 "profile": "profiles/wan_i2v/Image2Video lightx2v - 4 Steps.json"}
 
@@ -376,22 +379,38 @@ def _trim_silence(src, dest):
 
 
 def speak(char, studio, face, ref, line, work, slack=1.0):
-    """Her voice saying the line: LTX-2.3 with her reference voice; only its audio is kept.
-    Her soft voice says ~2 words a second; the clip gets room for that plus a margin
-    (`slack` > 1 on a retry), so the last word is never past its end (2026-11-05)."""
+    """Her saying the line: LTX-2.3 makes her voice (from her reference voice) and her face
+    talking TOGETHER, and that clip is the talk (2026-11-10: it moved more naturally than
+    InfiniteTalk re-animating her to the voice, the lips blurred less, and it is ~5x faster).
+    Her soft voice says ~2 words a second; the clip gets room for that plus a margin (`slack`
+    > 1 on a retry), so the last word is never past its end (2026-11-05). Returns (voice, clip)."""
     seconds = min(26.0, (len(line.split()) / 2.0 + 2.5) * slack)
     frames = int(seconds * 24) // 8 * 8 + 9
     # Said, not read: "..." and dashes made the model stop dead mid-line.
     said = re.sub(r"\s*(\.\.\.|…|--|—|–)\s*", ", ", line).replace(", ,", ",")
     s = studio.engine.build_settings(LTX_VOICE_MODEL, prompt=_speech_prompt(char.bible, said),
                                      image_start=str(face), image_prompt_type="S", audio_guide=str(ref),
-                                     audio_prompt_type="A1OF", video_length=frames, resolution="448x768", seed=-1)
+                                     audio_prompt_type="A1OF", video_length=frames, resolution=TALK_RES, seed=-1)
     clip = studio.engine.run(s, work, "speech")[-1]
-    raw = work / "speech-raw.wav"
-    _ff("-i", clip, "-vn", "-ac", "1", "-ar", "44100", raw)
-    voice = work / "voice.wav"
-    _trim_silence(raw, voice)
-    return voice
+    voice = work / "speech-raw.wav"
+    _ff("-i", clip, "-vn", "-ac", "1", "-ar", "44100", voice)
+    return voice, clip
+
+
+def _trim_ends(clip, dest):
+    """The silence before her first word and after her last cut off, picture and sound
+    together. Pauses INSIDE the line stay: cut out they made the clip jump at every one
+    (2026-11-10, "a is defo better")."""
+    total = _duration(clip)
+    err = subprocess.run(["ffmpeg", "-i", str(clip), "-af", "silencedetect=noise=-42dB:d=0.35", "-f", "null", "-"],
+                         capture_output=True, text=True).stderr
+    st = [float(x) for x in re.findall(r"silence_start: ([\d.]+)", err)]
+    en = [float(x) for x in re.findall(r"silence_end: ([\d.]+)", err)]
+    sil = list(zip(st, en + [total] * (len(st) - len(en))))
+    head = next((max(0.0, b - 0.1) for a, b in sil if a <= 0.05), 0.0)
+    tail = next((min(total, a + 0.6) for a, b in sil if b >= total - 0.05 and a > head), total)
+    _ff("-ss", f"{head:.3f}", "-to", f"{tail:.3f}", "-i", clip, "-c:v", "libx264", "-crf", "16", "-c:a", "aac", dest)
+    return dest
 
 
 def animate(studio, face, voice, work, where="sitting relaxed at a podcast desk in a dim warm studio"):
@@ -523,15 +542,14 @@ def make(job, char, studio, work):
     look = pick_scene(char)
     face = frame(char, studio, look, work)
     have = _done_with(studio, have)
-    voice = speak(char, studio, face, ref, info["line"], work)
+    voice, clip = speak(char, studio, face, ref, info["line"], work)
     have = _done_with(studio, have)
     # Her last word must be in the voice (2026-11-05: it was sometimes cut): heard by
     # Whisper, and made again with more room once if it is missing.
     if not _ends_whole(voice, info["line"]):
         log(f"{char.slug}: last word cut, speaking it again with more room")
-        voice = speak(char, studio, face, ref, info["line"], work, slack=1.35)
+        voice, clip = speak(char, studio, face, ref, info["line"], work, slack=1.35)
         have = _done_with(studio, have)
-    video = animate(studio, face, voice, work, where=look["scene"][1])
-    _done_with(studio, have)
+    video = _trim_ends(clip, work / "talk.mp4")
     final = captions(video, info.get("keywords"), work, work / "final.mp4", bw=bool(job.get("bw")), hook=info.get("hook") or "")
     return final, info
