@@ -1040,6 +1040,10 @@ async function writeHook(env, line, prefix = "") {
     `- POV, e.g. "POV: you finally stopped saying sorry first"\n- judgment, e.g. "Men who can't decide have already decided"\n` +
     `- question, e.g. "Why does he come back when you go quiet?"\n` +
     `Never a fragment, never a summary or a moral ("Walking away is freedom" is bad), never her first words, no emojis, no hashtags.\n` +
+    // 2026-11-11: "Men who cause stress are toxic" over a calm line; the user wants good men shown too.
+    `The hook says what HER line says, in the same tone: a warm or loving line gets a warm hook (e.g. "A man who ` +
+    `stays on hard days is rare"), a line praising men gets a hook praising men. Never a hook that bashes men in ` +
+    `general or blames men when her line doesn't.\n` +
     `Then pick the one that would stop the most women scrolling.\n` +
     `Return JSON only: {"hooks": ["...", ...], "best": <index>}`;
   try {
@@ -1108,8 +1112,15 @@ const WORN = /\b(deserve|worth|healing|journey|boundar\w*|validat\w*|toxic|self-
 async function adaptTalk(env, b, topic, transcript, views, said, anyTopic) {
   const prompt =
     `This short went viral${views ? ` (${Number(views).toLocaleString("en-US")} views)` : ""}:\n"""${String(transcript).slice(0, 2500)}"""\n\n` +
-    `First: is it ONE person giving an opinion, advice or a hard truth to camera? If it is song lyrics, a skit, ` +
-    `a vlog, chatter or a couple's video, return {"usable": false}.` +
+    `First: is it ONE person giving an opinion, advice or a hard truth to camera, that any woman watching could ` +
+    `apply to her own life? If it is song lyrics, a skit, a vlog, chatter or a couple's video, return {"usable": false}. ` +
+    // 2026-11-11: a Trisha Paytas podcast confession became "I'm ashamed of what I did, it's hard to sleep."
+    `Also {"usable": false} if it is someone's personal story or confession about events in their own life (an ` +
+    `interview, a podcast anecdote, a celebrity talking about her past): out of context it means nothing to a viewer. ` +
+    `And {"usable": false} if it is addressed TO men ("your girl", "bro", how to win her): she talks to women. ` +
+    // 2026-11-11, the user: "not only bad things... we should also say why men are good".
+    `What a good man does, why a good man is worth it, what he feels and needs -- all welcome, said to women. ` +
+    `Never bash men in general.` +
     (anyTopic ? "" : ` Also return {"usable": false} if it has nothing to do with ${topic} or women's love lives and self-respect.`) + `\n` +
     // Its OWN idea, not bent onto her topic or her hobbies (2026-11-10: "You think I'm rude?" bent to
     // money became "You think I'm cheap? I stopped paying for guys who can't afford me").
@@ -1133,8 +1144,9 @@ async function adaptTalk(env, b, topic, transcript, views, said, anyTopic) {
       if (out.usable === false) return null;
       const cands = (Array.isArray(out.candidates) ? out.candidates : [])
         .map((c, k) => ({ ...c, k, line: String(c.line || "").replace(/\s+/g, " ").trim() }))
-        .filter((c) => { const n = c.line.split(" ").length; return n >= 10 && n <= 55 && (c.line.match(/[.!?]/g) || []).length >= 1 && !/#|https?:/.test(c.line) && !WORN.test(c.line); });
-      const best = cands.find((c) => c.k === Number(out.best)) || cands[0];
+        .filter((c) => { const n = c.line.split(" ").length; return n >= 18 && n <= 55 && (c.line.match(/[.!?]/g) || []).length >= 2 && !/#|https?:/.test(c.line) && !WORN.test(c.line); });
+      // Read cold by a second pass: a line a stranger can't follow never goes out (2026-11-11).
+      const best = await judgeTalk(env, cands, Number(out.best));
       if (best) {
         return ({ line: best.line, keywords: (best.keywords || []).slice(0, 6).map(String),
                   hook: (await writeHook(env, best.line)) || cleanHook(best.hook), caption: String(best.caption || "").slice(0, 120) });
@@ -1144,6 +1156,39 @@ async function adaptTalk(env, b, topic, transcript, views, said, anyTopic) {
     }
   }
   return false;
+}
+
+/**
+ * Each candidate line read as a stranger scrolling past would hear it, with no context
+ * (2026-11-11: "what she said made absolutely no sense"). Scores 1-10 for: makes complete
+ * sense on its own, a woman sees her own life in it, she'd send it to a friend. The best
+ * one that clears the bar, or null -- then the next source is tried.
+ */
+async function judgeTalk(env, cands, preferred) {
+  if (!cands.length) return null;
+  const prompt =
+    `You are a strict TikTok editor. A woman says ONE of these lines to camera. The viewer knows nothing else: ` +
+    `no story before it, no names, no context.\n` +
+    cands.map((c, i) => `${i}. "${c.line}"`).join("\n") +
+    `\n\nScore each 1-10 on:\n` +
+    `- clear: does it make complete sense on its own -- a clear point a stranger understands the first time? ` +
+    `Vague, confusing, missing context, or a story only the speaker understands = low.\n` +
+    `- relatable: would most women watching see their own life in it?\n` +
+    `- share: would a woman send it to a friend or comment on it?\n` +
+    `A line addressed TO men ("your girl", "bro") scores relatable 1. A line that asks the viewer questions instead ` +
+    `of making a point scores clear 4 or less.\n` +
+    `Return JSON only: {"scores": [{"i": <index>, "clear": n, "relatable": n, "share": n, "why": "few words"}]}`;
+  try {
+    const out = await captions.ask(env, prompt, 700, TALK_MODEL);
+    const ok = (out.scores || []).map((x) => ({ ...x, c: cands[Number(x.i)] }))
+      .filter((x) => x.c && x.clear >= 8 && x.relatable >= 7)
+      .sort((a, b) => (b.clear + b.relatable + 2 * b.share) - (a.clear + a.relatable + 2 * a.share));
+    if (!ok.length) console.log("talk judge: none clear", JSON.stringify(out.scores || []).slice(0, 400));
+    return ok[0]?.c || null;
+  } catch (e) {
+    console.error("talk judge", String(e).slice(0, 200));
+    return cands.find((c) => c.k === preferred) || null;
+  }
 }
 
 async function writeTalkLine(env, body) {
@@ -3233,3 +3278,6 @@ export async function onPersonaSchedule(event, env) {
     }
   }
 }
+
+// Test hook (scripts/talk_lines_test.mjs): the line writer run outside the Worker.
+export const _talkTest = { adaptTalk, judgeTalk, writeHook };
