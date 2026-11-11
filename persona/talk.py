@@ -405,11 +405,12 @@ def speak(char, studio, face, ref, line, work, slack=1.0):
     return voice, clip
 
 
-def _trim_ends(clip, dest):
+def _trim_ends(clip, dest, end=None):
     """The silence before her first word and after her last cut off, picture and sound
     together. Pauses INSIDE the line stay: cut out they made the clip jump at every one
-    (2026-11-10, "a is defo better")."""
-    total = _duration(clip)
+    (2026-11-10, "a is defo better"). `end`: where her line is over (_line_end); anything
+    after it -- LTX saying the line a second time -- goes too."""
+    total = min(_duration(clip), end) if end else _duration(clip)
     err = subprocess.run(["ffmpeg", "-i", str(clip), "-af", "silencedetect=noise=-42dB:d=0.35", "-f", "null", "-"],
                          capture_output=True, text=True).stderr
     st = [float(x) for x in re.findall(r"silence_start: ([\d.]+)", err)]
@@ -417,6 +418,7 @@ def _trim_ends(clip, dest):
     sil = list(zip(st, en + [total] * (len(st) - len(en))))
     head = next((max(0.0, b - 0.1) for a, b in sil if a <= 0.05), 0.0)
     tail = next((min(total, a + 0.6) for a, b in sil if b >= total - 0.05 and a > head), total)
+    tail = min(tail, total)
     _ff("-ss", f"{head:.3f}", "-to", f"{tail:.3f}", "-i", clip, "-c:v", "libx264", "-crf", "16", "-c:a", "aac", dest)
     return dest
 
@@ -529,15 +531,43 @@ def _done_with(studio, before):
     return _ckpts(studio)
 
 
-def _ends_whole(voice, line):
-    """True when Whisper hears the line's last word near the end of `voice`."""
-    want = [re.sub(r"[^a-z0-9']", "", w.lower()) for w in line.split()][-2:]
+def _norm(w):
+    return re.sub(r"[^a-z0-9']", "", w.lower())
+
+
+def _line_end(voice, line):
+    """Where her line ends the FIRST time she says it, in seconds (+ a short breath), or
+    None when its last word is never heard (cut off). LTX fills the room it is given:
+    when she is done early it starts the line again (2026-11-11: both talks of the day
+    said it twice), so the clip is cut here, not at the next silence. Whisper's words
+    are matched to the line in order (longest common subsequence); the end is the first
+    point where (nearly) all of the line has been said and her last word was just heard."""
+    want = [w for w in map(_norm, line.split()) if w]
     try:
-        heard = [re.sub(r"[^a-z0-9']", "", w.lower()) for w in _transcribe(voice).split()][-4:]
+        words = [(_norm(x["text"]), x["timestamp"]) for x in _transcribe(voice, words=True)]
     except Exception as e:
-        log(f"last-word check skipped: {e}")
-        return True
-    return bool(want) and want[-1] in heard
+        log(f"line-end check skipped: {e}")
+        return float("inf")
+    words = [(w, t) for w, t in words if w]
+    if not want or not words:
+        return None
+    m = len(want)
+    row, lcs = [0] * (m + 1), []
+    for w, _ in words:
+        new = [0] * (m + 1)
+        for j in range(1, m + 1):
+            new[j] = row[j - 1] + 1 if w == want[j - 1] else max(row[j], new[j - 1])
+        row = new
+        lcs.append(row[m])
+    full = lcs[-1]
+    if full < 0.6 * m:
+        log(f"line-end: heard only {full}/{m} words of the line")
+    for i, (w, t) in enumerate(words):
+        if w == want[-1] and lcs[i] >= full - 1:
+            # A breath after her last word, but never into the next one (the repeat's).
+            nxt = words[i + 1][1][0] if i + 1 < len(words) else float("inf")
+            return max(t[1] or t[0], min((t[1] or t[0]) + 0.35, nxt - 0.05))
+    return None
 
 
 def make(job, char, studio, work):
@@ -558,11 +588,15 @@ def make(job, char, studio, work):
     have = _done_with(studio, have)
     # Her last word must be in the voice (2026-11-05: it was sometimes cut): heard by
     # Whisper, and made again with more room once if it is missing.
-    if not _ends_whole(voice, info["line"]):
+    end = _line_end(voice, info["line"])
+    if end is None:
         log(f"{char.slug}: last word cut, speaking it again with more room")
         voice, clip = speak(char, studio, face, ref, info["line"], work, slack=1.35)
         have = _done_with(studio, have)
-    video = _trim_ends(clip, work / "talk.mp4")
+        end = _line_end(voice, info["line"])
+    if end and end != float("inf"):
+        log(f"{char.slug}: line ends at {end:.1f}s of {_duration(clip):.1f}s")
+    video = _trim_ends(clip, work / "talk.mp4", end=end if end and end != float("inf") else None)
     # Her series label ("Getting over him #14", or "... Part 2"), and the comment she answers.
     label = f"{job['series']} #{job['episode']}" if job.get("series") and job.get("episode") else ""
     if job.get("follow_line") and job.get("series"):
