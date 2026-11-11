@@ -69,6 +69,10 @@ HAIR = ["loose soft waves", "a sleek high ponytail", "a messy low bun with loose
 # Phone footage, not a photo shoot.
 REAL = ("Candid vertical phone video frame, shot on an iPhone, natural colours, real skin texture with pores, "
         "no retouching, slight sensor noise. The room is clean and tidy, nothing messy, indoors.")
+# Her everyday face on a talk (2026-11-11, "very unrealistic"): said positively, Qwen 2.1 skips negatives.
+BARE = ("Her face is her everyday face: light everyday makeup, her lips in their own soft natural colour, "
+        "natural short lashes, matte skin with visible pores, faint freckles and small imperfections, a real "
+        "ordinary woman filming herself at home.")
 
 
 def log(m):
@@ -264,7 +268,11 @@ def find_line(job, work):
 
 # ------------------------------------------------------------- her assets
 def _identity(b):
-    return re.sub(r",?\s*(glamorous|soft|natural|glam)[^,]*makeup[^,]*", "", b.get("identity") or "").strip(", ")
+    """Her bible identity without its makeup and glam words: a talk is her bare everyday face
+    (2026-11-11: Skye's "glossy lips, dramatic lashes" and Chloe's red lips looked fake on video)."""
+    out = re.sub(r",?\s*(glamorous|soft|natural|glam)[^,]*makeup[^,]*", "", b.get("identity") or "")
+    out = re.sub(r",?\s*[^,]*\b(glossy|lips|lashes|lipstick|contour)\b[^,]*", "", out)
+    return out.strip(", ")
 
 
 def portrait(char, studio):
@@ -327,10 +335,10 @@ def frame(char, studio, look, work):
                 if p.exists()), None)
     _, where, behind, light = look["scene"]
     prompt = (f"Photo of the woman from the reference image, a {b.get('age', 24)}-year-old woman ({_identity(b)}), "
-              f"her hair in {look['hair']}, {where}, medium shot from the waist up, seen at three-quarters, her head "
-              "turned a little to the right of the frame, her eyes on someone just off-camera to the right, mid-sentence, "
-              f"relaxed. She wears {look['outfit']} showing cleavage. {BODY} Her face fully visible. Behind her {behind}. "
-              f"{light}. {REAL}")
+              f"her hair in {look['hair']}, {where}, close phone-video framing from the chest up, her face large in the "
+              "frame, her head turned only slightly, her eyes on someone sitting just beside the camera, mid-sentence, "
+              f"relaxed. She wears {look['outfit']} showing cleavage. {BODY} {BARE} Her face fully visible. Behind her "
+              f"{behind}. {light}. {REAL}")
     model = studio.model("edit")
     for attempt in range(3):
         p = Path(studio.engine.image(model, prompt, work, f"frame-{attempt}", refs=[ref] if ref else [],
@@ -353,7 +361,7 @@ def _speech_prompt(b, line):
     # Real talk, not a reading (2026-11-06: "the long pauses are awkward... make it more real"):
     # a normal conversational pace with feeling, sentences flowing into each other.
     return ("An honest, intimate moment, filmed on a locked-off static camera. A young woman "
-            "sits relaxed, turned toward someone off-camera to the right, telling her something real. "
+            "sits relaxed, talking to someone sitting just beside the camera, telling her something real. "
             f"{_voice_words(b)} She says: \"{line}\" She talks at a normal conversational pace, with real feeling in her "
             "voice, the sentences flowing one into the next with only short natural breaths between them, like a "
             "real woman telling a friend, not reading. Her lips move naturally with every word, natural blinks. "
