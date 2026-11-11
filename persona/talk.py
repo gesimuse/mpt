@@ -27,7 +27,7 @@ LTX_VOICE_MODEL = {"id": "ltx-voice", "wan2gp_model_type": "ltx2_22B_distilled_1
 LTX_FIRST_VOICE = {"id": "ltx-first-voice", "wan2gp_model_type": "ltx2_25_22B_distilled"}
 # Talks are LTX-2 clips at this size since 2026-11-10 (576x1024 looked sharper than 448x768,
 # 7 min a talk). InfiniteTalk (animate) is kept for reference, unused.
-TALK_RES = "576x1024"
+TALK_RES = "720x1280"
 INFINITETALK = {"id": "infinitetalk", "wan2gp_model_type": "infinitetalk",
                 "profile": "profiles/wan_i2v/Image2Video lightx2v - 4 Steps.json"}
 
@@ -605,6 +605,12 @@ def make(job, char, studio, work):
     if end and end != float("inf"):
         log(f"{char.slug}: line ends at {end:.1f}s of {_duration(clip):.1f}s")
     video = _trim_ends(clip, work / "talk.mp4", end=end if end and end != float("inf") else None)
+    # Her face sharpened (GFPGAN, strong blend): LTX's mouth is soft (2026-11-11).
+    try:
+        from . import faceswap
+        video = faceswap.sharpen_video(video, work / "talk-sharp.mp4", blend=0.8)
+    except Exception as e:
+        log(f"face sharpening skipped: {e}")
     # Her series label ("Getting over him #14", or "... Part 2"), and the comment she answers.
     label = f"{job['series']} #{job['episode']}" if job.get("series") and job.get("episode") else ""
     if job.get("follow_line") and job.get("series"):

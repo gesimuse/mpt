@@ -175,6 +175,44 @@ def _area(f):
     return (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1])
 
 
+class Sharpener(Swapper):
+    """Only the face sharpening of a swap (GFPGAN 1.4), no swap: a talk's face from LTX
+    is soft at the mouth (2026-11-11, "the mouth is still foggy"; the user picked the
+    strong 0.8 blend over 0.5)."""
+
+    def __init__(self):
+        import cv2
+        from insightface.app import FaceAnalysis
+        import onnxruntime as ort
+        self.cv2 = cv2
+        self.app = FaceAnalysis(name="buffalo_l", providers=_providers(), allowed_modules=["detection"])
+        self.app.prepare(ctx_id=0 if "CUDAExecutionProvider" in _providers() else -1, det_size=(640, 640))
+        self.restore = ort.InferenceSession(str(_model("gfpgan_1.4.onnx")), providers=_providers())
+
+
+def sharpen_video(src, out, blend=0.8):
+    """Every frame's face sharpened, the rest of the frame and the sound as they were."""
+    sh = Sharpener()
+    cv2 = sh.cv2
+    fps = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v", "-show_entries", "stream=r_frame_rate",
+                          "-of", "csv=p=0", str(src)], capture_output=True, text=True).stdout.strip() or "24"
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        subprocess.run(["ffmpeg", "-v", "error", "-i", str(src), "-q:v", "1", str(tmp / "%05d.png")], check=True)
+        n = 0
+        for f in sorted(tmp.glob("*.png")):
+            img = cv2.imread(str(f))
+            faces = sh.app.get(img)
+            if faces:
+                cv2.imwrite(str(f), sh._sharpen(img, max(faces, key=_area), blend=blend))
+                n += 1
+        log(f"sharpened her face in {n} frames")
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-framerate", fps, "-i", str(tmp / "%05d.png"), "-i", str(src),
+                        "-map", "0:v", "-map", "1:a?", "-c:v", "libx264", "-crf", "16", "-pix_fmt", "yuv420p",
+                        "-c:a", "copy", "-shortest", str(out)], check=True)
+    return Path(out)
+
+
 def video(src, out, char=None):
     from . import character
     slug = config.env("PERSONA_RECREATE_SLUG")
