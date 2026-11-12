@@ -371,7 +371,10 @@ def _speech_prompt(b, line):
             f"{_voice_words(b)} She says: \"{line}\" She talks at a normal conversational pace, with real feeling, "
             "the sentences flowing one into the next with short natural breaths. Her eyes stay on the lens, small natural "
             "head nods and tilts, calm and relaxed, small subtle movements only, natural blinks, her lips moving "
-            "naturally with every word. Background Sound: quiet room tone.")
+            "naturally with every word, soft relaxed lips, her mouth opening only a little as she talks, small closed-lip "
+            # 2026-11-12, Sofia: gappy crooked teeth on wide grins ("horrible... scary").
+            "smiles; when her teeth show they are straight, even, natural white upper teeth. "
+            "Background Sound: quiet room tone.")
 
 
 def voice_ref(char, studio, face):

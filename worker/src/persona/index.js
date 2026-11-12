@@ -1295,26 +1295,19 @@ async function adaptTalk(env, b, topic, transcript, views, said, anyTopic) {
     (anyTopic ? "" : ` Also return {"usable": false} if it has nothing to do with ${topic} or women's love lives and self-respect.`) + `\n` +
     // Its OWN idea, not bent onto her topic or her hobbies (2026-11-10: "You think I'm rude?" bent to
     // money became "You think I'm cheap? I stopped paying for guys who can't afford me").
-    `Otherwise write ${b.name}'s version for her own TikTok (a woman of ${b.age || 24} talking to women). Keep the ` +
-    `short's OWN idea and subject -- do not change what it is about.\n` +
-    `Keep what made it work: the same rhythm (short punchy fragments stay short punchy fragments), the same points ` +
-    `in the same order, the same kind of last line. HARD LIMIT 20-45 words, 3-6 ` +
-    `sentences: if the short says more, keep only its opening and its strongest point and cut the rest.\n` +
-    `Written with normal punctuation: full stops, commas, question marks (the transcript has none -- add them).\n` +
-    // 2026-11-12: 40 talks in a row stopped at ~700 views with 0 shares -- nobody stayed. Her
-    // first words are the hook, said out loud, and the answer only comes at the end.
-    `HER FIRST SENTENCE IS A SPOKEN HOOK (4-12 words) that opens a question the rest answers -- the viewer must ` +
-    `stay to the end to get it. Shapes that work: a callout ("If he only texts you at night, listen."), a number ` +
-    `("There are two kinds of men, and one wastes your time."), his exact words in quotes ("If he says 'I'm just ` +
-    `busy', hear this."), a secret ("Nobody tells you this about getting over him."), a confession ("I stopped ` +
-    `doing one thing and he came running."), a warning ("Stop doing this if you want him to stay."). Never a soft ` +
-    `opener ("I think", "Sometimes", "You know"). Keep the short's own opening if it already hooks this hard. The ` +
-    `LAST sentence is the payoff: short, the answer, the line to screenshot.\n` +
-    `Change the words so it is clearly hers and not a copy: at least half the words different, never the same sentences.\n` +
-    `It must sound spoken by a real woman, not written: contractions, plain words. No therapy words (deserve, worth, ` +
-    `healing, boundaries, toxic, validate), no hashtags, no emojis, nothing explicit, no names.\n` +
+    // 2026-11-12, the user: "the content is still shit... can we not use the exact [words] other people
+    // said?" -- every rewrite ("at least half the words different") lost what made the short work.
+    // Now she says the short's OWN words: its best passage cut out, nothing reworded.
+    `Otherwise cut out the passage ${b.name} (a woman of ${b.age || 24}) will say word for word in her own TikTok: ` +
+    `the short's OWN WORDS, unchanged, in the same order. Start at its hook (usually its first sentence) and keep ` +
+    `going to its strongest point and its payoff. HARD LIMIT 20-45 words, 2-6 sentences: if the short says more, ` +
+    `keep its opening and the best lines and skip the rest (you may skip whole sentences, never reword one).\n` +
+    `You may only: add punctuation (the transcript has none), fix an obvious mishearing, drop filler ("um", "like", ` +
+    `"you guys"), names, @handles and "follow/subscribe", and change "he/she" words if needed so a woman says it to women.\n` +
+    `Everything else is the short's own wording -- do not rewrite, polish or "improve" it.\n` +
+    `No hashtags, no emojis, nothing explicit.\n` +
     (said.length ? `She already said these -- a different idea:\n- ${said.slice(-25).join("\n- ")}\n` : "") +
-    `Write 4 versions, then pick the one a TikTok editor would post: the most natural, punchy and shareable.\n` +
+    `Give 3 different cuts (different start/end or skipped sentences), then pick the one a TikTok editor would post.\n` +
     `Return JSON only: {"usable": true, "best": <index>, "candidates": [{"line": "...", ` +
     `"keywords": ["3-6 single words from the line to highlight"], "hook": "${HOOK_SPEC}", ` +
     `"caption": "a one-line caption that baits comments (a question or a hot take), max 90 chars, no hashtags"}]}`;
@@ -1324,7 +1317,10 @@ async function adaptTalk(env, b, topic, transcript, views, said, anyTopic) {
       if (out.usable === false) return null;
       const cands = (Array.isArray(out.candidates) ? out.candidates : [])
         .map((c, k) => ({ ...c, k, line: String(c.line || "").replace(/\s+/g, " ").trim() }))
-        .filter((c) => { const n = c.line.split(" ").length; return n >= 18 && n <= 55 && (c.line.match(/[.!?]/g) || []).length >= 2 && !/#|https?:/.test(c.line) && !WORN.test(c.line); });
+        .filter((c) => { const n = c.line.split(" ").length; return n >= 14 && n <= 55 && (c.line.match(/[.!?]/g) || []).length >= 2 && !/#|https?:/.test(c.line); })
+        // Really the short's words: most of its 3-word runs are in the transcript.
+        .filter((c) => verbatim(c.line, transcript) >= 0.6);
+      if (!cands.length) console.log("talk adapt: no verbatim cut", JSON.stringify(out.candidates || []).slice(0, 300));
       // Read cold by a second pass: a line a stranger can't follow never goes out (2026-11-11).
       const best = await judgeTalk(env, cands, Number(out.best));
       if (best) {
@@ -1336,6 +1332,17 @@ async function adaptTalk(env, b, topic, transcript, views, said, anyTopic) {
     }
   }
   return false;
+}
+
+/** Share (0-1) of a line's 3-word runs that appear in the transcript: 1 = said word for word. */
+function verbatim(line, transcript) {
+  const w = (t) => String(t).toLowerCase().replace(/[^a-z0-9' ]+/g, " ").split(/\s+/).filter(Boolean);
+  const src = " " + w(transcript).join(" ") + " ";
+  const l = w(line);
+  if (l.length < 3) return 0;
+  let hit = 0;
+  for (let i = 0; i + 2 < l.length; i++) if (src.includes(` ${l[i]} ${l[i + 1]} ${l[i + 2]} `)) hit++;
+  return hit / (l.length - 2);
 }
 
 /**
