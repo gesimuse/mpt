@@ -795,6 +795,7 @@ function queueTalk(p, state, extra = null) {
   state.series_n[who] = (state.series_n[who] || 0) + 1;
   state.queue[t.theme ? "unshift" : "push"]({ id: `talk-${who}-${Date.now()}`, kind: "talk", character: who, topic: t.topic, sources: t.sources,
                      chat: p.chat_id, local_only: true, bw: t.theme ? false : bw, ...(t.viral ? { viral: true } : {}),
+                     ...(p.talk_cross && !isRoster(p) ? { cross: p.talk_cross } : {}),
                      ...(t.theme ? { theme: t.theme.key, theme_date: t.theme.date, look: t.theme.look } : {}),
                      series: TALK_SERIES[who] || "", episode: state.series_n[who],
                      ...(extra?.follow ? { follow_line: extra.follow } : {}),
@@ -1008,6 +1009,19 @@ async function crossPost(env, p, state, r, item, sent) {
   if (!to || !r?.ok || r.private || !media?.file_id || r.carousel) return;
   const b = (await st.bible(env, r.character || p.slug)) || { name: p.slug };
   const auto = !!(r.talk || r.recreate);
+  // No copies any more (2026-11-12, "stop sending in both channels the same thing"): her talks
+  // are sent straight into MPT's channel and only registered there; the rest stays in hers.
+  if (!auto) return;
+  if (String(sent.chat?.id) === String(to.chat_id)) {
+    const other = await st.load(env, to.slug);
+    if (r.line) other.talk_lines = [...(other.talk_lines || []), r.line].slice(-80);
+    other.items[r.id] = { ...(state.items[r.id] || {}), kind: sent.video ? "video" : "photo", file_id: media.file_id,
+                          message_id: sent.message_id, character: r.character || p.slug, from: p.slug, audio: true };
+    await autoPublish(env, to, other, { ...r, ok: true }, sent);
+    await st.save(env, to.slug, other);
+    state.items[r.id] && (state.items[r.id].crossed = true);
+    return;
+  }
   const m = resultMessage(b, { ...r, chat: to.chat_id, message_id: null, redo: false, replace: null }, item);
   const cap = `${m.caption || ""}${auto ? "" : `\n↪️ from ${b.name}'s channel -- approve it there`}`.slice(0, 1024);
   try {
@@ -2592,7 +2606,10 @@ async function jobPayload(env, origin, state, batch) {
                   ...(fid ? { image_url: await fileLink(env, origin, fid) } : {}),
                   ...(q.shoot ? { shoot: q.shoot, replaces: q.replaces } : {}) });
     } else if (q.kind === "talk") {
-      jobs.push({ id: q.id, kind: "talk", topic: q.topic, sources: q.sources, chat: q.chat, bw: !!q.bw, viral: !!q.viral,
+      // Lena's talks go to MPT's channel only (2026-11-12: "stop sending in both channels the same
+      // thing"); one asked for in her own channel is answered there.
+      const chat = q.cross && !q.message_id ? (await personas.get(env, q.cross))?.chat_id || q.chat : q.chat;
+      jobs.push({ id: q.id, kind: "talk", topic: q.topic, sources: q.sources, chat, bw: !!q.bw, viral: !!q.viral,
                   given_line: q.given_line || "", given_url: q.given_url || "", message_id: q.message_id || null,
                   series: q.series || "", episode: q.episode || 0, follow_line: q.follow_line || "",
                   reply_comment: q.reply_comment || "", reply_to_line: q.reply_to_line || "",
