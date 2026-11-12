@@ -1007,7 +1007,6 @@ async function crossPost(env, p, state, r, item, sent) {
   const to = p.talk_cross && (await personas.get(env, p.talk_cross));
   const media = sent?.video || (sent?.photo || []).slice(-1)[0];
   if (!to || !r?.ok || r.private || !media?.file_id || r.carousel) return;
-  const b = (await st.bible(env, r.character || p.slug)) || { name: p.slug };
   const auto = !!(r.talk || r.recreate);
   // No copies any more (2026-11-12, "stop sending in both channels the same thing"): her talks
   // are sent straight into MPT's channel and only registered there; the rest stays in hers.
@@ -1022,35 +1021,8 @@ async function crossPost(env, p, state, r, item, sent) {
     state.items[r.id] && (state.items[r.id].crossed = true);
     return;
   }
-  const m = resultMessage(b, { ...r, chat: to.chat_id, message_id: null, redo: false, replace: null }, item);
-  const cap = `${m.caption || ""}${auto ? "" : `\n↪️ from ${b.name}'s channel -- approve it there`}`.slice(0, 1024);
-  try {
-    const x = await tg(env, sent.video ? "sendVideo" : "sendPhoto", { chat_id: to.chat_id, [sent.video ? "video" : "photo"]: media.file_id,
-      caption: cap, ...(auto ? { reply_markup: m.buttons } : {}) });
-    const other = await st.load(env, to.slug);
-    const src = state.items[r.id] || {};
-    if (r.line) other.talk_lines = [...(other.talk_lines || []), r.line].slice(-80);
-    other.items[r.id] = { ...src, kind: sent.video ? "video" : "photo", file_id: media.file_id, message_id: x.message_id,
-                          character: r.character || p.slug, from: p.slug, ...(r.talk || r.recreate ? { audio: true } : {}) };
-    if (auto) await autoPublish(env, to, other, { ...r, ok: true }, x);
-    await st.save(env, to.slug, other);
-    state.items[r.id] && (state.items[r.id].crossed = true);
-  } catch (e) {
-    console.error("cross-post failed", String(e).slice(0, 200));
-  }
-}
-
-/** Her album, copied into her talk_cross channel (no buttons: approved in hers). */
-async function crossPostAlbum(env, p, sh, b) {
-  const to = p.talk_cross && (await personas.get(env, p.talk_cross));
-  if (!to || sh.crossed) return;
-  try {
-    await tg(env, "sendMediaGroup", { chat_id: to.chat_id, media: sh.media.slice(0, 10).map((m, i) => ({
-      type: "photo", media: m.fileId || m.url, ...(i === 0 ? { caption: `👤 ${b.name} · ${sh.media.length} photos\n↪️ from ${b.name}'s channel -- approve it there` } : {}) })) });
-    sh.crossed = true;
-  } catch (e) {
-    console.error("album cross-post failed", String(e).slice(0, 200));
-  }
+  // Sent in her own channel (asked for there, or queued before 331ec65): it stays there, never
+  // copied (2026-11-12, again: "I am still getting lenas videos in both telegram channel").
 }
 
 // The day the talks became LTX-2 clips adapted from viral shorts (commits 32812fe, c7a8e86):
@@ -3007,7 +2979,7 @@ async function postShootAlbum(env, p, state, shootId) {
     }
   }
   // Lena's albums are copied into MPT's channel (2026-10-30: everything of hers there too).
-  await crossPostAlbum(env, p, sh, b);
+  // No album copies into MPT's channel either (2026-11-12, "still getting lenas ... in both").
   // Old album records go after 5 days.
   const keep = Object.entries(state.album_msgs);
   if (keep.length > 300) state.album_msgs = Object.fromEntries(keep.slice(-300));
