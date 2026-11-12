@@ -79,11 +79,14 @@ async function writeTalk(env, b, item) {
   const srcTags = [...desc.matchAll(/#([\p{L}\p{N}_]+)/gu)].map((m) => clean(m[1]))
     .filter((t) => t.length >= 3 && !(brand && (t.includes(brand) || brand.includes(t))));
   const example = desc.replace(/#[\p{L}\p{N}_]+/gu, "").replace(/\s+/g, " ").trim();
+  // Ends on a real question to the viewer (2026-11-12: 0 comments on 40 talks), never "comment below".
   const prompt = `${b.name} says this in a short podcast-style video about ${topic}:\n"${line}"\n` +
     (example ? `A viral TikTok with the same idea was captioned: "${example.slice(0, 300)}" -- write in that same ` +
                `style, length and punctuation (not its words).\n` : "") +
     `Return ONLY JSON: {"caption": "one short line that makes people stop and relate: the idea of what she says in ` +
-    `other words, 8-20 words, 0-1 emoji, no hashtags, no question bait, never ask to like/comment/follow/share/save", ` +
+    `other words, 8-20 words, 0-1 emoji, no hashtags, ending with a short honest question to the viewer about her own ` +
+    `life (e.g. \"Would you forgive this?\", \"Be honest, have you done this?\"); ` +
+    `never ask to like/comment/follow/share/save", ` +
     `"tags": ["6 lowercase hashtags people search for this idea (e.g. relationshipadvice, selflove, datingtips, ` +
     `mindset), no # sign"]}`;
   for (let attempt = 0; attempt < 3; attempt++) {

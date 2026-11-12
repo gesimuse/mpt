@@ -58,3 +58,13 @@ def reply_event(comment, y=215, x=360):
         text = text[:137].rsplit(" ", 1)[0] + "..."
     return (f"Dialogue: 2,{ass_time(0)},9:59:59.00,Reply,,0,0,0,,{{\\pos({x},{y})\\fad(200,0)}}"
             f"{{\\fs40\\c&H777777&}}Reply to a comment{{\\fs52\\c&H222222&}}\\N{wrap(text, 26)}")
+
+
+# The hook kept small at the top once the big one is gone (2026-11-12: viewers scroll back and
+# re-read the title, as on the big talk accounts), under the series label.
+TITLE_STYLE = "Style: Title,Lato Black,56,&H00111111,&H00111111,&H00FFFFFF,&H00FFFFFF,1,0,0,0,100,100,0,0,3,14,0,8,70,70,0,1\n"
+
+
+def title_event(hook, start, y=200):
+    return (f"Dialogue: 2,{ass_time(start)},9:59:59.00,Title,,0,0,0,,{{\\pos(540,{y})\\fad(200,0)}}"
+            f"{wrap(hook.upper(), 24)}")

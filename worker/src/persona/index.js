@@ -992,7 +992,8 @@ async function talkDone(env, p, state, r, item, sent) {
   const src = { source_desc: String(r.source_title || "").slice(0, 600),
                 source_account: (/tiktok\.com\/@([\w.]+)/.exec(r.source_url || "") || [])[1] || "" };
   if (it) Object.assign(it, { talk: true, line: r.line || "", topic: r.topic || "", character: r.character || p.slug, bw: !!r.bw, ...src,
-                              ...(r.theme_date ? { theme: r.theme || "", theme_date: r.theme_date } : {}) });
+                              ...(r.theme_date ? { theme: r.theme || "", theme_date: r.theme_date } : {}),
+                              ...(r.hook_shape ? { hook: r.hook || "", hook_shape: r.hook_shape } : {}) });
 }
 
 /**
@@ -1109,9 +1110,14 @@ async function laptopStats(request, env) {
     const k = (n) => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n || 0));
     const top = [...week].sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 3)
       .map((v, i) => `${i + 1}. ${k(v.views)} views · ${v.shares || 0} shares · ${v.saves || 0} saves\n   ${String(v.title || "").replace(/#\S+/g, "").trim().slice(0, 80)}`);
+    // Which hook shape works (2026-11-12): views, shares and saves per shape over 14 days.
+    const shapes = {};
+    for (const v of vids) if (v.item?.hook_shape && now - (v.ts || 0) * 1000 < 14 * 86400e3) (shapes[v.item.hook_shape] ||= []).push(v);
+    const hookLines = Object.entries(shapes).sort((a, b) => median(b[1]) - median(a[1]))
+      .map(([s, vs]) => `${s}: ${vs.length} · median ${k(median(vs))} · ${vs.reduce((t, v) => t + (v.shares || 0), 0)} shares · ${vs.reduce((t, v) => t + (v.saves || 0), 0)} saves`);
     const text = `📊 TikTok, last 7 days: ${week.length} videos, median ${k(median(week))} views\n` +
       `New talks (since 10 Nov): ${fresh.length}, median ${k(median(fresh))} · before: ${old.length}, median ${k(median(old))}\n\n` +
-      `Top 3:\n${top.join("\n")}${done.length ? `\n\nQueued from the numbers:\n${done.join("\n")}` : ""}`;
+      `Top 3:\n${top.join("\n")}${hookLines.length ? `\n\nHooks (14 days):\n${hookLines.join("\n")}` : ""}${done.length ? `\n\nQueued from the numbers:\n${done.join("\n")}` : ""}`;
     await tg(env, "sendMessage", { chat_id: p.chat_id, text: text.slice(0, 4000) }).catch((e) => console.error("report", String(e)));
     state.report_day = day;
   }
@@ -1160,30 +1166,51 @@ function cleanHook(h) {
  * women's-advice shorts, filled from THIS line; the model picks the one that opens the
  * biggest question. "" when nothing usable comes back (the line's own hook is kept).
  */
+// The hook shapes, each one's share/save numbers compared in the daily report (hookReport).
+const HOOK_SHAPES = {
+  callout: `"If he makes you beg, he's not the one"`,
+  warning: `"Stop explaining yourself to people who don't listen"`,
+  secret: `"Nobody tells you why silence works on him"`,
+  confession: `"The day I stopped begging him to stay"`,
+  pov: `"POV: you finally stopped saying sorry first"`,
+  judgment: `"Men who can't decide have already decided"`,
+  question: `"Why does he come back when you go quiet?"`,
+  number: `"3 things a man does when he's serious"`,
+  quote: `"If he says 'I'm just busy', read this"`,
+  stopped: `"Things I stopped doing at 25"`,
+  send: `"Send this to the friend who keeps going back"`,
+  save: `"Save this for the night you miss him"`,
+};
+
+/** {hook, hook_shape} for a chosen line: the hook writer's, else the line writer's own. */
+async function hookOf(env, best) {
+  const h = await writeHook(env, best.line);
+  return h ? { hook: h.text, hook_shape: h.shape } : { hook: cleanHook(best.hook), hook_shape: "line" };
+}
+
 async function writeHook(env, line, prefix = "") {
   const prompt =
     `A woman says this to camera in a TikTok:\n"${line}"\n\n` +
-    `Write 8 on-screen hooks for its first 2 seconds. A hook is a COMPLETE short sentence (4-9 words) that makes a ` +
-    `woman stop scrolling because she needs the answer. Use these proven shapes, each one fully filled in from what she says:\n` +
-    `- callout, e.g. "If he makes you beg, he's not the one"\n- warning, e.g. "Stop explaining yourself to people who don't listen"\n` +
-    `- secret, e.g. "Nobody tells you why silence works on him"\n- confession, e.g. "The day I stopped begging him to stay"\n` +
-    `- POV, e.g. "POV: you finally stopped saying sorry first"\n- judgment, e.g. "Men who can't decide have already decided"\n` +
-    `- question, e.g. "Why does he come back when you go quiet?"\n` +
+    `Write one on-screen hook for its first 2 seconds in EACH of these shapes. A hook is a COMPLETE short sentence ` +
+    `(4-9 words) that makes a woman stop scrolling because she needs the answer, fully filled in from what she says:\n` +
+    Object.entries(HOOK_SHAPES).map(([k, ex]) => `- ${k}, e.g. ${ex}`).join("\n") + `\n` +
     `Never a fragment, never a summary or a moral ("Walking away is freedom" is bad), never her first words, no emojis, no hashtags.\n` +
     // 2026-11-11: "Men who cause stress are toxic" over a calm line; the user wants good men shown too.
     `The hook says what HER line says, in the same tone: a warm or loving line gets a warm hook (e.g. "A man who ` +
     `stays on hard days is rare"), a line praising men gets a hook praising men. Never a hook that bashes men in ` +
-    `general or blames men when her line doesn't.\n` +
+    `general or blames men when her line doesn't. A number hook only if her line really has that many points.\n` +
     `Then pick the one that would stop the most women scrolling.\n` +
-    `Return JSON only: {"hooks": ["...", ...], "best": <index>}`;
+    `Return JSON only: {"hooks": [{"shape": "callout", "text": "..."}, ...], "best": <index>}`;
   try {
-    const out = await captions.ask(env, prompt, 500, TALK_MODEL);
-    const hooks = (out.hooks || []).map(cleanHook);
-    const h = hooks[Number(out.best)] || hooks.find(Boolean) || "";
-    return h ? `${prefix}${h}`.slice(0, 70) : "";
+    const out = await captions.ask(env, prompt, 700, TALK_MODEL);
+    const hooks = (out.hooks || []).map((h) => ({ shape: HOOK_SHAPES[h?.shape] ? h.shape : "other", text: cleanHook(h?.text ?? h) }))
+      .filter((h) => h.text);
+    // 1 in 3 another shape than the model's favourite, so every shape gets numbers.
+    const h = (Math.random() < 1 / 3 && hooks.length > 1 ? hooks[Math.floor(Math.random() * hooks.length)] : hooks[Number(out.best)]) || hooks[0];
+    return h ? { text: `${prefix}${h.text}`.slice(0, 70), shape: h.shape } : null;
   } catch (e) {
     console.error("talk hook", String(e).slice(0, 200));
-    return "";
+    return null;
   }
 }
 
@@ -1213,7 +1240,7 @@ async function followTalk(env, b, body) {
   // Up to 3 tries; a full answer (2+ sentences, 16-55 words) wins, else the longest usable one.
   let spare = null;
   const done = async (c) => ({ line: c.line, keywords: (c.keywords || []).slice(0, 6).map(String), caption: String(c.caption || "").slice(0, 120),
-                               hook: reply ? "" : await writeHook(env, c.line, "Part 2: ") });
+                               hook: reply ? "" : (await writeHook(env, c.line, "Part 2: "))?.text || "" });
   for (let i = 0; i < 3; i++) {
     try {
       const out = await captions.ask(env, prompt + rules, 1000, TALK_MODEL);
@@ -1256,10 +1283,19 @@ async function adaptTalk(env, b, topic, transcript, views, said, anyTopic) {
     // money became "You think I'm cheap? I stopped paying for guys who can't afford me").
     `Otherwise write ${b.name}'s version for her own TikTok (a woman of ${b.age || 24} talking to women). Keep the ` +
     `short's OWN idea and subject -- do not change what it is about.\n` +
-    `Keep exactly what made it work: the same kind of opening, the same rhythm (short punchy fragments stay short ` +
-    `punchy fragments), the same points in the same order, the same kind of last line. HARD LIMIT 20-45 words, 3-6 ` +
+    `Keep what made it work: the same rhythm (short punchy fragments stay short punchy fragments), the same points ` +
+    `in the same order, the same kind of last line. HARD LIMIT 20-45 words, 3-6 ` +
     `sentences: if the short says more, keep only its opening and its strongest point and cut the rest.\n` +
     `Written with normal punctuation: full stops, commas, question marks (the transcript has none -- add them).\n` +
+    // 2026-11-12: 40 talks in a row stopped at ~700 views with 0 shares -- nobody stayed. Her
+    // first words are the hook, said out loud, and the answer only comes at the end.
+    `HER FIRST SENTENCE IS A SPOKEN HOOK (4-12 words) that opens a question the rest answers -- the viewer must ` +
+    `stay to the end to get it. Shapes that work: a callout ("If he only texts you at night, listen."), a number ` +
+    `("There are two kinds of men, and one wastes your time."), his exact words in quotes ("If he says 'I'm just ` +
+    `busy', hear this."), a secret ("Nobody tells you this about getting over him."), a confession ("I stopped ` +
+    `doing one thing and he came running."), a warning ("Stop doing this if you want him to stay."). Never a soft ` +
+    `opener ("I think", "Sometimes", "You know"). Keep the short's own opening if it already hooks this hard. The ` +
+    `LAST sentence is the payoff: short, the answer, the line to screenshot.\n` +
     `Change the words so it is clearly hers and not a copy: at least half the words different, never the same sentences.\n` +
     `It must sound spoken by a real woman, not written: contractions, plain words. No therapy words (deserve, worth, ` +
     `healing, boundaries, toxic, validate), no hashtags, no emojis, nothing explicit, no names.\n` +
@@ -1279,7 +1315,7 @@ async function adaptTalk(env, b, topic, transcript, views, said, anyTopic) {
       const best = await judgeTalk(env, cands, Number(out.best));
       if (best) {
         return ({ line: best.line, keywords: (best.keywords || []).slice(0, 6).map(String),
-                  hook: (await writeHook(env, best.line)) || cleanHook(best.hook), caption: String(best.caption || "").slice(0, 120) });
+                  ...(await hookOf(env, best)), caption: String(best.caption || "").slice(0, 120) });
       }
     } catch (e) {
       console.error("talk adapt", String(e).slice(0, 200));
@@ -1412,7 +1448,7 @@ async function writeTalkLine(env, body) {
       const best = cands[0];
       if (best && best.score >= 6) {
         return ({ line: best.line, keywords: (best.keywords || []).slice(0, 6).map(String),
-                  hook: (await writeHook(env, best.line)) || cleanHook(best.hook), caption: String(best.caption || "").slice(0, 120) });
+                  ...(await hookOf(env, best)), caption: String(best.caption || "").slice(0, 120) });
       }
     } catch (e) {
       console.error("talk line", String(e).slice(0, 200));

@@ -493,13 +493,15 @@ def captions(video, keywords, work, dest, bw=False, hook="", label="", reply="")
         lines.append(hooktext.tag_event(label))
     if reply:
         lines.append(hooktext.reply_event(reply))
+    elif hook:
+        lines.append(hooktext.title_event(hook, HOOK_S, y=200 if label else 120))
     ass = work / "caps.ass"
     ass.write_text("[Script Info]\nPlayResX: 1080\nPlayResY: 1920\n[V4+ Styles]\n"
                    "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, "
                    "Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, "
                    "MarginR, MarginV, Encoding\n"
                    "Style: Cap,Lato Black,88,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,1,1,0,0,100,100,0,0,1,4,3,5,60,60,0,1\n"
-                   + hooktext.STYLE + hooktext.TAG_STYLE + hooktext.REPLY_STYLE +
+                   + hooktext.STYLE + hooktext.TAG_STYLE + hooktext.REPLY_STYLE + hooktext.TITLE_STYLE +
                    "[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
                    + "\n".join(lines) + "\n")
     grade = "hue=s=0,eq=contrast=1.12:brightness=-0.02," if bw else ""

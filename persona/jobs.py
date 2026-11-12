@@ -314,6 +314,7 @@ def talk(job, char, studio, out):
             "topic": job.get("topic", ""), "source": info.get("source", ""), "source_title": info.get("source_title", ""),
             "bw": bool(job.get("bw")), "source_url": info.get("source_url", ""),
             **({"theme": job["theme"], "theme_date": job.get("theme_date", "")} if job.get("theme") else {}),
+            **({"hook": info.get("hook", ""), "hook_shape": info["hook_shape"]} if info.get("hook_shape") else {}),
             **_reply(job)}
 
 
