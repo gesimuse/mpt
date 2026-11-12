@@ -43,21 +43,22 @@ ACCENT = {"Prague": "Czech", "Tokyo": "Japanese", "Moscow": "Russian", "London":
 # A new first frame for every talk (2026-10-29: one portrait per girl made every talk
 # the same shot, and it read as fake). Each: where she sits, its light, the mic.
 SCENES = [
-    # Always indoors and clean (2026-10-30): tidy, calm rooms, nothing messy or busy.
-    ("podcast", "seated at a podcast desk, a black broadcast microphone on a boom arm at the lower left of the frame",
-     "a clean, calm podcast studio behind her: dark acoustic panels, a warm lamp, soft bokeh lights", "warm soft side light"),
-    ("couch", "sitting on a cream couch in a bright minimal living room, a small lavalier microphone clipped to her top",
-     "a tidy, uncluttered living room behind her: white walls, a plant, a neat shelf", "soft daylight from a window"),
-    ("kitchen", "leaning on a clean marble kitchen counter holding a mug, a lavalier microphone clipped to her top",
-     "a spotless modern kitchen behind her: light cabinets, a vase of flowers", "bright soft morning light"),
-    ("bedroom", "sitting on a neatly made bed with white linen, filmed from a phone on a tripod",
-     "a calm, tidy bedroom behind her: a clean headboard, a bedside lamp, soft neutral colours", "warm lamp light and a soft ring light"),
-    ("office", "sitting at a clean desk in a home office, a laptop closed beside her, a lavalier microphone clipped to her top",
-     "a neat home office behind her: a bookshelf with few books, a plant, a framed print", "soft window light"),
-    ("suite", "sitting in a velvet armchair in an elegant hotel suite, a lavalier microphone clipped to her top",
-     "a clean, elegant hotel room behind her: tall curtains, a neat bed, warm lamps", "warm evening lamp light"),
-    ("nook", "curled up in a big armchair in a cosy reading corner by a window, a lavalier microphone clipped to her top",
-     "a tidy reading corner behind her: a floor lamp, a knitted throw, a neat bookshelf", "soft overcast window light"),
+    # Always indoors and clean (2026-10-30). Since 2026-11-11 every talk is a front-camera selfie
+    # ("Yeah is good" on the selfie test): she holds the phone herself, so no mics, desks or tripods.
+    ("bed", "sitting on her neatly made bed",
+     "a calm, tidy bedroom behind her: a clean headboard, soft neutral colours", "plain soft daylight from a window to the side"),
+    ("couch", "sitting on a cream couch in a bright minimal living room",
+     "a tidy, uncluttered living room behind her: white walls, a plant", "soft daylight from a window"),
+    ("kitchen", "leaning on a clean kitchen counter",
+     "a spotless kitchen behind her: light cabinets, a vase of flowers", "bright soft morning light"),
+    ("desk", "sitting at a clean desk in her room",
+     "a neat room behind her: a bookshelf with few books, a plant", "soft window light"),
+    ("car", "sitting in the driver's seat of her parked car",
+     "the clean car interior behind her, a blurred street through the window", "soft daylight through the windscreen"),
+    ("nook", "curled up in a big armchair by a window",
+     "a tidy reading corner behind her: a floor lamp, a knitted throw", "soft overcast window light"),
+    ("evening", "lying back against the pillows on her bed in the evening",
+     "a calm bedroom behind her, a bedside lamp on", "warm bedside lamp light"),
 ]
 # Low necklines, all safe for Lena's Instagram (no lingerie, nothing see-through).
 OUTFITS = ["a fitted black ribbed top with a low scoop neckline", "a fitted white tank top with a low neckline",
@@ -331,14 +332,19 @@ def frame(char, studio, look, work):
     """This talk's first frame: her face from her refs, the rest from `look`."""
     b = char.bible
     heads = char.dir / "refs-heads"
-    ref = next((p for p in [heads / "three-quarter-right.jpg", heads / "01-front.jpg", char.dir / "refs" / "01-front.jpg"]
-                if p.exists()), None)
+    ref = next((p for p in [heads / "01-front.jpg", char.dir / "refs" / "01-front.jpg"] if p.exists()), None)
     _, where, behind, light = look["scene"]
-    prompt = (f"Photo of the woman from the reference image, a {b.get('age', 24)}-year-old woman ({_identity(b)}), "
-              f"her hair in {look['hair']}, {where}, close phone-video framing from the chest up, her face large in the "
-              "frame, her head turned only slightly, her eyes on someone sitting just beside the camera, mid-sentence, "
-              f"relaxed. She wears {look['outfit']} showing cleavage. {BODY} {BARE} Her face fully visible. Behind her "
-              f"{behind}. {light}. {REAL}")
+    # A front-camera selfie (2026-11-11 selfie test on Qwen 2.1, the user's pick over Krea):
+    # she films herself, face large and centred, looking into the lens.
+    prompt = (f"Photo of the woman from the reference image, a {b.get('age', 24)}-year-old woman ({_identity(b)}). "
+              f"A selfie video frame taken with the front camera of her phone held at arm's length, {where}. "
+              "Framed from just below her shoulders up, her face large and centred, looking straight into the lens, "
+              "mid-sentence, a small relaxed half-smile. Her face is bare: no makeup, her own pale pink lips, short natural "
+              "lashes, natural eyebrows, real skin with visible pores, faint redness on her cheeks and nose, a few small "
+              f"blemishes and freckles. Her hair in {look['hair']}, a little messy, a few flyaway strands. "
+              f"She wears {look['outfit']}. {BODY} Behind her {behind}. {light}, slightly uneven. Ordinary front-camera "
+              "phone photo: slightly soft focus, mild sensor noise, a little wide-angle, natural muted colours, an everyday "
+              "unedited photo, not a professional shot. The room is clean and tidy.")
     model = studio.model("edit")
     for attempt in range(3):
         p = Path(studio.engine.image(model, prompt, work, f"frame-{attempt}", refs=[ref] if ref else [],
@@ -359,13 +365,13 @@ def _voice_words(b):
 
 def _speech_prompt(b, line):
     # Real talk, not a reading (2026-11-06: "the long pauses are awkward... make it more real"):
-    # a normal conversational pace with feeling, sentences flowing into each other.
-    return ("An honest, intimate moment, filmed on a locked-off static camera. A young woman "
-            "sits relaxed, talking to someone sitting just beside the camera, telling her something real. "
-            f"{_voice_words(b)} She says: \"{line}\" She talks at a normal conversational pace, with real feeling in her "
-            "voice, the sentences flowing one into the next with only short natural breaths between them, like a "
-            "real woman telling a friend, not reading. Her lips move naturally with every word, natural blinks. "
-            "Background Sound: quiet room tone.")
+    # a normal conversational pace with feeling. Since 2026-11-11 a selfie: she talks into the lens.
+    return ("A real selfie video: a young woman holds her phone at arm's length and talks straight into the front camera, "
+            "to the viewer, like a friend on FaceTime. The phone moves only very slightly with her hand. "
+            f"{_voice_words(b)} She says: \"{line}\" She talks at a normal conversational pace, with real feeling, "
+            "the sentences flowing one into the next with short natural breaths. Her eyes stay on the lens, small natural "
+            "head nods and tilts, calm and relaxed, small subtle movements only, natural blinks, her lips moving "
+            "naturally with every word. Background Sound: quiet room tone.")
 
 
 def voice_ref(char, studio, face):
@@ -579,7 +585,28 @@ def _line_end(voice, line):
 
 
 def make(job, char, studio, work):
-    """The whole talk. Returns (final mp4 path, line info)."""
+    """The whole talk. Returns (final mp4 path, line info).
+
+    The video is rendered in a child process (`python -m persona.talk`) that exits before
+    TaoMate starts: Wan2GP's release left ~7GB on the card, and TaoMate, short of VRAM,
+    ran 8x slower and then hung for 12 hours on Freya (2026-11-12). PERSONA_TALK_SPLIT=0
+    renders in this process."""
+    work.mkdir(parents=True, exist_ok=True)
+    if config.flag("PERSONA_TALK_SPLIT", "1"):
+        (work / "render-job.json").write_text(json.dumps(job))
+        (work / "render.json").unlink(missing_ok=True)
+        subprocess.run([sys.executable, "-m", "persona.talk", str(work / "render-job.json"), str(work), char.slug],
+                       cwd=str(Path(__file__).resolve().parent.parent), check=True)
+        r = json.loads((work / "render.json").read_text())
+    else:
+        r = render(job, char, studio, work)
+        studio.engine.release()
+    return finish(job, char, Path(r["video"]), Path(r["face"]), r["info"], work)
+
+
+def render(job, char, studio, work):
+    """Her line, first frame and LTX clip cut at the line end. Writes and returns
+    render.json: {video, face, info}."""
     work.mkdir(parents=True, exist_ok=True)
     info = find_line(job, work)
     log(f"{char.slug}: line {info['line']!r}")
@@ -605,12 +632,28 @@ def make(job, char, studio, work):
     if end and end != float("inf"):
         log(f"{char.slug}: line ends at {end:.1f}s of {_duration(clip):.1f}s")
     video = _trim_ends(clip, work / "talk.mp4", end=end if end and end != float("inf") else None)
-    # Her face sharpened (GFPGAN, strong blend): LTX's mouth is soft (2026-11-11).
+    r = {"video": str(video), "face": str(face), "info": info}
+    (work / "render.json").write_text(json.dumps(r, ensure_ascii=False))
+    return r
+
+
+def finish(job, char, video, face, info, work):
+    """Her face refined, then captions. Returns (final mp4 path, line info)."""
+    # Her face refined by TaoMate-FVSR (2026-11-11, the user's pick: sharp lips and teeth
+    # that follow her voice); GFPGAN (strong blend) if it fails or PERSONA_TAOMATE=0.
     try:
-        from . import faceswap
-        video = faceswap.sharpen_video(video, work / "talk-sharp.mp4", blend=0.8)
+        if not config.flag("PERSONA_TAOMATE", "1"):
+            raise RuntimeError("off")
+        from . import taomate
+        video = taomate.refine(video, work / "talk-tao.mp4", ref=face)
+        log(f"{char.slug}: face refined (TaoMate)")
     except Exception as e:
-        log(f"face sharpening skipped: {e}")
+        log(f"TaoMate skipped ({e}); GFPGAN instead")
+        try:
+            from . import faceswap
+            video = faceswap.sharpen_video(video, work / "talk-sharp.mp4", blend=0.8)
+        except Exception as e:
+            log(f"face sharpening skipped: {e}")
     # Her series label ("Getting over him #14", or "... Part 2"), and the comment she answers.
     label = f"{job['series']} #{job['episode']}" if job.get("series") and job.get("episode") else ""
     if job.get("follow_line") and job.get("series"):
@@ -618,3 +661,12 @@ def make(job, char, studio, work):
     final = captions(video, info.get("keywords"), work, work / "final.mp4", bw=bool(job.get("bw")),
                      hook=info.get("hook") or "", label=label, reply=job.get("reply_comment") or "")
     return final, info
+
+
+if __name__ == "__main__":
+    # make()'s render step in its own process: python -m persona.talk <job.json> <work> <slug>
+    from .character import Character
+    from .engine import Engine
+    from .studio import Studio
+    config.load_env()
+    render(json.loads(Path(sys.argv[1]).read_text()), Character(sys.argv[3]), Studio(Engine()), Path(sys.argv[2]))
