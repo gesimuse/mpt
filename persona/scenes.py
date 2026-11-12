@@ -337,6 +337,20 @@ REALISM = ("a real photograph from a professional Instagram photoshoot, shot on 
            "fine pores and subtle texture, true-to-life head-to-body proportions with a naturally small head and "
            "shoulders about twice as wide as her face, no text or watermark")
 
+# A real girl's own photos, not a shoot (2026-11-12, Lena: "too profi... always too undressed"):
+# for a persona whose bible says "photo": "phone".
+PHONE_REALISM = ("a real, casual iPhone photo from her own Instagram, not a professional shoot: phone camera, "
+                 "natural colours, everything in the frame in focus like a phone photo, real skin with pores, "
+                 "slight imperfections and no retouching, a real lived-in place, an everyday candid moment, "
+                 "true-to-life head-to-body proportions, no text or watermark")
+PHONE_BODY = ("She has a slim, toned figure with a full bust and a slim waist, a real woman's natural body, "
+              "relaxed natural posture, not posing like a model.")
+
+
+def _realism(b):
+    return PHONE_REALISM if b.get("photo") == "phone" else REALISM
+
+
 # Anatomy said positively, for the same reason (the main defects: extra or broken
 # hands, arms and legs).
 ANATOMY = ("She has a completely natural human body: exactly two arms and two legs, each correctly attached and "
@@ -455,7 +469,7 @@ def scene_prompt(char, scene, lane, n_refs, style="qwen"):
             "She is the only person in the photo, nobody else in the frame.",
             ANATOMY,
             _without_makeup(lane_cfg.get("cue", "")) + ".",
-            REALISM + ".",
+            _realism(b) + ".",
         ] if p and p != ".")
     if scene.get("view") == "back-away":
         face = ("Seen completely from behind: the camera sees her back, the back of her head and her hair, NOT her "
@@ -480,7 +494,8 @@ def scene_prompt(char, scene, lane, n_refs, style="qwen"):
         # Roundness too (asked for the same day): round only at bust and butt, with the
         # waist, stomach, arms and legs held slim in the same sentence -- "round" alone
         # made them bulky on 2026-10-18.
-        ("Her body is a flawless, toned model physique in perfect proportion: a full, round, perky bust and a "
+        (PHONE_BODY if b.get("photo") == "phone" else
+         "Her body is a flawless, toned model physique in perfect proportion: a full, round, perky bust and a "
          "round, lifted, perky butt, with a slim narrow waist, a flat toned stomach, slim arms and long slim toned "
          "legs -- an hourglass figure, slim everywhere except bust and hips. Smooth glowing skin and an elegant, "
          "confident posture."),
@@ -516,7 +531,7 @@ def scene_prompt(char, scene, lane, n_refs, style="qwen"):
         # that prompt: the persona's style cue ("revealing outfit") is left out --
         # "baggy clothes" came back as a tight latex dress (2026-10-30).
         "" if scene.get("asked") else _without_makeup(lane_cfg.get("cue", "")) + ".",
-        REALISM + ".",
+        _realism(b) + ".",
     ]
     return " ".join(p for p in parts if p and p != ".")
 

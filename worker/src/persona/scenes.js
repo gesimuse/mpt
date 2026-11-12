@@ -26,7 +26,9 @@ function outfitFor(place, used, sexy = false, state = null) {
   // Sexy-style personas (MPT): the sexier list everywhere except swim spots, which
   // keep their swimwear and only they get bikinis (2026-10-17: "more sexy" -- a vineyard got a hoodie, a golf
   // course a gym set).
-  if (sexy && IDEAS.sexy_outfits && pool !== IDEAS.outfit_kinds.swim) {
+  // Lena (2026-11-12, "too profi... always too undressed"): her everyday clothes, never the sexy list.
+  if (sexy === "flirty" && pool !== IDEAS.outfit_kinds.swim) pool = null;
+  else if (sexy && IDEAS.sexy_outfits && pool !== IDEAS.outfit_kinds.swim) {
     pool = IDEAS.sexy_outfits.filter((o) => !/bikini|swim/i.test(o) && (sexy !== "flirty" || IG_SAFE(o)));
   }
   if (!pool) {
@@ -90,7 +92,7 @@ function seeds(state, n, taken = [], sexy = false) {
   for (let i = 0; i < n; i++) {
     // In season only; and outside summer, Lena's Instagram (flirty) gets at most one
     // pool/beach scene per batch -- a warm trip now and then, not every other photo.
-    const swimDone = sexy === "flirty" && season().name !== "summer" && [...usedPlaces].some(isSwim);
+    const swimDone = sexy === "flirty" && (season().name !== "summer" || [...usedPlaces].some(isSwim));
     const ok = IDEAS.places.filter((p) => inSeason(p) && !(swimDone && isSwim(p)));
     const free = ok.filter((p) => !recent.includes(p.toLowerCase()) && !usedPlaces.has(p));
     const place = pickPref(state, free.length ? free : ok, (x) => `place:${x}`);
@@ -127,15 +129,16 @@ ${story}
 People liked: ${liked.join(", ") || "no data yet"}.
 People did not like: ${disliked.join(", ") || "no data yet"}.
 
-${sexy === "flirty" ? `She is a glamorous, sexy Instagram model and every photo is a flattering shoot of HER, not a
-travel photo: she is the subject, filling most of the frame. Outfits are figure-flattering and a
-little revealing -- bodycon and mini dresses, crop tops, low-cut and backless tops, bikinis at the
-beach or pool -- but never lingerie, underwear or see-through. Poses are alluring, flirty and
-model-like -- hip popped, back slightly arched, a hand in her hair, a sultry gaze or a teasing smile --
-never explicit (Instagram must still recommend her to people who don't follow her).
-Every outfit is COMPLETE: a dress, or a top together with a skirt, shorts or jeans -- she never wears only
-a shirt over her underwear. The shoot is bright and colourful like a top Instagram feed: daylight, golden
-hour or a well-lit interior, with at most ONE moody or dark photo.` : sexy ? `She is a glamorous, sexy social-media model and every photo is a flattering shoot of HER, not a
+${sexy === "flirty" ? `She is a real, pretty girl posting on her OWN Instagram -- not a model, not a photoshoot (2026-11-12,
+"too profi... always too undressed"). Every photo is one a friend took of her on an iPhone, or her own
+selfie or mirror selfie: casual, a little imperfect, caught in a real moment of her day. She wears the
+everyday clothes a stylish girl really wears out in ${season().name}: jeans, trousers, knit sweaters,
+coats and jackets, cute tops, a dress or skirt -- fitted and cute, at most a little neckline, fully
+dressed; swimwear only on a beach or by a pool in summer. Never lingerie, underwear, see-through or a
+bikini anywhere else. Her poses are natural, not model poses: walking, sitting at a table, laughing,
+holding a coffee or her phone, looking out of a window, turning to the camera mid-step, fixing her hair.
+Every outfit is COMPLETE: a dress, or a top together with a skirt, trousers or jeans. Natural daylight or
+warm real indoor light, like any normal phone photo.` : sexy ? `She is a glamorous, sexy social-media model and every photo is a flattering shoot of HER, not a
 travel photo: she is the subject, filling most of the frame. Outfits are figure-flattering and
 revealing and show off her body (micro bikinis, tiny crop tops, micro mini dresses, plunging necklines,
 cut-outs, backless), but there is NO nudity. Poses are seductive and model-like: hip popped, back
@@ -260,7 +263,8 @@ export async function write(env, b, state, n, { sexy = false } = {}) {
   }
   const list = assignGazes(out.slice(0, n));
   // Sexy style: most shots show her whole figure (asked for, 2026-10-17).
-  if (sexy) list.forEach((sc, i) => { if (i % 5 !== 4) sc.shot = pick(FULL_SHOTS); });
+  if (sexy === "flirty") list.forEach((sc, i) => { sc.shot = PHONE_SHOTS[i % PHONE_SHOTS.length]; });
+  else if (sexy) list.forEach((sc, i) => { if (i % 5 !== 4) sc.shot = pick(FULL_SHOTS); });
   return list;
 }
 
@@ -396,14 +400,15 @@ ${n} objects with the keys above.`;
   list = assignGazes(list.slice(0, n), state);
   // Lena: photos 1 and 4 look into the lens with a smile -- eye contact is what gets
   // a stranger to stop (most of her shots looked away, 2026-10-30).
+  if (sexy === "flirty") list.forEach((sc, i) => { sc.shot = PHONE_SHOTS[i % PHONE_SHOTS.length]; });
   if (sexy === "flirty") for (const i of [0, 3]) if (list[i]) Object.assign(list[i], {
     angle: "facing the camera, looking straight into the lens", expression: "a warm, open smile",
     gaze: "facing the camera, looking straight into the lens; a warm, open smile", angle_sheet: "01-front", sheet: "01-front" });
-  if (sexy) list.forEach((sc, i) => { if (i % 5 !== 4) sc.shot = pickPref(state, FULL_SHOTS, (x) => `shot:${x.toLowerCase().split(/\s+/).slice(0, 3).join(" ")}`); });
+  if (sexy === true) list.forEach((sc, i) => { if (i % 5 !== 4) sc.shot = pickPref(state, FULL_SHOTS, (x) => `shot:${x.toLowerCase().split(/\s+/).slice(0, 3).join(" ")}`); });
   // Body views (2026-10-19, asked for): one photo from behind and one side-on,
   // the rest facing the camera. From behind her face is not seen (nothing to check
   // or twist); side-on her head is in profile like her body.
-  if (n >= 4) {
+  if (n >= 4 && sexy !== "flirty") {
     const back = list[2], side = list[n - 2], dir = pick(["left", "right"]);
     Object.assign(back, { view: "back", shot: pick(BACK_SHOTS), angle: "her back to the camera, glancing back over her shoulder, face in profile",
                           angle_sheet: "", sheet: "", gaze: "glancing back over her shoulder" });
@@ -418,6 +423,12 @@ const BACK_SHOTS = ["full-body shot from behind, her back to the camera, glancin
                     "full-body shot from behind as she walks away, looking back over her shoulder",
                     "three-quarter-body shot from behind, hand in her hair, glancing back over her shoulder"];
 
+// Lena's photos are phone photos (2026-11-12): a friend's snap, a selfie, a mirror selfie.
+const PHONE_SHOTS = ["candid iPhone photo a friend took of her from a few steps away, showing her from head to knees",
+                     "selfie she takes at arm's length on her phone, her face and shoulders",
+                     "candid iPhone photo a friend took of her, half-body, she is mid-moment",
+                     "mirror selfie on her phone, her phone in her hand, showing her outfit",
+                     "casual iPhone photo of her sitting, from a friend across the table"];
 const FULL_SHOTS = ["full-body shot, head to toe, showing her whole figure", "three-quarter-body shot from head to knees",
                     "full-body shot from a slightly low angle, head to toe"];
 
