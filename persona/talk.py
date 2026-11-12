@@ -617,6 +617,12 @@ def render(job, char, studio, work):
         have = _done_with(studio, have)
     ref = char.dir / "talk" / "voice_ref.wav"
     look = pick_scene(char)
+    # A day theme's room and outfit (Christmas tree and a red sweater ...), from the Worker.
+    if job.get("look"):
+        th = job["look"]
+        name, where, behind, light = look["scene"]
+        look = {**look, "outfit": th.get("outfit") or look["outfit"],
+                "scene": (job.get("theme") or name, th.get("where") or where, th.get("behind") or behind, th.get("light") or light)}
     face = frame(char, studio, look, work)
     have = _done_with(studio, have)
     voice, clip = speak(char, studio, face, ref, info["line"], work)

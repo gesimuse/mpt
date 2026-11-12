@@ -270,11 +270,14 @@ async function queuePublish(env, p, state, cq, itemId) {
   const posts = await captions.forPost(env, p, b, state, { ...known, kind: isPhoto ? "photo" : "video" });
   const story = isPhoto && feedFull(env, state);
   const silent = !isPhoto && !known.audio && !known.recreate && !known.talk;
+  // A day-theme talk (Christmas, Valentine's ...) goes out today, ahead of the others.
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Bucharest" });
+  const dayOf = known.theme_date && known.theme_date === today;
   state.publish.push({
     id: `pub-${itemId}-${Date.now()}`, item: itemId, kind: isPhoto ? "photo" : "video",
-    created: Date.now(), due: social.accounts(p).instagram && !story && !silent ? nextSlot(env, state) : Date.now() + AUTO_WAIT_MS,
+    created: Date.now(), due: social.accounts(p).instagram && !story && !silent && !dayOf ? nextSlot(env, state) : Date.now() + AUTO_WAIT_MS,
     recreate: !!known.recreate, story,
-    ...(known.talk ? { talk: true, bw: !!known.bw, tt_due: nextTalkSlot(env, state) } : {}),
+    ...(known.talk ? { talk: true, bw: !!known.bw, tt_due: dayOf ? Date.now() + AUTO_WAIT_MS : nextTalkSlot(env, state) } : {}),
     file_id: fileId, audio: !!known.audio || !!known.recreate || !!known.talk,
     posts, caption: posts.instagram.text,
     chat, message_id: msg.message_id, base: (msg.caption ?? fwdCaption ?? "").split("\n\n━━")[0],
@@ -627,6 +630,129 @@ const TALK_TOPICS = {
   "mpt-lola": { topic: "toxic exes and moving on", sources: T(["riseshine.7", "thelasthopeofficial06", "hardtruthtalks", "drewafualo", "melrobbins"], "moving on from toxic ex advice podcast clip") },
 };
 
+// ------------------------------------------------------------- 🗓 Lena's day themes
+/**
+ * Lena's talks were always the same "dating truths" (2026-11-12: "same thing always.. we need
+ * new stuff"). Now: one talk a day on what today is (Christmas, Valentine's, New Year,
+ * cuffing season ...), in a room and outfit to match, put first in the queue and posted that
+ * same day; the others mostly fresh angles (LENA_FRESH), the classic viral sayings every 3rd.
+ * Sources are YouTube searches for the theme; the line keeps to the theme (on_topic).
+ */
+const LOOK = {
+  christmas: { outfit: "a cosy red knit Christmas sweater", where: "sitting on a couch next to a lit Christmas tree",
+               behind: "a cosy living room with a decorated Christmas tree and warm fairy lights", light: "warm fairy-light glow and soft lamp light" },
+  xmasCream: { outfit: "a cream cable-knit sweater", where: "curled up on her bed under a blanket, fairy lights on the headboard",
+               behind: "a cosy bedroom with warm fairy lights and a small Christmas tree", light: "warm fairy-light glow" },
+  nye: { outfit: "a sparkly silver sequin top", where: "at home getting ready for a New Year's Eve party",
+         behind: "a festive room with gold balloons and fairy lights", light: "warm party lights" },
+  winter: { outfit: "an oversized cosy knit sweater", where: "sitting by a window on a snowy day with a warm mug",
+            behind: "a cosy room, snow falling outside the window", light: "soft cold winter daylight" },
+  valentine: { outfit: "a fitted red top", where: "sitting on her couch",
+               behind: "a cosy room with red roses on a table and candles", light: "warm candle light and a soft lamp" },
+  autumn: { outfit: "an oversized cosy knit sweater", where: "curled up on the couch under a blanket",
+            behind: "a cosy room with a warm candle and a knitted throw", light: "warm lamp light on a grey autumn evening" },
+  thanks: { outfit: "a cosy rust-coloured knit sweater", where: "sitting at a dining table",
+            behind: "a warm dining room with an autumn table, candles and pumpkins", light: "warm candle light" },
+  shopping: { outfit: "a fitted beige top", where: "sitting on her bed next to shopping bags",
+              behind: "a tidy bedroom, shopping bags on the bed", light: "soft daylight from a window" },
+  halloween: { outfit: "a fitted black top", where: "sitting on her couch",
+               behind: "a cosy room with carved glowing pumpkins and candles", light: "warm orange candle light" },
+  summer: { outfit: "a light white linen top", where: "sitting on a sunny balcony",
+            behind: "a balcony with plants and a bright summer sky", light: "warm golden summer sun" },
+};
+const yt = (...q) => q;
+// The rotating angle of a long season: the day of the year picks one.
+const rot = (arr, date) => arr[Math.floor(date.getTime() / 86400000) % arr.length];
+
+function dayTheme(now = new Date()) {
+  const ymd = now.toLocaleDateString("en-CA", { timeZone: "Europe/Bucharest" });
+  const [y, mo, d] = ymd.split("-").map(Number);
+  const date = new Date(Date.UTC(y, mo - 1, d));
+  const dow = date.getUTCDay();
+  const nth = (month, weekday, n) => { const f = new Date(Date.UTC(y, month - 1, 1)).getUTCDay(); return 1 + ((weekday - f + 7) % 7) + 7 * (n - 1); };
+  const md = mo * 100 + d;
+  const th = (key, topic, searches, look) => ({ key, date: ymd, topic, searches, look: LOOK[look] || null });
+  const thanks = nth(11, 4, 4);
+  if (md === 1224) return th("christmas-eve", "Christmas Eve: love, who you spend it with, and being enough on your own",
+    yt("christmas eve love quotes women", "spending christmas alone women motivation", "christmas relationship truth"), "christmas");
+  if (md === 1225) return th("christmas", "Christmas Day: real love, family and the people who show up",
+    yt("christmas love message women", "christmas relationship advice", "christmas single women"), "christmas");
+  if (md >= 1226 && md <= 1230) return th("after-christmas", "the days between Christmas and New Year: the ex who texts, looking back on the year",
+    yt("ex texts on christmas advice", "end of year reflection women motivation", "leaving this year behind relationship"), "xmasCream");
+  if (md === 1231) return th("nye", "New Year's Eve: who you kiss at midnight and who you leave in this year",
+    yt("new years eve relationship advice women", "leave them in the old year motivation", "new year new standards dating"), "nye");
+  if (md >= 101 && md <= 103) return th("new-year", "a new year: new standards in love, and who doesn't come with you",
+    yt("new year new standards women", "new year glow up mindset women", "new year relationship goals"), "winter");
+  if (mo === 12) return th("christmas-season", rot([
+    "being single at Christmas and loving it", "what his Christmas gift says about him", "meeting his family over the holidays",
+    "the holiday party and seeing your ex", "cosy Christmas dates and what real romance looks like", "family asking why you're still single at Christmas",
+    "Christmas with someone who makes you feel safe"], date),
+    yt("christmas dating advice women", "single at christmas women", "christmas relationship truths", "holidays with your partner advice"),
+    rot(["christmas", "xmasCream"], date));
+  if (mo === 1 && d === nth(1, 1, 3)) return th("blue-monday", "the saddest day of the year: getting through a heavy winter heart",
+    yt("blue monday motivation women", "winter sadness heartbreak advice"), "winter");
+  if (md === 213) return th("galentines", "Galentine's Day: the friends who love you better than any man did",
+    yt("galentines day female friendship", "best friend love women quotes"), "valentine");
+  if (md === 214) return th("valentines", "Valentine's Day: what real love looks like, single or taken",
+    yt("valentines day love truth women", "single on valentines day women", "valentines day relationship advice"), "valentine");
+  if (md === 215) return th("after-valentines", "the day after Valentine's: what his Valentine's really told you",
+    yt("valentines day red flags", "what he did on valentines day says"), "valentine");
+  if (mo === 2 && d <= 12) return th("valentine-season", rot(["Valentine's is coming and you're single", "what to really want for Valentine's",
+    "the situationship that disappears before Valentine's"], date), yt("valentines day dating advice women", "valentines situationship"), "valentine");
+  if (md === 308) return th("womens-day", "Women's Day: what women carry and never get thanked for",
+    yt("womens day message women strength", "strong women quotes motivation"), null);
+  if (mo === 5 && d === nth(5, 0, 2)) return th("mothers-day", "Mother's Day: what our mothers taught us about love",
+    yt("mothers day love message", "what my mother taught me about love"), null);
+  if (mo >= 6 && mo <= 8) return dow === 5 || dow === 6 ? th("summer", rot(["summer flings and what they mean", "summer glow and being single",
+    "holiday romance truths"], date), yt("summer fling advice women", "summer dating women", "vacation romance truth"), "summer") : null;
+  if (md === 1031) return th("halloween", "Halloween: the scariest red flags in men",
+    yt("scariest red flags in men", "halloween dating red flags"), "halloween");
+  if (md === 1111) return th("singles-day", "Singles' Day: the best things about being single",
+    yt("benefits of being single women", "single women happy"), "autumn");
+  if (mo === 11 && d === thanks) return th("thanksgiving", "Thanksgiving: being thankful for the love that stayed and the one that left",
+    yt("thanksgiving love message", "grateful for heartbreak motivation", "thanksgiving single women family"), "thanks");
+  if (mo === 11 && d === thanks + 1) return th("black-friday", "Black Friday: what's worth it in love and what you should never settle for, even on sale",
+    yt("dont settle for less women motivation", "know your worth dating women"), "shopping");
+  if (md >= 1015 && md <= 1130) return th("cuffing-season", rot(["cuffing season: men who only show up when it gets cold",
+    "cosy autumn nights and wanting someone real", "winter coming and texting the ex", "cuffing season vs real love"], date),
+    yt("cuffing season dating advice", "cuffing season men", "autumn relationship advice women"), "autumn");
+  return null;
+}
+
+// Lena's fresh angles (not the classic "dating truths"): one picked, not one of the last 8.
+const LENA_FRESH = [
+  { topic: "first dates: what really happens and what to watch for", sources: yt("first date stories women", "first date advice women", "first date red flags") },
+  { topic: "texting: what his texts really mean", sources: yt("what his texts mean dating advice", "texting rules dating women") },
+  { topic: "dating apps in real life", sources: yt("dating app stories women", "dating apps advice women", "dating app red flags") },
+  { topic: "green flags: the small things good men do", sources: yt("green flags in a man", "signs he really likes you", "small things good men do") },
+  { topic: "being single and loving your own life", sources: yt("enjoying being single women", "single women happy life") },
+  { topic: "friendships between women: the friends who stay", sources: yt("female friendship truths", "real friends vs fake friends women") },
+  { topic: "meeting his family, his mother and his friends", sources: yt("meeting his family advice", "his mother relationship advice") },
+  { topic: "jealousy and trust", sources: yt("jealousy in relationships advice", "trust in a relationship women") },
+  { topic: "love languages and the small things that mean love", sources: yt("love languages relationship", "small things that mean love") },
+  { topic: "what men actually find attractive, honestly", sources: yt("what men find attractive in women honest", "men answer what makes a woman attractive") },
+  { topic: "a calm, peaceful love vs a chaotic one", sources: yt("peaceful relationship vs chaotic", "calm love women") },
+  { topic: "your twenties: dating mistakes and growing up", sources: yt("dating in your 20s advice women", "things i wish i knew in my 20s women") },
+  { topic: "long-distance love", sources: yt("long distance relationship truths", "long distance relationship advice") },
+  { topic: "funny truths about being a girlfriend", sources: yt("funny relationship truths women", "girlfriend problems funny") },
+];
+
+/** Lena's talk: today's theme (once a day), else a fresh angle, the classic viral one every 3rd. */
+function lenaTopic(state) {
+  const th = dayTheme();
+  if (th && state.theme_day !== `${th.date}:${th.key}`) {
+    state.theme_day = `${th.date}:${th.key}`;
+    return { topic: th.topic, sources: th.searches, theme: th };
+  }
+  state.lena_mix = (state.lena_mix || 0) + 1;
+  if (state.lena_mix % 3 === 0) return anyTopic();
+  const recent = state.fresh_used || [];
+  const pool = LENA_FRESH.filter((f) => !recent.includes(f.topic));
+  const pick = (pool.length ? pool : LENA_FRESH)[Math.floor(Math.random() * (pool.length || LENA_FRESH.length))];
+  state.fresh_used = [...recent, pick.topic].slice(-8);
+  return pick;
+}
+
 function anyTopic() {
   const all = Object.values(TALK_TOPICS);
   const handles = [...new Set(all.flatMap((t) => t.sources.filter((x) => x.startsWith("tiktok:"))))];
@@ -650,7 +776,9 @@ const TALK_SERIES = {
 
 function queueTalk(p, state, extra = null) {
   // The laptop was off: don't pile up a day's worth (one asked for in the channel always goes).
-  if (!extra && state.queue.filter((q) => q.kind === "talk").length >= 3) return `${p.slug}: talks already waiting`;
+  // Lena's day theme goes first and always (posted that same day); the rest wait their turn.
+  const t0 = !isRoster(p) && !extra && p.talk_any !== false ? lenaTopic(state) : null;
+  if (!extra && !t0?.theme && state.queue.filter((q) => q.kind === "talk").length >= 3) return `${p.slug}: talks already waiting`;
   let who = extra?.who || p.slug;
   if (isRoster(p) && !extra?.who) {
     const pool = (p.talkers?.length ? p.talkers : p.characters);
@@ -659,19 +787,20 @@ function queueTalk(p, state, extra = null) {
   }
   // Lena (2026-11-06: "lena to get all, with always what is most viral"): every girl's topic
   // and every source account, the most-shared short among all of them, whatever its topic.
-  const t = !isRoster(p) && p.talk_any !== false ? anyTopic() : talkTopic(p, who);
+  const t = t0 || (!isRoster(p) && p.talk_any !== false ? anyTopic() : talkTopic(p, who));
   // A/B (2026-10-27): every other talk in black and white, like the advice accounts.
   const bw = !!((state.talk_n || 0) % 2);
   state.talk_n = (state.talk_n || 0) + 1;
   state.series_n = state.series_n || {};
   state.series_n[who] = (state.series_n[who] || 0) + 1;
-  state.queue.push({ id: `talk-${who}-${Date.now()}`, kind: "talk", character: who, topic: t.topic, sources: t.sources,
-                     chat: p.chat_id, local_only: true, bw, ...(t.viral ? { viral: true } : {}),
+  state.queue[t.theme ? "unshift" : "push"]({ id: `talk-${who}-${Date.now()}`, kind: "talk", character: who, topic: t.topic, sources: t.sources,
+                     chat: p.chat_id, local_only: true, bw: t.theme ? false : bw, ...(t.viral ? { viral: true } : {}),
+                     ...(t.theme ? { theme: t.theme.key, theme_date: t.theme.date, look: t.theme.look } : {}),
                      series: TALK_SERIES[who] || "", episode: state.series_n[who],
                      ...(extra?.follow ? { follow_line: extra.follow } : {}),
                      ...(extra?.reply ? { reply_comment: extra.reply, reply_to_line: extra.reply_to || "" } : {}),
                      ...(extra && (extra.line || extra.url) ? { given_line: extra.line || "", given_url: extra.url || "", message_id: extra.message_id } : {}) });
-  const what = extra?.follow ? "Part 2" : extra?.reply ? "comment reply" : t.topic;
+  const what = extra?.follow ? "Part 2" : extra?.reply ? "comment reply" : `${t.theme ? "🗓 " : ""}${t.topic}`;
   return `${p.slug}: 🎙 talk queued for ${who} (${what})`;
 }
 
@@ -862,7 +991,8 @@ async function talkDone(env, p, state, r, item, sent) {
   // The source's own description and account: its caption style and hashtags are copied.
   const src = { source_desc: String(r.source_title || "").slice(0, 600),
                 source_account: (/tiktok\.com\/@([\w.]+)/.exec(r.source_url || "") || [])[1] || "" };
-  if (it) Object.assign(it, { talk: true, line: r.line || "", topic: r.topic || "", character: r.character || p.slug, bw: !!r.bw, ...src });
+  if (it) Object.assign(it, { talk: true, line: r.line || "", topic: r.topic || "", character: r.character || p.slug, bw: !!r.bw, ...src,
+                              ...(r.theme_date ? { theme: r.theme || "", theme_date: r.theme_date } : {}) });
 }
 
 /**
@@ -2430,6 +2560,7 @@ async function jobPayload(env, origin, state, batch) {
                   given_line: q.given_line || "", given_url: q.given_url || "", message_id: q.message_id || null,
                   series: q.series || "", episode: q.episode || 0, follow_line: q.follow_line || "",
                   reply_comment: q.reply_comment || "", reply_to_line: q.reply_to_line || "",
+                  ...(q.theme ? { theme: q.theme, theme_date: q.theme_date, look: q.look || null } : {}),
                   ...(q.given_keywords ? { given_keywords: q.given_keywords, given_caption: q.given_caption || "", given_hook: q.given_hook || "" } : {}),
                   used: (state.talk_used || []).slice(-300) });
     } else if (q.kind === "private") {
