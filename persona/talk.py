@@ -368,7 +368,8 @@ def _speech_prompt(b, line):
     # Real talk, not a reading (2026-11-06: "the long pauses are awkward... make it more real"):
     # a normal conversational pace with feeling. Since 2026-11-11 a selfie: she talks into the lens.
     return ("A real selfie video: a young woman holds her phone at arm's length and talks straight into the front camera, "
-            "to the viewer, like a friend on FaceTime. The phone moves only very slightly with her hand. "
+            "to the viewer, like a friend on FaceTime. The phone stays at arm's length the whole time, the same distance "
+            "and framing from start to end, her head and shoulders in frame; it moves only very slightly with her hand. "
             f"{_voice_words(b)} She says: \"{line}\" She talks at a normal conversational pace, with real feeling, "
             "the sentences flowing one into the next with short natural breaths. Her eyes stay on the lens, small natural "
             "head nods and tilts, calm and relaxed, small subtle movements only, natural blinks, her lips moving "
@@ -663,7 +664,12 @@ def finish(job, char, video, face, info, work):
         dbg.mkdir(exist_ok=True)
         shutil.copyfile(video, dbg / f"{job['id']}-raw.mp4")
         shutil.copyfile(face, dbg / f"{job['id']}-face.jpg")
-        video = taomate.refine(video, work / "talk-tao.mp4", ref=face)
+        # Half strength (2026-11-14 A/B on Lena's raw clip): at 1.0 TaoMate redraws the mouth from the
+        # audio and invents gappy, crooked teeth ("the bloody teeth are scary"); at 0.5 her own even
+        # teeth from LTX show through and the face is still sharpened. H3 kept teeth clean but
+        # changed her face and left a blotch on the chin.
+        video = taomate.refine(video, work / "talk-tao.mp4", ref=face,
+                               opts={"face_strength": float(config.env("PERSONA_TAOMATE_STRENGTH", "0.5"))})
         log(f"{char.slug}: face refined (TaoMate)")
     except Exception as e:
         log(f"TaoMate skipped ({e}); GFPGAN instead")
