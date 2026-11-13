@@ -425,7 +425,7 @@ const BACK_SHOTS = ["full-body shot from behind, her back to the camera, glancin
 
 // Lena's photos are phone photos (2026-11-12): a friend's snap, a selfie, a mirror selfie.
 const PHONE_SHOTS = ["candid iPhone photo a friend took of her from a few steps away, showing her from head to knees",
-                     "selfie she takes at arm's length on her phone, her face and shoulders",
+                     "front-camera selfie of her face and shoulders, seen from the phone itself: the phone is not in the photo, one arm reaches toward the camera at the frame edge",
                      "candid iPhone photo a friend took of her, half-body, she is mid-moment",
                      "mirror selfie on her phone, her phone in her hand, showing her outfit",
                      "casual iPhone photo of her sitting, from a friend across the table"];
