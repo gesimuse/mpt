@@ -15,6 +15,7 @@ Her podcast portrait and reference voice are made once and kept in
 """
 import json
 import re
+import shutil
 import subprocess
 import sys
 import urllib.request
@@ -656,6 +657,12 @@ def finish(job, char, video, face, info, work):
         if not config.flag("PERSONA_TAOMATE", "1"):
             raise RuntimeError("off")
         from . import taomate
+        # The raw clip and her frame kept for the teeth comparison (2026-11-13, "the bloody teeth
+        # are scary"): local only, never posted.
+        dbg = config.home() / "talk-debug"
+        dbg.mkdir(exist_ok=True)
+        shutil.copyfile(video, dbg / f"{job['id']}-raw.mp4")
+        shutil.copyfile(face, dbg / f"{job['id']}-face.jpg")
         video = taomate.refine(video, work / "talk-tao.mp4", ref=face)
         log(f"{char.slug}: face refined (TaoMate)")
     except Exception as e:
