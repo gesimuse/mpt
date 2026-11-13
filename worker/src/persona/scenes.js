@@ -27,7 +27,7 @@ function outfitFor(place, used, sexy = false, state = null) {
   // keep their swimwear and only they get bikinis (2026-10-17: "more sexy" -- a vineyard got a hoodie, a golf
   // course a gym set).
   // Lena (2026-11-12, "too profi... always too undressed"): her everyday clothes, never the sexy list.
-  if (sexy === "flirty" && pool !== IDEAS.outfit_kinds.swim) pool = null;
+  if (sexy === "flirty" && pool !== IDEAS.outfit_kinds.swim) pool = LENA_WEAR[season().name];
   else if (sexy && IDEAS.sexy_outfits && pool !== IDEAS.outfit_kinds.swim) {
     pool = IDEAS.sexy_outfits.filter((o) => !/bikini|swim/i.test(o) && (sexy !== "flirty" || IG_SAFE(o)));
   }
@@ -423,11 +423,31 @@ const BACK_SHOTS = ["full-body shot from behind, her back to the camera, glancin
                     "full-body shot from behind as she walks away, looking back over her shoulder",
                     "three-quarter-body shot from behind, hand in her hair, glancing back over her shoulder"];
 
+// What Lena really wears out, by season (2026-11-13: a cropped tank top in a November wine cellar).
+const LENA_WEAR = {
+  winter: ["a long camel wool coat over a cream turtleneck sweater and straight-leg jeans",
+           "a black puffer jacket, a chunky knit beanie and a grey sweater with dark jeans",
+           "a fitted black turtleneck, a tartan mini skirt, black tights and knee-high boots",
+           "an oversized cream cable-knit sweater with light blue jeans and white sneakers",
+           "a long black wool coat over a fitted knit dress and ankle boots"],
+  autumn: ["a camel trench coat over a white knit sweater, blue jeans and white sneakers",
+           "a black leather jacket over a fitted white top and dark jeans",
+           "a brown suede jacket over a cream ribbed top and straight-leg jeans",
+           "a fitted beige knit midi dress with long sleeves and brown ankle boots",
+           "an oversized grey hoodie, black leggings and white sneakers",
+           "a fitted black long-sleeve top, a brown mini skirt, black tights and boots"],
+  spring: ["a light denim jacket over a white tee and a floral midi skirt",
+           "a beige trench coat over a striped top and jeans", "a fitted pastel knit cardigan and white jeans",
+           "a linen shirt over a fitted tank top and wide-leg trousers"],
+  summer: ["a floral sundress and sandals", "a white linen set", "denim shorts and a fitted cropped tee",
+           "a fitted ribbed tank top and a flowy midi skirt"],
+};
+
 // Lena's photos are phone photos (2026-11-12): a friend's snap, a selfie, a mirror selfie.
 const PHONE_SHOTS = ["candid iPhone photo a friend took of her from a few steps away, showing her from head to knees",
                      "front-camera selfie of her face and shoulders, seen from the phone itself: the phone is not in the photo, one arm reaches toward the camera at the frame edge",
                      "candid iPhone photo a friend took of her, half-body, she is mid-moment",
-                     "mirror selfie on her phone, her phone in her hand, showing her outfit",
+                     "candid iPhone photo a friend took of her, full body, she looks back at the camera with a smile",
                      "casual iPhone photo of her sitting, from a friend across the table"];
 const FULL_SHOTS = ["full-body shot, head to toe, showing her whole figure", "three-quarter-body shot from head to knees",
                     "full-body shot from a slightly low angle, head to toe"];
