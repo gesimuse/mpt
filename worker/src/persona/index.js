@@ -620,18 +620,19 @@ const yt = (...q) => q;
 // Every girl now tells MEN what women really think and want. Sources: YouTube searches (women
 // talking to men); the old TikTok accounts all talked to women.
 const TALK_TOPICS = {
-  lena: { topic: "what really turns women on (not what men think)", sources: yt("what turns women on woman explains", "what women find sexy in men", "woman gives men dating advice") },
-  "mpt-gia": { topic: "what makes a man sexy to women", sources: yt("what makes a man sexy woman explains", "things women find attractive in men", "women answer what makes a guy hot") },
-  "mpt-freya": { topic: "why she lost interest and how men can tell", sources: yt("why women lose interest in men", "signs she is losing interest woman explains", "why she pulled away") },
-  "mpt-aiko": { topic: "female psychology men don't understand", sources: yt("female psychology men should know", "how women think explained to men", "woman explains female psychology to men") },
-  "mpt-leila": { topic: "first dates: what women notice about a man", sources: yt("first date tips for men from a woman", "what women notice on a first date", "first date mistakes men make") },
-  "mpt-skye": { topic: "flirting, texting and building tension with her", sources: yt("how to flirt with a woman woman explains", "texting tips for men from a woman", "how to build attraction with a woman") },
-  "mpt-chloe": { topic: "chemistry, kissing and keeping the spark with her", sources: yt("how to keep the spark alive advice for men", "what women want in a kiss", "small things men do that women love") },
-  "mpt-priya": { topic: "what wives wish their husbands knew", sources: yt("what wives wish husbands knew", "marriage advice for husbands from a wife", "how to be a better husband woman explains") },
-  "mpt-harper": { topic: "confidence and self-respect: what women see in a man", sources: yt("confidence in men what women think", "women explain why confident men are attractive", "self respect men women notice") },
-  "mpt-alina": { topic: "money, paying and generosity: what women really think", sources: yt("women explain who should pay on a date", "what women think about men and money", "generous men women explain") },
-  "mpt-sofia": { topic: "what a real man does for his woman", sources: yt("what a real man does for his woman", "how a man should treat a woman woman explains", "green flags in men women love") },
-  "mpt-lola": { topic: "mistakes men make that push women away", sources: yt("mistakes men make with women", "why women leave men woman explains", "things men do that turn women off") },
+  // 2026-11-24 again: "too romantic for men.. keep it simpler" -- plain, practical, blunt topics.
+  lena: { topic: "signs a woman likes you", sources: yt("signs a girl likes you woman explains", "how to tell if a woman is into you", "signs she is attracted to you") },
+  "mpt-gia": { topic: "what women notice first about a man", sources: yt("what women notice first about men", "things women notice about guys", "first thing a woman notices") },
+  "mpt-freya": { topic: "why she stopped replying", sources: yt("why she stopped texting back", "why women lose interest in men", "why she ghosted you woman explains") },
+  "mpt-aiko": { topic: "what women mean vs what they say", sources: yt("what women mean when they say", "female psychology men should know", "how women think explained to men") },
+  "mpt-leila": { topic: "first date mistakes men make", sources: yt("first date mistakes men make", "first date tips for men from a woman", "what women notice on a first date") },
+  "mpt-skye": { topic: "how to text a woman", sources: yt("how to text a girl woman explains", "texting tips for men from a woman", "texting mistakes men make") },
+  "mpt-chloe": { topic: "how to flirt with a woman", sources: yt("how to flirt with a woman woman explains", "flirting tips for men from a woman", "how to build attraction with a woman") },
+  "mpt-priya": { topic: "what wives wish husbands did", sources: yt("what wives wish husbands knew", "marriage advice for husbands from a wife", "how to be a better husband woman explains") },
+  "mpt-harper": { topic: "confidence: what makes a man attractive", sources: yt("confidence in men what women think", "what makes a man attractive woman explains", "things women find attractive in men") },
+  "mpt-alina": { topic: "who pays on a date", sources: yt("women explain who should pay on a date", "what women think about men and money", "should the man pay first date") },
+  "mpt-sofia": { topic: "small things men do that women love", sources: yt("small things men do that women love", "green flags in men women love", "what a real man does for his woman") },
+  "mpt-lola": { topic: "things men do that turn women off", sources: yt("things men do that turn women off", "mistakes men make with women", "why women leave men woman explains") },
 };
 
 // ------------------------------------------------------------- 🗓 Lena's day themes
@@ -770,9 +771,9 @@ function talkTopic(p, who) {
 // A numbered series per girl (2026-11-10, "real fans"): the same label on every talk of hers,
 // "Getting over him #14", so a viewer knows there is a #15 and follows for it.
 const TALK_SERIES = {
-  lena: "What women want", "mpt-gia": "What makes him attractive", "mpt-freya": "Why she lost interest", "mpt-aiko": "Women explained",
-  "mpt-leila": "First date rules", "mpt-skye": "Texting her", "mpt-chloe": "Keep her", "mpt-priya": "Wives wish you knew",
-  "mpt-harper": "Be that man", "mpt-alina": "Men and money", "mpt-sofia": "What a real man does", "mpt-lola": "Why she left",
+  lena: "Signs she likes you", "mpt-gia": "What she notices", "mpt-freya": "Why she stopped replying", "mpt-aiko": "What she means",
+  "mpt-leila": "First date rules", "mpt-skye": "Texting her", "mpt-chloe": "How to flirt", "mpt-priya": "Wives wish you knew",
+  "mpt-harper": "Be that man", "mpt-alina": "Who pays", "mpt-sofia": "Small things she loves", "mpt-lola": "Turn-offs",
 };
 
 function queueTalk(p, state, extra = null) {
@@ -1263,11 +1264,14 @@ async function adaptTalk(env, b, topic, transcript, views, said, anyTopic) {
     `interview, a podcast anecdote, a celebrity talking about her past): out of context it means nothing to a viewer. ` +
     // 2026-11-24, the user: "woman advice for men kindda thing" -- she talks TO MEN now.
     `And {"usable": false} if it talks TO women ("girl, if he...", "ladies", "know your worth"): she talks to men. ` +
-    `Honest, warm and on his side: what women notice, want and feel, what works and what pushes a woman away. ` +
+    `Simple and practical, like a big sister telling a guy straight: what women notice, what works, what turns ` +
+    `her off. NOT romantic, poetic or deep-love talk ("soul", "heart", "forever", "real love") -- men skip that; ` +
+    `{"usable": false} if the short is mostly that. ` +
     `Never bash men or women in general, no pickup tricks, no manipulation, no "make her jealous" games.` +
     // 2026-11-24, the user: "go a bit spicy if needed".
     ` Spicy is welcome: attraction, flirting, tension, kissing, what makes a man sexy to her, confidence in the ` +
-    `bedroom said with a wink -- bold and teasing, but never explicit (no sex acts, no body parts): TikTok-safe.` +
+    `bedroom said with a wink -- bold and teasing, but never explicit (no sex acts, no body parts): TikTok-safe. ` +
+    `Best cut: ONE clear point a guy gets the first time he hears it, in plain everyday words.` +
     (anyTopic ? "" : ` Also return {"usable": false} if it has nothing to do with ${topic} or men, women and dating.`) + `\n` +
     // Its OWN idea, not bent onto her topic or her hobbies (2026-11-10: "You think I'm rude?" bent to
     // money became "You think I'm cheap? I stopped paying for guys who can't afford me").
@@ -1334,7 +1338,8 @@ async function judgeTalk(env, cands, preferred) {
     `no story before it, no names, no context.\n` +
     cands.map((c, i) => `${i}. "${c.line}"`).join("\n") +
     `\n\nScore each 1-10 on:\n` +
-    `- clear: does it make complete sense on its own -- a clear point a stranger understands the first time? ` +
+    `- simple: one plain, practical point a guy gets instantly, no romantic or poetic talk (romantic = clear 4)? ` +
+    `\n- clear: does it make complete sense on its own -- a clear point a stranger understands the first time? ` +
     `Vague, confusing, missing context, or a story only the speaker understands = low.\n` +
     `- relatable: would most men watching see their own dating life in it and want to know this?\n` +
     `- share: would a man send it to a friend, save it, or comment on it?\n` +
