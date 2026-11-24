@@ -620,13 +620,13 @@ const yt = (...q) => q;
 // Every girl now tells MEN what women really think and want. Sources: YouTube searches (women
 // talking to men); the old TikTok accounts all talked to women.
 const TALK_TOPICS = {
-  lena: { topic: "what women really want from a man", sources: yt("what women want from men woman explains", "woman gives men dating advice", "what women wish men knew") },
-  "mpt-gia": { topic: "what makes a man attractive to women", sources: yt("what makes a man attractive woman explains", "things women find attractive in men", "women answer what makes a guy attractive") },
+  lena: { topic: "what really turns women on (not what men think)", sources: yt("what turns women on woman explains", "what women find sexy in men", "woman gives men dating advice") },
+  "mpt-gia": { topic: "what makes a man sexy to women", sources: yt("what makes a man sexy woman explains", "things women find attractive in men", "women answer what makes a guy hot") },
   "mpt-freya": { topic: "why she lost interest and how men can tell", sources: yt("why women lose interest in men", "signs she is losing interest woman explains", "why she pulled away") },
   "mpt-aiko": { topic: "female psychology men don't understand", sources: yt("female psychology men should know", "how women think explained to men", "woman explains female psychology to men") },
   "mpt-leila": { topic: "first dates: what women notice about a man", sources: yt("first date tips for men from a woman", "what women notice on a first date", "first date mistakes men make") },
-  "mpt-skye": { topic: "texting women: what works and what kills it", sources: yt("texting tips for men from a woman", "how to text a girl woman explains", "texting mistakes men make") },
-  "mpt-chloe": { topic: "how to keep her once you have her", sources: yt("how to keep a woman happy in a relationship", "what women need in a relationship advice for men", "small things men do that women love") },
+  "mpt-skye": { topic: "flirting, texting and building tension with her", sources: yt("how to flirt with a woman woman explains", "texting tips for men from a woman", "how to build attraction with a woman") },
+  "mpt-chloe": { topic: "chemistry, kissing and keeping the spark with her", sources: yt("how to keep the spark alive advice for men", "what women want in a kiss", "small things men do that women love") },
   "mpt-priya": { topic: "what wives wish their husbands knew", sources: yt("what wives wish husbands knew", "marriage advice for husbands from a wife", "how to be a better husband woman explains") },
   "mpt-harper": { topic: "confidence and self-respect: what women see in a man", sources: yt("confidence in men what women think", "women explain why confident men are attractive", "self respect men women notice") },
   "mpt-alina": { topic: "money, paying and generosity: what women really think", sources: yt("women explain who should pay on a date", "what women think about men and money", "generous men women explain") },
@@ -1265,6 +1265,9 @@ async function adaptTalk(env, b, topic, transcript, views, said, anyTopic) {
     `And {"usable": false} if it talks TO women ("girl, if he...", "ladies", "know your worth"): she talks to men. ` +
     `Honest, warm and on his side: what women notice, want and feel, what works and what pushes a woman away. ` +
     `Never bash men or women in general, no pickup tricks, no manipulation, no "make her jealous" games.` +
+    // 2026-11-24, the user: "go a bit spicy if needed".
+    ` Spicy is welcome: attraction, flirting, tension, kissing, what makes a man sexy to her, confidence in the ` +
+    `bedroom said with a wink -- bold and teasing, but never explicit (no sex acts, no body parts): TikTok-safe.` +
     (anyTopic ? "" : ` Also return {"usable": false} if it has nothing to do with ${topic} or men, women and dating.`) + `\n` +
     // Its OWN idea, not bent onto her topic or her hobbies (2026-11-10: "You think I'm rude?" bent to
     // money became "You think I'm cheap? I stopped paying for guys who can't afford me").
