@@ -105,6 +105,10 @@ def _search(source, limit=40):
     phrase (YouTube) or tiktok:@account."""
     if source.startswith("tiktok:"):
         url = f"https://www.tiktok.com/{source.split(':', 1)[1]}"
+    elif source.startswith("yttag:"):
+        # A YouTube Shorts hashtag page (2026-11-24): its shorts come with view counts; a plain
+        # YouTube search found almost no shorts, so every talk's line was made up.
+        url = f"https://www.youtube.com/hashtag/{source.split(':', 1)[1]}/shorts"
     else:
         url = f"ytsearch{limit}:{source} #shorts"
     cmd = [sys.executable, "-m", "yt_dlp", "-q", "--no-warnings", "--flat-playlist", "--playlist-end", str(limit), "-J", url]
@@ -235,7 +239,7 @@ def find_line(job, work):
     # whatever its topic -- the line keeps the short's own topic (any_topic).
     if job.get("viral"):
         cands = sorted(cands, key=lambda c: -c.get("_score", 0))
-    for c in cands[:8]:
+    for c in cands[:12]:
         # Its own name: a retried job found the last try's .wav as "the download" and
         # ffmpeg refused to write a file over itself (2026-10-30).
         audio = work / f"src-{c['id']}-16k.wav"
@@ -260,12 +264,9 @@ def find_line(job, work):
         if r.get("line"):
             return {**r, "source": c["id"], "source_title": c["title"], "source_views": c["views"], "source_url": c["url"]}
         log(f"source {c['id']} skipped: {r.get('why', 'off topic')}")
-    # Nothing usable found: the Worker writes one on the topic by itself.
-    r = _worker("/persona/admin/laptop/talkline", {"persona": job.get("persona"), "character": job.get("character"),
-                                                    "topic": job.get("topic"), "transcript": "", "title": ""})
-    if not r.get("line"):
-        raise RuntimeError("no line for the talk")
-    return {**r, "source": "", "source_title": ""}
+    # Nothing usable: no talk. The Worker's own made-up lines were the bad ones ("I was texting
+    # my ex, and he said 'hey' ...", 2026-11-24), so it no longer writes one.
+    raise RuntimeError("no usable viral clip")
 
 
 # ------------------------------------------------------------- her assets
@@ -602,8 +603,13 @@ def make(job, char, studio, work):
     if config.flag("PERSONA_TALK_SPLIT", "1"):
         (work / "render-job.json").write_text(json.dumps(job))
         (work / "render.json").unlink(missing_ok=True)
-        subprocess.run([sys.executable, "-m", "persona.talk", str(work / "render-job.json"), str(work), char.slug],
-                       cwd=str(Path(__file__).resolve().parent.parent), check=True)
+        (work / "render-error.txt").unlink(missing_ok=True)
+        done = subprocess.run([sys.executable, "-m", "persona.talk", str(work / "render-job.json"), str(work), char.slug],
+                              cwd=str(Path(__file__).resolve().parent.parent))
+        if done.returncode:
+            # The child's own reason, not "exit status 1" (2026-11-24, the errors in Telegram).
+            err = work / "render-error.txt"
+            raise RuntimeError(err.read_text().strip()[:300] if err.exists() else f"render exited {done.returncode}")
         r = json.loads((work / "render.json").read_text())
     else:
         r = render(job, char, studio, work)
@@ -693,4 +699,8 @@ if __name__ == "__main__":
     from .engine import Engine
     from .studio import Studio
     config.load_env()
-    render(json.loads(Path(sys.argv[1]).read_text()), Character(sys.argv[3]), Studio(Engine()), Path(sys.argv[2]))
+    try:
+        render(json.loads(Path(sys.argv[1]).read_text()), Character(sys.argv[3]), Studio(Engine()), Path(sys.argv[2]))
+    except Exception as e:
+        (Path(sys.argv[2]) / "render-error.txt").write_text(f"{type(e).__name__}: {e}"[:500])
+        raise

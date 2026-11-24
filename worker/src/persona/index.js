@@ -616,23 +616,26 @@ function queueVideo(state, itemId, msg, fileId, motion) {
 // mindfuel_028 (median 120k views/1.3k shares/1.6k saves). A YouTube search last, when none of them has one.
 const T = (handles, yt) => [...handles.map((h) => `tiktok:@${h}`), yt];
 const yt = (...q) => q;
+// YouTube Shorts hashtag pages (persona/talk.py _search), the topic's own first, then the general
+// men's-advice tags: they list real shorts with views; a plain YouTube search found almost none.
+const tags = (...t) => [...new Set([...t, "datingadviceformen", "relationshipadviceformen", "datingtipsformen"])].map((x) => `yttag:${x}`);
 // 2026-11-24, the user: "I don't like the content anymore. ideally would be woman advice for men".
 // Every girl now tells MEN what women really think and want. Sources: YouTube searches (women
 // talking to men); the old TikTok accounts all talked to women.
 const TALK_TOPICS = {
   // 2026-11-24 again: "too romantic for men.. keep it simpler" -- plain, practical, blunt topics.
-  lena: { topic: "signs a woman likes you", sources: yt("signs a girl likes you woman explains", "how to tell if a woman is into you", "signs she is attracted to you") },
-  "mpt-gia": { topic: "what women notice first about a man", sources: yt("what women notice first about men", "things women notice about guys", "first thing a woman notices") },
-  "mpt-freya": { topic: "why she stopped replying", sources: yt("why she stopped texting back", "why women lose interest in men", "why she ghosted you woman explains") },
-  "mpt-aiko": { topic: "what women mean vs what they say", sources: yt("what women mean when they say", "female psychology men should know", "how women think explained to men") },
-  "mpt-leila": { topic: "first date mistakes men make", sources: yt("first date mistakes men make", "first date tips for men from a woman", "what women notice on a first date") },
-  "mpt-skye": { topic: "how to text a woman", sources: yt("how to text a girl woman explains", "texting tips for men from a woman", "texting mistakes men make") },
-  "mpt-chloe": { topic: "how to flirt with a woman", sources: yt("how to flirt with a woman woman explains", "flirting tips for men from a woman", "how to build attraction with a woman") },
-  "mpt-priya": { topic: "what wives wish husbands did", sources: yt("what wives wish husbands knew", "marriage advice for husbands from a wife", "how to be a better husband woman explains") },
-  "mpt-harper": { topic: "signs she's not interested (stop wasting your time)", sources: yt("signs she is not interested in you woman explains", "signs a girl doesn't like you", "how to know she is not into you") },
-  "mpt-alina": { topic: "how to look attractive to women: style, smell, grooming", sources: yt("how men can look more attractive woman explains", "grooming tips for men from a woman", "what women think of men's style") },
-  "mpt-sofia": { topic: "small things men do that women love", sources: yt("small things men do that women love", "green flags in men women love", "what a real man does for his woman") },
-  "mpt-lola": { topic: "things men do that turn women off", sources: yt("things men do that turn women off", "mistakes men make with women", "why women leave men woman explains") },
+  lena: { topic: "signs a woman likes you", sources: [...tags("signsshelikesyou", "femalepsychology"), ...yt("signs a girl likes you woman explains", "how to tell if a woman is into you", "signs she is attracted to you")] },
+  "mpt-gia": { topic: "what women notice first about a man", sources: [...tags("whatwomenwant", "femalepsychology"), ...yt("what women notice first about men", "things women notice about guys", "first thing a woman notices")] },
+  "mpt-freya": { topic: "why she stopped replying", sources: [...tags("femalepsychology", "whatwomenwant"), ...yt("why she stopped texting back", "why women lose interest in men", "why she ghosted you woman explains")] },
+  "mpt-aiko": { topic: "what women mean vs what they say", sources: [...tags("femalepsychology"), ...yt("what women mean when they say", "female psychology men should know", "how women think explained to men")] },
+  "mpt-leila": { topic: "first date mistakes men make", sources: [...tags("firstdatetips", "datingtipsformen"), ...yt("first date mistakes men make", "first date tips for men from a woman", "what women notice on a first date")] },
+  "mpt-skye": { topic: "how to text a woman", sources: [...tags("textingtips", "flirtingtips"), ...yt("how to text a girl woman explains", "texting tips for men from a woman", "texting mistakes men make")] },
+  "mpt-chloe": { topic: "how to flirt with a woman", sources: [...tags("flirtingtips"), ...yt("how to flirt with a woman woman explains", "flirting tips for men from a woman", "how to build attraction with a woman")] },
+  "mpt-priya": { topic: "what wives wish husbands did", sources: [...tags("husbandadvice", "relationshipadviceformen"), ...yt("what wives wish husbands knew", "marriage advice for husbands from a wife", "how to be a better husband woman explains")] },
+  "mpt-harper": { topic: "signs she's not interested (stop wasting your time)", sources: [...tags("signsshelikesyou", "femalepsychology"), ...yt("signs she is not interested in you woman explains", "signs a girl doesn't like you", "how to know she is not into you")] },
+  "mpt-alina": { topic: "how to look attractive to women: style, smell, grooming", sources: [...tags("groomingtipsformen", "menstyle"), ...yt("how men can look more attractive woman explains", "grooming tips for men from a woman", "what women think of men's style")] },
+  "mpt-sofia": { topic: "small things men do that women love", sources: [...tags("whatwomenwant", "relationshipadviceformen"), ...yt("small things men do that women love", "green flags in men women love", "what a real man does for his woman")] },
+  "mpt-lola": { topic: "things men do that turn women off", sources: [...tags("turnoffs", "femalepsychology"), ...yt("things men do that turn women off", "mistakes men make with women", "why women leave men woman explains")] },
 };
 
 // ------------------------------------------------------------- 🗓 Lena's day themes
@@ -746,7 +749,7 @@ function lenaTopic(state) {
   const th = dayTheme();
   if (th && state.theme_day !== `${th.date}:${th.key}`) {
     state.theme_day = `${th.date}:${th.key}`;
-    return { topic: `${th.topic} -- what she wants men to know`, sources: th.searches.map((q) => `${q} advice for men`), theme: th };
+    return { topic: `${th.topic} -- what she wants men to know`, sources: [...tags(), ...th.searches.map((q) => `${q} advice for men`)], theme: th };
   }
   state.lena_mix = (state.lena_mix || 0) + 1;
   return anyTopic();
@@ -2240,6 +2243,8 @@ function resultMessage(b, r, item) {
              caption: `🎙 ${b.name} · ${r.topic || "talk"} · ${r.bw ? "⚫ B&W" : "🎨 colour"}\n“${String(r.line || "").slice(0, 600)}”\n#${r.id}`,
              buttons: kb([[["👍", `pv:up:${r.id}`], ["👎", `pv:dn:${r.id}`], ["🔁 Redo", `pv:vredo:${r.id}`]]]) };
   }
+  // No viral clip found: nothing in the channel, the next talk tries again (2026-11-24).
+  if (!r.ok && r.talk && /no usable viral clip|no line for the Part 2/.test(String(r.reason))) return { kind: "none" };
   if (!r.ok && r.talk) {
     return { kind: "text", chat: r.chat, replyTo: r.message_id, text: `❌ 🎙 Talk failed: ${String(r.reason).slice(0, 300)}` };
   }
@@ -2396,6 +2401,7 @@ function recordResult(state, r, item, sent) {
  */
 async function postResult(env, state, b, r, item, file) {
   const m = albumAware(state, resultMessage(b, r, item));
+  if (m.kind === "none") return;
   if (m.kind === "text") {
     await tg(env, "sendMessage", { chat_id: m.chat, reply_to_message_id: m.replyTo, text: m.text });
     await carouselProgress(env, state, r);
