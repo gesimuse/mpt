@@ -1235,7 +1235,7 @@ async function followTalk(env, b, body) {
   for (let i = 0; i < 3; i++) {
     try {
       const out = await captions.ask(env, prompt + rules, 1000, TALK_MODEL);
-      const cands = (out.candidates || []).map((c, k) => ({ ...c, k, line: String(c.line || "").replace(/\s+/g, " ").trim() }))
+      const cands = (out.candidates || []).map((c, k) => ({ ...c, k, line: String(c.line || "").replace(/\s+/g, " ").trim().replace(/([^.!?])$/, "$1.") }))
         .filter((c) => { const n = c.line.split(" ").length; return n >= 8 && n <= 55 && !WORN.test(c.line) && !/#|https?:/.test(c.line); });
       const full = cands.filter((c) => c.line.split(" ").length >= 16 && (c.line.match(/[.!?]/g) || []).length >= 2);
       const best = full.find((c) => c.k === Number(out.best)) || full[0];
@@ -1301,8 +1301,10 @@ async function adaptTalk(env, b, topic, transcript, views, said, anyTopic) {
       const out = await captions.ask(env, prompt, 1200, TALK_MODEL);
       if (out.usable === false) return null;
       const cands = (Array.isArray(out.candidates) ? out.candidates : [])
-        .map((c, k) => ({ ...c, k, line: String(c.line || "").replace(/\s+/g, " ").trim() }))
-        .filter((c) => { const n = c.line.split(" ").length; return n >= 14 && n <= 55 && (c.line.match(/[.!?]/g) || []).length >= 2 && !/#|https?:/.test(c.line) &&
+        .map((c, k) => ({ ...c, k, line: String(c.line || "").replace(/\s+/g, " ").trim().replace(/([^.!?])$/, "$1.") }))
+        .filter((c) => { const n = c.line.split(" ").length; return n >= 10 && n <= 55 && !/#|https?:/.test(c.line) &&
+          // 2026-11-24: her own words come as one ~15-word sentence, often without a full stop; the
+          // old "14+ words, 2+ sentences" bar (made for word-for-word cuts) dropped every one.
           // 2026-11-24, Leila: "Why the fuck wouldn't I..." -- swearing made her shout and pull faces on video.
           !/\b(fuck|fucking|shit|bitch|damn|ass)\b/i.test(c.line); })
         ;
@@ -1446,7 +1448,7 @@ async function writeTalkLine(env, body) {
       if (transcript && !any_topic && out.on_topic === false) return ({ line: "", why: "off topic" });
       // The best-scored candidate that keeps the rules (one plain answer from older replies).
       const cands = (Array.isArray(out.candidates) ? out.candidates : [out])
-        .map((c) => ({ ...c, line: String(c.line || "").replace(/\s+/g, " ").trim() }))
+        .map((c) => ({ ...c, line: String(c.line || "").replace(/\s+/g, " ").trim().replace(/([^.!?])$/, "$1.") }))
         .filter((c) => { const n = c.line.split(" ").length; return n >= 14 && n <= 48 && !/#|https?:/.test(c.line) && !WORN.test(c.line); })
         .map((c) => ({ ...c, score: Number(c.score) || ["hook", "feel", "real", "share"].reduce((t, k) => t + (Number(c[k]) || 0), 0) / 4 }))
         // Hook (does anyone hear the rest) and feel (the ask of 2026-11-06) count double.
