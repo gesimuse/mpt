@@ -404,7 +404,10 @@ def _speech_prompt(b, line):
             "steady with only small gentle nods, natural blinks. Her mouth makes small, precise movements that match each "
             "word, like a newsreader: lips relaxed and flat, corners of the mouth neutral, the mouth opening just a little "
             # 2026-11-24, Leila: kiss-shaped pouts, a wide-open yell and her head swinging at the lens.
-            "for each word and closing gently between words, lips soft and unpuckered. Small closed-lip "
+            # Only what she does: "unpuckered" (2026-11-24) still gave Chloe kiss-shaped lips -- the model
+            # acts out the word it reads, not the "un".
+            "for each word and closing gently between words, her lips wide, flat and relaxed across her face, the corners "
+            "of her mouth apart. Small closed-lip "
             # 2026-11-12, Sofia: gappy crooked teeth on wide grins ("horrible... scary").
             "smiles; when her teeth show they are straight, even, natural white upper teeth. "
             "Background Sound: quiet room tone.")

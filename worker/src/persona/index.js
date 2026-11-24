@@ -1302,9 +1302,10 @@ async function adaptTalk(env, b, topic, transcript, views, said, anyTopic) {
       if (out.usable === false) return null;
       const cands = (Array.isArray(out.candidates) ? out.candidates : [])
         .map((c, k) => ({ ...c, k, line: String(c.line || "").replace(/\s+/g, " ").trim().replace(/([^.!?])$/, "$1.") }))
-        .filter((c) => { const n = c.line.split(" ").length; return n >= 10 && n <= 55 && !/#|https?:/.test(c.line) &&
+        .filter((c) => { const n = c.line.split(" ").length; return n >= 15 && n <= 55 && !/#|https?:/.test(c.line) &&
           // 2026-11-24: her own words come as one ~15-word sentence, often without a full stop; the
-          // old "14+ words, 2+ sentences" bar (made for word-for-word cuts) dropped every one.
+          // old "14+ words, 2+ sentences" bar (made for word-for-word cuts) dropped every one. 15+ words:
+          // Chloe's 11 words were a 3.7s talk.
           // 2026-11-24, Leila: "Why the fuck wouldn't I..." -- swearing made her shout and pull faces on video.
           !/\b(fuck|fucking|shit|bitch|damn|ass)\b/i.test(c.line); })
         ;
