@@ -618,7 +618,7 @@ const T = (handles, yt) => [...handles.map((h) => `tiktok:@${h}`), yt];
 const yt = (...q) => q;
 // YouTube Shorts hashtag pages (persona/talk.py _search), the topic's own first, then the general
 // men's-advice tags: they list real shorts with views; a plain YouTube search found almost none.
-const tags = (...t) => [...new Set([...t, "datingadviceformen", "relationshipadviceformen", "datingtipsformen"])].map((x) => `yttag:${x}`);
+const tags = (...t) => [...new Set([...t, "datingadviceformen", "relationshipadviceformen", "datingtipsformen", "datingadvice", "relationshipadvice"])].map((x) => `yttag:${x}`);
 // 2026-11-24, the user: "I don't like the content anymore. ideally would be woman advice for men".
 // Every girl now tells MEN what women really think and want. Sources: YouTube searches (women
 // talking to men); the old TikTok accounts all talked to women.

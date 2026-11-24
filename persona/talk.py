@@ -191,6 +191,25 @@ def _transcribe(wav, words=False):
     return r["chunks"] if words else r["text"].strip()
 
 
+_REJECTED = Path.home() / ".local/share/mpt-persona/talk-rejected.json"
+
+
+def _rejected():
+    """Shorts already tried and found no use: every talk re-tried the same three (2026-11-24)."""
+    try:
+        return set(json.loads(_REJECTED.read_text()))
+    except Exception:
+        return set()
+
+
+def _reject(sid):
+    ids = _rejected() | {sid}
+    try:
+        _REJECTED.write_text(json.dumps(sorted(ids)))
+    except Exception:
+        pass
+
+
 def find_line(job, work):
     """A popular short on her topic, not used before, transcribed and rewritten into
     her own line by the Worker. Returns {line, keywords, source, source_title}."""
@@ -222,8 +241,8 @@ def find_line(job, work):
         if not r.get("line"):
             raise RuntimeError("no line for the Part 2 / reply")
         return {**r, "source": "", "source_title": ""}
-    used = set(job.get("used") or [])
-    cands = []
+    used = set(job.get("used") or []) | _rejected()
+    cands, seen = [], set()
     # Sources in their order (the account made for her topic first), most-viewed
     # first within each: mixed together, an off-topic 6.8M-view short won (2026-10-27).
     for src in job.get("sources") or []:
@@ -234,12 +253,16 @@ def find_line(job, work):
             if s:
                 c["_score"] = s
                 scored.append((s, c))
-        cands += [c for _, c in sorted(scored, key=lambda x: -x[0])[:4]]
+        # 6 a source, never the same short twice (2026-11-24: 3 tries a talk, every one skipped).
+        for _, c in sorted(scored, key=lambda x: -x[0])[:6]:
+            if c["id"] not in seen:
+                seen.add(c["id"])
+                cands.append(c)
     # Lena (job "viral"): every account's shorts ranked together, the most shared first,
     # whatever its topic -- the line keeps the short's own topic (any_topic).
     if job.get("viral"):
         cands = sorted(cands, key=lambda c: -c.get("_score", 0))
-    for c in cands[:12]:
+    for c in cands[:24]:
         # Its own name: a retried job found the last try's .wav as "the download" and
         # ffmpeg refused to write a file over itself (2026-10-30).
         audio = work / f"src-{c['id']}-16k.wav"
@@ -255,6 +278,7 @@ def find_line(job, work):
             continue
         # A talk says something: 30+ words (a song or a skit got through at 15, 2026-11-10).
         if len(text.split()) < 30:
+            _reject(c["id"])
             continue
         log(f"source {c['id']} ({c['views']} views, {c.get('shares', 0)} shares, {c.get('saves', 0)} saves, {c.get('likes', 0)} likes): {c['title'][:60]!r}")
         r = _worker("/persona/admin/laptop/talkline", {"persona": job.get("persona"), "character": job.get("character"),
@@ -264,6 +288,7 @@ def find_line(job, work):
         if r.get("line"):
             return {**r, "source": c["id"], "source_title": c["title"], "source_views": c["views"], "source_url": c["url"]}
         log(f"source {c['id']} skipped: {r.get('why', 'off topic')}")
+        _reject(c["id"])
     # Nothing usable: no talk. The Worker's own made-up lines were the bad ones ("I was texting
     # my ex, and he said 'hey' ...", 2026-11-24), so it no longer writes one.
     raise RuntimeError("no usable viral clip")
