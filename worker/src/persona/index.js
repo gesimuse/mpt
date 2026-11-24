@@ -629,8 +629,8 @@ const TALK_TOPICS = {
   "mpt-skye": { topic: "how to text a woman", sources: yt("how to text a girl woman explains", "texting tips for men from a woman", "texting mistakes men make") },
   "mpt-chloe": { topic: "how to flirt with a woman", sources: yt("how to flirt with a woman woman explains", "flirting tips for men from a woman", "how to build attraction with a woman") },
   "mpt-priya": { topic: "what wives wish husbands did", sources: yt("what wives wish husbands knew", "marriage advice for husbands from a wife", "how to be a better husband woman explains") },
-  "mpt-harper": { topic: "confidence: what makes a man attractive", sources: yt("confidence in men what women think", "what makes a man attractive woman explains", "things women find attractive in men") },
-  "mpt-alina": { topic: "who pays on a date", sources: yt("women explain who should pay on a date", "what women think about men and money", "should the man pay first date") },
+  "mpt-harper": { topic: "signs she's not interested (stop wasting your time)", sources: yt("signs she is not interested in you woman explains", "signs a girl doesn't like you", "how to know she is not into you") },
+  "mpt-alina": { topic: "how to look attractive to women: style, smell, grooming", sources: yt("how men can look more attractive woman explains", "grooming tips for men from a woman", "what women think of men's style") },
   "mpt-sofia": { topic: "small things men do that women love", sources: yt("small things men do that women love", "green flags in men women love", "what a real man does for his woman") },
   "mpt-lola": { topic: "things men do that turn women off", sources: yt("things men do that turn women off", "mistakes men make with women", "why women leave men woman explains") },
 };
@@ -773,7 +773,7 @@ function talkTopic(p, who) {
 const TALK_SERIES = {
   lena: "Signs she likes you", "mpt-gia": "What she notices", "mpt-freya": "Why she stopped replying", "mpt-aiko": "What she means",
   "mpt-leila": "First date rules", "mpt-skye": "Texting her", "mpt-chloe": "How to flirt", "mpt-priya": "Wives wish you knew",
-  "mpt-harper": "Be that man", "mpt-alina": "Who pays", "mpt-sofia": "Small things she loves", "mpt-lola": "Turn-offs",
+  "mpt-harper": "She's not into you", "mpt-alina": "Look better for her", "mpt-sofia": "Small things she loves", "mpt-lola": "Turn-offs",
 };
 
 function queueTalk(p, state, extra = null) {
