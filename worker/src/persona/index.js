@@ -1260,13 +1260,14 @@ const WORN = /\b(deserve|worth|healing|journey|boundar\w*|validat\w*|toxic|self-
 async function adaptTalk(env, b, topic, transcript, views, said, anyTopic) {
   const prompt =
     `This short went viral${views ? ` (${Number(views).toLocaleString("en-US")} views)` : ""}:\n"""${String(transcript).slice(0, 2500)}"""\n\n` +
-    `First: is it ONE person giving men an opinion, advice or a hard truth to camera about women, dating or ` +
-    `relationships -- something any man watching could use with the women in his life? If it is song lyrics, a skit, a vlog, chatter or a couple's video, return {"usable": false}. ` +
+    `First: is it ONE person giving an opinion, advice or a hard truth to camera about women, men, dating or ` +
+    `relationships, with a point a man watching could use with the women in his life? If it is song lyrics, a skit, a vlog, chatter or a couple's video, return {"usable": false}. ` +
     // 2026-11-11: a Trisha Paytas podcast confession became "I'm ashamed of what I did, it's hard to sleep."
     `Also {"usable": false} if it is someone's personal story or confession about events in their own life (an ` +
     `interview, a podcast anecdote, a celebrity talking about her past): out of context it means nothing to a viewer. ` +
     // 2026-11-24, the user: "woman advice for men kindda thing" -- she talks TO MEN now.
-    `And {"usable": false} if it talks TO women ("girl, if he...", "ladies", "know your worth"): she talks to men. ` +
+    `She talks to men: a short made for women is fine only if its point turns plainly into advice for a man ` +
+    `(what women notice, want or can't stand); {"usable": false} if it is "know your worth" / "girl, leave him" talk. ` +
     `Simple and practical, like a big sister telling a guy straight: what women notice, what works, what turns ` +
     `her off. NOT romantic, poetic or deep-love talk ("soul", "heart", "forever", "real love") -- men skip that; ` +
     `{"usable": false} if the short is mostly that. ` +
@@ -1281,16 +1282,17 @@ async function adaptTalk(env, b, topic, transcript, views, said, anyTopic) {
     // 2026-11-12, the user: "the content is still shit... can we not use the exact [words] other people
     // said?" -- every rewrite ("at least half the words different") lost what made the short work.
     // Now she says the short's OWN words: its best passage cut out, nothing reworded.
-    `Otherwise cut out the passage ${b.name} (a woman of ${b.age || 24}) will say word for word in her own TikTok: ` +
-    `the short's OWN WORDS, unchanged, in the same order. Start at its hook (usually its first sentence) and keep ` +
-    `going to its strongest point and its payoff. HARD LIMIT 20-45 words, 2-6 sentences: if the short says more, ` +
-    `keep its opening and the best lines and skip the rest (you may skip whole sentences, never reword one).\n` +
-    `You may only: add punctuation (the transcript has none), fix an obvious mishearing, drop filler ("um", "like", ` +
-    `"you guys"), names, @handles and "follow/subscribe", and change words if needed so a woman says it to men ("you" = the man watching).\n` +
-    `Everything else is the short's own wording -- do not rewrite, polish or "improve" it.\n` +
+    // 2026-11-24: word-for-word cuts found almost nothing usable (few shorts are a woman advising
+    // men) and what got through was a rant fragment ("Why the fuck wouldn't I..."). The user OK'd
+    // going back to her own words: the short's main point, said plainly.
+    `Otherwise write what ${b.name} (a woman of ${b.age || 24}) says in her own TikTok: the short's MAIN POINT, ` +
+    `told to the man watching ("you" = him) in plain everyday spoken words, like texting a friend. Open with a hook ` +
+    `that makes a guy stop scrolling, then the point, then one concrete thing to do. 20-40 words, 2-4 short sentences. ` +
+    `Keep the short's idea and its best phrase if it has one; no story about her life, no names, no swearing, no ` +
+    `questions to the viewer, nothing poetic.\n` +
     `No hashtags, no emojis, nothing explicit.\n` +
     (said.length ? `She already said these -- a different idea:\n- ${said.slice(-25).join("\n- ")}\n` : "") +
-    `Give 3 different cuts (different start/end or skipped sentences), then pick the one a TikTok editor would post.\n` +
+    `Give 3 different versions, then pick the one a TikTok editor would post.\n` +
     `Return JSON only: {"usable": true, "best": <index>, "candidates": [{"line": "...", ` +
     `"keywords": ["3-6 single words from the line to highlight"], "hook": "${HOOK_SPEC}", ` +
     `"caption": "a one-line caption that baits comments (a question or a hot take), max 90 chars, no hashtags"}]}`;
@@ -1303,9 +1305,8 @@ async function adaptTalk(env, b, topic, transcript, views, said, anyTopic) {
         .filter((c) => { const n = c.line.split(" ").length; return n >= 14 && n <= 55 && (c.line.match(/[.!?]/g) || []).length >= 2 && !/#|https?:/.test(c.line) &&
           // 2026-11-24, Leila: "Why the fuck wouldn't I..." -- swearing made her shout and pull faces on video.
           !/\b(fuck|fucking|shit|bitch|damn|ass)\b/i.test(c.line); })
-        // Really the short's words: most of its 3-word runs are in the transcript.
-        .filter((c) => verbatim(c.line, transcript) >= 0.6);
-      if (!cands.length) console.log("talk adapt: no verbatim cut", JSON.stringify(out.candidates || []).slice(0, 300));
+        ;
+      if (!cands.length) console.log("talk adapt: no good version", JSON.stringify(out.candidates || []).slice(0, 300));
       // Read cold by a second pass: a line a stranger can't follow never goes out (2026-11-11).
       const best = await judgeTalk(env, cands, Number(out.best));
       if (best) {
@@ -2988,7 +2989,9 @@ async function postShootAlbum(env, p, state, shootId) {
   sh.album = (msgs || [])[0]?.message_id || true;
   // A single persona's shoot (Lena): its first photos also become Reels, as replies
   // to the album (her old daily render made PERSONA_DAILY_REELS a day).
-  if (!isRoster(p) && !sh.reels_queued) {
+  // Off since 2026-11-24 (the user: "Even lena videos are shitty" -- 5s hair-flick posing clips
+  // with empty hooks); a photo's 🎬 button still makes one by hand.
+  if (false && !isRoster(p) && !sh.reels_queued) {
     sh.reels_queued = true;
     for (const m of sh.media.slice(0, dailyReels(env))) {
       const it = state.items[m.id];
