@@ -290,6 +290,8 @@ def find_line(job, work):
         if r.get("line"):
             return {**r, "source": c["id"], "source_title": c["title"], "source_views": c["views"], "source_url": c["url"]}
         log(f"source {c['id']} skipped: {r.get('why', 'off topic')}")
+        if r.get("why") == "ai quota":
+            break
         _reject(c["id"])
     # Nothing usable: no talk. The Worker's own made-up lines were the bad ones ("I was texting
     # my ex, and he said 'hey' ...", 2026-11-24), so it no longer writes one.

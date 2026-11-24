@@ -1318,6 +1318,9 @@ async function adaptTalk(env, b, topic, transcript, views, said, anyTopic) {
       }
     } catch (e) {
       console.error("talk adapt", String(e).slice(0, 200));
+      // Workers AI's free 10k neurons a day used up (2026-11-24): every short after it was
+      // "no good version" and remembered as useless. Said as it is; the laptop stops looking.
+      if (/4006|neurons/.test(String(e))) return "quota";
     }
   }
   return false;
@@ -1391,6 +1394,7 @@ async function writeTalkLine(env, body) {
   // convincing him..." into a rambling hiking story; kept close, it stays what worked.
   if (transcript) {
     const adapted = await adaptTalk(env, b, topic, transcript, body.views, said, any_topic);
+    if (adapted === "quota") return ({ line: "", why: "ai quota" });
     if (adapted) return adapted;
     // The video they sent is used whatever it is (the old way below).
     if (adapted === null && !body.keep) return ({ line: "", why: "not a talk" });
