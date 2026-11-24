@@ -396,10 +396,13 @@ def _speech_prompt(b, line):
     return ("A real selfie video: a young woman holds her phone at arm's length and talks straight into the front camera, "
             "to the viewer, like a friend on FaceTime. The phone stays at arm's length the whole time, the same distance "
             "and framing from start to end, her head and shoulders in frame; it moves only very slightly with her hand. "
-            f"{_voice_words(b)} She says: \"{line}\" She talks at a normal conversational pace, with real feeling, "
-            "the sentences flowing one into the next with short natural breaths. Her eyes stay on the lens, small natural "
-            "head nods and tilts, calm and relaxed, small subtle movements only, natural blinks, her lips moving "
-            "naturally with every word, soft relaxed lips, her mouth opening only a little as she talks, small closed-lip "
+            f"{_voice_words(b)} She says: \"{line}\" She talks at a normal conversational pace in a calm, even, "
+            "matter-of-fact tone, like giving a friend a quick tip, the sentences flowing one into the next with short "
+            "natural breaths. Her face stays relaxed and neutral the whole time: her eyes stay on the lens, her head stays "
+            "steady with only small gentle nods, natural blinks. Her mouth makes small, precise movements that match each "
+            "word, like a newsreader: lips relaxed and flat, corners of the mouth neutral, the mouth opening just a little "
+            # 2026-11-24, Leila: kiss-shaped pouts, a wide-open yell and her head swinging at the lens.
+            "for each word and closing gently between words, lips soft and unpuckered. Small closed-lip "
             # 2026-11-12, Sofia: gappy crooked teeth on wide grins ("horrible... scary").
             "smiles; when her teeth show they are straight, even, natural white upper teeth. "
             "Background Sound: quiet room tone.")
