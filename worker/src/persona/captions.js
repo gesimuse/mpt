@@ -84,11 +84,11 @@ async function writeTalk(env, b, item) {
     (example ? `A viral TikTok with the same idea was captioned: "${example.slice(0, 300)}" -- write in that same ` +
                `style, length and punctuation (not its words).\n` : "") +
     `Return ONLY JSON: {"caption": "one short line that makes people stop and relate: the idea of what she says in ` +
-    `other words, 8-20 words, 0-1 emoji, no hashtags, ending with a short honest question to the viewer about her own ` +
-    `life (e.g. \"Would you forgive this?\", \"Be honest, have you done this?\"); ` +
+    `other words, 8-20 words, 0-1 emoji, no hashtags, ending with a short honest question to the man watching about his own ` +
+    `dating life (e.g. \"Be honest, have you done this?\", \"Guys, did you know this?\"); ` +
     `never ask to like/comment/follow/share/save", ` +
-    `"tags": ["6 lowercase hashtags people search for this idea (e.g. relationshipadvice, selflove, datingtips, ` +
-    `mindset), no # sign"]}`;
+    `"tags": ["6 lowercase hashtags people search for this idea (e.g. datingadviceformen, datingtips, relationshipadvice, ` +
+    `menadvice), no # sign"]}`;
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       const d = await ask(env, prompt, 250);

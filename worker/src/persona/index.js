@@ -615,19 +615,23 @@ function queueVideo(state, itemId, msg, fileId, motion) {
 // top 2.1M/23.5k shares/37k saves), thelasthopeofficial06 (median 42k/419 shares),
 // mindfuel_028 (median 120k views/1.3k shares/1.6k saves). A YouTube search last, when none of them has one.
 const T = (handles, yt) => [...handles.map((h) => `tiktok:@${h}`), yt];
+const yt = (...q) => q;
+// 2026-11-24, the user: "I don't like the content anymore. ideally would be woman advice for men".
+// Every girl now tells MEN what women really think and want. Sources: YouTube searches (women
+// talking to men); the old TikTok accounts all talked to women.
 const TALK_TOPICS = {
-  lena: { topic: "dating truths for women", sources: T(["shetalks.truth", "mindfuel_028", "riseshine.7", "voicebloom1", "therealtruth93", "hardtruthtalks", "jayshetty"], "relationship advice for women podcast clip") },
-  "mpt-gia": { topic: "confidence, glow-ups and never chasing anyone", sources: T(["mindfuel_028", "riseshine.7", "melrobbins", "kindpush343", "jayshetty"], "self love women motivation podcast clip") },
-  "mpt-freya": { topic: "breakups, getting over him and never going back", sources: T(["riseshine.7", "mindfuel_028", "hardtruthtalks", "jayshetty", "melrobbins"], "healing after breakup advice podcast clip") },
-  "mpt-aiko": { topic: "female psychology men don't understand", sources: T(["therealtruth93", "voicebloom1", "shetalks.truth", "hardtruthtalks"], "female psychology facts about women podcast") },
-  "mpt-leila": { topic: "high-value woman standards", sources: T(["mindfuel_028", "riseshine.7", "thelasthopeofficial06", "shetalks.truth", "kindpush343", "drewafualo"], "high value woman standards podcast clip") },
-  "mpt-skye": { topic: "red flags and situationships", sources: T(["drewafualo", "therealtruth93", "hardtruthtalks", "shetalks.truth"], "dating red flags situationship advice podcast") },
-  "mpt-chloe": { topic: "what real love looks like vs what women settle for", sources: T(["riseshine.7", "mindfuel_028", "jayshetty", "voicebloom1", "hardtruthtalks", "shetalks.truth"], "deep love quotes relationship truth podcast") },
-  "mpt-priya": { topic: "marriage truths wives never say out loud", sources: T(["voicebloom1", "jayshetty", "2bebetterpodcast", "hardtruthtalks"], "marriage advice husband wife podcast clip") },
-  "mpt-harper": { topic: "discipline, glow-ups and the excuses women make", sources: T(["thelasthopeofficial06", "mindfuel_028", "melrobbins", "jayshetty", "kindpush343"], "motivational speech discipline women podcast") },
-  "mpt-alina": { topic: "money, who pays and women who level up", sources: T(["mindfuel_028", "yourrichbff", "thelasthopeofficial06", "melrobbins"], "women money mindset ambition podcast clip") },
-  "mpt-sofia": { topic: "what a real man does for his woman", sources: T(["mindfuel_028", "therealtruth93", "riseshine.7", "thelasthopeofficial06", "voicebloom1", "shetalks.truth", "hardtruthtalks"], "how a man should treat a woman podcast clip") },
-  "mpt-lola": { topic: "toxic exes and moving on", sources: T(["riseshine.7", "thelasthopeofficial06", "hardtruthtalks", "drewafualo", "melrobbins"], "moving on from toxic ex advice podcast clip") },
+  lena: { topic: "what women really want from a man", sources: yt("what women want from men woman explains", "woman gives men dating advice", "what women wish men knew") },
+  "mpt-gia": { topic: "what makes a man attractive to women", sources: yt("what makes a man attractive woman explains", "things women find attractive in men", "women answer what makes a guy attractive") },
+  "mpt-freya": { topic: "why she lost interest and how men can tell", sources: yt("why women lose interest in men", "signs she is losing interest woman explains", "why she pulled away") },
+  "mpt-aiko": { topic: "female psychology men don't understand", sources: yt("female psychology men should know", "how women think explained to men", "woman explains female psychology to men") },
+  "mpt-leila": { topic: "first dates: what women notice about a man", sources: yt("first date tips for men from a woman", "what women notice on a first date", "first date mistakes men make") },
+  "mpt-skye": { topic: "texting women: what works and what kills it", sources: yt("texting tips for men from a woman", "how to text a girl woman explains", "texting mistakes men make") },
+  "mpt-chloe": { topic: "how to keep her once you have her", sources: yt("how to keep a woman happy in a relationship", "what women need in a relationship advice for men", "small things men do that women love") },
+  "mpt-priya": { topic: "what wives wish their husbands knew", sources: yt("what wives wish husbands knew", "marriage advice for husbands from a wife", "how to be a better husband woman explains") },
+  "mpt-harper": { topic: "confidence and self-respect: what women see in a man", sources: yt("confidence in men what women think", "women explain why confident men are attractive", "self respect men women notice") },
+  "mpt-alina": { topic: "money, paying and generosity: what women really think", sources: yt("women explain who should pay on a date", "what women think about men and money", "generous men women explain") },
+  "mpt-sofia": { topic: "what a real man does for his woman", sources: yt("what a real man does for his woman", "how a man should treat a woman woman explains", "green flags in men women love") },
+  "mpt-lola": { topic: "mistakes men make that push women away", sources: yt("mistakes men make with women", "why women leave men woman explains", "things men do that turn women off") },
 };
 
 // ------------------------------------------------------------- 🗓 Lena's day themes
@@ -660,7 +664,6 @@ const LOOK = {
   summer: { outfit: "a light white linen top", where: "sitting on a sunny balcony",
             behind: "a balcony with plants and a bright summer sky", light: "warm golden summer sun" },
 };
-const yt = (...q) => q;
 // The rotating angle of a long season: the day of the year picks one.
 const rot = (arr, date) => arr[Math.floor(date.getTime() / 86400000) % arr.length];
 
@@ -742,10 +745,10 @@ function lenaTopic(state) {
   const th = dayTheme();
   if (th && state.theme_day !== `${th.date}:${th.key}`) {
     state.theme_day = `${th.date}:${th.key}`;
-    return { topic: th.topic, sources: th.searches, theme: th };
+    return { topic: `${th.topic} -- what she wants men to know`, sources: th.searches.map((q) => `${q} advice for men`), theme: th };
   }
   state.lena_mix = (state.lena_mix || 0) + 1;
-  if (state.lena_mix % 3 === 0) return anyTopic();
+  return anyTopic();
   const recent = state.fresh_used || [];
   const pool = LENA_FRESH.filter((f) => !recent.includes(f.topic));
   const pick = (pool.length ? pool : LENA_FRESH)[Math.floor(Math.random() * (pool.length || LENA_FRESH.length))];
@@ -755,9 +758,8 @@ function lenaTopic(state) {
 
 function anyTopic() {
   const all = Object.values(TALK_TOPICS);
-  const handles = [...new Set(all.flatMap((t) => t.sources.filter((x) => x.startsWith("tiktok:"))))];
   const pick = all[Math.floor(Math.random() * all.length)];
-  return { topic: pick.topic, sources: [...handles, pick.sources.at(-1)], viral: true };
+  return { topic: pick.topic, sources: pick.sources, viral: true };
 }
 
 function talkTopic(p, who) {
@@ -768,10 +770,9 @@ function talkTopic(p, who) {
 // A numbered series per girl (2026-11-10, "real fans"): the same label on every talk of hers,
 // "Getting over him #14", so a viewer knows there is a #15 and follows for it.
 const TALK_SERIES = {
-  lena: "Dating truths", "mpt-gia": "Glow-up rules", "mpt-freya": "Getting over him", "mpt-aiko": "What men don't get",
-  "mpt-leila": "High-value habits", "mpt-skye": "Red flag files", "mpt-chloe": "Real love vs settling",
-  "mpt-priya": "Wife truths", "mpt-harper": "No excuses", "mpt-alina": "Money talks", "mpt-sofia": "What a real man does",
-  "mpt-lola": "The ex files",
+  lena: "What women want", "mpt-gia": "What makes him attractive", "mpt-freya": "Why she lost interest", "mpt-aiko": "Women explained",
+  "mpt-leila": "First date rules", "mpt-skye": "Texting her", "mpt-chloe": "Keep her", "mpt-priya": "Wives wish you knew",
+  "mpt-harper": "Be that man", "mpt-alina": "Men and money", "mpt-sofia": "What a real man does", "mpt-lola": "Why she left",
 };
 
 function queueTalk(p, state, extra = null) {
@@ -1077,8 +1078,9 @@ async function laptopStats(request, env) {
       state.follow_day = day;
     }
   }
-  // Her answer to the best comment.
-  if (state.reply_day !== day) {
+  // Her answer to the best comment -- off since 2026-11-24: the answers made no sense ("I started with
+  // one video and it blew up") and failed as "no line for the Part 2 / reply" in the channel.
+  if (false && state.reply_day !== day) {
     const c = comments.map((x) => ({ ...x, text: String(x.text || "").trim(), v: {} }))
       .filter((x) => x.cid && okComment(x.text) && !(state.replied || []).includes(x.cid))
       .sort((a, b) => ((b.likes || 0) + (/\?/.test(b.text) ? 5 : 0)) - ((a.likes || 0) + (/\?/.test(a.text) ? 5 : 0)))[0];
@@ -1139,7 +1141,7 @@ const TALK_FORMATS = [
 // slammed on screen, no hello): big text over the first seconds of a talk, and over a
 // whole Reel. Short, so it reads in one glance with the sound off.
 const HOOK_SPEC = "the on-screen title for the first 2 seconds: 3-7 words, a confession, a bold claim, a callout or a question " +
-  "that makes a woman stop scrolling (like \"The night I stopped waiting\" or \"Men who do this aren't serious\"); " +
+  "that makes a man stop scrolling (like \"What women notice first about you\" or \"Men, stop doing this on dates\"); " +
   "not the line's first words, no emojis, no hashtags";
 function cleanHook(h) {
   const t = String(h || "").replace(/[#*"“”]|\p{Extended_Pictographic}/gu, "").replace(/\s+/g, " ").trim();
@@ -1154,18 +1156,18 @@ function cleanHook(h) {
  */
 // The hook shapes, each one's share/save numbers compared in the daily report (hookReport).
 const HOOK_SHAPES = {
-  callout: `"If he makes you beg, he's not the one"`,
-  warning: `"Stop explaining yourself to people who don't listen"`,
-  secret: `"Nobody tells you why silence works on him"`,
-  confession: `"The day I stopped begging him to stay"`,
-  pov: `"POV: you finally stopped saying sorry first"`,
-  judgment: `"Men who can't decide have already decided"`,
-  question: `"Why does he come back when you go quiet?"`,
-  number: `"3 things a man does when he's serious"`,
-  quote: `"If he says 'I'm just busy', read this"`,
-  stopped: `"Things I stopped doing at 25"`,
-  send: `"Send this to the friend who keeps going back"`,
-  save: `"Save this for the night you miss him"`,
+  callout: `"Men, if she texts you this, listen"`,
+  warning: `"Stop doing this on a first date"`,
+  secret: `"What women never tell men about attraction"`,
+  confession: `"The moment I lost interest in him"`,
+  pov: `"POV: she says she's fine but she isn't"`,
+  judgment: `"Men who do this always end up single"`,
+  question: `"Why does she go quiet after the first date?"`,
+  number: `"3 things that make a woman fall for you"`,
+  quote: `"When she says 'do whatever you want', read this"`,
+  stopped: `"Things women notice in the first 5 minutes"`,
+  send: `"Send this to the friend who can't keep a girl"`,
+  save: `"Save this before your next date"`,
 };
 
 /** {hook, hook_shape} for a chosen line: the hook writer's, else the line writer's own. */
@@ -1176,16 +1178,15 @@ async function hookOf(env, best) {
 
 async function writeHook(env, line, prefix = "") {
   const prompt =
-    `A woman says this to camera in a TikTok:\n"${line}"\n\n` +
+    `A woman gives men advice to camera in a TikTok:\n"${line}"\n\n` +
     `Write one on-screen hook for its first 2 seconds in EACH of these shapes. A hook is a COMPLETE short sentence ` +
-    `(4-9 words) that makes a woman stop scrolling because she needs the answer, fully filled in from what she says:\n` +
+    `(4-9 words) that makes a man stop scrolling because he needs the answer, fully filled in from what she says:\n` +
     Object.entries(HOOK_SHAPES).map(([k, ex]) => `- ${k}, e.g. ${ex}`).join("\n") + `\n` +
     `Never a fragment, never a summary or a moral ("Walking away is freedom" is bad), never her first words, no emojis, no hashtags.\n` +
     // 2026-11-11: "Men who cause stress are toxic" over a calm line; the user wants good men shown too.
-    `The hook says what HER line says, in the same tone: a warm or loving line gets a warm hook (e.g. "A man who ` +
-    `stays on hard days is rare"), a line praising men gets a hook praising men. Never a hook that bashes men in ` +
-    `general or blames men when her line doesn't. A number hook only if her line really has that many points.\n` +
-    `Then pick the one that would stop the most women scrolling.\n` +
+    `The hook says what HER line says, in the same tone, talking to men: a warm line gets a warm hook (e.g. "Women ` +
+    `never forget a man who does this"). Never a hook that bashes men or women in general. A number hook only if her line really has that many points.\n` +
+    `Then pick the one that would stop the most men scrolling.\n` +
     `Return JSON only: {"hooks": [{"shape": "callout", "text": "..."}, ...], "best": <index>}`;
   try {
     const out = await captions.ask(env, prompt, 700, TALK_MODEL);
@@ -1255,16 +1256,16 @@ const WORN = /\b(deserve|worth|healing|journey|boundar\w*|validat\w*|toxic|self-
 async function adaptTalk(env, b, topic, transcript, views, said, anyTopic) {
   const prompt =
     `This short went viral${views ? ` (${Number(views).toLocaleString("en-US")} views)` : ""}:\n"""${String(transcript).slice(0, 2500)}"""\n\n` +
-    `First: is it ONE person giving an opinion, advice or a hard truth to camera, that any woman watching could ` +
-    `apply to her own life? If it is song lyrics, a skit, a vlog, chatter or a couple's video, return {"usable": false}. ` +
+    `First: is it ONE person giving men an opinion, advice or a hard truth to camera about women, dating or ` +
+    `relationships -- something any man watching could use with the women in his life? If it is song lyrics, a skit, a vlog, chatter or a couple's video, return {"usable": false}. ` +
     // 2026-11-11: a Trisha Paytas podcast confession became "I'm ashamed of what I did, it's hard to sleep."
     `Also {"usable": false} if it is someone's personal story or confession about events in their own life (an ` +
     `interview, a podcast anecdote, a celebrity talking about her past): out of context it means nothing to a viewer. ` +
-    `And {"usable": false} if it is addressed TO men ("your girl", "bro", how to win her): she talks to women. ` +
-    // 2026-11-11, the user: "not only bad things... we should also say why men are good".
-    `What a good man does, why a good man is worth it, what he feels and needs -- all welcome, said to women. ` +
-    `Never bash men in general.` +
-    (anyTopic ? "" : ` Also return {"usable": false} if it has nothing to do with ${topic} or women's love lives and self-respect.`) + `\n` +
+    // 2026-11-24, the user: "woman advice for men kindda thing" -- she talks TO MEN now.
+    `And {"usable": false} if it talks TO women ("girl, if he...", "ladies", "know your worth"): she talks to men. ` +
+    `Honest, warm and on his side: what women notice, want and feel, what works and what pushes a woman away. ` +
+    `Never bash men or women in general, no pickup tricks, no manipulation, no "make her jealous" games.` +
+    (anyTopic ? "" : ` Also return {"usable": false} if it has nothing to do with ${topic} or men, women and dating.`) + `\n` +
     // Its OWN idea, not bent onto her topic or her hobbies (2026-11-10: "You think I'm rude?" bent to
     // money became "You think I'm cheap? I stopped paying for guys who can't afford me").
     // 2026-11-12, the user: "the content is still shit... can we not use the exact [words] other people
@@ -1275,7 +1276,7 @@ async function adaptTalk(env, b, topic, transcript, views, said, anyTopic) {
     `going to its strongest point and its payoff. HARD LIMIT 20-45 words, 2-6 sentences: if the short says more, ` +
     `keep its opening and the best lines and skip the rest (you may skip whole sentences, never reword one).\n` +
     `You may only: add punctuation (the transcript has none), fix an obvious mishearing, drop filler ("um", "like", ` +
-    `"you guys"), names, @handles and "follow/subscribe", and change "he/she" words if needed so a woman says it to women.\n` +
+    `"you guys"), names, @handles and "follow/subscribe", and change words if needed so a woman says it to men ("you" = the man watching).\n` +
     `Everything else is the short's own wording -- do not rewrite, polish or "improve" it.\n` +
     `No hashtags, no emojis, nothing explicit.\n` +
     (said.length ? `She already said these -- a different idea:\n- ${said.slice(-25).join("\n- ")}\n` : "") +
@@ -1332,9 +1333,9 @@ async function judgeTalk(env, cands, preferred) {
     `\n\nScore each 1-10 on:\n` +
     `- clear: does it make complete sense on its own -- a clear point a stranger understands the first time? ` +
     `Vague, confusing, missing context, or a story only the speaker understands = low.\n` +
-    `- relatable: would most women watching see their own life in it?\n` +
-    `- share: would a woman send it to a friend or comment on it?\n` +
-    `A line addressed TO men ("your girl", "bro") scores relatable 1. A line that asks the viewer questions instead ` +
+    `- relatable: would most men watching see their own dating life in it and want to know this?\n` +
+    `- share: would a man send it to a friend, save it, or comment on it?\n` +
+    `A line addressed TO women ("girl", "ladies", "if he...") scores relatable 1. A line that asks the viewer questions instead ` +
     `of making a point scores clear 4 or less.\n` +
     `Return JSON only: {"scores": [{"i": <index>, "clear": n, "relatable": n, "share": n, "why": "few words"}]}`;
   try {
@@ -1383,20 +1384,20 @@ async function writeTalkLine(env, body) {
   // A viral format, rotated so no two talks sound alike (2026-11-05: "boring, it must be viral").
   const format = TALK_FORMATS[Math.floor(Math.random() * TALK_FORMATS.length)];
   const prompt =
-    `You write what a real woman says in a TikTok/Reels talking clip that makes women stop, feel it in their chest, ` +
+    `You write what a real woman says in a TikTok/Reels talking clip that makes men stop, think \"she's right\", ` +
     `and send it to a friend. ${b.name}, ${b.age || 24}, ${b.personality || "warm, honest, a little sassy"}, says it ` +
     `to a close friend on a podcast. Her topic: ${topic}.\n` +
     (transcript ? `A popular short says:\n"""${String(transcript).slice(0, 2500)}"""\n` +
                   (any_topic ? `Take its most moving or most provocative single idea (whatever it is about), in her own words -- do NOT copy its sentences.\n`
                              : `If it has no clear idea about ${topic}, return {"on_topic": false}. Otherwise take its most moving or ` +
                                `provocative single idea, in her own words -- do NOT copy its sentences.\n`)
-                : `Pick the feeling on this topic that women carry quietly and rarely say out loud.\n`) +
+                : `Pick the truth on this topic that women think but rarely tell men out loud.\n`) +
     (said.length ? `Already said (a DIFFERENT idea, not a rewording of any of these):\n- ${said.join("\n- ")}\n` : "") +
     `Use this format, adapted to her topic (it need not be about a man): ${format} ` +
     `(the words in capitals are only the format's name -- never say them).\n` +
-    `She talks TO WOMEN watching. STAY ON HER TOPIC: it decides what the line is about. Bring a man or an ex in only ` +
-    `if her topic is about men or relationships -- money is about money, discipline about discipline, friendship about ` +
-    `friends, family about family. Never another "if he ..." dating line when the topic is something else.\n\n` +
+    // 2026-11-24: her talks are a woman's advice for men.
+    `She talks TO MEN watching ("you" = the man): what women really notice, want and feel about ${topic}, honest ` +
+    `and on his side. Never "girl", "ladies" or "if he ..." lines for women; never bashing men or women.\n\n` +
     `What makes it land -- all of these:\n` +
     `1. HOOK: the first 3-6 words pull you in on their own: a confession, a moment, a callout -- never a soft ` +
     `opener ("I think", "Sometimes", "It's important", "Remember").\n` +
@@ -3133,7 +3134,9 @@ async function kaggleRefused(env, p, state, err) {
   const day = st.today();
   const told = state.kaggle_full?.told === day;
   state.kaggle_full = { until: Date.now() + 6 * 3600 * 1000, note: msg, told: day };
-  if (!told && p.chat_id) {
+  // Not posted in the channel any more (2026-11-24, "fix the errors in telegram"): jobs just wait.
+  console.log(`kaggle refused: ${msg}`);
+  if (false && !told && p.chat_id) {
     await tg(env, "sendMessage", { chat_id: p.chat_id, disable_notification: true,
       text: `⚠️ Kaggle refused a run: ${msg}\nJobs wait for the laptop (persona agent) until it frees up.` }).catch(() => {});
   }
@@ -3191,7 +3194,10 @@ async function advanceJobs(env, p, origin) {
   const day = st.today();
   const kt = state.kaggle_talks?.day === day ? state.kaggle_talks.n : 0;
   const ktCap = Number(env.PERSONA_KAGGLE_TALKS_PER_DAY || (p.talk_hours || []).length || 1);
-  if (!laptopUp && !kaggleFull(state) && Date.now() - (await laptopSeen(env)) > 3600 * 1000 && kt < ktCap &&
+  // Off since 2026-11-24: every Kaggle talk failed ("python -m persona.talk ... exit status 1" --
+  // the split render and TaoMate only exist on the laptop), and with no viral source there its line
+  // was made up. Talks wait for the laptop. PERSONA_KAGGLE_TALKS=1 turns it back on.
+  if (env.PERSONA_KAGGLE_TALKS === "1" && !laptopUp && !kaggleFull(state) && Date.now() - (await laptopSeen(env)) > 3600 * 1000 && kt < ktCap &&
       !state.queue.some((x) => x.kind === "talk" && !x.local_only)) {
     const q = state.queue.find((x) => x.kind === "talk" && x.local_only && Date.now() - (x.created || 0) > 3600 * 1000);
     if (q) {
