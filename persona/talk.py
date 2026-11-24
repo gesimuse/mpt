@@ -72,7 +72,9 @@ HAIR = ["loose soft waves", "a sleek high ponytail", "a messy low bun with loose
 REAL = ("Candid vertical phone video frame, shot on an iPhone, natural colours, real skin texture with pores, "
         "no retouching, slight sensor noise. The room is clean and tidy, nothing messy, indoors.")
 # Her everyday face on a talk (2026-11-11, "very unrealistic"): said positively, Qwen 2.1 skips negatives.
-BARE = ("Her face is her everyday face: light everyday makeup, her lips in their own soft natural colour, "
+BARE = ("Her face is her everyday face: light everyday makeup, natural average-size lips in their own soft "
+        # 2026-11-24: Skye's full, pouty, filler-looking lips pulled the whole talk into pouting.
+        "natural colour, her mouth relaxed and gently closed, a calm neutral expression, "
         "natural short lashes, matte skin with visible pores, faint freckles and small imperfections, a real "
         "ordinary woman filming herself at home.")
 
@@ -434,7 +436,7 @@ def _trim_silence(src, dest):
         "-ac", "1", "-ar", "44100", dest)
 
 
-def speak(char, studio, face, ref, line, work, slack=1.0):
+def speak(char, studio, face, ref, line, work, slack=1.0, take=0):
     """Her saying the line: LTX-2.3 makes her voice (from her reference voice) and her face
     talking TOGETHER, and that clip is the talk (2026-11-10: it moved more naturally than
     InfiniteTalk re-animating her to the voice, the lips blurred less, and it is ~5x faster).
@@ -447,8 +449,8 @@ def speak(char, studio, face, ref, line, work, slack=1.0):
     s = studio.engine.build_settings(LTX_VOICE_MODEL, prompt=_speech_prompt(char.bible, said),
                                      image_start=str(face), image_prompt_type="S", audio_guide=str(ref),
                                      audio_prompt_type="A1OF", video_length=frames, resolution=TALK_RES, seed=-1)
-    clip = studio.engine.run(s, work, "speech")[-1]
-    voice = work / "speech-raw.wav"
+    clip = studio.engine.run(s, work, f"speech{take}")[-1]
+    voice = work / f"speech-raw{take}.wav"
     _ff("-i", clip, "-vn", "-ac", "1", "-ar", "44100", voice)
     return voice, clip
 
@@ -666,16 +668,29 @@ def render(job, char, studio, work):
                 "scene": (job.get("theme") or name, th.get("where") or where, th.get("behind") or behind, th.get("light") or light)}
     face = frame(char, studio, look, work)
     have = _done_with(studio, have)
-    voice, clip = speak(char, studio, face, ref, info["line"], work)
-    have = _done_with(studio, have)
-    # Her last word must be in the voice (2026-11-05: it was sometimes cut): heard by
-    # Whisper, and made again with more room once if it is missing.
-    end = _line_end(voice, info["line"])
-    if end is None:
-        log(f"{char.slug}: last word cut, speaking it again with more room")
-        voice, clip = speak(char, studio, face, ref, info["line"], work, slack=1.35)
-        have = _done_with(studio, have)
+    # Two takes, the calmer mouth kept (2026-11-24: LTX still pulled a pout or a wide-open
+    # yell on some words; ~7 min a take, and TaoMate's 28 min are gone).
+    takes = []
+    for k in range(max(1, int(config.env("PERSONA_TALK_TAKES", "2")))):
+        voice, clip = speak(char, studio, face, ref, info["line"], work, take=k)
+        # Her last word must be in the voice (2026-11-05: it was sometimes cut): heard by
+        # Whisper, and made again with more room once if it is missing.
         end = _line_end(voice, info["line"])
+        if end is None:
+            log(f"{char.slug}: last word cut, speaking it again with more room")
+            voice, clip = speak(char, studio, face, ref, info["line"], work, slack=1.35, take=k + 10)
+            end = _line_end(voice, info["line"])
+        if end is None and k:
+            continue
+        try:
+            from . import mouth
+            sc, why = mouth.score(clip, end if end and end != float("inf") else None)
+        except Exception as e:
+            sc, why = None, f"unscored: {type(e).__name__}"
+        log(f"{char.slug}: take {k + 1} mouth {why}")
+        takes.append((sc if sc is not None else 9.0, voice, clip, end))
+    have = _done_with(studio, have)
+    _, voice, clip, end = min(takes, key=lambda t: t[0])
     if end and end != float("inf"):
         log(f"{char.slug}: line ends at {end:.1f}s of {_duration(clip):.1f}s")
     video = _trim_ends(clip, work / "talk.mp4", end=end if end and end != float("inf") else None)
@@ -688,16 +703,17 @@ def finish(job, char, video, face, info, work):
     """Her face refined, then captions. Returns (final mp4 path, line info)."""
     # Her face refined by TaoMate-FVSR (2026-11-11, the user's pick: sharp lips and teeth
     # that follow her voice); GFPGAN (strong blend) if it fails or PERSONA_TAOMATE=0.
+    # The raw clip and her frame, kept to compare mouths and teeth (2026-11-13): local only, never posted.
+    dbg = config.home() / "talk-debug"
+    dbg.mkdir(exist_ok=True)
+    shutil.copyfile(video, dbg / f"{job['id']}-raw.mp4")
+    shutil.copyfile(face, dbg / f"{job['id']}-face.jpg")
     try:
-        if not config.flag("PERSONA_TAOMATE", "1"):
+        # Off since 2026-11-24 ("mouth movements are too fadey": at half strength it blended two
+        # mouths into soft smeared lips; LTX's own clip is sharper). 28 min a talk saved.
+        if not config.flag("PERSONA_TAOMATE", "0"):
             raise RuntimeError("off")
         from . import taomate
-        # The raw clip and her frame kept for the teeth comparison (2026-11-13, "the bloody teeth
-        # are scary"): local only, never posted.
-        dbg = config.home() / "talk-debug"
-        dbg.mkdir(exist_ok=True)
-        shutil.copyfile(video, dbg / f"{job['id']}-raw.mp4")
-        shutil.copyfile(face, dbg / f"{job['id']}-face.jpg")
         # Half strength (2026-11-14 A/B on Lena's raw clip): at 1.0 TaoMate redraws the mouth from the
         # audio and invents gappy, crooked teeth ("the bloody teeth are scary"); at 0.5 her own even
         # teeth from LTX show through and the face is still sharpened. H3 kept teeth clean but
@@ -706,8 +722,10 @@ def finish(job, char, video, face, info, work):
                                opts={"face_strength": float(config.env("PERSONA_TAOMATE_STRENGTH", "0.5"))})
         log(f"{char.slug}: face refined (TaoMate)")
     except Exception as e:
-        log(f"TaoMate skipped ({e}); GFPGAN instead")
+        log(f"TaoMate skipped ({e})")
         try:
+            if not config.flag("PERSONA_TALK_GFPGAN", "0"):
+                raise RuntimeError("off")
             from . import faceswap
             video = faceswap.sharpen_video(video, work / "talk-sharp.mp4", blend=0.8)
         except Exception as e:
