@@ -1300,7 +1300,9 @@ async function adaptTalk(env, b, topic, transcript, views, said, anyTopic) {
       if (out.usable === false) return null;
       const cands = (Array.isArray(out.candidates) ? out.candidates : [])
         .map((c, k) => ({ ...c, k, line: String(c.line || "").replace(/\s+/g, " ").trim() }))
-        .filter((c) => { const n = c.line.split(" ").length; return n >= 14 && n <= 55 && (c.line.match(/[.!?]/g) || []).length >= 2 && !/#|https?:/.test(c.line); })
+        .filter((c) => { const n = c.line.split(" ").length; return n >= 14 && n <= 55 && (c.line.match(/[.!?]/g) || []).length >= 2 && !/#|https?:/.test(c.line) &&
+          // 2026-11-24, Leila: "Why the fuck wouldn't I..." -- swearing made her shout and pull faces on video.
+          !/\b(fuck|fucking|shit|bitch|damn|ass)\b/i.test(c.line); })
         // Really the short's words: most of its 3-word runs are in the transcript.
         .filter((c) => verbatim(c.line, transcript) >= 0.6);
       if (!cands.length) console.log("talk adapt: no verbatim cut", JSON.stringify(out.candidates || []).slice(0, 300));
