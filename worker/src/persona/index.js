@@ -1261,7 +1261,9 @@ async function adaptTalk(env, b, topic, transcript, views, said, anyTopic) {
   const prompt =
     `This short went viral${views ? ` (${Number(views).toLocaleString("en-US")} views)` : ""}:\n"""${String(transcript).slice(0, 2500)}"""\n\n` +
     `First: is it ONE person giving an opinion, advice or a hard truth to camera about women, men, dating or ` +
-    `relationships, with a point a man watching could use with the women in his life? If it is song lyrics, a skit, a vlog, chatter or a couple's video, return {"usable": false}. ` +
+    `relationships, with a point a man watching could use with the women in his life? A podcast or interview clip ` +
+    // 2026-11-25: most hashtag shorts are podcast clips; "ONE person to camera" turned them all away.
+    `counts if someone in it makes such a point. If it is song lyrics, a skit, a prank, a vlog or a couple's video with no such point, return {"usable": false}. ` +
     // 2026-11-11: a Trisha Paytas podcast confession became "I'm ashamed of what I did, it's hard to sleep."
     `Also {"usable": false} if it is someone's personal story or confession about events in their own life (an ` +
     `interview, a podcast anecdote, a celebrity talking about her past): out of context it means nothing to a viewer. ` +

@@ -390,8 +390,10 @@ def frame(char, studio, look, work):
 
 def _voice_words(b):
     accent = ACCENT.get(b.get("home_city", ""), "")
-    return (f"She has a soft, warm, gentle voice, slightly low and breathy{f', with a light {accent} accent' if accent else ''}, "
-            "natural like talking to a close friend.")
+    # "slightly low and breathy" until 2026-11-25: it made the talks sultry -- half-closed eyes and
+    # kiss-shaped lips (Leila). Her own voice still comes from her reference clip.
+    return (f"She has a clear, warm, friendly everyday voice{f', with a light {accent} accent' if accent else ''}, "
+            "natural and upbeat like talking to a close friend.")
 
 
 def _speech_prompt(b, line):
