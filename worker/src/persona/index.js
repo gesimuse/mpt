@@ -1272,6 +1272,9 @@ async function adaptTalk(env, b, topic, transcript, views, said, anyTopic) {
     `her off. NOT romantic, poetic or deep-love talk ("soul", "heart", "forever", "real love") -- men skip that; ` +
     `{"usable": false} if the short is mostly that. ` +
     `Never bash men or women in general, no pickup tricks, no manipulation, no "make her jealous" games.` +
+    // 2026-11-25, the user: "I don't want about paying shit on date" (Leila: "just pay the bill").
+    ` Nothing about money: who pays, splitting the bill, paying for dates, buying her things, his income -- ` +
+    `{"usable": false} if that is the short's point.` +
     // 2026-11-24, the user: "go a bit spicy if needed".
     ` Spicy is welcome: attraction, flirting, tension, kissing, what makes a man sexy to her, confidence in the ` +
     `bedroom said with a wink -- bold and teasing, but never explicit (no sex acts, no body parts): TikTok-safe. ` +
@@ -1307,7 +1310,8 @@ async function adaptTalk(env, b, topic, transcript, views, said, anyTopic) {
           // old "14+ words, 2+ sentences" bar (made for word-for-word cuts) dropped every one. 15+ words:
           // Chloe's 11 words were a 3.7s talk.
           // 2026-11-24, Leila: "Why the fuck wouldn't I..." -- swearing made her shout and pull faces on video.
-          !/\b(fuck|fucking|shit|bitch|damn|ass)\b/i.test(c.line); })
+          !/\b(fuck|fucking|shit|bitch|damn|ass)\b/i.test(c.line) &&
+          !/\b(pay|pays|paying|paid|bill|check|split|splitting|money|wallet|tab|expensive|cheap|afford)\b/i.test(c.line); })
         ;
       if (!cands.length) console.log("talk adapt: no good version", JSON.stringify(out.candidates || []).slice(0, 300));
       // Read cold by a second pass: a line a stranger can't follow never goes out (2026-11-11).
