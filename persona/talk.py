@@ -80,7 +80,7 @@ SCENE_SOUND = {"street": "quiet street sounds, a distant car, a light breeze",
                "park": "birds and a light breeze", "gym": "faint gym music far in the background",
                "car": "the quiet inside of a parked car"}
 # She is already moving when it starts, not posed: a stop-scrolling first second without text.
-OPENERS = ["At the very start she is just lifting the phone up to her face, then talks right away.",
+OPENERS = ["At the very start she looks up into the lens as if she just thought of something, then talks right away.",
            "At the very start she glances off to the side, then turns to the lens and starts talking.",
            "At the very start she tucks a strand of hair behind her ear as she starts talking.",
            "At the very start she gives a small knowing laugh, then starts talking."]
