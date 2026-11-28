@@ -431,11 +431,13 @@ def _speech_prompt(b, line, scene="", react=""):
     return ("A real selfie video: a young woman holds her phone at arm's length and talks straight into the front camera, "
             "to the viewer, like a friend on FaceTime. " +
             # A POV skit (2026-11-28, "yeah nice"): she reacts to a message first, then says her line.
-            (f"At the start {react}, then she looks back into the lens and says her line with a playful, teasing "
-             "attitude. " if react else random.choice(OPENERS) + " " if scene else "") +
+            # 2026-11-28 "the faces are exagerated": small real-person reactions, a dry delivery.
+            (f"At the start {react}; it is a small, subtle, natural reaction like a real girl filming herself, not "
+             "acting for a camera, her face barely changes. Then she looks back into the lens and says her line "
+             "casually, dry and a little amused. " if react else random.choice(OPENERS) + " " if scene else "") +
             "The phone stays at arm's length the whole time, the same distance "
             "and framing from start to end, her head and shoulders in frame; it moves only very slightly with her hand. "
-            f"{_voice_words(b)} She says: \"{line}\" " + ("She says it in a playful, teasing, natural tone, the sentences"
+            f"{_voice_words(b)} She says: \"{line}\" " + ("She says it casually in a dry, deadpan, slightly amused tone, her face calm, the sentences"
             if react else "She talks at a normal conversational pace in a calm, even, "
             "matter-of-fact tone, like giving a friend a quick tip, the sentences") + " flowing one into the next with short "
             "natural breaths. Her face stays relaxed and neutral the whole time: her eyes stay on the lens, her head stays "
