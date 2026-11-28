@@ -1,0 +1,36 @@
+// POV reaction skits (2026-11-28: the user on the first three, "not bad" / "yeah nice"): she reads a
+// message on her phone, reacts, then one short line to camera. Hand-written so every one is a real
+// joke; nothing about money (2026-11-24). `react` is what her face does before she talks.
+const READ = "she glances down at her phone screen reading a message, ";
+export const POV_SKITS = [
+  ["POV: you text her \"wyd\" at 2am", "raises one eyebrow and gives a small smirk", "Wyd? At two a.m.? Goodnight, babe."],
+  ["POV: you tell her you're \"not like other guys\"", "then slowly rolls her eyes with a little smile", "That is exactly what the other guys said."],
+  ["POV: you ask her out with an actual plan", "her eyebrows lift and a surprised smile spreads", "Wait, you actually planned something? Okay, I'm listening."],
+  ["POV: you reply \"k\" to her paragraph", "her smile drops into a flat, unimpressed stare", "I wrote you an essay and you gave me one letter. Noted."],
+  ["POV: you remembered the small thing she said last week", "her face softens into a slow, warm smile", "You remembered that? Okay, now you have my attention."],
+  ["POV: you sent her a meme instead of saying sorry", "presses her lips together, trying not to laugh", "Funny. Still mad. But funny."],
+  ["POV: you said \"I'll call you later\" three days ago", "tilts her head with a fake sweet smile", "Later is a time, babe, not a lifestyle."],
+  ["POV: you complimented her laugh, not her looks", "blushes and looks away for a second, smiling", "Okay, that one actually got me."],
+  ["POV: you liked her story but didn't text back", "narrows her eyes slowly", "So you saw it. And you chose silence. Interesting."],
+  ["POV: you asked \"you up?\"", "laughs once and shakes her head", "I'm up. Just not for you."],
+  ["POV: you told her she's \"different from other girls\"", "squints, half amused", "Different how? Choose your next words carefully."],
+  ["POV: you texted her good morning without being asked", "breaks into a sleepy, happy smile", "A good morning text? Okay, the bar was low, but you cleared it."],
+  ["POV: you said \"we'll see\" when she asked about plans", "slowly raises both eyebrows", "We'll see means no, and we both know it."],
+  ["POV: you double texted her", "smiles with mock surprise, hand on her chest", "A double text? Confidence. I respect it."],
+  ["POV: you sent \"hey stranger\" after two months", "stares blankly, then smirks", "Stranger is right. Stay that way."],
+  ["POV: you actually listened to her rant", "looks up, genuinely touched, then smiles", "You listened to all of it? Marry me. Kidding. Mostly."],
+  ["POV: you said \"calm down\" in an argument", "freezes, then gives a slow dangerous smile", "Oh, now I'm very calm. Scary calm."],
+  ["POV: you planned the date and picked her up", "gasps softly with a big smile", "You picked me up? Who raised you? Tell them thank you."],
+  ["POV: you gave one-word answers all night", "yawns dramatically", "Talking to you is like texting a wall. A nice wall."],
+  ["POV: you asked her about her day and meant it", "pauses, then smiles slowly", "No one asks that and actually waits for the answer. Okay."],
+  ["POV: you said \"you look tired\"", "blinks slowly, unimpressed", "I did my makeup for forty minutes. Try again."],
+  ["POV: you showed up on time", "checks the time, then looks up impressed", "On time? Okay, early points for you."],
+  ["POV: you said \"I'm bad at texting\"", "gives a tight polite smile", "You're not bad at texting. You're bad at texting me."],
+  ["POV: you noticed she changed her hair", "touches her hair and lights up", "You noticed? Okay, you can stay."],
+  ["POV: you said \"let's just see where it goes\"", "nods slowly with a fake smile", "Where it goes is nowhere. I know this road."],
+  ["POV: you put your phone away on the date", "looks surprised, then smiles warmly", "Phone away? That's the most attractive thing you did tonight."],
+  ["POV: you sent her a voice note singing", "covers her mouth, laughing", "That was terrible. Send another one."],
+  ["POV: you told her \"you're overthinking\"", "stares, then takes a breath", "I'm thinking the right amount about the wrong guy."],
+  ["POV: you made her laugh on the first date", "smiles and bites her lip", "Funny and cute? That's dangerous. Second date."],
+  ["POV: you asked for her number like a grown man", "raises her eyebrows, impressed", "No DM, no games, just asked? Okay, here."],
+].map(([label, react, line]) => ({ label, react: READ + react, line }));

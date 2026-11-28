@@ -30,6 +30,7 @@ import * as st from "./state.js";
 import * as scenes from "./scenes.js";
 import * as personas from "./personas.js";
 import * as social from "./social.js";
+import { POV_SKITS } from "./pov.js";
 import * as captions from "./captions.js";
 import * as tiktok from "./tiktok.js";
 import * as instagram from "./instagram.js";
@@ -794,6 +795,20 @@ function queueTalk(p, state, extra = null) {
     const pool = (p.talkers?.length ? p.talkers : p.characters);
     who = pool[(state.talk_rotation || 0) % pool.length];
     state.talk_rotation = (state.talk_rotation || 0) + 1;
+  }
+  // aiqube (2026-11-28): 3 of its 5 talk slots a day are POV reaction skits, the other 2 talks.
+  if (isRoster(p) && !extra && ![1, 3].includes((state.talk_n || 0) % 5)) {
+    const used = new Set(state.pov_used || []);
+    const sk = POV_SKITS.find((s) => !used.has(s.label));
+    if (sk) {
+      state.pov_used = [...used, sk.label];
+      state.talk_n = (state.talk_n || 0) + 1;
+      state.queue.push({ id: `talk-${who}-${Date.now()}`, kind: "talk", character: who, topic: "pov skit", chat: p.chat_id,
+                         local_only: true, bw: false, pov: { label: sk.label, react: sk.react },
+                         given_line: sk.line, given_keywords: [], given_hook: "", given_desc: sk.label,
+                         given_caption: `${sk.label} 😏 #pov #dating #relatable #aigenerated` });
+      return `${p.slug}: 🎭 POV skit queued for ${who} (${sk.label})`;
+    }
   }
   // Lena (2026-11-06: "lena to get all, with always what is most viral"): every girl's topic
   // and every source account, the most-shared short among all of them, whatever its topic.

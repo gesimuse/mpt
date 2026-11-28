@@ -425,15 +425,19 @@ def _voice_words(b):
             "natural and upbeat like talking to a close friend.")
 
 
-def _speech_prompt(b, line, scene=""):
+def _speech_prompt(b, line, scene="", react=""):
     # Real talk, not a reading (2026-11-06: "the long pauses are awkward... make it more real"):
     # a normal conversational pace with feeling. Since 2026-11-11 a selfie: she talks into the lens.
     return ("A real selfie video: a young woman holds her phone at arm's length and talks straight into the front camera, "
-            "to the viewer, like a friend on FaceTime. " + (random.choice(OPENERS) + " " if scene else "") +
+            "to the viewer, like a friend on FaceTime. " +
+            # A POV skit (2026-11-28, "yeah nice"): she reacts to a message first, then says her line.
+            (f"At the start {react}, then she looks back into the lens and says her line with a playful, teasing "
+             "attitude. " if react else random.choice(OPENERS) + " " if scene else "") +
             "The phone stays at arm's length the whole time, the same distance "
             "and framing from start to end, her head and shoulders in frame; it moves only very slightly with her hand. "
-            f"{_voice_words(b)} She says: \"{line}\" She talks at a normal conversational pace in a calm, even, "
-            "matter-of-fact tone, like giving a friend a quick tip, the sentences flowing one into the next with short "
+            f"{_voice_words(b)} She says: \"{line}\" " + ("She says it in a playful, teasing, natural tone, the sentences"
+            if react else "She talks at a normal conversational pace in a calm, even, "
+            "matter-of-fact tone, like giving a friend a quick tip, the sentences") + " flowing one into the next with short "
             "natural breaths. Her face stays relaxed and neutral the whole time: her eyes stay on the lens, her head stays "
             "steady with only small gentle nods, natural blinks. Her mouth makes small, precise movements that match each "
             "word, like a newsreader: lips relaxed and flat, corners of the mouth neutral, the mouth opening just a little "
@@ -473,17 +477,17 @@ def _trim_silence(src, dest):
         "-ac", "1", "-ar", "44100", dest)
 
 
-def speak(char, studio, face, ref, line, work, slack=1.0, take=0, scene=""):
+def speak(char, studio, face, ref, line, work, slack=1.0, take=0, scene="", react=""):
     """Her saying the line: LTX-2.3 makes her voice (from her reference voice) and her face
     talking TOGETHER, and that clip is the talk (2026-11-10: it moved more naturally than
     InfiniteTalk re-animating her to the voice, the lips blurred less, and it is ~5x faster).
     Her soft voice says ~2 words a second; the clip gets room for that plus a margin (`slack`
     > 1 on a retry), so the last word is never past its end (2026-11-05). Returns (voice, clip)."""
-    seconds = min(26.0, (len(line.split()) / 2.0 + 2.5) * slack)
+    seconds = min(26.0, (len(line.split()) / 2.0 + 2.5) * slack + (2.0 if react else 0))
     frames = int(seconds * 24) // 8 * 8 + 9
     # Said, not read: "..." and dashes made the model stop dead mid-line.
     said = re.sub(r"\s*(\.\.\.|…|--|—|–)\s*", ", ", line).replace(", ,", ",")
-    s = studio.engine.build_settings(LTX_VOICE_MODEL, prompt=_speech_prompt(char.bible, said, scene),
+    s = studio.engine.build_settings(LTX_VOICE_MODEL, prompt=_speech_prompt(char.bible, said, scene, react),
                                      image_start=str(face), image_prompt_type="S", audio_guide=str(ref),
                                      audio_prompt_type="A1OF", video_length=frames, resolution=TALK_RES, seed=-1)
     clip = studio.engine.run(s, work, f"speech{take}")[-1]
@@ -492,7 +496,7 @@ def speak(char, studio, face, ref, line, work, slack=1.0, take=0, scene=""):
     return voice, clip
 
 
-def _trim_ends(clip, dest, end=None):
+def _trim_ends(clip, dest, end=None, keep_start=False):
     """The silence before her first word and after her last cut off, picture and sound
     together. Pauses INSIDE the line stay: cut out they made the clip jump at every one
     (2026-11-10, "a is defo better"). `end`: where her line is over (_line_end); anything
@@ -503,7 +507,7 @@ def _trim_ends(clip, dest, end=None):
     st = [float(x) for x in re.findall(r"silence_start: ([\d.]+)", err)]
     en = [float(x) for x in re.findall(r"silence_end: ([\d.]+)", err)]
     sil = list(zip(st, en + [total] * (len(st) - len(en))))
-    head = next((max(0.0, b - 0.1) for a, b in sil if a <= 0.05), 0.0)
+    head = 0.0 if keep_start else next((max(0.0, b - 0.1) for a, b in sil if a <= 0.05), 0.0)
     tail = next((min(total, a + 0.6) for a, b in sil if b >= total - 0.05 and a > head), total)
     tail = min(tail, total)
     _ff("-ss", f"{head:.3f}", "-to", f"{tail:.3f}", "-i", clip, "-c:v", "libx264", "-crf", "16", "-c:a", "aac", dest)
@@ -727,14 +731,15 @@ def render(job, char, studio, work):
     # Two takes, the calmer mouth kept (2026-11-24: LTX still pulled a pout or a wide-open
     # yell on some words; ~7 min a take, and TaoMate's 28 min are gone).
     takes = []
+    react = (job.get("pov") or {}).get("react", "")
     for k in range(max(1, int(config.env("PERSONA_TALK_TAKES", "2")))):
-        voice, clip = speak(char, studio, face, ref, info["line"], work, take=k, scene=look["scene"][0])
+        voice, clip = speak(char, studio, face, ref, info["line"], work, take=k, scene=look["scene"][0], react=react)
         # Her last word must be in the voice (2026-11-05: it was sometimes cut): heard by
         # Whisper, and made again with more room once if it is missing.
         end = _line_end(voice, info["line"])
         if end is None:
             log(f"{char.slug}: last word cut, speaking it again with more room")
-            voice, clip = speak(char, studio, face, ref, info["line"], work, slack=1.35, take=k + 10, scene=look["scene"][0])
+            voice, clip = speak(char, studio, face, ref, info["line"], work, slack=1.35, take=k + 10, scene=look["scene"][0], react=react)
             end = _line_end(voice, info["line"])
         if end is None and k:
             continue
@@ -749,7 +754,7 @@ def render(job, char, studio, work):
     _, voice, clip, end = min(takes, key=lambda t: t[0])
     if end and end != float("inf"):
         log(f"{char.slug}: line ends at {end:.1f}s of {_duration(clip):.1f}s")
-    video = _trim_ends(clip, work / "talk.mp4", end=end if end and end != float("inf") else None)
+    video = _trim_ends(clip, work / "talk.mp4", end=end if end and end != float("inf") else None, keep_start=bool(react))
     r = {"video": str(video), "face": str(face), "info": info}
     (work / "render.json").write_text(json.dumps(r, ensure_ascii=False))
     return r
@@ -790,6 +795,8 @@ def finish(job, char, video, face, info, work):
     label = f"{job['series']} #{job['episode']}" if job.get("series") and job.get("episode") else ""
     if job.get("follow_line") and job.get("series"):
         label = f"{job['series']} · Part 2"
+    if job.get("pov"):
+        label = job["pov"].get("label", "")
     final = captions(video, info.get("keywords"), work, work / "final.mp4", bw=bool(job.get("bw")),
                      # No hook text on screen (the user, 2026-11-28: "text hooks are very much shit"):
                      # her own first sentence is the hook, the clip opens on a punch-in.
