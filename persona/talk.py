@@ -25,7 +25,8 @@ from pathlib import Path
 from . import config, hooktext, qa
 
 FPS_TALK = 25
-LTX_VOICE_MODEL = {"id": "ltx-voice", "wan2gp_model_type": "ltx2_22B_distilled_1_1"}
+# LTX-2.5 since 2026-11-28 (same POV skit, same face: pout 0.12 vs 0.19 on 2.3; the user: "nice").
+LTX_VOICE_MODEL = {"id": "ltx-voice", "wan2gp_model_type": "ltx2_25_22B_distilled"}
 LTX_FIRST_VOICE = {"id": "ltx-first-voice", "wan2gp_model_type": "ltx2_25_22B_distilled"}
 # Talks are LTX-2 clips at this size since 2026-11-10 (576x1024 looked sharper than 448x768,
 # 7 min a talk). InfiniteTalk (animate) is kept for reference, unused.
