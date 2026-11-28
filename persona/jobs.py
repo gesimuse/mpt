@@ -103,6 +103,7 @@ def recreate(job, char, out, inp, work_root, code_dir):
         # run as child processes and read the slug from the environment.
         import os
         os.environ["PERSONA_RECREATE_SLUG"] = char.slug
+        os.environ["PERSONA_RECREATE_KEEP_HAIR"] = "0" if not job.get("fit") or fit.LAST_HAIR_OK else "1"
         cmd = [sys.executable, "-m", "persona.recreate", str(src), str(work)]
         if job.get("seconds"):
             cmd += ["--seconds", str(job["seconds"])]

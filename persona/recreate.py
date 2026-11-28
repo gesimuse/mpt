@@ -132,6 +132,13 @@ def _stage_edit(work):
               "facial expression, eye direction, eyelids and mouth shape, clothing, camera framing, background and "
               "lighting; only her identity -- face, hair and body -- becomes the woman from image 2 "
               f"({char.bible.get('identity', '')}).")
+    if config.flag("PERSONA_RECREATE_KEEP_HAIR", "0"):
+        # Her hair is unlike the clip's (2026-11-28: a short bob over long blonde hair left both):
+        # the clip's own hair stays, all of it, and only her face and body change.
+        prompt = ("Replace the woman in image 1 with the woman from image 2. Keep image 1's exact pose, hand positions, "
+                  "facial expression, eye direction, eyelids and mouth shape, clothing, camera framing, background and "
+                  "lighting, and keep image 1's hair exactly as it is -- the same colour, length and style, all of it; "
+                  "only her face and body become the woman from image 2.")
     for first in sorted(work.glob("shot*-first.jpg")):
         stem = first.name.replace("-first.jpg", "-persona")
         s = eng.build_settings(model, prompt=prompt, image_refs=[str(first), str(front)],
