@@ -532,13 +532,32 @@ def _ass_time(s):
 HOOK_S = 2.6
 
 
-def captions(video, keywords, work, dest, bw=False, hook="", label="", reply=""):
+def _script_words(words, script):
+    """Whisper's word timings with the script's own spelling (2026-11-28: "wyd" captioned "wid"):
+    matched word by word where the two agree in length, Whisper's text kept elsewhere."""
+    import difflib
+    said = script.split()
+    if not said:
+        return words
+    norm = lambda t: re.sub(r"[^a-z0-9']", "", t.lower())
+    sm = difflib.SequenceMatcher(a=[norm(w["text"]) for w in words], b=[norm(t) for t in said], autojunk=False)
+    out = [dict(w) for w in words]
+    for op, a0, a1, b0, b1 in sm.get_opcodes():
+        if op in ("equal", "replace") and a1 - a0 == b1 - b0:
+            for i, j in zip(range(a0, a1), range(b0, b1)):
+                out[i]["text"] = " " + said[j]
+    return out
+
+
+def captions(video, keywords, work, dest, bw=False, hook="", label="", reply="", script=""):
     """Three words at a time, centre of the frame, keywords in yellow; 1080x1920.
     `bw`: graded black and white (the A/B test of 2026-10-27), captions still in colour.
     `hook`: slammed on screen over the first ~2.5s, with a punch-in on the first frame."""
     wav = work / "final.wav"
     _ff("-i", video, "-vn", "-ac", "1", "-ar", "16000", wav)
     words = _transcribe(wav, words=True)
+    if script:
+        words = _script_words(words, script)
     # The Worker sometimes gives phrases: every word of 4+ letters in them.
     keys = {w for k in keywords or [] for w in (re.sub(r"[^\w\s]", "", k).lower().split()) if len(w) >= 4}
     groups, cur = [], []
@@ -775,7 +794,7 @@ def finish(job, char, video, face, info, work):
                      # No hook text on screen (the user, 2026-11-28: "text hooks are very much shit"):
                      # her own first sentence is the hook, the clip opens on a punch-in.
                      hook=(info.get("hook") or "") if config.flag("PERSONA_TALK_HOOKTEXT", "0") else "",
-                     label=label, reply=job.get("reply_comment") or "")
+                     label=label, reply=job.get("reply_comment") or "", script=info.get("line") or "")
     return final, info
 
 
