@@ -378,12 +378,12 @@ async function advancePublish(env, p, state, origin) {
     const url = job.file_ids
       ? await Promise.all(job.file_ids.map((f) => mediaLink(env, origin, f, "jpg")))
       : await mediaLink(env, origin, job.file_id, job.kind === "video" ? "mp4" : "jpg");
-    const before = JSON.stringify([job.ig, job.fb, job.tt, job.retry_at]);
+    const before = JSON.stringify([job.ig, job.fb, job.th, job.yt, job.tt, job.retry_at]);
     await social.advance(env, p, job, url);
     // Saved only when something moved: this runs on every 30s laptop check-in, and an
     // unconditional save there overwrote taps and 🖼 requests that the webhook had
     // saved a moment before (2026-10-16, two carousel requests lost).
-    if (JSON.stringify([job.ig, job.fb, job.tt, job.retry_at]) === before) continue;
+    if (JSON.stringify([job.ig, job.fb, job.th, job.yt, job.tt, job.retry_at]) === before) continue;
     changed = true;
     if (job.retry_at && Date.now() < job.retry_at) continue;  // rate-limited: nothing to show yet
     if (job.quiet || !job.chat) continue;  // a daily Story: no post of its own to mark
