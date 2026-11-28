@@ -559,8 +559,8 @@ def captions(video, keywords, work, dest, bw=False, hook="", label="", reply="")
     cuts = [0.0] + [w["timestamp"][1] for w in words[:-1]
                     if re.search(r"[.!?]$", w["text"].strip()) and w["timestamp"][1]]
     spans = [(cuts[i], cuts[i + 1] if i + 1 < len(cuts) else 9999) for i in range(1, len(cuts), 2)]
-    # With a hook the clip opens punched in, cut back as the hook settles: motion on frame 0.
-    if hook and len(cuts) > 1 and cuts[1] > 1.0:
+    # The clip opens punched in, cut back after 0.8s: motion on frame 0 (with or without a hook text).
+    if len(cuts) > 1 and cuts[1] > 1.0:
         spans.insert(0, (0.0, 0.8))
     z = "+".join(f"between(t,{a:.2f},{b:.2f})" for a, b in spans) or "0"
     zoom = (f"scale=w='trunc(max(1080,1920*iw/ih)*(1+0.13*({z}))/2)*2':h='trunc(max(1920,1080*ih/iw)*(1+0.13*({z}))/2)*2'"
@@ -748,7 +748,10 @@ def finish(job, char, video, face, info, work):
     if job.get("follow_line") and job.get("series"):
         label = f"{job['series']} · Part 2"
     final = captions(video, info.get("keywords"), work, work / "final.mp4", bw=bool(job.get("bw")),
-                     hook=info.get("hook") or "", label=label, reply=job.get("reply_comment") or "")
+                     # No hook text on screen (the user, 2026-11-28: "text hooks are very much shit"):
+                     # her own first sentence is the hook, the clip opens on a punch-in.
+                     hook=(info.get("hook") or "") if config.flag("PERSONA_TALK_HOOKTEXT", "0") else "",
+                     label=label, reply=job.get("reply_comment") or "")
     return final, info
 
 
