@@ -1173,12 +1173,54 @@ async function commentPicks(request, env) {
     }
   }
   if (!out.length) return Response.json({ ok: false, why: "no comments written" });
-  const esc = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  const text = [`💬 <b>Comment picks</b> -- open, paste, post from the app (early comments get seen):`,
-    ...out.map((c, i) => `\n${i + 1}. <a href="${c.url}">@${esc(c.account)}</a> · ${Math.round(c.views / 1000)}k views · ${c.comments_n} comments · ${c.age_h}h old\n` +
-      `<code>${esc(c.comment)}</code>` + (c.alts.length > 1 ? `\n<i>or:</i> ${c.alts.filter((a) => a !== c.comment).map(esc).join(" / ")}` : ""))].join("\n");
-  await tg(env, "sendMessage", { chat_id: p.chat_id, text: text.slice(0, 4000), parse_mode: "HTML", disable_web_page_preview: true });
+  const text = [`💬 <b>Comment picks</b> -- tap a button: it copies the comment and opens the video in TikTok, paste, post. Early comments get seen.`,
+    ...out.map((c, i) => `\n${i + 1}. @${esc(c.account)} · ${Math.round(c.views / 1000)}k views · ${c.comments_n} comments · ${c.age_h}h old\n` +
+      `<code>${esc(c.comment)}</code>`)].join("\n");
+  // Like Lena's "Post on Instagram": one tap copies and opens; opening marks it ✅ here.
+  const id = `cp${Date.now()}`, origin = new URL(request.url).origin;
+  const rec = { chat: p.chat_id, picks: out.map((c) => ({ url: c.url, account: c.account, comment: c.comment, alts: c.alts, done: false })) };
+  for (const [i, c] of rec.picks.entries()) c.link = `${origin}/persona/cpick?id=${id}&i=${i}&s=${await sign(env, `cpick.${id}.${i}`)}`;
+  const sent = await tg(env, "sendMessage", { chat_id: p.chat_id, text: text.slice(0, 4000), parse_mode: "HTML",
+    disable_web_page_preview: true, reply_markup: cpickKeyboard(rec) });
+  rec.message_id = sent.message_id;
+  await env.PERSONA.put(`cpick:${id}`, JSON.stringify(rec), { expirationTtl: 7 * 86400 });
   return Response.json({ ok: true, n: out.length });
+}
+
+const cpickKeyboard = (rec) => ({ inline_keyboard: rec.picks.map((c, i) =>
+  [{ text: `${c.done ? "✅" : "💬"} ${i + 1} · @${c.account}${c.done ? " -- opened" : " -- copy & open"}`, url: c.link }]) });
+
+/** One comment pick opened from the channel: marked ✅ there, a page with one button that copies
+ * the comment and opens the video in the TikTok app (a tap: phones only copy on a tap). */
+async function commentPickPage(request, env) {
+  const u = new URL(request.url);
+  const id = u.searchParams.get("id") || "", i = Number(u.searchParams.get("i") || 0);
+  if (u.searchParams.get("s") !== await sign(env, `cpick.${id}.${i}`)) return new Response("forbidden", { status: 403 });
+  const rec = await env.PERSONA.get(`cpick:${id}`, "json");
+  const c = rec?.picks?.[i];
+  if (!c) return new Response("This pick has expired.", { status: 404 });
+  if (!c.done) {
+    c.done = true;
+    await env.PERSONA.put(`cpick:${id}`, JSON.stringify(rec), { expirationTtl: 7 * 86400 });
+    await tg(env, "editMessageReplyMarkup", { chat_id: rec.chat, message_id: rec.message_id, reply_markup: cpickKeyboard(rec) }).catch(() => {});
+  }
+  const others = (c.alts || []).filter((a) => a !== c.comment);
+  const html = `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Comment</title><style>body{font:17px system-ui;margin:20px;background:#111;color:#eee}
+.c{background:#222;border-radius:12px;padding:16px;font-size:20px;margin:12px 0}
+button{display:block;width:100%;padding:18px;font-size:19px;border:0;border-radius:12px;background:#fe2c55;color:#fff;margin:10px 0}
+button.alt{background:#333;font-size:16px;padding:12px}small{color:#999}</style>
+<small>@${esc(c.account)} on TikTok</small>
+<div class="c" id="t">${esc(c.comment)}</div>
+<button id="go">Copy comment &amp; open TikTok</button>
+${others.map((a, k) => `<button class="alt" data-k="${k}">Use instead: ${esc(a)}</button>`).join("")}
+<small>Then in TikTok: tap 💬, long-press the box, Paste, post.</small>
+<script>
+const url=${JSON.stringify(c.url)}; let cur=${JSON.stringify(c.comment)}; const alts=${JSON.stringify(others)};
+document.querySelectorAll(".alt").forEach(b=>b.onclick=()=>{cur=alts[b.dataset.k];document.getElementById("t").textContent=cur});
+document.getElementById("go").onclick=async(e)=>{try{await navigator.clipboard.writeText(cur);e.target.textContent="✓ Copied, opening…"}catch{}setTimeout(()=>location.href=url,400)};
+</script>`;
+  return new Response(html, { headers: { "content-type": "text/html; charset=utf-8" } });
 }
 
 /** Talking-clip formats, one per talk at random. 2026-11-06 ("boring... we need more emotional
@@ -1691,6 +1733,7 @@ It reads the text of a comment or message only to write a reply, and stores noth
   if (u.pathname === "/persona/file") return serveFile(request, env);
   if (u.pathname.startsWith("/persona/media/")) return serveMedia(request, env);
   if (u.pathname === "/persona/share") return sharePage(request, env);
+  if (u.pathname === "/persona/cpick") return commentPickPage(request, env);
   if (u.pathname.startsWith("/persona/admin/")) return onAdmin(request, env);
   if (request.headers.get("X-Telegram-Bot-Api-Secret-Token") !== env.PERSONA_WEBHOOK_SECRET) {
     return new Response("forbidden", { status: 403 });
