@@ -553,6 +553,15 @@ def _script_words(words, script):
     return out
 
 
+SWEAR = re.compile(r"\b(fuck\w*|shit\w*|bullshit|damn|hell|ass|asshole|bitch\w*|piss\w*)\b", re.I)
+
+
+def _mask(text):
+    """Swears are said, never written (2026-11-28, the user: "not written"): sh*t, f*ck."""
+    return SWEAR.sub(lambda m: m.group(0)[:2] + "*" * (len(m.group(0)) - 3) + m.group(0)[-1]
+                     if len(m.group(0)) > 3 else m.group(0)[0] + "*" * (len(m.group(0)) - 1), text)
+
+
 def captions(video, keywords, work, dest, bw=False, hook="", label="", reply="", script=""):
     """Three words at a time, centre of the frame, keywords in yellow; 1080x1920.
     `bw`: graded black and white (the A/B test of 2026-10-27), captions still in colour.
@@ -578,6 +587,7 @@ def captions(video, keywords, work, dest, bw=False, hook="", label="", reply="",
         end = groups[i + 1][0]["timestamp"][0] if i + 1 < len(groups) else (g[-1]["timestamp"][1] or start + 1) + 0.4
         text = " ".join("{\\c&H00E5FF&}" + w["text"].strip() + "{\\c&HFFFFFF&}"
                         if re.sub(r"\W", "", w["text"]).lower() in keys else w["text"].strip() for w in g)
+        text = _mask(text)
         # The hook holds the caption's place for its first 2.6s: one text on screen at a time.
         if hook and end <= HOOK_S:
             continue
@@ -586,7 +596,7 @@ def captions(video, keywords, work, dest, bw=False, hook="", label="", reply="",
     if hook:
         lines.append(hooktext.event(hook, HOOK_S, y=1000))
     if label:
-        lines.append(hooktext.tag_event(label))
+        lines.append(hooktext.tag_event(_mask(label)))
     if reply:
         lines.append(hooktext.reply_event(reply))
     elif hook:
