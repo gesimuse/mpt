@@ -109,7 +109,9 @@ export function accounts(p) {
 
 /** Where her TikTok posts go: her own Buffer channel, else her talk_cross persona's. */
 async function tiktokTarget(env, p) {
-  if (p.buffer?.tiktok) return { channel: p.buffer.tiktok, slug: p.slug };
+  // Her TikTok can sit in another Buffer account than her Instagram (2026-11-28: Lena's in "lenajxo",
+  // token in KV buffertoken:lenajxo): buffer.tiktok_account names it.
+  if (p.buffer?.tiktok) return { channel: p.buffer.tiktok, slug: p.buffer.tiktok_account || p.slug };
   const via = (p.tiktok_via || p.talk_cross) && (await personas.get(env, p.tiktok_via || p.talk_cross));
   return via?.buffer?.tiktok ? { channel: via.buffer.tiktok, slug: via.slug, via: via.slug } : null;
 }
@@ -127,6 +129,8 @@ async function startTiktok(env, p, job, mediaUrl) {
   const live = !!((job.talk || job.recreate) && job.audio && job.kind === "video");
   // TikTok photo posts refuse the AI flag ("do not support AI content disclosure");
   // the caption's #aigenerated stays.
+  // Only what goes live by itself (talks, face swaps with sound): no app drafts piling up there.
+  if (!live && p.buffer?.tiktok_live_only) return { status: "skipped", note: "only talks go to TikTok" };
   const metadata = { tiktok: { title: text.split("\n")[0].slice(0, 90), ...(job.kind === "video" ? { isAiGenerated: true } : {}) } };
   const d = await gql(env, to.slug, CREATE, { input: {
     channelId: to.channel, text, assets: assetsFor(job, urls, alt), metadata, aiAssisted: true, schedulingType: "automatic",
