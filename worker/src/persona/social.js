@@ -66,7 +66,10 @@ const STATUS = `query($input: PostInput!) { post(input: $input) { id status dueA
  */
 async function startBuffer(env, p, job, mediaUrl, platform) {
   const channelId = p.buffer?.[platform];
-  if (platform === "facebook" && job.story) return { status: "skipped", note: "a Story stays on Instagram" };
+  if (platform !== "instagram" && job.story) return { status: "skipped", note: "a Story stays on Instagram" };
+  // Threads and YouTube Shorts (2026-11-28): her videos with their sound; YouTube takes only videos.
+  if (["threads", "youtube"].includes(platform) && job.kind === "video" && !job.audio) return { status: "skipped", note: "silent video" };
+  if (platform === "youtube" && job.kind !== "video") return { status: "skipped", note: "not a video" };
   // A silent Reel is shared from the phone, to add a song from Instagram's library
   // (the channel post's «Post on Instagram» button, index.js sharePage).
   if (platform === "instagram" && job.kind === "video" && !job.audio && !job.story) return { status: "done", mode: "phone" };
@@ -80,6 +83,10 @@ async function startBuffer(env, p, job, mediaUrl, platform) {
   const metadata = platform === "instagram"
     ? { instagram: job.story ? { type: "story", shouldShareToFeed: false, isAiGenerated: true }
                              : { type: video ? "reel" : "post", shouldShareToFeed: true, isAiGenerated: true } }
+    : platform === "threads" ? { threads: { type: "post" } }
+    : platform === "youtube" ? { youtube: { type: "short", title: (job.posts?.alt || text.split("\n")[0] || "Dating advice").slice(0, 95),
+                                            isAiGenerated: true, madeForKids: false, privacy: "public", categoryId: "22",
+                                            notifySubscribers: true } }
     : { facebook: { type: video ? "reel" : "post" } };
   const assets = job.story ? assetsFor(job, urls.slice(0, 1), alt) : assetsFor(job, urls, alt);
   const d = await gql(env, p.slug, CREATE, { input: {
@@ -181,6 +188,15 @@ export async function advance(env, p, job, mediaUrl) {
       job.fb = { status: "failed", note: String(e.message || e).slice(0, 200) };
     }
   }
+  // Threads and YouTube Shorts, when linked in her Buffer, at the same time as Instagram.
+  for (const [platform, key] of [["threads", "th"], ["youtube", "yt"]]) {
+    if (job[key] || !p.buffer?.[platform] || now < (job.due || 0)) continue;
+    try {
+      job[key] = await once(env, job, key, () => startBuffer(env, p, job, mediaUrl, platform));
+    } catch (e) {
+      job[key] = { status: "failed", note: String(e.message || e).slice(0, 200) };
+    }
+  }
   if (!job.tt && now >= ((job.talk && job.tt_due) || job.due || 0) && !(job.retry_at && now < job.retry_at)) {
     try {
       job.tt = await once(env, job, "tt", () => startTiktok(env, p, job, mediaUrl));
@@ -265,6 +281,8 @@ export function statusLine(job) {
       : r.mode === "queued" ? "🗓 Instagram: in Buffer's queue"
       : job.story ? "✅ Instagram Story: posted" : "✅ Instagram: posted"),
     ...(job.fb ? [line("Facebook", job.fb, job.due, () => "✅ Facebook: posted")] : []),
+    ...(job.th ? [line("Threads", job.th, job.due, () => "✅ Threads: posted")] : []),
+    ...(job.yt ? [line("YouTube", job.yt, job.due, () => "✅ YouTube Shorts: posted")] : []),
     line("TikTok", job.tt, (job.talk && job.tt_due) || job.due, (r) => r.mode === "draft"
       ? `📝 TikTok: a draft in ${r.via ? `${r.via}'s ` : ""}Buffer -- post it from the app`
       : r.mode === "notification" ? "📲 TikTok: Buffer sent it to your phone -- add a song and post"
