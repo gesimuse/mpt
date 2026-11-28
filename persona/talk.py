@@ -14,6 +14,7 @@ Her podcast portrait and reference voice are made once and kept in
 <character>/talk/ (portrait.jpg, voice_ref.wav).
 """
 import json
+import random
 import re
 import shutil
 import subprocess
@@ -60,7 +61,29 @@ SCENES = [
      "a tidy reading corner behind her: a floor lamp, a knitted throw", "soft overcast window light"),
     ("evening", "lying back against the pillows on her bed in the evening",
      "a calm bedroom behind her, a bedside lamp on", "warm bedside lamp light"),
+    # Out in her day too (2026-11-28, the user: "having more natural stuff would be great").
+    ("street", "walking slowly down a quiet tree-lined street",
+     "a quiet residential street behind her, trees and parked cars, softly blurred", "soft overcast daylight"),
+    ("cafe", "sitting at a small table in a cosy coffee shop, a coffee cup in front of her",
+     "a coffee shop behind her: a counter and a few people, softly blurred", "warm indoor cafe light"),
+    ("balcony", "standing on her apartment balcony",
+     "city rooftops and open sky behind her", "soft late-afternoon daylight"),
+    ("park", "sitting on a park bench",
+     "green trees and a path behind her, softly blurred", "soft daylight through the trees"),
+    ("gym", "sitting on a bench at the gym after her workout, a little flushed",
+     "a gym behind her with racks and machines, softly blurred", "bright even gym lighting"),
 ]
+# What the room sounds like (LTX makes the sound too): outside isn't "quiet room tone".
+SCENE_SOUND = {"street": "quiet street sounds, a distant car, a light breeze",
+               "cafe": "soft cafe chatter and cups clinking far in the background",
+               "balcony": "a light breeze and the distant hum of the city",
+               "park": "birds and a light breeze", "gym": "faint gym music far in the background",
+               "car": "the quiet inside of a parked car"}
+# She is already moving when it starts, not posed: a stop-scrolling first second without text.
+OPENERS = ["At the very start she is just lifting the phone up to her face, then talks right away.",
+           "At the very start she glances off to the side, then turns to the lens and starts talking.",
+           "At the very start she tucks a strand of hair behind her ear as she starts talking.",
+           "At the very start she gives a small knowing laugh, then starts talking."]
 # Low necklines, all safe for Lena's Instagram (no lingerie, nothing see-through).
 OUTFITS = ["a fitted black ribbed top with a low scoop neckline", "a fitted white tank top with a low neckline",
            "a beige knit sweater with a deep V-neck", "an open denim shirt over a low-cut white tank top",
@@ -402,11 +425,12 @@ def _voice_words(b):
             "natural and upbeat like talking to a close friend.")
 
 
-def _speech_prompt(b, line):
+def _speech_prompt(b, line, scene=""):
     # Real talk, not a reading (2026-11-06: "the long pauses are awkward... make it more real"):
     # a normal conversational pace with feeling. Since 2026-11-11 a selfie: she talks into the lens.
     return ("A real selfie video: a young woman holds her phone at arm's length and talks straight into the front camera, "
-            "to the viewer, like a friend on FaceTime. The phone stays at arm's length the whole time, the same distance "
+            "to the viewer, like a friend on FaceTime. " + (random.choice(OPENERS) + " " if scene else "") +
+            "The phone stays at arm's length the whole time, the same distance "
             "and framing from start to end, her head and shoulders in frame; it moves only very slightly with her hand. "
             f"{_voice_words(b)} She says: \"{line}\" She talks at a normal conversational pace in a calm, even, "
             "matter-of-fact tone, like giving a friend a quick tip, the sentences flowing one into the next with short "
@@ -420,7 +444,7 @@ def _speech_prompt(b, line):
             "of her mouth apart. Small closed-lip "
             # 2026-11-12, Sofia: gappy crooked teeth on wide grins ("horrible... scary").
             "smiles; when her teeth show they are straight, even, natural white upper teeth. "
-            "Background Sound: quiet room tone.")
+            f"Background Sound: {SCENE_SOUND.get(scene, 'quiet room tone')}.")
 
 
 def voice_ref(char, studio, face):
@@ -449,7 +473,7 @@ def _trim_silence(src, dest):
         "-ac", "1", "-ar", "44100", dest)
 
 
-def speak(char, studio, face, ref, line, work, slack=1.0, take=0):
+def speak(char, studio, face, ref, line, work, slack=1.0, take=0, scene=""):
     """Her saying the line: LTX-2.3 makes her voice (from her reference voice) and her face
     talking TOGETHER, and that clip is the talk (2026-11-10: it moved more naturally than
     InfiniteTalk re-animating her to the voice, the lips blurred less, and it is ~5x faster).
@@ -459,7 +483,7 @@ def speak(char, studio, face, ref, line, work, slack=1.0, take=0):
     frames = int(seconds * 24) // 8 * 8 + 9
     # Said, not read: "..." and dashes made the model stop dead mid-line.
     said = re.sub(r"\s*(\.\.\.|…|--|—|–)\s*", ", ", line).replace(", ,", ",")
-    s = studio.engine.build_settings(LTX_VOICE_MODEL, prompt=_speech_prompt(char.bible, said),
+    s = studio.engine.build_settings(LTX_VOICE_MODEL, prompt=_speech_prompt(char.bible, said, scene),
                                      image_start=str(face), image_prompt_type="S", audio_guide=str(ref),
                                      audio_prompt_type="A1OF", video_length=frames, resolution=TALK_RES, seed=-1)
     clip = studio.engine.run(s, work, f"speech{take}")[-1]
@@ -685,13 +709,13 @@ def render(job, char, studio, work):
     # yell on some words; ~7 min a take, and TaoMate's 28 min are gone).
     takes = []
     for k in range(max(1, int(config.env("PERSONA_TALK_TAKES", "2")))):
-        voice, clip = speak(char, studio, face, ref, info["line"], work, take=k)
+        voice, clip = speak(char, studio, face, ref, info["line"], work, take=k, scene=look["scene"][0])
         # Her last word must be in the voice (2026-11-05: it was sometimes cut): heard by
         # Whisper, and made again with more room once if it is missing.
         end = _line_end(voice, info["line"])
         if end is None:
             log(f"{char.slug}: last word cut, speaking it again with more room")
-            voice, clip = speak(char, studio, face, ref, info["line"], work, slack=1.35, take=k + 10)
+            voice, clip = speak(char, studio, face, ref, info["line"], work, slack=1.35, take=k + 10, scene=look["scene"][0])
             end = _line_end(voice, info["line"])
         if end is None and k:
             continue
