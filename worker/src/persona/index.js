@@ -1145,6 +1145,42 @@ async function talkLine(request, env) {
 
 const TALK_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 
+/**
+ * 💬 Comment picks (2026-11-28): the laptop finds fresh videos on big dating accounts pulling
+ * comments fast (persona/commentpicks.py); here each gets one short funny comment in a girl's
+ * voice, posted in the channel to copy. The user posts them by hand in the TikTok app: nothing
+ * comments automatically (TikTok's rules on automated activity would cost the account).
+ */
+async function commentPicks(request, env) {
+  const { slug, videos } = await request.json();
+  const p = await personas.get(env, slug || "mpt");
+  if (!p?.chat_id || !videos?.length) return Response.json({ ok: false });
+  const out = [];
+  for (const v of videos.slice(0, 3)) {
+    const prompt =
+      `A TikTok by @${v.account} (${v.views} views, ${v.comments_n} comments) says:\n"${String(v.title).slice(0, 400)}"\n\n` +
+      `Write 3 different comments a witty, confident young woman would leave under it. Each: 4-14 words, funny or ` +
+      `sharply relatable, about what THIS video says, the kind that gets likes and replies. Casual, lowercase is fine, ` +
+      `slang ok, at most one emoji. No hashtags, no links, no "follow me", no self-promotion, nothing mean about the ` +
+      `creator, no swearing, nothing about money. Then pick the one most likely to get the most likes.\n` +
+      `Return JSON only: {"comments": ["...", "...", "..."], "best": <index>}`;
+    try {
+      const r = await captions.ask(env, prompt, 300, TALK_MODEL);
+      const cs = (r.comments || []).map((c) => String(c).trim()).filter((c) => c && !/https?:|#|follow/i.test(c));
+      if (cs.length) out.push({ ...v, comment: cs[Number(r.best)] || cs[0], alts: cs });
+    } catch (e) {
+      console.error("comment pick", String(e).slice(0, 200));
+    }
+  }
+  if (!out.length) return Response.json({ ok: false, why: "no comments written" });
+  const esc = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const text = [`💬 <b>Comment picks</b> -- open, paste, post from the app (early comments get seen):`,
+    ...out.map((c, i) => `\n${i + 1}. <a href="${c.url}">@${esc(c.account)}</a> · ${Math.round(c.views / 1000)}k views · ${c.comments_n} comments · ${c.age_h}h old\n` +
+      `<code>${esc(c.comment)}</code>` + (c.alts.length > 1 ? `\n<i>or:</i> ${c.alts.filter((a) => a !== c.comment).map(esc).join(" / ")}` : ""))].join("\n");
+  await tg(env, "sendMessage", { chat_id: p.chat_id, text: text.slice(0, 4000), parse_mode: "HTML", disable_web_page_preview: true });
+  return Response.json({ ok: true, n: out.length });
+}
+
 /** Talking-clip formats, one per talk at random. 2026-11-06 ("boring... we need more emotional
  * stuff, stuff that touches the heart... make it sound like real talk"): mostly heart-first
  * formats -- a moment she lived, said to one woman -- with a few of the sharp ones kept. */
@@ -2089,6 +2125,7 @@ async function onAdmin(request, env) {
   if (u.pathname === "/persona/admin/laptop/render-item" && request.method === "POST") return laptopRenderItem(request, env);
   if (u.pathname === "/persona/admin/laptop/talkline" && request.method === "POST") return talkLine(request, env);
   if (u.pathname === "/persona/admin/laptop/stats" && request.method === "POST") return laptopStats(request, env);
+  if (u.pathname === "/persona/admin/laptop/commentpicks" && request.method === "POST") return commentPicks(request, env);
   return new Response("not found", { status: 404 });
 }
 

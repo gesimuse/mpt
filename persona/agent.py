@@ -275,6 +275,15 @@ def main():
                 ttstats.run(log)
         except Exception as e:
             log(f"stats failed: {e}")
+        # 💬 Comment picks once a day (persona/commentpicks.py): posted by hand from the app.
+        try:
+            from persona import commentpicks
+            stamp = config.home() / ".comments-at"
+            if commentpicks.due(stamp):
+                stamp.write_text(str(time.time()))
+                commentpicks.run(log)
+        except Exception as e:
+            log(f"comment picks failed: {e}")
         try:
             r = _call("/persona/admin/laptop/claim", {})
             job = r.get("job")
