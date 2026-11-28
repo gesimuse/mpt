@@ -525,6 +525,9 @@ async function onPhoto(env, msg) {
 
 export default {
   async scheduled(event, env) {
+    // Everything on hold (the user, 2026-11-28: "pause for now ... all"): no shoots, talks,
+    // Kaggle runs or posts until `wrangler kv key delete paused --binding PERSONA --remote`.
+    if (await env.PERSONA.get("paused")) return;
     if (event.cron === "7,22,37,52 * * * *") return onDraftSchedule(event, env);
     await onPersonaSchedule(event, env);
   },
