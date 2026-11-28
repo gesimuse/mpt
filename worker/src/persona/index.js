@@ -786,11 +786,31 @@ const TALK_SERIES = {
   "mpt-harper": "She's not into you", "mpt-alina": "Look better for her", "mpt-sofia": "Small things she loves", "mpt-lola": "Turn-offs",
 };
 
-function queueTalk(p, state, extra = null) {
+/**
+ * The day's talks all at once (2026-11-28, the user: "start all when the laptop is on and schedule them
+ * for posting"): the laptop's first check-in of the (UTC) day queues every talk slot of today not queued
+ * yet, rendered back to back; posting stays spaced out (nextTalkSlot: 2h apart, never at night).
+ * The cron's own talk hour then finds its slot done. Returns how many were queued.
+ */
+function queueDayTalks(p, state, hour = null) {
+  const day = new Date().toISOString().slice(0, 10);
+  if (state.talk_day?.day !== day) state.talk_day = { day, hours: [] };
+  const want = hour === null ? (p.talk_hours || []) : [hour];
+  let n = 0;
+  for (const h of want) {
+    if (state.talk_day.hours.includes(h)) continue;
+    state.talk_day.hours.push(h);
+    console.log(queueTalk(p, state, null, hour === null));
+    n++;
+  }
+  return n;
+}
+
+function queueTalk(p, state, extra = null, force = false) {
   // The laptop was off: don't pile up a day's worth (one asked for in the channel always goes).
   // Lena's day theme goes first and always (posted that same day); the rest wait their turn.
   const t0 = !isRoster(p) && !extra && p.talk_any !== false ? lenaTopic(state) : null;
-  if (!extra && !t0?.theme && state.queue.filter((q) => q.kind === "talk").length >= 3) return `${p.slug}: talks already waiting`;
+  if (!extra && !force && !t0?.theme && state.queue.filter((q) => q.kind === "talk").length >= 3) return `${p.slug}: talks already waiting`;
   let who = extra?.who || p.slug;
   if (isRoster(p) && !extra?.who) {
     const pool = (p.talkers?.length ? p.talkers : p.characters);
@@ -2595,6 +2615,14 @@ async function laptopClaim(request, env, origin) {
   // can serve a minute stale, the same video went to Buffer up to 4 times. The crons
   // (every ~7 min) and taps post; social.js once() guards each post as well.
   if (body.busy) return Response.json({ job: null });
+  // The day's talks, all queued at the laptop's first check-in of the day.
+  for (const p of all) {
+    if (!(p.talk_hours || []).length) continue;
+    const day = new Date().toISOString().slice(0, 10);
+    const state = await st.load(env, p.slug);
+    if (state.talk_day?.day === day && (p.talk_hours || []).every((h) => state.talk_day.hours.includes(h))) continue;
+    if (queueDayTalks(p, state)) await st.save(env, p.slug, state);
+  }
   // A job it already holds comes back first: the agent restarted mid-job.
   for (const pass of ["held", "queued"]) {
     for (const p of all) {
@@ -3566,8 +3594,7 @@ export async function onPersonaSchedule(event, env) {
         if ((p.story_hours || [7, 12, 17]).includes(h) && m < 15) console.log(await dailyStory(env, p, origin));
         if ((p.talk_hours || []).includes(h) && m < 15) {
           const state = await st.load(env, p.slug);
-          console.log(queueTalk(p, state));
-          await st.save(env, p.slug, state);
+          if (queueDayTalks(p, state, h)) await st.save(env, p.slug, state);
         }
       } else if ((h === 2 && m >= 30) || (h === 3 && m < 30)) console.log(await render(env, p));
       else if (POST_HOURS.includes(h) && m < 15) console.log(await post(env, p, POST_HOURS.indexOf(h)));
