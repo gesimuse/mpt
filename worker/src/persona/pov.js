@@ -1,11 +1,12 @@
 // POV reaction skits (2026-11-28: the user on the first three, "not bad" / "yeah nice"): she reads a
 // message on her phone, reacts, then one short line to camera. Hand-written so every one is a real
-// joke; nothing about money (2026-11-24). `react` is what her face does before she talks.
+// joke; nothing about money (2026-11-24). Lines are said out loud: no text-speak in them ("wyd" was
+// said "wid", 2026-11-28) -- that stays in the written tag. `react` is what her face does before she talks.
 // Then "add jargon and maybe curse words in the hook" / "not written": slang in the on-screen tag, swears
 // only SAID in her line (the captions mask them, persona/talk.py _mask).
 const READ = "she glances down at her phone screen reading a message, ";
 export const POV_SKITS = [
-  ["POV: bro texts \"wyd\" at 2am like it's normal", "raises one eyebrow slightly", "Wyd? At two a.m.? Bro, go the hell to sleep."],
+  ["POV: bro texts \"wyd\" at 2am like it's normal", "raises one eyebrow slightly", "What you doing? At two a.m.? Bro, go the hell to sleep."],
   ["POV: he says he's \"not like other guys\"", "then gives a tiny eye roll", "Babe, that's literally what every other guy said. Be so for real."],
   ["POV: he actually made a real plan for the date", "her eyebrows lift a little and a small smile starts", "Wait, you planned something? Okay, lowkey that's hot."],
   ["POV: you sent a paragraph and he replied \"k\"", "her face goes flat and unimpressed", "I wrote you a whole ass essay and you gave me one letter. The audacity."],
