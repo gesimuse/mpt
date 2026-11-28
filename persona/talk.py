@@ -111,6 +111,9 @@ def _search(source, limit=40):
         # A YouTube Shorts hashtag page (2026-11-24): its shorts come with view counts; a plain
         # YouTube search found almost no shorts, so every talk's line was made up.
         url = f"https://www.youtube.com/hashtag/{source.split(':', 1)[1]}/shorts"
+    elif source.startswith("ytch:"):
+        # A YouTube channel's shorts (2026-11-28): coaches who talk to men, by channel id.
+        url = f"https://www.youtube.com/channel/{source.split(':', 1)[1]}/shorts"
     else:
         url = f"ytsearch{limit}:{source} #shorts"
     cmd = [sys.executable, "-m", "yt_dlp", "-q", "--no-warnings", "--flat-playlist", "--playlist-end", str(limit), "-J", url]
@@ -158,7 +161,10 @@ def _engagement(c):
     shares = d.get("repost_count") or d.get("share_count") or 0
     saves = d.get("save_count") or d.get("collect_count") or 0
     acts = likes + 3 * comments + 5 * shares + 4 * saves
-    if views < 50_000 or acts < 0.02 * views:
+    # YouTube shows no shares or saves, so its good advice shorts sat at ~0.5% and all failed
+    # the 2% bar (2026-11-28: a 192k-view tip, 1.1k likes); 0.4% there.
+    bar = 0.02 if (shares or saves) else 0.004
+    if views < 50_000 or acts < bar * views:
         return None
     c.update(views=views, likes=likes, comments=comments, shares=shares, saves=saves,
              title=(d.get("title") or d.get("description") or c["title"])[:200], url=d.get("webpage_url") or url)

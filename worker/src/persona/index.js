@@ -618,7 +618,12 @@ const T = (handles, yt) => [...handles.map((h) => `tiktok:@${h}`), yt];
 const yt = (...q) => q;
 // YouTube Shorts hashtag pages (persona/talk.py _search), the topic's own first, then the general
 // men's-advice tags: they list real shorts with views; a plain YouTube search found almost none.
-const tags = (...t) => [...new Set([...t, "datingadviceformen", "relationshipadviceformen", "datingtipsformen", "datingadvice", "relationshipadvice"])].map((x) => `yttag:${x}`);
+// Then women who coach men on YouTube (2026-11-28: the hashtag pages ran dry, every Lena talk
+// failed): Courtney Ryan and Jessica Os, median ~65k views a short, before the general tags.
+const COACHES = ["UCyYTkZ_ACRrbE1OV0rPngXw", "UCtF8utPViNead2ycADGFZ5A"];
+const tags = (...t) => [...[...new Set(t)].map((x) => `yttag:${x}`), ...COACHES.map((c) => `ytch:${c}`),
+  ...["datingadviceformen", "relationshipadviceformen", "datingtipsformen", "datingadvice", "relationshipadvice"]
+    .filter((x) => !t.includes(x)).map((x) => `yttag:${x}`)];
 // 2026-11-24, the user: "I don't like the content anymore. ideally would be woman advice for men".
 // Every girl now tells MEN what women really think and want. Sources: YouTube searches (women
 // talking to men); the old TikTok accounts all talked to women.
