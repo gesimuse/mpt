@@ -53,7 +53,8 @@ const isRoster = (p) => Array.isArray(p.characters) && p.characters.length > 0;
 // and a single persona whose entry says shoots:true (Lena, 2026-10-23: "the same
 // thing we do on mpt with the carousels").
 const byShoots = (p) => isRoster(p) || p.shoots === true;
-const charOf = (p, q) => q?.character || p.slug;
+// A 🎭 whose girl is picked on the laptop (q.fit) starts as the first of them: "mpt" is no character.
+const charOf = (p, q) => q?.character || q?.fit?.[0] || p.slug;
 
 function basePayload(env, p, slug) {
   // 0.62: her scenes score 0.80-0.90; a bowling shot at 0.55 no longer looked like her.
